@@ -1,0 +1,515 @@
+{
+  "engine": {
+    "name": "MapLibre GL JS",
+    "version": "6.18.0"
+  },
+  "measuredAt": "2026-11-17T09:43:32.701Z",
+  "environment": {
+    "url": "http://localhost:5411/",
+    "servedBy": "vite preview (production build)",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "devicePixelRatio": 1,
+    "browser": "Chromium 158.0.8127.18 (Playwright 1.65.0, headless shell)",
+    "chromiumArgs": [
+      "--use-angle=d3d11",
+      "--enable-gpu",
+      "--ignore-gpu-blocklist"
+    ],
+    "webglRenderer": "ANGLE (Microsoft, Microsoft Basic Render Driver (0x0000008C) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+    "hardwareAccelerated": false,
+    "os": "Windows_NT 10.0.26200 x64",
+    "cpu": "Intel(R) Xeon(R) Platinum 8488C x 16",
+    "memoryGb": 62.9,
+    "note": "This machine has no GPU (display adapters: Microsoft Basic Display Adapter, AWS Indirect Display Device), so WebGL ran on the CPU (Microsoft Basic Render Driver). No other headless browser was running when this tour started or ended (CPU load read 20 % before and 8 % after); what ran in between was not observed."
+  },
+  "terrainExaggeration": 1.5,
+  "c8": {
+    "firstUsableMs": {
+      "definition": "navigation start to __spike.ready (map loaded, water layers added, first idle), cold HTTP cache",
+      "runs": [
+        3735,
+        2837,
+        2830
+      ],
+      "median": 2837
+    },
+    "flightFps": {
+      "definition": "requestAnimationFrame callbacks during the camera animation of flyToStop, eight flights in route order; min = 1000 / longest frame",
+      "avg": 5.5,
+      "min": 0.76,
+      "perFlight": [
+        {
+          "to": "meishan",
+          "pathKm": 845,
+          "animationMs": 6812,
+          "waitForTilesMs": 2869,
+          "flyToStopPromiseMs": 11807,
+          "animationFpsAvg": 7.9,
+          "animationFpsMin": 1.18,
+          "animationFrames": 54,
+          "wholePromiseFpsAvg": 6.4,
+          "wholePromiseFpsMin": 0.47,
+          "maxDistanceFromRouteKm": 0,
+          "fastestMeasuredKmPerS": 239,
+          "plannedPeakKmPerS": 233
+        },
+        {
+          "to": "hangzhou-1",
+          "pathKm": 2383,
+          "animationMs": 8170,
+          "waitForTilesMs": 1757,
+          "flyToStopPromiseMs": 9953,
+          "animationFpsAvg": 4.8,
+          "animationFpsMin": 0.76,
+          "animationFrames": 39,
+          "wholePromiseFpsAvg": 4.5,
+          "wholePromiseFpsMin": 0.76,
+          "maxDistanceFromRouteKm": 11.1,
+          "fastestMeasuredKmPerS": 622,
+          "plannedPeakKmPerS": 547
+        },
+        {
+          "to": "mizhou",
+          "pathKm": 700,
+          "animationMs": 6438,
+          "waitForTilesMs": 2927,
+          "flyToStopPromiseMs": 9397,
+          "animationFpsAvg": 5.1,
+          "animationFpsMin": 0.87,
+          "animationFrames": 33,
+          "wholePromiseFpsAvg": 4.2,
+          "wholePromiseFpsMin": 0.71,
+          "maxDistanceFromRouteKm": 3.5,
+          "fastestMeasuredKmPerS": 209,
+          "plannedPeakKmPerS": 204
+        },
+        {
+          "to": "xuzhou",
+          "pathKm": 644,
+          "animationMs": 6122,
+          "waitForTilesMs": 2300,
+          "flyToStopPromiseMs": 8523,
+          "animationFpsAvg": 6.2,
+          "animationFpsMin": 1.58,
+          "animationFrames": 38,
+          "wholePromiseFpsAvg": 5.5,
+          "wholePromiseFpsMin": 1.43,
+          "maxDistanceFromRouteKm": 0,
+          "fastestMeasuredKmPerS": 196,
+          "plannedPeakKmPerS": 197
+        },
+        {
+          "to": "bianjing",
+          "pathKm": 1197,
+          "animationMs": 7007,
+          "waitForTilesMs": 3779,
+          "flyToStopPromiseMs": 10892,
+          "animationFpsAvg": 5,
+          "animationFpsMin": 1.09,
+          "animationFrames": 35,
+          "wholePromiseFpsAvg": 4.2,
+          "wholePromiseFpsMin": 0.5,
+          "maxDistanceFromRouteKm": 3.1,
+          "fastestMeasuredKmPerS": 306,
+          "plannedPeakKmPerS": 320
+        },
+        {
+          "to": "huangzhou",
+          "pathKm": 525,
+          "animationMs": 6832,
+          "waitForTilesMs": 785,
+          "flyToStopPromiseMs": 7634,
+          "animationFpsAvg": 5.7,
+          "animationFpsMin": 0.83,
+          "animationFrames": 39,
+          "wholePromiseFpsAvg": 6.3,
+          "wholePromiseFpsMin": 0.83,
+          "maxDistanceFromRouteKm": 0.5,
+          "fastestMeasuredKmPerS": 169,
+          "plannedPeakKmPerS": 144
+        },
+        {
+          "to": "hangzhou-2",
+          "pathKm": 796,
+          "animationMs": 6601,
+          "waitForTilesMs": 1576,
+          "flyToStopPromiseMs": 8219,
+          "animationFpsAvg": 4.8,
+          "animationFpsMin": 1.03,
+          "animationFrames": 32,
+          "wholePromiseFpsAvg": 4.5,
+          "wholePromiseFpsMin": 1.03,
+          "maxDistanceFromRouteKm": 4.3,
+          "fastestMeasuredKmPerS": 229,
+          "plannedPeakKmPerS": 226
+        },
+        {
+          "to": "danzhou",
+          "pathKm": 2048,
+          "animationMs": 7128,
+          "waitForTilesMs": 1760,
+          "flyToStopPromiseMs": 8932,
+          "animationFpsAvg": 4.5,
+          "animationFpsMin": 1.22,
+          "animationFrames": 32,
+          "wholePromiseFpsAvg": 4.4,
+          "wholePromiseFpsMin": 1.22,
+          "maxDistanceFromRouteKm": 16.6,
+          "fastestMeasuredKmPerS": 520,
+          "plannedPeakKmPerS": 539
+        }
+      ]
+    },
+    "network": {
+      "definition": "cold load, globe, eight flights, three test viewpoints; bytes are response headers plus encoded bodies as reported by Playwright",
+      "tileRequestsStarted": 2560,
+      "tileRequestsFinished": 2027,
+      "tileRequestsAborted": 533,
+      "tileRequestsFailed": 0,
+      "tileBytes": 50878836,
+      "bySource": {
+        "other": {
+          "started": 5,
+          "finished": 5,
+          "aborted": 0,
+          "failed": 0,
+          "transferredBytes": 308908,
+          "bodyBytes": 307664
+        },
+        "dem": {
+          "started": 2204,
+          "finished": 1689,
+          "aborted": 515,
+          "failed": 0,
+          "transferredBytes": 46278013,
+          "bodyBytes": 44924144
+        },
+        "water": {
+          "started": 356,
+          "finished": 338,
+          "aborted": 18,
+          "failed": 0,
+          "transferredBytes": 4600823,
+          "bodyBytes": 4380440
+        }
+      },
+      "atFirstUsable": {
+        "other": {
+          "started": 5,
+          "finished": 5,
+          "aborted": 0,
+          "failed": 0,
+          "transferredBytes": 308908,
+          "bodyBytes": 307664
+        },
+        "dem": {
+          "started": 88,
+          "finished": 88,
+          "aborted": 0,
+          "failed": 0,
+          "transferredBytes": 4519677,
+          "bodyBytes": 4434566
+        }
+      },
+      "devtoolsCrossCheck": {
+        "other": {
+          "finished": 8,
+          "fromDiskCache": 0,
+          "encodedBytes": 308605,
+          "encodedBytesOfCacheHits": 0
+        },
+        "dem": {
+          "finished": 1689,
+          "fromDiskCache": 666,
+          "encodedBytes": 46278013,
+          "encodedBytesOfCacheHits": 0
+        }
+      },
+      "hostsContacted": [
+        "localhost:5411",
+        "s3.amazonaws.com",
+        "tiles.openfreemap.org"
+      ],
+      "notCounted": "the worker script (see c10) is fetched by the worker itself and does not show up in page-level network events"
+    },
+    "consoleProblems": [
+      "[warning] calculateFogMatrix is not supported on globe projection."
+    ],
+    "sameTourUnderCpuContention": {
+      "note": "earlier run of the same tour (build before the sea-level colour fix) while other headless browsers were running on this machine; CPU load read 91 % during the run",
+      "measuredAt": "2026-11-17T09:39:56.336Z",
+      "firstUsableMs": [
+        6401,
+        3395,
+        3493
+      ],
+      "flightFpsAvg": 4.2,
+      "flightFpsMin": 0.4,
+      "flyToStopPromiseMs": [
+        13522,
+        10638,
+        10978,
+        9534,
+        9015,
+        8453,
+        9623,
+        10195
+      ]
+    }
+  },
+  "c10": {
+    "jsBytes": 1599604,
+    "jsGzipBytes": 441148,
+    "cssBytes": 72150,
+    "cssGzipBytes": 10371,
+    "files": [
+      {
+        "name": "index-ByFUNsd7.css",
+        "bytes": 72150,
+        "gzipBytes": 10371
+      },
+      {
+        "name": "index-qKCsYvT8.js",
+        "bytes": 1080127,
+        "gzipBytes": 293286
+      },
+      {
+        "name": "maplibre-gl-worker-ScjyBlZc.js",
+        "bytes": 519477,
+        "gzipBytes": 147862
+      }
+    ]
+  },
+  "viewpoints": [
+    {
+      "id": "sanxia",
+      "ms": 5153,
+      "state": {
+        "lngLat": [
+          109.57499999999015,
+          31.04000000000851
+        ],
+        "pitch": 70,
+        "bearing": 80,
+        "stopIndex": 7,
+        "namesMode": "ancient",
+        "zoom": 12.881239751818299,
+        "distanceKm": 11.999999999998938,
+        "centerElevationM": 113.04571754330732
+      },
+      "expected": {
+        "distanceKm": 12,
+        "pitch": 70,
+        "bearing": 80
+      }
+    },
+    {
+      "id": "huangzhou-close",
+      "ms": 6277,
+      "state": {
+        "lngLat": [
+          114.86799999999994,
+          30.439999999999984
+        ],
+        "pitch": 62,
+        "bearing": -10,
+        "stopIndex": 7,
+        "namesMode": "ancient",
+        "zoom": 13.305262028917797,
+        "distanceKm": 9.000000000000005,
+        "centerElevationM": 38.08694225305226
+      },
+      "expected": {
+        "distanceKm": 9,
+        "pitch": 62,
+        "bearing": -10
+      }
+    },
+    {
+      "id": "dayuling",
+      "ms": 5114,
+      "state": {
+        "lngLat": [
+          114.32999999999993,
+          25.33
+        ],
+        "pitch": 65,
+        "bearing": 170.00000000000003,
+        "stopIndex": 7,
+        "namesMode": "ancient",
+        "zoom": 12.221400195753626,
+        "distanceKm": 19.999999999999993,
+        "centerElevationM": 514.3072552209504
+      },
+      "expected": {
+        "distanceKm": 20,
+        "pitch": 65,
+        "bearing": 170
+      }
+    }
+  ],
+  "checks": {
+    "c1": {
+      "frames": 25,
+      "zoomFrom": 2.58,
+      "zoomTo": 12.88,
+      "closestDistanceKm": 4,
+      "minMeanLumaOfCentre": 143.5,
+      "maxDarkFraction": 0
+    },
+    "c4MidFlight": {
+      "kmFromStart": 181.1,
+      "kmFromEnd": 305.6,
+      "zoom": 8.26
+    },
+    "c5": {
+      "modern": {
+        "namesMode": "modern",
+        "labelsInView": [
+          "local:东坡旧址",
+          "local:东坡赤壁",
+          "local:临皋亭旧址",
+          "local:鄂州西山",
+          "local:黄冈市黄州区",
+          "stop:湖北黄冈"
+        ]
+      },
+      "ancient": {
+        "namesMode": "ancient",
+        "labelsInView": [
+          "local:东坡·雪堂",
+          "local:临皋亭",
+          "local:武昌西山",
+          "local:赤壁",
+          "local:黄州城",
+          "stop:黄州"
+        ]
+      },
+      "textField": [
+        "get",
+        "ancient"
+      ],
+      "glyphsUrl": null
+    },
+    "c7mouse": {
+      "wheelZoom": {
+        "km": 0.5882095469082946,
+        "zoom": 0.5037381359615534,
+        "pitch": 0,
+        "bearing": 0
+      },
+      "leftDragPan": {
+        "km": 1.42281791223186,
+        "zoom": 0.005343749920552199,
+        "pitch": 0,
+        "bearing": 0
+      },
+      "rightDragRotateTilt": {
+        "km": 4.735795344942483e-10,
+        "zoom": 5.559996907322784e-13,
+        "pitch": 5,
+        "bearing": 15
+      },
+      "afterResetButton": {
+        "state": {
+          "lngLat": [
+            114.87200000000007,
+            30.447000000000003
+          ],
+          "pitch": 62,
+          "bearing": -15,
+          "stopIndex": 5,
+          "namesMode": "ancient",
+          "zoom": 12.305158438738335,
+          "distanceKm": 17.99999999999999,
+          "centerElevationM": 54.99493712165311
+        },
+        "centerErrorKm": 6.8227861850604175e-12,
+        "pitchError": 0,
+        "bearingError": 0,
+        "distanceErrorKm": -1.0658141036401503e-14
+      }
+    },
+    "c7touch": {
+      "maxTouchPoints": 1,
+      "oneFingerPan": {
+        "km": 2.872189528323904,
+        "zoom": -0.001496736506307883,
+        "pitch": 0,
+        "bearing": 0
+      },
+      "pinchZoom": {
+        "km": 1.3338006491101235,
+        "zoom": 1.5811496892136372,
+        "pitch": 0,
+        "bearing": 0
+      },
+      "twoFingerRotate": {
+        "km": 0.4016480333388465,
+        "zoom": 0.09524156084566826,
+        "pitch": 0,
+        "bearing": -34.28687697720886
+      },
+      "twoFingerTilt": {
+        "km": 0,
+        "zoom": -1.5702994460298214e-12,
+        "pitch": -60.00000000000001,
+        "bearing": 0
+      },
+      "afterResetView": {
+        "centerErrorKm": 6.8227861850604175e-12,
+        "pitchError": 0,
+        "bearingError": 0
+      }
+    }
+  },
+  "costSplit": {
+    "definition": "same flight (汴京 <-> 黄州, tiles cached) with parts of the scene switched off; average fps of the camera animation",
+    "at": "2026-11-17T09:39:34.418Z",
+    "results": [
+      {
+        "name": "warm-up (discarded)",
+        "avgFps": 3.3,
+        "minFps": 0.98
+      },
+      {
+        "name": "full scene",
+        "avgFps": 3.4,
+        "minFps": 0.75
+      },
+      {
+        "name": "without relief-base",
+        "avgFps": 3.6,
+        "minFps": 0.59
+      },
+      {
+        "name": "without hillshade",
+        "avgFps": 3.6,
+        "minFps": 0.57
+      },
+      {
+        "name": "without colour relief (both layers)",
+        "avgFps": 4.6,
+        "minFps": 0.88
+      },
+      {
+        "name": "without water",
+        "avgFps": 3.1,
+        "minFps": 0.81
+      },
+      {
+        "name": "without 3D terrain",
+        "avgFps": 15.6,
+        "minFps": 0.73
+      },
+      {
+        "name": "full scene again",
+        "avgFps": 3.4,
+        "minFps": 0.51
+      }
+    ]
+  }
+}

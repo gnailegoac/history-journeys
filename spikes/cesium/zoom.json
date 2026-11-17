@@ -1,0 +1,41 @@
+{
+  "measuredAt": "2026-11-17T09:39:07.986Z",
+  "method": "mouse wheel at the valley, screenshot each time the range falls below 3000/1000/300/100/30/10/4 km",
+  "steps": [
+    {
+      "file": "shots/zoom-1.png",
+      "rangeKm": 2316.3,
+      "tilesLoaded": true
+    },
+    {
+      "file": "shots/zoom-2.png",
+      "rangeKm": 822.7,
+      "tilesLoaded": true
+    },
+    {
+      "file": "shots/zoom-3.png",
+      "rangeKm": 293.2,
+      "tilesLoaded": true
+    },
+    {
+      "file": "shots/zoom-4.png",
+      "rangeKm": 73.6,
+      "tilesLoaded": true
+    },
+    {
+      "file": "shots/zoom-5.png",
+      "rangeKm": 26.3,
+      "tilesLoaded": true
+    },
+    {
+      "file": "shots/zoom-6.png",
+      "rangeKm": 9.5,
+      "tilesLoaded": true
+    },
+    {
+      "file": "shots/zoom-7.png",
+      "rangeKm": 3.4,
+      "tilesLoaded": true
+    }
+  ]
+}

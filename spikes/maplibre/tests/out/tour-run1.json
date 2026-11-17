@@ -1,0 +1,626 @@
+{
+  "url": "http://localhost:5411/",
+  "viewport": {
+    "width": 1440,
+    "height": 900
+  },
+  "chromiumArgs": [
+    "--use-angle=d3d11",
+    "--enable-gpu",
+    "--ignore-gpu-blocklist"
+  ],
+  "browserVersion": "158.0.8127.18",
+  "startedAt": "2026-11-17T09:39:56.336Z",
+  "firstUsable": [
+    {
+      "wallMs": 6526,
+      "readyAtMs": 6400.600000143051
+    },
+    {
+      "wallMs": 3398,
+      "readyAtMs": 3395
+    },
+    {
+      "wallMs": 3499,
+      "readyAtMs": 3492.7999999523163
+    }
+  ],
+  "page": {
+    "engine": {
+      "name": "MapLibre GL JS",
+      "version": "6.18.0"
+    },
+    "webglRenderer": "ANGLE (Microsoft, Microsoft Basic Render Driver (0x0000008C) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+    "terrainExaggeration": 1.5,
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/158.0.8127.18 Safari/537.36",
+    "devicePixelRatio": 1,
+    "hardwareConcurrency": 16,
+    "apiKeys": [
+      "engine",
+      "ready",
+      "readyAtMs",
+      "terrainExaggeration",
+      "stops",
+      "viewpoints",
+      "flyToStop",
+      "goToViewpoint",
+      "setNames",
+      "resetView",
+      "getState",
+      "fpsReset",
+      "fps",
+      "webglRenderer",
+      "lastFlight",
+      "map"
+    ],
+    "stops": [
+      {
+        "id": "meishan",
+        "title": "眉山到汴京：两次出川"
+      },
+      {
+        "id": "hangzhou-1",
+        "title": "杭州：做通判的三年"
+      },
+      {
+        "id": "mizhou",
+        "title": "密州：杞菊和明月"
+      },
+      {
+        "id": "xuzhou",
+        "title": "徐州：大水围城"
+      },
+      {
+        "id": "bianjing",
+        "title": "汴京：御史台的一百三十天"
+      },
+      {
+        "id": "huangzhou",
+        "title": "黄州：东坡上的地"
+      },
+      {
+        "id": "hangzhou-2",
+        "title": "杭州：十五年后回来"
+      },
+      {
+        "id": "danzhou",
+        "title": "惠州、儋州：过岭，渡海"
+      }
+    ],
+    "viewpoints": [
+      {
+        "id": "globe",
+        "label": "全程"
+      },
+      {
+        "id": "sanxia",
+        "label": "三峡夔门"
+      },
+      {
+        "id": "huangzhou-close",
+        "label": "黄州近景"
+      },
+      {
+        "id": "dayuling",
+        "label": "大庾岭"
+      }
+    ],
+    "initialState": {
+      "lngLat": [
+        112.5,
+        29
+      ],
+      "pitch": 0,
+      "bearing": 0,
+      "stopIndex": null,
+      "namesMode": "ancient",
+      "zoom": 2.582345202347514,
+      "distanceKm": 15430.97661306553,
+      "centerElevationM": 51.1194589447671
+    }
+  },
+  "networkAfterLoad": {
+    "bySource": {
+      "other": {
+        "started": 5,
+        "finished": 5,
+        "aborted": 0,
+        "failed": 0,
+        "transferredBytes": 308901,
+        "bodyBytes": 307657
+      },
+      "dem": {
+        "started": 88,
+        "finished": 88,
+        "aborted": 0,
+        "failed": 0,
+        "transferredBytes": 4520697,
+        "bodyBytes": 4433826
+      }
+    },
+    "cdp": {
+      "other": {
+        "finished": 8,
+        "fromDiskCache": 0,
+        "encodedBytes": 308598,
+        "encodedBytesOfCacheHits": 0
+      },
+      "dem": {
+        "finished": 88,
+        "fromDiskCache": 34,
+        "encodedBytes": 4520697,
+        "encodedBytesOfCacheHits": 0
+      }
+    },
+    "hosts": [
+      "localhost:5411",
+      "s3.amazonaws.com",
+      "tiles.openfreemap.org"
+    ]
+  },
+  "flights": [
+    {
+      "to": "meishan",
+      "pathKm": 845.3123093842512,
+      "animationMs": 8481.000000047683,
+      "settleMs": 4915.399999856949,
+      "promiseMs": 13521.5,
+      "animationFps": {
+        "avg": 4.598514326114931,
+        "min": 0.4000160006400257,
+        "frames": 39
+      },
+      "fpsWholePromise": {
+        "avg": 4.729215467490339,
+        "min": 0.4000160006400257,
+        "samples": 64
+      },
+      "cruiseZoom": 2.582345202347514,
+      "maxOffRouteKm": 4.092726157978177e-12,
+      "maxStepKm": 220.18294097872283,
+      "maxSpeedKmPerS": 239.3808727095941,
+      "plannedPeakKmPerS": 186.88369061272962,
+      "arrived": {
+        "state": {
+          "lngLat": [
+            103.84799999999996,
+            30.076
+          ],
+          "pitch": 60,
+          "bearing": 30,
+          "stopIndex": 0,
+          "namesMode": "ancient",
+          "zoom": 10.351250878912364,
+          "distanceKm": 70.00000000000001,
+          "centerElevationM": 622.5758586267873
+        },
+        "centerErrorKm": 4.102272961570884e-12,
+        "expected": {
+          "distanceKm": 70,
+          "pitch": 60,
+          "bearing": 30
+        }
+      }
+    },
+    {
+      "to": "hangzhou-1",
+      "pathKm": 2383.0565808469646,
+      "animationMs": 8244.199999952318,
+      "settleMs": 2248.899999856949,
+      "promiseMs": 10637.799999952316,
+      "animationFps": {
+        "avg": 4.002814099632573,
+        "min": 0.5714285714285714,
+        "frames": 33
+      },
+      "fpsWholePromise": {
+        "avg": 4.514290551025591,
+        "min": 0.5714285714285714,
+        "samples": 48
+      },
+      "cruiseZoom": 5.998534679235371,
+      "maxOffRouteKm": 16.426261733242406,
+      "maxStepKm": 400.94798812655233,
+      "maxSpeedKmPerS": 632.8328255012747,
+      "plannedPeakKmPerS": 541.9848001157058,
+      "arrived": {
+        "state": {
+          "lngLat": [
+            120.15499999999997,
+            30.25
+          ],
+          "pitch": 55.00000000000001,
+          "bearing": -20,
+          "stopIndex": 1,
+          "namesMode": "ancient",
+          "zoom": 11.156059617930248,
+          "distanceKm": 39.999999999999986,
+          "centerElevationM": 20.318114487512503
+        },
+        "centerErrorKm": 2.7300262192334575e-12,
+        "expected": {
+          "distanceKm": 40,
+          "pitch": 55,
+          "bearing": -20
+        }
+      }
+    },
+    {
+      "to": "mizhou",
+      "pathKm": 699.761301302845,
+      "animationMs": 6602.79999985695,
+      "settleMs": 4351.199999809265,
+      "promiseMs": 10978.299999952316,
+      "animationFps": {
+        "avg": 4.997879687513622,
+        "min": 1.0527423939362022,
+        "frames": 33
+      },
+      "fpsWholePromise": {
+        "avg": 3.459924063771863,
+        "min": 0.4027061855670096,
+        "samples": 38
+      },
+      "cruiseZoom": 7.875314347644802,
+      "maxOffRouteKm": 0.9189473674343196,
+      "maxStepKm": 192.24459779460432,
+      "maxSpeedKmPerS": 202.3840381035941,
+      "plannedPeakKmPerS": 198.71152238009026,
+      "arrived": {
+        "state": {
+          "lngLat": [
+            119.40999999999997,
+            35.996
+          ],
+          "pitch": 55.00000000000001,
+          "bearing": 0,
+          "stopIndex": 2,
+          "namesMode": "ancient",
+          "zoom": 10.476583681931848,
+          "distanceKm": 59.99999999999999,
+          "centerElevationM": 96.46026189420809
+        },
+        "centerErrorKm": 2.556909984365968e-12,
+        "expected": {
+          "distanceKm": 60,
+          "pitch": 55,
+          "bearing": 0
+        }
+      }
+    },
+    {
+      "to": "xuzhou",
+      "pathKm": 643.6423179197013,
+      "animationMs": 6712.9000000000015,
+      "settleMs": 2769.5,
+      "promiseMs": 9533.800000190735,
+      "animationFps": {
+        "avg": 5.213842005690535,
+        "min": 0.9375585974123396,
+        "frames": 35
+      },
+      "fpsWholePromise": {
+        "avg": 4.510647225427462,
+        "min": 0.6000240009600389,
+        "samples": 43
+      },
+      "cruiseZoom": 7.796900807921666,
+      "maxOffRouteKm": 0.10912098289332763,
+      "maxStepKm": 120.84482928041666,
+      "maxSpeedKmPerS": 197.03055070323063,
+      "plannedPeakKmPerS": 179.77764395409434,
+      "arrived": {
+        "state": {
+          "lngLat": [
+            117.18499999999995,
+            34.262
+          ],
+          "pitch": 55.00000000000001,
+          "bearing": 10,
+          "stopIndex": 3,
+          "namesMode": "ancient",
+          "zoom": 11.09226869723992,
+          "distanceKm": 40,
+          "centerElevationM": 52.077296553867015
+        },
+        "centerErrorKm": 5.223887711481246e-12,
+        "expected": {
+          "distanceKm": 40,
+          "pitch": 55,
+          "bearing": 10
+        }
+      }
+    },
+    {
+      "to": "bianjing",
+      "pathKm": 1196.783187569859,
+      "animationMs": 8074.399999952322,
+      "settleMs": 894.2000000476837,
+      "promiseMs": 9015.099999904633,
+      "animationFps": {
+        "avg": 3.8392945606092157,
+        "min": 0.6897027381198662,
+        "frames": 31
+      },
+      "fpsWholePromise": {
+        "avg": 3.784927084492928,
+        "min": 0.6897027381198662,
+        "samples": 34
+      },
+      "cruiseZoom": 6.964118045225371,
+      "maxOffRouteKm": 0.21906683289282933,
+      "maxStepKm": 161.27193590133558,
+      "maxSpeedKmPerS": 318.9037114482012,
+      "plannedPeakKmPerS": 277.91148279831765,
+      "arrived": {
+        "state": {
+          "lngLat": [
+            114.30700000000002,
+            34.797
+          ],
+          "pitch": 50,
+          "bearing": 0,
+          "stopIndex": 4,
+          "namesMode": "ancient",
+          "zoom": 10.76107180079244,
+          "distanceKm": 50.00000000000001,
+          "centerElevationM": 112.088499781498
+        },
+        "centerErrorKm": 1.2976084186435922e-12,
+        "expected": {
+          "distanceKm": 50,
+          "pitch": 50,
+          "bearing": 0
+        }
+      }
+    },
+    {
+      "to": "huangzhou",
+      "pathKm": 524.5080230141002,
+      "animationMs": 7956.3000000476895,
+      "settleMs": 479.09999990463257,
+      "promiseMs": 8453.299999952316,
+      "animationFps": {
+        "avg": 3.770596885464372,
+        "min": 0.43480151310926396,
+        "frames": 30
+      },
+      "fpsWholePromise": {
+        "avg": 4.260556712743803,
+        "min": 0.43480151310926396,
+        "samples": 36
+      },
+      "cruiseZoom": 8.145061116399837,
+      "maxOffRouteKm": 2.5188945388453856,
+      "maxStepKm": 82.71917405578162,
+      "maxSpeedKmPerS": 167.8246173701282,
+      "plannedPeakKmPerS": 123.60676987362758,
+      "arrived": {
+        "state": {
+          "lngLat": [
+            114.872,
+            30.447
+          ],
+          "pitch": 62,
+          "bearing": -15,
+          "stopIndex": 5,
+          "namesMode": "ancient",
+          "zoom": 12.305158438738335,
+          "distanceKm": 17.99999999999999,
+          "centerElevationM": 54.99493712168325
+        },
+        "centerErrorKm": 0,
+        "expected": {
+          "distanceKm": 18,
+          "pitch": 62,
+          "bearing": -15
+        }
+      }
+    },
+    {
+      "to": "hangzhou-2",
+      "pathKm": 795.9260467817924,
+      "animationMs": 6723.8999999046355,
+      "settleMs": 2795.7000000476837,
+      "promiseMs": 9622.700000047684,
+      "animationFps": {
+        "avg": 4.164249914543214,
+        "min": 0.8333333333333334,
+        "frames": 28
+      },
+      "fpsWholePromise": {
+        "avg": 4.1596040056986565,
+        "min": 0.8333333333333334,
+        "samples": 40
+      },
+      "cruiseZoom": 7.736923192449677,
+      "maxOffRouteKm": 5.138043873925363,
+      "maxStepKm": 210.6260447226849,
+      "maxSpeedKmPerS": 225.6546440140164,
+      "plannedPeakKmPerS": 221.9487704661025,
+      "arrived": {
+        "state": {
+          "lngLat": [
+            120.15499999999997,
+            30.25
+          ],
+          "pitch": 60,
+          "bearing": 60,
+          "stopIndex": 6,
+          "namesMode": "ancient",
+          "zoom": 11.834131523042885,
+          "distanceKm": 25.000000000000014,
+          "centerElevationM": 23.795558399397983
+        },
+        "centerErrorKm": 2.7300262192334575e-12,
+        "expected": {
+          "distanceKm": 25,
+          "pitch": 60,
+          "bearing": 60
+        }
+      }
+    },
+    {
+      "to": "danzhou",
+      "pathKm": 2048.0472034455092,
+      "animationMs": 7908.6999999523105,
+      "settleMs": 2267.600000143051,
+      "promiseMs": 10195.200000047684,
+      "animationFps": {
+        "avg": 3.5404048706069062,
+        "min": 0.7407956144899654,
+        "frames": 28
+      },
+      "fpsWholePromise": {
+        "avg": 3.8236793599749044,
+        "min": 0.7407956144899654,
+        "samples": 39
+      },
+      "cruiseZoom": 6.376406952659486,
+      "maxOffRouteKm": 15.064289946610941,
+      "maxStepKm": 348.562871453452,
+      "maxSpeedKmPerS": 510.11689075581813,
+      "plannedPeakKmPerS": 485.552430422634,
+      "arrived": {
+        "state": {
+          "lngLat": [
+            109.34899999999993,
+            19.741
+          ],
+          "pitch": 55.00000000000001,
+          "bearing": 20,
+          "stopIndex": 7,
+          "namesMode": "ancient",
+          "zoom": 10.694886401826905,
+          "distanceKm": 59.999999999999964,
+          "centerElevationM": 13.139757597329002
+        },
+        "centerErrorKm": 7.436543360168435e-12,
+        "expected": {
+          "distanceKm": 60,
+          "pitch": 55,
+          "bearing": 20
+        }
+      }
+    }
+  ],
+  "viewpoints": [
+    {
+      "id": "sanxia",
+      "ms": 9680,
+      "state": {
+        "lngLat": [
+          109.57499999999015,
+          31.04000000000851
+        ],
+        "pitch": 70,
+        "bearing": 80,
+        "stopIndex": 7,
+        "namesMode": "ancient",
+        "zoom": 12.881239751818299,
+        "distanceKm": 11.999999999998938,
+        "centerElevationM": 113.04571754330732
+      },
+      "expected": {
+        "distanceKm": 12,
+        "pitch": 70,
+        "bearing": 80
+      }
+    },
+    {
+      "id": "huangzhou-close",
+      "ms": 5623,
+      "state": {
+        "lngLat": [
+          114.86799999999994,
+          30.439999999999984
+        ],
+        "pitch": 62,
+        "bearing": -10,
+        "stopIndex": 7,
+        "namesMode": "ancient",
+        "zoom": 13.305262028917797,
+        "distanceKm": 9.000000000000005,
+        "centerElevationM": 38.08694225305226
+      },
+      "expected": {
+        "distanceKm": 9,
+        "pitch": 62,
+        "bearing": -10
+      }
+    },
+    {
+      "id": "dayuling",
+      "ms": 5625,
+      "state": {
+        "lngLat": [
+          114.32999999999993,
+          25.33
+        ],
+        "pitch": 65,
+        "bearing": 170.00000000000003,
+        "stopIndex": 7,
+        "namesMode": "ancient",
+        "zoom": 12.221400195753626,
+        "distanceKm": 19.999999999999993,
+        "centerElevationM": 514.3072552209504
+      },
+      "expected": {
+        "distanceKm": 20,
+        "pitch": 65,
+        "bearing": 170
+      }
+    }
+  ],
+  "networkWholeTour": {
+    "bySource": {
+      "other": {
+        "started": 5,
+        "finished": 5,
+        "aborted": 0,
+        "failed": 0,
+        "transferredBytes": 308901,
+        "bodyBytes": 307657
+      },
+      "dem": {
+        "started": 2020,
+        "finished": 1573,
+        "aborted": 447,
+        "failed": 0,
+        "transferredBytes": 44084228,
+        "bodyBytes": 42822964
+      },
+      "water": {
+        "started": 342,
+        "finished": 332,
+        "aborted": 10,
+        "failed": 0,
+        "transferredBytes": 4764942,
+        "bodyBytes": 4556234
+      }
+    },
+    "cdp": {
+      "other": {
+        "finished": 8,
+        "fromDiskCache": 0,
+        "encodedBytes": 308598,
+        "encodedBytesOfCacheHits": 0
+      },
+      "dem": {
+        "finished": 1573,
+        "fromDiskCache": 620,
+        "encodedBytes": 44084228,
+        "encodedBytesOfCacheHits": 0
+      }
+    },
+    "hosts": [
+      "localhost:5411",
+      "s3.amazonaws.com",
+      "tiles.openfreemap.org"
+    ]
+  },
+  "consoleProblems": [
+    "[warning] calculateFogMatrix is not supported on globe projection."
+  ],
+  "finishedAt": "2026-11-17T09:42:19.355Z"
+}

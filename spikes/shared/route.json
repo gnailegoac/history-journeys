@@ -1,0 +1,89 @@
+{
+  "note": "仅供引擎验证使用的示意数据。坐标为近似值，途经点做了简化（例如黄州到杭州之间省去了登州、汴京），正式内容阶段再逐一核对。坐标顺序为 [经度, 纬度]。",
+  "figure": { "id": "su-shi", "name": "苏轼", "years": "1037–1101" },
+  "stops": [
+    { "id": "meishan", "title": "眉山到汴京：两次出川", "years": "1056–1060", "ancient": "眉州", "modern": "四川眉山", "lngLat": [103.848, 30.076], "camera": { "distanceKm": 70, "pitch": 60, "bearing": 30 } },
+    { "id": "hangzhou-1", "title": "杭州：做通判的三年", "years": "1071–1074", "ancient": "杭州", "modern": "浙江杭州", "lngLat": [120.155, 30.250], "camera": { "distanceKm": 40, "pitch": 55, "bearing": -20 } },
+    { "id": "mizhou", "title": "密州：杞菊和明月", "years": "1074–1076", "ancient": "密州", "modern": "山东诸城", "lngLat": [119.410, 35.996], "camera": { "distanceKm": 60, "pitch": 55, "bearing": 0 } },
+    { "id": "xuzhou", "title": "徐州：大水围城", "years": "1077–1079", "ancient": "徐州", "modern": "江苏徐州", "lngLat": [117.185, 34.262], "camera": { "distanceKm": 40, "pitch": 55, "bearing": 10 } },
+    { "id": "bianjing", "title": "汴京：御史台的一百三十天", "years": "1079", "ancient": "汴京", "modern": "河南开封", "lngLat": [114.307, 34.797], "camera": { "distanceKm": 50, "pitch": 50, "bearing": 0 } },
+    { "id": "huangzhou", "title": "黄州：东坡上的地", "years": "1080–1084", "ancient": "黄州", "modern": "湖北黄冈", "lngLat": [114.872, 30.447], "camera": { "distanceKm": 18, "pitch": 62, "bearing": -15 } },
+    { "id": "hangzhou-2", "title": "杭州：十五年后回来", "years": "1089–1091", "ancient": "杭州", "modern": "浙江杭州", "lngLat": [120.155, 30.250], "camera": { "distanceKm": 25, "pitch": 60, "bearing": 60 } },
+    { "id": "danzhou", "title": "惠州、儋州：过岭，渡海", "years": "1094–1100", "ancient": "昌化军", "modern": "海南儋州", "lngLat": [109.349, 19.741], "camera": { "distanceKm": 60, "pitch": 55, "bearing": 20 } }
+  ],
+  "legs": [
+    { "from": "meishan", "to": "hangzhou-1", "via": [
+      { "name": "嘉州（今乐山）", "lngLat": [103.766, 29.552] },
+      { "name": "戎州（今宜宾）", "lngLat": [104.643, 28.752] },
+      { "name": "渝州（今重庆）", "lngLat": [106.551, 29.563] },
+      { "name": "夔州（今奉节）", "lngLat": [109.464, 31.019] },
+      { "name": "巫山", "lngLat": [109.879, 31.075] },
+      { "name": "夷陵（今宜昌）", "lngLat": [111.287, 30.692] },
+      { "name": "江陵（今荆州）", "lngLat": [112.240, 30.335] },
+      { "name": "襄阳", "lngLat": [112.144, 32.042] },
+      { "name": "汴京（今开封）", "lngLat": [114.307, 34.797] },
+      { "name": "宿州", "lngLat": [116.964, 33.646] },
+      { "name": "扬州", "lngLat": [119.413, 32.394] },
+      { "name": "润州（今镇江）", "lngLat": [119.455, 32.204] },
+      { "name": "苏州", "lngLat": [120.585, 31.299] }
+    ] },
+    { "from": "hangzhou-1", "to": "mizhou", "via": [
+      { "name": "苏州", "lngLat": [120.585, 31.299] },
+      { "name": "润州（今镇江）", "lngLat": [119.455, 32.204] },
+      { "name": "楚州（今淮安）", "lngLat": [119.020, 33.610] },
+      { "name": "海州（今连云港）", "lngLat": [119.220, 34.600] }
+    ] },
+    { "from": "mizhou", "to": "xuzhou", "via": [
+      { "name": "济南", "lngLat": [117.020, 36.650] },
+      { "name": "南都（今商丘）", "lngLat": [115.650, 34.440] }
+    ] },
+    { "from": "xuzhou", "to": "bianjing", "via": [
+      { "name": "扬州", "lngLat": [119.413, 32.394] },
+      { "name": "湖州", "lngLat": [120.087, 30.894] },
+      { "name": "扬州", "lngLat": [119.413, 32.394] },
+      { "name": "宿州", "lngLat": [116.964, 33.646] },
+      { "name": "南都（今商丘）", "lngLat": [115.650, 34.440] }
+    ] },
+    { "from": "bianjing", "to": "huangzhou", "via": [
+      { "name": "陈州（今淮阳）", "lngLat": [114.880, 33.730] },
+      { "name": "蔡州（今汝南）", "lngLat": [114.360, 33.000] },
+      { "name": "新息（今息县）", "lngLat": [114.740, 32.340] },
+      { "name": "光山", "lngLat": [114.920, 32.010] },
+      { "name": "麻城", "lngLat": [115.010, 31.170] },
+      { "name": "岐亭", "lngLat": [114.880, 31.020] }
+    ] },
+    { "from": "huangzhou", "to": "hangzhou-2", "via": [
+      { "name": "江州（今九江）", "lngLat": [116.000, 29.710] },
+      { "name": "金陵（今南京）", "lngLat": [118.780, 32.060] },
+      { "name": "常州", "lngLat": [119.970, 31.780] }
+    ] },
+    { "from": "hangzhou-2", "to": "danzhou", "via": [
+      { "name": "虔州（今赣州）", "lngLat": [114.935, 25.831] },
+      { "name": "大庾岭", "lngLat": [114.330, 25.330] },
+      { "name": "韶州（今韶关）", "lngLat": [113.600, 24.810] },
+      { "name": "广州", "lngLat": [113.260, 23.130] },
+      { "name": "惠州", "lngLat": [114.416, 23.112] },
+      { "name": "梧州", "lngLat": [111.280, 23.480] },
+      { "name": "雷州", "lngLat": [110.090, 20.910] },
+      { "name": "徐闻", "lngLat": [110.170, 20.330] },
+      { "name": "琼州（今海口）", "lngLat": [110.350, 20.020] },
+      { "name": "澄迈", "lngLat": [110.000, 19.740] }
+    ] }
+  ],
+  "viewpoints": [
+    { "id": "globe", "label": "全程", "description": "从地球上看整条轨迹，中国在画面中央", "lngLat": [112.5, 29.0] },
+    { "id": "sanxia", "label": "三峡夔门", "description": "瞿塘峡入口，两岸高山夹江，检验近距离地形", "lngLat": [109.575, 31.040], "camera": { "distanceKm": 12, "pitch": 70, "bearing": 80 } },
+    { "id": "huangzhou-close", "label": "黄州近景", "description": "江北的黄州城与对岸的山，检验平缓地形和近处地名", "lngLat": [114.868, 30.440], "camera": { "distanceKm": 9, "pitch": 62, "bearing": -10 } },
+    { "id": "dayuling", "label": "大庾岭", "description": "岭南的山口，检验山岭地形", "lngLat": [114.330, 25.330], "camera": { "distanceKm": 20, "pitch": 65, "bearing": 170 } }
+  ],
+  "localPlaces": {
+    "huangzhou": [
+      { "ancient": "黄州城", "modern": "黄冈市黄州区", "lngLat": [114.872, 30.447] },
+      { "ancient": "赤壁", "modern": "东坡赤壁", "lngLat": [114.861, 30.452] },
+      { "ancient": "临皋亭", "modern": "临皋亭旧址", "lngLat": [114.866, 30.440] },
+      { "ancient": "东坡·雪堂", "modern": "东坡旧址", "lngLat": [114.880, 30.449] },
+      { "ancient": "武昌西山", "modern": "鄂州西山", "lngLat": [114.868, 30.402] },
+      { "ancient": "沙湖", "modern": "沙湖一带", "lngLat": [114.980, 30.350] }
+    ]
+  }
+}

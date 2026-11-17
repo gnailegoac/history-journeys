@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+    <title>地图测试页</title>
+    <style>
+      html, body { margin: 0; height: 100%; overflow: hidden; }
+      body { font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; font-size: 13px; color: #2b2118; }
+      #map { position: absolute; inset: 0; }
+      #bar {
+        position: absolute; top: 8px; left: 8px; right: 8px; display: flex; flex-wrap: wrap; gap: 4px;
+        pointer-events: none;
+      }
+      #bar button {
+        pointer-events: auto; font: inherit; padding: 4px 8px; border: 1px solid #b9a98f; border-radius: 4px;
+        background: rgba(255, 253, 248, 0.94); color: inherit; cursor: pointer;
+      }
+      #bar button.active { background: #8c2f1b; border-color: #8c2f1b; color: #fff; }
+      #bar button:disabled { opacity: 0.5; cursor: default; }
+      #bar .gap { width: 8px; }
+      #status {
+        position: absolute; left: 8px; bottom: 8px; max-width: 60%; padding: 3px 6px; border-radius: 4px;
+        background: rgba(255, 253, 248, 0.85); font-size: 11px; pointer-events: none;
+      }
+      @media (max-width: 700px) {
+        #status { bottom: 48px; max-width: none; right: 8px; }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="map"></div>
+    <div id="bar"></div>
+    <div id="status"></div>
+    <script type="module" src="/src/map/dev/harness.ts"></script>
+  </body>
+</html>

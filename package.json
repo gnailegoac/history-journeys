@@ -1,0 +1,31 @@
+{
+  "name": "history-journeys",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "start": "vite",
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "validate": "vitest run tests/content",
+    "test": "vitest run tests/unit tests/map",
+    "test:e2e": "playwright test",
+    "check": "npm run typecheck && npm run validate && npm run test && npm run build"
+  },
+  "dependencies": {
+    "maplibre-gl": "6.18.0",
+    "react": "19.3.1",
+    "react-dom": "19.3.1"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.65.0",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@vitejs/plugin-react": "6.3.0",
+    "typescript": "7.0.2",
+    "vite": "8.3.8",
+    "vitest": "5.1.0"
+  }
+}

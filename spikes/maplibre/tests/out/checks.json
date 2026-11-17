@@ -1,0 +1,434 @@
+{
+  "url": "http://localhost:5411/",
+  "startedAt": "2026-11-17T09:45:45.750Z",
+  "c1": {
+    "fromZoom": 2.582345202347514,
+    "durationMs": 60000,
+    "frames": [
+      {
+        "name": "c1-zoom-00",
+        "atMs": 1210,
+        "zoomBefore": 2.585615009104509,
+        "zoomAfter": 2.787295154942266,
+        "pitch": 1.39661666683356,
+        "moving": true,
+        "meanLuma": 155.57638978249923,
+        "darkFraction": 0
+      },
+      {
+        "name": "c1-zoom-01",
+        "atMs": 3388,
+        "zoomBefore": 2.947716512634478,
+        "zoomAfter": 3.0838196718920123,
+        "pitch": 3.4169333332777025,
+        "moving": true,
+        "meanLuma": 161.78557673997298,
+        "darkFraction": 0
+      },
+      {
+        "name": "c1-zoom-02",
+        "atMs": 7162,
+        "zoomBefore": 3.51369700530038,
+        "zoomAfter": 3.802270216398837,
+        "pitch": 8.310400000055632,
+        "moving": true,
+        "meanLuma": 172.1698573987262,
+        "darkFraction": 0
+      },
+      {
+        "name": "c1-zoom-03",
+        "atMs": 9651,
+        "zoomBefore": 3.93558435015432,
+        "zoomAfter": 4.08960879171555,
+        "pitch": 10.26690000005563,
+        "moving": true,
+        "meanLuma": 181.50739138123436,
+        "darkFraction": 0
+      },
+      {
+        "name": "c1-zoom-04",
+        "atMs": 12193,
+        "zoomBefore": 4.460685560743354,
+        "zoomAfter": 4.66072969195571,
+        "pitch": 14.154700000166894,
+        "moving": true,
+        "meanLuma": 188.7942716187379,
+        "darkFraction": 0
+      },
+      {
+        "name": "c1-zoom-05",
+        "atMs": 14687,
+        "zoomBefore": 4.794796556500251,
+        "zoomAfter": 5.096239605580587,
+        "pitch": 17.1185,
+        "moving": true,
+        "meanLuma": 190.78126408872,
+        "darkFraction": 0
+      },
+      {
+        "name": "c1-zoom-06",
+        "atMs": 17825,
+        "zoomBefore": 5.349409596007015,
+        "zoomAfter": 5.632215593746531,
+        "pitch": 20.765033333500224,
+        "moving": true,
+        "meanLuma": 188.6679072799525,
+        "darkFraction": 0
+      },
+      {
+        "name": "c1-zoom-07",
+        "atMs": 20028,
+        "zoomBefore": 5.766302173306912,
+        "zoomAfter": 6.0038666388636805,
+        "pitch": 23.292966666777932,
+        "moving": true,
+        "meanLuma": 187.3763240349666,
+        "darkFraction": 0
+      },
+      {
+        "name": "c1-zoom-08",
+        "atMs": 23375,
+        "zoomBefore": 6.113653527583387,
+        "zoomAfter": 6.579508983129244,
+        "pitch": 27.207483333388964,
+        "moving": true,
+        "meanLuma": 185.28940807621436,
+        "darkFraction": 0
+      },
+      {
+        "name": "c1-zoom-09",
+        "atMs": 26229,
+        "zoomBefore": 6.756233632496286,
+        "zoomAfter": 7.080121793942901,
+        "pitch": 30.610883333444594,
+        "moving": true,
+        "meanLuma": 177.835508257499,
+        "darkFraction": 0
+      },
+      {
+        "name": "c1-zoom-10",
+        "atMs": 28202,
+        "zoomBefore": 7.246143661956139,
+        "zoomAfter": 7.414203748862493,
+        "pitch": 32.88168333327771,
+        "moving": true,
+        "meanLuma": 173.3537489924899,
+        "darkFraction": 0
+      },
+      {
+        "name": "c1-zoom-11",
+        "atMs": 29671,
+        "zoomBefore": 7.52967847806452,
+        "zoomAfter": 7.668918715858808,
+        "pitch": 34.612783333500225,
+        "moving": true,
+        "meanLuma": 167.75362503869917,
+        "darkFraction": 0
+      },
+      {
+        "name": "c1-zoom-12",
+        "atMs": 32365,
+        "zoomBefore": 7.769607596069303,
+        "zoomAfter": 8.131059586014924,
+        "pitch": 37.75309999994437,
+        "moving": true,
+        "meanLuma": 162.8956499424438,
+        "darkFraction": 0
+      },
+      {
+        "name": "c1-zoom-13",
+        "atMs": 33912,
+        "zoomBefore": 8.232970597131715,
+        "zoomAfter": 8.39421698835147,
+        "pitch": 39.541016666611036,
+        "moving": true,
+        "meanLuma": 162.16878264119458,
+        "darkFraction": 0
+      },
+      {
+        "name": "c1-zoom-14",
+        "atMs": 36345,
+        "zoomBefore": 8.54467183514874,
+        "zoomAfter": 8.780221509452346,
+        "pitch": 42.16321666677793,
+        "moving": true,
+        "meanLuma": 162.48214269998817,
+        "darkFraction": 0
+      },
+      {
+        "name": "c1-zoom-15",
+        "atMs": 38638,
+        "zoomBefore": 8.907803754264533,
+        "zoomAfter": 9.211137839511208,
+        "pitch": 45.09003333350022,
+        "moving": true,
+        "meanLuma": 161.43064161252616,
+        "darkFraction": 0
+      },
+      {
+        "name": "c1-zoom-16",
+        "atMs": 40353,
+        "zoomBefore": 9.310189895125472,
+        "zoomAfter": 9.486280167411369,
+        "pitch": 46.95856666672229,
+        "moving": true,
+        "meanLuma": 160.39708999749615,
+        "darkFraction": 0
+      },
+      {
+        "name": "c1-zoom-17",
+        "atMs": 42398,
+        "zoomBefore": 9.569072379064101,
+        "zoomAfter": 9.829646370405383,
+        "pitch": 49.29015000005563,
+        "moving": true,
+        "meanLuma": 158.50321435246613,
+        "darkFraction": 0
+      },
+      {
+        "name": "c1-zoom-18",
+        "atMs": 45612,
+        "zoomBefore": 9.947639541181792,
+        "zoomAfter": 10.37867339348633,
+        "pitch": 53.01765000005563,
+        "moving": true,
+        "meanLuma": 150.04024087370448,
+        "darkFraction": 0
+      },
+      {
+        "name": "c1-zoom-19",
+        "atMs": 47646,
+        "zoomBefore": 10.58602476749728,
+        "zoomAfter": 10.75270686310975,
+        "pitch": 55.55666666666666,
+        "moving": true,
+        "meanLuma": 152.6829465424166,
+        "darkFraction": 0
+      },
+      {
+        "name": "c1-zoom-20",
+        "atMs": 50475,
+        "zoomBefore": 10.84674242621087,
+        "zoomAfter": 11.216140179550584,
+        "pitch": 58.70211666683356,
+        "moving": true,
+        "meanLuma": 157.31984371869007,
+        "darkFraction": 0
+      },
+      {
+        "name": "c1-zoom-21",
+        "atMs": 53610,
+        "zoomBefore": 11.347717371908999,
+        "zoomAfter": 11.701630274461152,
+        "pitch": 61.996783333500225,
+        "moving": true,
+        "meanLuma": 159.59227312378545,
+        "darkFraction": 0
+      },
+      {
+        "name": "c1-zoom-22",
+        "atMs": 55936,
+        "zoomBefore": 11.843405378962157,
+        "zoomAfter": 12.183613790327156,
+        "pitch": 65.2671833332777,
+        "moving": true,
+        "meanLuma": 157.24050586876518,
+        "darkFraction": 0
+      },
+      {
+        "name": "c1-zoom-23",
+        "atMs": 58470,
+        "zoomBefore": 12.376343185889441,
+        "zoomAfter": 12.61054518482553,
+        "pitch": 68.16366666666667,
+        "moving": true,
+        "meanLuma": 143.49546396496083,
+        "darkFraction": 0
+      },
+      {
+        "name": "c1-zoom-24",
+        "atMs": 60898,
+        "zoomBefore": 12.753577502171305,
+        "zoomAfter": 12.881239751818299,
+        "pitch": 70,
+        "moving": true,
+        "meanLuma": 149.87097756369778,
+        "darkFraction": 0
+      }
+    ],
+    "end": {
+      "lngLat": [
+        109.57500000000005,
+        31.04
+      ],
+      "pitch": 70,
+      "bearing": 80,
+      "stopIndex": null,
+      "namesMode": "ancient",
+      "zoom": 12.881239751818299,
+      "distanceKm": 12.000000000000005,
+      "centerElevationM": 113.04571722447226,
+      "meanLuma": 153.80397832736662,
+      "darkFraction": 0
+    },
+    "closest": {
+      "lngLat": [
+        109.57500000000016,
+        31.040000000001072
+      ],
+      "pitch": 70,
+      "bearing": 80,
+      "stopIndex": null,
+      "namesMode": "ancient",
+      "zoom": 14.466202252539455,
+      "distanceKm": 3.9999999999999583,
+      "centerElevationM": 113.0457172602854,
+      "meanLuma": 160.33446655359165,
+      "darkFraction": 0
+    },
+    "minMeanLuma": 143.49546396496083,
+    "maxDarkFraction": 0
+  },
+  "c4mid": {
+    "midState": {
+      "lngLat": [
+        114.48499687879507,
+        33.17547638753926
+      ],
+      "pitch": 45.364276927143536,
+      "bearing": -5.764020457607329,
+      "stopIndex": 5,
+      "namesMode": "ancient",
+      "zoom": 8.264215185498966,
+      "distanceKm": 287.6640505294598,
+      "centerElevationM": 74.7601622322163
+    },
+    "midKmFromStart": 181.05066217685246,
+    "midKmFromEnd": 305.58818510732965,
+    "arrived": {
+      "lngLat": [
+        114.872,
+        30.447
+      ],
+      "pitch": 62,
+      "bearing": -15,
+      "stopIndex": 5,
+      "namesMode": "ancient",
+      "zoom": 12.305158438738335,
+      "distanceKm": 17.99999999999999,
+      "centerElevationM": 54.99493712168325
+    },
+    "animation": {
+      "km": 524.5080230141002,
+      "durationMs": 7142.999999856955,
+      "frames": 33,
+      "avgFps": 4.619907601940481,
+      "minFps": 0.7143367383384482,
+      "settleMs": 563.9000000953674
+    }
+  },
+  "c5": {
+    "modern": {
+      "namesMode": "modern",
+      "labelsInView": [
+        "local:东坡旧址",
+        "local:东坡赤壁",
+        "local:临皋亭旧址",
+        "local:鄂州西山",
+        "local:黄冈市黄州区",
+        "stop:湖北黄冈"
+      ]
+    },
+    "ancient": {
+      "namesMode": "ancient",
+      "labelsInView": [
+        "local:东坡·雪堂",
+        "local:临皋亭",
+        "local:武昌西山",
+        "local:赤壁",
+        "local:黄州城",
+        "stop:黄州"
+      ]
+    },
+    "textField": [
+      "get",
+      "ancient"
+    ],
+    "glyphsUrl": null
+  },
+  "c7mouse": {
+    "wheelZoom": {
+      "km": 0.5882095469082946,
+      "zoom": 0.5037381359615534,
+      "pitch": 0,
+      "bearing": 0
+    },
+    "leftDragPan": {
+      "km": 1.42281791223186,
+      "zoom": 0.005343749920552199,
+      "pitch": 0,
+      "bearing": 0
+    },
+    "rightDragRotateTilt": {
+      "km": 4.735795344942483e-10,
+      "zoom": 5.559996907322784e-13,
+      "pitch": 5,
+      "bearing": 15
+    },
+    "afterResetButton": {
+      "state": {
+        "lngLat": [
+          114.87200000000007,
+          30.447000000000003
+        ],
+        "pitch": 62,
+        "bearing": -15,
+        "stopIndex": 5,
+        "namesMode": "ancient",
+        "zoom": 12.305158438738335,
+        "distanceKm": 17.99999999999999,
+        "centerElevationM": 54.99493712165311
+      },
+      "centerErrorKm": 6.8227861850604175e-12,
+      "pitchError": 0,
+      "bearingError": 0,
+      "distanceErrorKm": -1.0658141036401503e-14
+    }
+  },
+  "consoleProblems": [
+    "[warning] calculateFogMatrix is not supported on globe projection."
+  ],
+  "c7touch": {
+    "maxTouchPoints": 1,
+    "oneFingerPan": {
+      "km": 2.872189528323904,
+      "zoom": -0.001496736506307883,
+      "pitch": 0,
+      "bearing": 0
+    },
+    "pinchZoom": {
+      "km": 1.3338006491101235,
+      "zoom": 1.5811496892136372,
+      "pitch": 0,
+      "bearing": 0
+    },
+    "twoFingerRotate": {
+      "km": 0.4016480333388465,
+      "zoom": 0.09524156084566826,
+      "pitch": 0,
+      "bearing": -34.28687697720886
+    },
+    "twoFingerTilt": {
+      "km": 0,
+      "zoom": -1.5702994460298214e-12,
+      "pitch": -60.00000000000001,
+      "bearing": 0
+    },
+    "afterResetView": {
+      "centerErrorKm": 6.8227861850604175e-12,
+      "pitchError": 0,
+      "bearingError": 0
+    }
+  },
+  "finishedAt": "2026-11-17T09:48:18.025Z"
+}

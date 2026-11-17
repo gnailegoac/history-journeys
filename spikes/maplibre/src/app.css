@@ -1,0 +1,17 @@
+html, body { margin: 0; height: 100%; overflow: hidden; background: #0b1220; }
+body { font-family: "Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", sans-serif; }
+#map { position: absolute; inset: 0; background: radial-gradient(circle at 50% 50%, #1a2740 0%, #070b14 75%); }
+#panel {
+  position: absolute; top: 12px; left: 12px; width: 196px; padding: 10px;
+  background: rgba(250, 247, 240, 0.92); border-radius: 8px; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
+  font-size: 13px; color: #2b2118;
+}
+#panel h1 { margin: 0 0 6px; font-size: 14px; }
+#panel h2 { margin: 8px 0 4px; font-size: 12px; font-weight: normal; color: #7a6a58; }
+#panel .row { display: flex; flex-wrap: wrap; gap: 4px; }
+#panel button {
+  font: inherit; padding: 4px 7px; border: 1px solid #b9a98f; border-radius: 4px;
+  background: #fffdf8; color: inherit; cursor: pointer;
+}
+#panel button.active { background: #8c2f1b; border-color: #8c2f1b; color: #fff; }
+#panel #stops button { width: 100%; text-align: left; }

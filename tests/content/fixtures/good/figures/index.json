@@ -1,0 +1,20 @@
+[
+  {
+    "id": "demo",
+    "name": "示例先生",
+    "era": "示例时代",
+    "years": "1000–1060",
+    "sortYear": 1000,
+    "tagline": "校验器用的虚构人物，不是史实。",
+    "available": true
+  },
+  {
+    "id": "later",
+    "name": "后来者",
+    "era": "示例时代",
+    "years": "1100–1160",
+    "sortYear": 1100,
+    "tagline": "还没写的人物，卡片可以先放着。",
+    "available": false
+  }
+]

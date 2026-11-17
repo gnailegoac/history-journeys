@@ -1,0 +1,82 @@
+{
+  "stopId": "river",
+  "notes": [
+    {
+      "id": "n1",
+      "kind": "humanities",
+      "anchor": "乌篷船",
+      "title": "乌篷船",
+      "body": "船篷用竹篾编成，涂成黑色的小船。",
+      "sourceIds": ["s2"]
+    },
+    {
+      "id": "n2",
+      "kind": "science",
+      "anchor": "水闸",
+      "title": "水闸",
+      "body": "用两道闸门把一段河道隔成闸室，靠放水让船升降。",
+      "sourceIds": ["s2"]
+    },
+    {
+      "id": "n3",
+      "kind": "geography",
+      "anchor": "渡口",
+      "title": "渡口",
+      "body": "两条河相会的地方，来往的人在这里换船。",
+      "sourceIds": ["s1", "s2"]
+    },
+    {
+      "id": "n4",
+      "kind": "history",
+      "anchor": "一天三十文",
+      "title": "船钱",
+      "body": "按天计价的船钱。",
+      "sourceIds": ["s1"]
+    }
+  ],
+  "originals": [
+    {
+      "id": "o1",
+      "title": "行河记（节录）",
+      "date": "示例三年春",
+      "text": "行船三日，不见人家。\n唯有水声，昼夜不息。",
+      "plain": "船走了三天，没有看见一户人家。只有水声，白天黑夜都不停。",
+      "section": "河上",
+      "sourceId": "s1"
+    }
+  ],
+  "images": [
+    {
+      "id": "i1",
+      "file": "boat.svg",
+      "alt": "一条带黑色竹篷的小船",
+      "caption": "乌篷船的样子（示意图）",
+      "section": "上船",
+      "credit": "校验器示例",
+      "license": "公有领域",
+      "sourceUrl": "https://example.com/boat"
+    }
+  ],
+  "sources": [
+    { "id": "s1", "basis": "own-words", "cite": "示例先生《行河记》（虚构，只供校验器测试）" },
+    { "id": "s2", "basis": "later", "cite": "《示例河志》（虚构，只供校验器测试）" }
+  ],
+  "provenance": [
+    {
+      "section": "上船",
+      "items": [
+        { "what": "从示例城动身、船钱一天三十文", "basis": "own-words", "sourceIds": ["s1"] },
+        { "what": "船夫姓陈、撑了三十年船", "basis": "editor", "sourceIds": [] }
+      ]
+    },
+    {
+      "section": "河上",
+      "items": [{ "what": "过水闸的经过", "basis": "later", "sourceIds": ["s2"] }]
+    },
+    {
+      "section": "渡口",
+      "items": [{ "what": "在渡口换船、买饼", "basis": "editor", "sourceIds": [] }]
+    }
+  ],
+  "sampleQuestions": ["水闸是怎么让船过去的？"]
+}

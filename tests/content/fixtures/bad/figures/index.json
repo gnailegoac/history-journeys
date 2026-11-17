@@ -1,0 +1,20 @@
+[
+  {
+    "id": "broken",
+    "name": "出错先生",
+    "era": "示例时代",
+    "years": "1000–1060",
+    "sortYear": 1000,
+    "tagline": "（待内容编写时填写）",
+    "available": true
+  },
+  {
+    "id": "nowhere",
+    "name": "没有文件夹的人",
+    "era": "示例时代",
+    "years": "1100–1160",
+    "sortYear": 1100,
+    "tagline": "标了可以点进去，却没有人物文件。",
+    "available": true
+  }
+]

@@ -1,0 +1,54 @@
+{
+  "id": "demo",
+  "name": "示例先生",
+  "era": "示例时代",
+  "years": "1000–1060",
+  "tagline": "校验器用的虚构人物，不是史实。",
+  "intro": ["这是一份合乎数据规格的小样本，只供内容校验器的测试使用。"],
+  "overview": { "center": [112, 30], "distanceKm": 1500 },
+  "stops": [
+    {
+      "id": "river",
+      "title": "长河：顺水四天",
+      "shortTitle": "长河",
+      "years": "1030",
+      "age": "三十岁",
+      "place": { "id": "river", "ancient": "示例城", "modern": "示例市", "lngLat": [110, 30] },
+      "camera": { "distanceKm": 30, "pitch": 60, "bearing": 0 },
+      "summary": "坐船顺流而下，过水闸，到渡口。",
+      "status": "complete",
+      "localPlaces": [
+        { "id": "lock", "ancient": "水闸", "modern": "水闸旧址", "lngLat": [110.4, 30.1] },
+        { "id": "ferry", "ancient": "渡口", "modern": "渡口镇", "lngLat": [111.2, 30.2] }
+      ]
+    },
+    {
+      "id": "pass",
+      "title": "南山：翻过山口",
+      "shortTitle": "南山",
+      "years": "1031",
+      "age": "三十一岁",
+      "place": { "id": "pass", "ancient": "南山口", "modern": "南山垭口", "lngLat": [111.5, 28.4] },
+      "camera": { "distanceKm": 40, "pitch": 55, "bearing": 20 },
+      "summary": "往南进山。",
+      "status": "outline",
+      "localPlaces": []
+    },
+    {
+      "id": "port",
+      "title": "海边：到了港口",
+      "shortTitle": "海边",
+      "years": "1032",
+      "age": "三十二岁",
+      "place": { "id": "port", "ancient": "东港", "modern": "东港市", "lngLat": [114.2, 27.9] },
+      "camera": { "distanceKm": 50, "pitch": 50, "bearing": -10 },
+      "summary": "往东到海边。",
+      "status": "outline",
+      "localPlaces": []
+    }
+  ],
+  "legs": [
+    { "from": "river", "to": "pass", "via": [{ "name": "渡口", "lngLat": [111.2, 30.2] }] },
+    { "from": "pass", "to": "port", "via": [] }
+  ]
+}

@@ -1,0 +1,51 @@
+{
+  "id": "broken",
+  "name": "出错先生",
+  "era": "示例时代",
+  "years": "1000–1060",
+  "tagline": "每条规则至少错一处的样本，只供内容校验器的测试使用。",
+  "intro": ["（待填）"],
+  "overview": { "center": [112, 30], "distanceKm": 1500 },
+  "stops": [
+    {
+      "id": "a",
+      "title": "甲地：经纬度写反了",
+      "shortTitle": "甲地",
+      "years": "1030",
+      "age": "三十岁",
+      "place": { "id": "a", "ancient": "甲城", "modern": "甲市", "lngLat": [30, 114] },
+      "camera": { "distanceKm": 30, "pitch": 60, "bearing": 0 },
+      "summary": "正文太短，小注、原文、图片、凭据都有错。",
+      "status": "complete",
+      "localPlaces": [
+        { "id": "x", "ancient": "东门", "modern": "东门旧址", "lngLat": [200, 10] },
+        { "id": "y", "ancient": "西门", "modern": "西门旧址", "lngLat": [110] }
+      ]
+    },
+    {
+      "id": "b",
+      "title": "乙地：还没写却有正文文件",
+      "shortTitle": "乙地",
+      "years": "1031",
+      "age": "（待填）",
+      "place": { "id": "b", "ancient": "乙城", "modern": "乙市", "lngLat": [111, 31] },
+      "camera": { "distanceKm": 30, "pitch": 60, "bearing": 0 },
+      "summary": "（待填）",
+      "status": "outline",
+      "localPlaces": []
+    },
+    {
+      "id": "c",
+      "title": "丙地：写好了却缺 .json",
+      "shortTitle": "丙地",
+      "years": "1032",
+      "age": "三十二岁",
+      "place": { "id": "c", "ancient": "丙城", "modern": "丙市", "lngLat": [112, 32] },
+      "camera": { "distanceKm": 30, "pitch": 60, "bearing": 0 },
+      "summary": "（待填）",
+      "status": "complete",
+      "localPlaces": []
+    }
+  ],
+  "legs": [{ "from": "a", "to": "c", "via": [{ "name": "半路", "lngLat": [110, 95] }] }]
+}

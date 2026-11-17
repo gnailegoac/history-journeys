@@ -1,0 +1,360 @@
+{
+  "measuredAt": "2026-11-17T09:29:02.691Z",
+  "url": "http://localhost:5412/",
+  "firstUsableMs": 10846,
+  "firstUsableMsInPage": 10842,
+  "engine": {
+    "name": "CesiumJS",
+    "version": "1.147.0"
+  },
+  "webglRenderer": "ANGLE (Microsoft, Microsoft Basic Render Driver (0x0000008C) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+  "terrainExaggeration": 1.5,
+  "networkAtFirstUsable": {
+    "tiles": {
+      "requests": 43,
+      "bytes": 4216129
+    },
+    "engineStatic": {
+      "requests": 21,
+      "bytes": 285154
+    },
+    "app": {
+      "requests": 3,
+      "bytes": 1044049
+    },
+    "other": {
+      "requests": 0,
+      "bytes": 0
+    }
+  },
+  "flights": [
+    {
+      "toStop": "meishan",
+      "pathKm": 845,
+      "flightSeconds": 9.01,
+      "flightFpsAvg": 0.3,
+      "flightFpsMin": 0.1,
+      "flightFrames": 3,
+      "untilSettledMs": 15814,
+      "fpsIncludingSettle": {
+        "avg": 4,
+        "min": 0.1,
+        "samples": 63
+      },
+      "cameraSamples": 71,
+      "nearestApproachToEachWayPointKm": [],
+      "largestStepBetweenSamplesKm": 783,
+      "endState": {
+        "lngLat": [
+          103.848,
+          30.076
+        ],
+        "pitch": 59.5,
+        "bearing": 29.8,
+        "stopIndex": 0
+      }
+    },
+    {
+      "toStop": "hangzhou-1",
+      "pathKm": 2383,
+      "flightSeconds": 9.44,
+      "flightFpsAvg": 4.2,
+      "flightFpsMin": 0.4,
+      "flightFrames": 40,
+      "untilSettledMs": 14106,
+      "fpsIncludingSettle": {
+        "avg": 6.2,
+        "min": 0.4,
+        "samples": 86
+      },
+      "cameraSamples": 67,
+      "nearestApproachToEachWayPointKm": [
+        25.8,
+        140.6,
+        222.7,
+        98,
+        60.8,
+        40.8,
+        36.8,
+        176.4,
+        105.1,
+        33.9,
+        64.1,
+        45.5,
+        101.2
+      ],
+      "largestStepBetweenSamplesKm": 465,
+      "endState": {
+        "lngLat": [
+          120.155,
+          30.25
+        ],
+        "pitch": 54.7,
+        "bearing": -19.9,
+        "stopIndex": 1
+      }
+    },
+    {
+      "toStop": "mizhou",
+      "pathKm": 700,
+      "flightSeconds": 6.07,
+      "flightFpsAvg": 7.4,
+      "flightFpsMin": 0.4,
+      "flightFrames": 45,
+      "untilSettledMs": 10255,
+      "fpsIncludingSettle": {
+        "avg": 5.9,
+        "min": 0.4,
+        "samples": 59
+      },
+      "cameraSamples": 45,
+      "nearestApproachToEachWayPointKm": [
+        113.8,
+        33.4,
+        13.5,
+        10.8
+      ],
+      "largestStepBetweenSamplesKm": 253,
+      "endState": {
+        "lngLat": [
+          119.41,
+          35.996
+        ],
+        "pitch": 54.6,
+        "bearing": 0,
+        "stopIndex": 2
+      }
+    },
+    {
+      "toStop": "xuzhou",
+      "pathKm": 644,
+      "flightSeconds": 5.85,
+      "flightFpsAvg": 6.2,
+      "flightFpsMin": 0.2,
+      "flightFrames": 36,
+      "untilSettledMs": 11395,
+      "fpsIncludingSettle": {
+        "avg": 5.2,
+        "min": 0.3,
+        "samples": 56
+      },
+      "cameraSamples": 47,
+      "nearestApproachToEachWayPointKm": [
+        170.7,
+        118.9
+      ],
+      "largestStepBetweenSamplesKm": 269,
+      "endState": {
+        "lngLat": [
+          117.185,
+          34.262
+        ],
+        "pitch": 54.7,
+        "bearing": 10,
+        "stopIndex": 3
+      }
+    },
+    {
+      "toStop": "bianjing",
+      "pathKm": 1197,
+      "flightSeconds": 11.41,
+      "flightFpsAvg": 4.4,
+      "flightFpsMin": 0.2,
+      "flightFrames": 50,
+      "untilSettledMs": 14279,
+      "fpsIncludingSettle": {
+        "avg": 5.5,
+        "min": 0.2,
+        "samples": 77
+      },
+      "cameraSamples": 63,
+      "nearestApproachToEachWayPointKm": [
+        5.1,
+        22.1,
+        5.1,
+        25.1,
+        9.1
+      ],
+      "largestStepBetweenSamplesKm": 68,
+      "endState": {
+        "lngLat": [
+          114.307,
+          34.797
+        ],
+        "pitch": 49.7,
+        "bearing": 0,
+        "stopIndex": 4
+      }
+    },
+    {
+      "toStop": "huangzhou",
+      "pathKm": 525,
+      "flightSeconds": 5.79,
+      "flightFpsAvg": 3.3,
+      "flightFpsMin": 0.3,
+      "flightFrames": 19,
+      "untilSettledMs": 13932,
+      "fpsIncludingSettle": {
+        "avg": 5.7,
+        "min": 0.3,
+        "samples": 78
+      },
+      "cameraSamples": 49,
+      "nearestApproachToEachWayPointKm": [
+        111.5,
+        183.1,
+        152.6,
+        115.4,
+        25.2,
+        5.2
+      ],
+      "largestStepBetweenSamplesKm": 411,
+      "endState": {
+        "lngLat": [
+          114.872,
+          30.447
+        ],
+        "pitch": 61.9,
+        "bearing": -15,
+        "stopIndex": 5
+      }
+    },
+    {
+      "toStop": "hangzhou-2",
+      "pathKm": 796,
+      "flightSeconds": 6.44,
+      "flightFpsAvg": 5.3,
+      "flightFpsMin": 0.3,
+      "flightFrames": 34,
+      "untilSettledMs": 13706,
+      "fpsIncludingSettle": {
+        "avg": 4.8,
+        "min": 0.3,
+        "samples": 64
+      },
+      "cameraSamples": 64,
+      "nearestApproachToEachWayPointKm": [
+        132.7,
+        8.8,
+        44.2
+      ],
+      "largestStepBetweenSamplesKm": 418,
+      "endState": {
+        "lngLat": [
+          120.155,
+          30.25
+        ],
+        "pitch": 59.8,
+        "bearing": 59.9,
+        "stopIndex": 6
+      }
+    },
+    {
+      "toStop": "danzhou",
+      "pathKm": 2048,
+      "flightSeconds": 9.01,
+      "flightFpsAvg": 5.2,
+      "flightFpsMin": 0.2,
+      "flightFrames": 47,
+      "untilSettledMs": 19626,
+      "fpsIncludingSettle": {
+        "avg": 5.8,
+        "min": 0.2,
+        "samples": 112
+      },
+      "cameraSamples": 89,
+      "nearestApproachToEachWayPointKm": [
+        94.3,
+        12.1,
+        0.9,
+        189,
+        205.5,
+        277.3,
+        148,
+        102.8,
+        102.9,
+        61.5
+      ],
+      "largestStepBetweenSamplesKm": 763,
+      "endState": {
+        "lngLat": [
+          109.349,
+          19.741
+        ],
+        "pitch": 54.6,
+        "bearing": 19.9,
+        "stopIndex": 7
+      }
+    }
+  ],
+  "flightFpsAvg": 4.3,
+  "flightFpsMin": 0.1,
+  "networkWholeTour": {
+    "tiles": {
+      "requests": 1093,
+      "bytes": 44131900
+    },
+    "engineStatic": {
+      "requests": 21,
+      "bytes": 285154
+    },
+    "app": {
+      "requests": 3,
+      "bytes": 1044049
+    },
+    "other": {
+      "requests": 0,
+      "bytes": 0
+    }
+  },
+  "tileRequests": 1093,
+  "transferredBytes": 45461103,
+  "hostsContacted": [
+    "localhost:5412",
+    "s3.amazonaws.com"
+  ],
+  "failedRequests": [],
+  "pageErrors": [],
+  "build": {
+    "files": {
+      "js": [
+        {
+          "file": "index-DaNUg1FC.js",
+          "bytes": 3938437,
+          "gzipBytes": 1040384
+        }
+      ],
+      "css": [
+        {
+          "file": "index-BBjG-yXI.css",
+          "bytes": 2614,
+          "gzipBytes": 901
+        }
+      ]
+    },
+    "jsBytes": 3938437,
+    "jsGzipBytes": 1040384,
+    "cssBytes": 2614,
+    "cssGzipBytes": 901,
+    "note": "Entry bundle only. CesiumJS also fetches worker scripts and assets from dist/cesiumStatic on demand; what the tour actually downloaded is in networkWholeTour.engineStatic.",
+    "cesiumStaticFolderBytesOnDisk": 7043231
+  },
+  "environment": {
+    "viewport": "1440x900, deviceScaleFactor 1",
+    "browser": "Playwright 1.65.0 headless Chromium (chromium-headless-shell), args --use-angle=d3d11 --enable-gpu --ignore-gpu-blocklist",
+    "cpu": "Intel(R) Xeon(R) Platinum 8488C",
+    "cpuCount": 16,
+    "memoryGb": 63,
+    "os": "win32",
+    "serving": "vite preview (production build), HTTP cache cold"
+  },
+  "definitions": {
+    "firstUsableMs": "wall clock from page.goto() to window.__spike.ready (all terrain and base-map tiles of the globe view loaded and drawn), cold HTTP cache, production build",
+    "flightFpsAvg": "frames rendered during the camera animations of the eight flyToStop calls divided by their total duration (the wait for tiles after arrival is excluded)",
+    "flightFpsMin": "1000 / the longest interval between two consecutive frames in any of those flights",
+    "tileRequests": "finished requests to s3.amazonaws.com (Terrarium elevation tiles) from page load to the end of the eight-stop tour",
+    "transferredBytes": "response headers + bodies of every finished request seen by the page in that period (tiles + CesiumJS static files + app bundle); requests issued inside worker threads may be missing",
+    "hardware": "This machine is a cloud VM without a GPU (Win32_VideoController: Microsoft Basic Display Adapter). WebGL ran on the software rasteriser shown in webglRenderer. Frame rates are NOT hardware-accelerated numbers.",
+    "concurrency": "Other headless browser tests (the competing spike) may have been running on the same machine during the measurement."
+  }
+}

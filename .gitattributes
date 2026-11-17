@@ -1,0 +1,5 @@
+# 仓库里和工作区都用 LF，换一台机器也一样；只有双击启动脚本必须是 CRLF。
+* text=auto eol=lf
+*.cmd text eol=crlf
+*.jpg binary
+*.png binary

@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+    <title>引擎验证 · CesiumJS</title>
+    <link rel="stylesheet" href="/src/style.css" />
+    <!-- CesiumJS loads its workers and assets from here; must be set before the library is imported. -->
+    <script>window.CESIUM_BASE_URL = "cesiumStatic";</script>
+  </head>
+  <body>
+    <div id="map"></div>
+    <div id="panel">
+      <h1>苏轼 · 1037–1101</h1>
+      <div class="group" id="stops"></div>
+      <h2>检验视角</h2>
+      <div class="group" id="viewpoints"></div>
+      <div class="group">
+        <button id="names" type="button">地名：古</button>
+        <button id="reset" type="button">回到这一站</button>
+      </div>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

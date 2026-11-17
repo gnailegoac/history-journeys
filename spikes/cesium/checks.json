@@ -1,0 +1,166 @@
+{
+  "measuredAt": "2026-11-17T09:32:28.305Z",
+  "viewpoints": {
+    "sanxia": {
+      "lngLat": [
+        109.5756,
+        31.0401
+      ],
+      "pitch": 69.9,
+      "bearing": 79.9,
+      "rangeKm": 12.06,
+      "stopIndex": null,
+      "namesMode": "ancient"
+    },
+    "huangzhou-close": {
+      "lngLat": [
+        114.868,
+        30.44
+      ],
+      "pitch": 61.9,
+      "bearing": -10,
+      "rangeKm": 9.01,
+      "stopIndex": null,
+      "namesMode": "ancient"
+    },
+    "dayuling": {
+      "lngLat": [
+        114.3297,
+        25.3313
+      ],
+      "pitch": 64.8,
+      "bearing": 170,
+      "rangeKm": 19.84,
+      "stopIndex": null,
+      "namesMode": "ancient"
+    }
+  },
+  "stopHuangzhou": {
+    "lngLat": [
+      114.872,
+      30.447
+    ],
+    "pitch": 61.9,
+    "bearing": -15,
+    "rangeKm": 18,
+    "stopIndex": 5,
+    "namesMode": "ancient"
+  },
+  "namesModeAfterSwitch": "modern",
+  "mouse": {
+    "preset": {
+      "lngLat": [
+        114.872,
+        30.447
+      ],
+      "pitch": 61.9,
+      "bearing": -15,
+      "rangeKm": 18,
+      "stopIndex": 5,
+      "namesMode": "ancient"
+    },
+    "afterLeftDrag": {
+      "lngLat": [
+        114.8481,
+        30.4599
+      ],
+      "pitch": 61.9,
+      "bearing": -15,
+      "rangeKm": 18.04,
+      "stopIndex": 5,
+      "namesMode": "ancient"
+    },
+    "afterCtrlDrag": {
+      "lngLat": [
+        114.8719,
+        30.4529
+      ],
+      "pitch": 86.6,
+      "bearing": 29.2,
+      "rangeKm": 17.76,
+      "stopIndex": 5,
+      "namesMode": "ancient"
+    },
+    "afterWheel": {
+      "lngLat": [
+        114.8794,
+        30.4485
+      ],
+      "pitch": 61.9,
+      "bearing": -15,
+      "rangeKm": 6.63,
+      "stopIndex": 5,
+      "namesMode": "ancient"
+    },
+    "afterResetButton": {
+      "lngLat": [
+        114.872,
+        30.447
+      ],
+      "pitch": 61.9,
+      "bearing": -15,
+      "rangeKm": 18,
+      "stopIndex": 5,
+      "namesMode": "ancient"
+    }
+  },
+  "touch": {
+    "preset": {
+      "lngLat": [
+        114.872,
+        30.447
+      ],
+      "pitch": 61.9,
+      "bearing": -15,
+      "rangeKm": 18,
+      "stopIndex": 5,
+      "namesMode": "ancient"
+    },
+    "afterOneFingerDrag": {
+      "lngLat": [
+        114.8481,
+        30.4599
+      ],
+      "pitch": 61.9,
+      "bearing": -15,
+      "rangeKm": 18.04,
+      "stopIndex": 5,
+      "namesMode": "ancient"
+    },
+    "afterPinchOut": {
+      "lngLat": [
+        114.876,
+        30.4477
+      ],
+      "pitch": 61.9,
+      "bearing": -15,
+      "rangeKm": 13.54,
+      "stopIndex": 5,
+      "namesMode": "ancient"
+    },
+    "afterTwoFingerVerticalDrag": {
+      "lngLat": [
+        114.8699,
+        30.4537
+      ],
+      "pitch": 72.5,
+      "bearing": -15,
+      "rangeKm": 18.83,
+      "stopIndex": 5,
+      "namesMode": "ancient"
+    },
+    "afterReset": {
+      "lngLat": [
+        114.872,
+        30.447
+      ],
+      "pitch": 61.9,
+      "bearing": -15,
+      "rangeKm": 18,
+      "stopIndex": 5,
+      "namesMode": "ancient"
+    }
+  },
+  "pageErrors": [],
+  "note": "Written by tests/shots.mjs. The wheel-zoom sequence for C1 is recorded separately in zoom.json by tests/zoom.mjs."
+}

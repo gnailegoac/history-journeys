@@ -1,0 +1,8 @@
+/* 地图容器：地球以外是夜空的颜色。容器的大小由页面决定。 */
+.hj-map {
+  background: #111a29;
+}
+.hj-map .maplibregl-ctrl-attrib {
+  font-size: 11px;
+  line-height: 1.5;
+}

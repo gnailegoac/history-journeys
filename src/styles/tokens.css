@@ -1,0 +1,63 @@
+/* 全站的颜色、字体、字号和尺寸都在这一个文件里。要换风格，只改这里。
+   宽屏和窄屏的分界是 960px，写在 layout.css 和 guide.css 的媒体查询里（媒体查询不能用变量）。 */
+
+:root {
+  /* 颜色：暖色的纸，深色的墨，一种强调色（朱砂红） */
+  --color-paper: #f5efe3;
+  --color-paper-raised: #fbf7ee;
+  --color-paper-sunk: #ebe3d3;
+  --color-ink: #2a2520;
+  --color-ink-soft: #5e5548;
+  --color-line: #d6cab4;
+  --color-accent: #8f2d1c;
+  --color-accent-wash: #f1e0d6;
+  --color-on-accent: #fffaf2;
+  --color-focus: #8f2d1c;
+  --color-shadow: rgb(42 37 32 / 0.18);
+  --color-map-veil: rgb(245 239 227 / 0.9);
+
+  /* 字体：正文用系统自带的宋体，界面上的小字用系统自带的黑体；不下载字体 */
+  --font-reading: 'Songti SC', 'Noto Serif CJK SC', 'Source Han Serif SC', 'SimSun', serif;
+  --font-ui: system-ui, -apple-system, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;
+
+  /* 字号 */
+  --size-reading: 1.0625rem; /* 正文，手机上 17px；600px 以上见下面 */
+  --leading-reading: 1.9;
+  --size-note: 1rem; /* 小注、白话、凭据 */
+  --leading-note: 1.75;
+  --size-ui: 0.9375rem; /* 按钮和标签 */
+  --size-small: 0.8125rem; /* 说明性的小字 */
+  --size-site-title: 2rem;
+  --size-title: 1.625rem; /* 一页的大标题 */
+  --size-heading: 1.25rem; /* 小节标题 */
+  --size-card-name: 1.5rem;
+  --weight-heading: 700;
+
+  /* 尺寸 */
+  --measure: 34em; /* 正文一行最多这么宽，约 34 个字 */
+  --tap: 2.75rem; /* 可点的东西至少 44px 高 */
+  --radius: 4px;
+  --gap-1: 0.25rem;
+  --gap-2: 0.5rem;
+  --gap-3: 0.75rem;
+  --gap-4: 1rem;
+  --gap-5: 1.5rem;
+  --gap-6: 2.25rem;
+  --page-pad: 1.25rem; /* 文字栏两侧的留白 */
+  --home-width: 60rem;
+
+  /* 版面 */
+  --column-width: clamp(27.5rem, 36vw, 31.25rem); /* 宽屏上文字栏的宽度，440 到 500px */
+  --map-height-narrow: 40vh; /* 窄屏上地图的高度 */
+  --map-height-narrow-min: 11rem;
+  --map-height-folded: 7rem; /* 窄屏上收起后的高度 */
+}
+
+@media (min-width: 600px) {
+  :root {
+    --size-reading: 1.125rem; /* 18px */
+    --size-site-title: 2.5rem;
+    --size-title: 1.875rem;
+    --page-pad: 1.75rem;
+  }
+}

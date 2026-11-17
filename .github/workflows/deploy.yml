@@ -1,0 +1,95 @@
+name: 发布到 GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: github-pages
+  cancel-in-progress: false
+
+jobs:
+  # 不需要浏览器的检查：类型检查、内容校验、单元测试、构建。
+  check:
+    name: 类型检查、内容校验、单元测试、构建
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: 取出代码
+        uses: actions/checkout@v6
+      - name: 安装 Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: npm
+      - name: 安装依赖
+        run: npm ci
+      - name: 类型检查、内容校验、单元测试、构建
+        run: npm run check
+
+  # 浏览器端到端测试（Playwright，Chromium）。
+  e2e:
+    name: 浏览器端到端测试
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: 取出代码
+        uses: actions/checkout@v6
+      - name: 安装 Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: npm
+      - name: 安装依赖
+        run: npm ci
+      - name: 安装 Chromium
+        run: npx playwright install --with-deps chromium
+      - name: 端到端测试
+        run: npm run test:e2e
+      # 测试失败时留下每个失败用例的记录，方便查原因。
+      - name: 保留失败用例的记录
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-test-results
+          path: test-results/
+          retention-days: 7
+          if-no-files-found: ignore
+
+  # 前两步都通过才发布：构建出 dist，发布到 GitHub Pages。
+  deploy:
+    name: 构建并发布
+    if: github.ref == 'refs/heads/main'
+    needs: [check, e2e]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: 取出代码
+        uses: actions/checkout@v6
+      - name: 安装 Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: npm
+      - name: 安装依赖
+        run: npm ci
+      - name: 构建
+        run: npm run build
+      - name: 配置 Pages
+        uses: actions/configure-pages@v5
+      - name: 上传构建结果
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: dist
+      - name: 发布
+        id: deployment
+        uses: actions/deploy-pages@v4

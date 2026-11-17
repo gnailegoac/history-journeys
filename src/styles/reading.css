@@ -1,0 +1,427 @@
+/* 文字栏里的东西：抬头、目录、正文、小注、原文、图片、凭据、上一站和下一站。 */
+
+.crumbs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--gap-1);
+  margin-bottom: var(--gap-4);
+  font-family: var(--font-ui);
+  font-size: var(--size-ui);
+  color: var(--color-ink-soft);
+}
+
+.crumbs a {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--tap);
+}
+
+.page-head {
+  margin-bottom: var(--gap-5);
+  padding-bottom: var(--gap-4);
+  border-bottom: 1px solid var(--color-line);
+}
+
+.eyebrow,
+.meta {
+  font-family: var(--font-ui);
+  font-size: var(--size-ui);
+  color: var(--color-ink-soft);
+}
+
+.eyebrow {
+  margin-bottom: var(--gap-1);
+}
+
+.meta {
+  margin-top: var(--gap-1);
+}
+
+.figure-tagline {
+  margin-top: var(--gap-3);
+  font-family: var(--font-reading);
+  line-height: 1.7;
+}
+
+/* 抬头里的时间、地点、年纪。 */
+.facts {
+  margin-top: var(--gap-3);
+  font-family: var(--font-ui);
+  font-size: var(--size-ui);
+  line-height: 1.8;
+}
+
+.facts > div {
+  display: flex;
+  gap: var(--gap-3);
+}
+
+.facts dt {
+  flex: none;
+  color: var(--color-ink-soft);
+}
+
+/* 抬头下面的两句说明：正文是改写的，带虚线的词可以点开。 */
+.text-about {
+  margin-bottom: var(--gap-5);
+  font-family: var(--font-ui);
+  font-size: var(--size-small);
+  line-height: 1.7;
+  color: var(--color-ink-soft);
+}
+
+/* ---------------------------------------------------------------- 正文 */
+
+.prose {
+  font-family: var(--font-reading);
+  font-size: var(--size-reading);
+  line-height: var(--leading-reading);
+}
+
+.prose p {
+  margin-top: 1em;
+}
+
+.figure-intro {
+  margin-bottom: var(--gap-6);
+}
+
+.text-section {
+  margin-top: var(--gap-6);
+}
+
+.text-section:first-child {
+  margin-top: 0;
+}
+
+.text-section > .section-heading + p {
+  margin-top: 0.6em;
+}
+
+/* 可以点开小注的词：下面一道虚线。 */
+.note-term {
+  padding: 0.25em 0;
+  border-radius: 2px;
+  text-decoration: underline dotted var(--color-accent);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 0.3em;
+  cursor: pointer;
+}
+
+.note-term:hover,
+.note-term[aria-expanded='true'] {
+  background: var(--color-accent-wash);
+}
+
+.note {
+  margin-top: var(--gap-3);
+  padding: var(--gap-3) var(--gap-4) var(--gap-4);
+  border-left: 3px solid var(--color-accent);
+  border-radius: 0 var(--radius) var(--radius) 0;
+  background: var(--color-paper-raised);
+  font-family: var(--font-ui);
+  font-size: var(--size-note);
+  line-height: var(--leading-note);
+}
+
+.note-head {
+  display: flex;
+  align-items: center;
+  gap: var(--gap-2);
+}
+
+.note-kind {
+  flex: none;
+  padding: 0 var(--gap-2);
+  border-radius: var(--radius);
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+  font-size: var(--size-small);
+  line-height: 1.7;
+}
+
+.note-title {
+  flex: 1;
+  font-weight: var(--weight-heading);
+}
+
+.note-close {
+  flex: none;
+  min-width: var(--tap);
+  min-height: var(--tap);
+  margin: calc(-1 * var(--gap-2)) calc(-1 * var(--gap-3)) calc(-1 * var(--gap-2)) 0;
+  padding: 0 var(--gap-3);
+  border: 0;
+  background: transparent;
+  color: var(--color-accent);
+  font-size: var(--size-ui);
+}
+
+.prose .note p {
+  margin-top: var(--gap-2);
+}
+
+/* 引用的原文句子。 */
+.quote {
+  margin-top: 1em;
+  padding-left: 1.5em;
+  border-left: 2px solid var(--color-line);
+}
+
+.prose .quote p {
+  margin-top: 0;
+}
+
+/* ---------------------------------------------------------------- 原文、图片、凭据 */
+
+.original,
+.provenance {
+  margin-top: var(--gap-4);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius);
+  background: var(--color-paper-raised);
+}
+
+.original summary,
+.provenance summary {
+  display: flex;
+  align-items: center;
+  gap: var(--gap-2);
+  min-height: var(--tap);
+  padding: var(--gap-1) var(--gap-4);
+  font-family: var(--font-ui);
+  font-size: var(--size-ui);
+  color: var(--color-accent);
+  cursor: pointer;
+  list-style: none;
+}
+
+.original summary::-webkit-details-marker,
+.provenance summary::-webkit-details-marker {
+  display: none;
+}
+
+/* 折起时是加号，打开后是减号。 */
+.original summary::before,
+.provenance summary::before {
+  content: '+';
+  flex: none;
+  width: 1em;
+  text-align: center;
+}
+
+.original[open] summary::before,
+.provenance[open] summary::before {
+  content: '−';
+}
+
+.original-body,
+.provenance-body {
+  padding: 0 var(--gap-4) var(--gap-4);
+}
+
+.prose .original-date,
+.prose .original-plain-label {
+  margin-top: 0;
+  font-family: var(--font-ui);
+  font-size: var(--size-small);
+  color: var(--color-ink-soft);
+}
+
+.prose .original-text {
+  margin-top: var(--gap-2);
+  white-space: pre-line;
+}
+
+.prose .original-plain-label {
+  margin-top: var(--gap-4);
+  padding-top: var(--gap-3);
+  border-top: 1px solid var(--color-line);
+}
+
+.prose .original-plain {
+  margin-top: var(--gap-2);
+  font-family: var(--font-ui);
+  font-size: var(--size-note);
+  line-height: var(--leading-note);
+  white-space: pre-line;
+}
+
+.stop-image {
+  margin-top: var(--gap-5);
+}
+
+.stop-image img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  border: 1px solid var(--color-line);
+}
+
+.stop-image figcaption {
+  margin-top: var(--gap-2);
+  font-family: var(--font-ui);
+  font-size: var(--size-ui);
+  line-height: 1.6;
+}
+
+.stop-image-caption,
+.stop-image-credit {
+  display: block;
+}
+
+.stop-image-credit {
+  font-size: var(--size-small);
+  color: var(--color-ink-soft);
+}
+
+.provenance {
+  margin-top: var(--gap-6);
+  font-family: var(--font-ui);
+  font-size: var(--size-note);
+  line-height: var(--leading-note);
+}
+
+.provenance-line {
+  color: var(--color-ink-soft);
+  font-size: var(--size-ui);
+}
+
+.provenance-group h3 {
+  margin-top: var(--gap-4);
+  font-size: var(--size-note);
+  font-weight: var(--weight-heading);
+}
+
+.provenance-item {
+  margin-top: var(--gap-2);
+  padding-top: var(--gap-2);
+  border-top: 1px solid var(--color-line);
+}
+
+/* 出处的小字：凭据里的，和点开的小注末尾的。 */
+.provenance-cite,
+.note-sources {
+  font-size: var(--size-small);
+  color: var(--color-ink-soft);
+}
+
+/* ---------------------------------------------------------------- 各站目录 */
+
+.stops {
+  margin-top: var(--gap-3);
+  border-top: 1px solid var(--color-line);
+}
+
+.stop-item {
+  display: flex;
+  gap: var(--gap-3);
+  min-height: var(--tap);
+  padding: var(--gap-3) 0;
+  border-bottom: 1px solid var(--color-line);
+  color: var(--color-ink);
+  text-decoration: none;
+}
+
+.stop-number {
+  flex: none;
+  width: 1.75em;
+  font-family: var(--font-reading);
+  font-size: var(--size-heading);
+  line-height: 1.5;
+  color: var(--color-accent);
+  text-align: center;
+}
+
+.stop-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap-1);
+  min-width: 0;
+}
+
+.stop-title {
+  font-family: var(--font-reading);
+  font-size: var(--size-reading);
+  font-weight: var(--weight-heading);
+  line-height: 1.5;
+}
+
+.stop-item:hover .stop-title {
+  color: var(--color-accent);
+}
+
+.stop-meta {
+  font-family: var(--font-ui);
+  font-size: var(--size-small);
+  color: var(--color-ink-soft);
+}
+
+/* 年份、地点、年纪各自成块：一行放不下时整块换行，不从中间断开。 */
+.stop-meta span {
+  display: inline-block;
+  margin-right: 1em;
+}
+
+.stop-summary {
+  font-family: var(--font-reading);
+  font-size: var(--size-note);
+  line-height: 1.7;
+}
+
+/* ---------------------------------------------------------------- 上一站、下一站 */
+
+.stop-nav {
+  margin-top: var(--gap-6);
+  padding-top: var(--gap-4);
+  border-top: 1px solid var(--color-line);
+  font-family: var(--font-ui);
+  font-size: var(--size-ui);
+}
+
+.stop-nav-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--gap-3);
+}
+
+.stop-nav-link {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: var(--tap);
+  padding: var(--gap-2) var(--gap-3);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius);
+  background: var(--color-paper-raised);
+  color: var(--color-ink);
+  text-decoration: none;
+}
+
+.stop-nav-link:hover {
+  border-color: var(--color-accent);
+}
+
+.stop-nav-link.is-next {
+  text-align: right;
+}
+
+.stop-nav-label {
+  font-size: var(--size-small);
+  color: var(--color-accent);
+}
+
+.stop-nav-name {
+  font-family: var(--font-reading);
+  font-size: var(--size-reading);
+  font-weight: var(--weight-heading);
+}
+
+.stop-nav-list {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--tap);
+  margin-top: var(--gap-3);
+}

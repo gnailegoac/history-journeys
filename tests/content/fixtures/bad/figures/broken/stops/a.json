@@ -1,0 +1,41 @@
+{
+  "stopId": "a",
+  "notes": [
+    { "id": "n1", "kind": "history", "anchor": "石桥", "title": "石桥", "body": "这一条没有错。", "sourceIds": ["s1"] },
+    { "id": "n2", "kind": "culture", "anchor": "木桥", "title": "木桥", "body": "类别不对，原词不在正文里，也没有出处。", "sourceIds": [] },
+    { "id": "n3", "kind": "science", "anchor": "只有一句引用", "title": "引用行", "body": "原词只在引用行里，出处也找不到。", "sourceIds": ["s9"] }
+  ],
+  "originals": [
+    { "id": "o1", "title": "无题", "date": "示例三年", "text": "", "plain": "  ", "section": "没有的小节", "sourceId": "s9" }
+  ],
+  "images": [
+    {
+      "id": "i1",
+      "file": "missing.png",
+      "alt": "",
+      "caption": "一张不存在的图",
+      "section": "没有的小节",
+      "credit": "",
+      "license": "公有领域",
+      "sourceUrl": ""
+    }
+  ],
+  "sources": [
+    { "id": "s1", "basis": "record", "cite": "《示例河志》卷一（待核）" },
+    { "id": "s2", "basis": "editor", "cite": "编写时补的，不该列在出处里" }
+  ],
+  "provenance": [
+    { "section": "开头", "items": [] },
+    {
+      "section": "结尾",
+      "items": [
+        { "what": "提到石桥", "basis": "record", "sourceIds": [] },
+        { "what": "（起步稿，凭据待内容编写时逐条填写）", "basis": "editor", "sourceIds": [] },
+        { "what": "出处对不上", "basis": "own-words", "sourceIds": ["s9"] },
+        { "what": "依据写错了", "basis": "guess", "sourceIds": [] }
+      ]
+    },
+    { "section": "多出来的小节", "items": [{ "what": "正文里没有这个小节", "basis": "editor", "sourceIds": [] }] }
+  ],
+  "sampleQuestions": []
+}

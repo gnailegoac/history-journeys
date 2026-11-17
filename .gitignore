@@ -1,0 +1,12 @@
+node_modules/
+dist/
+test-results/
+playwright-report/
+tests/shots/
+.env
+.env.local
+*.log
+
+# 引擎验证阶段留下的截图和检查记录很大，不进仓库
+spikes/*/verify-*/
+spikes/*/shots/

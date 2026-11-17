@@ -1,0 +1,22 @@
+{
+  "name": "spike-maplibre",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "test:tour": "node tests/tour.mjs",
+    "test:checks": "node tests/checks.mjs",
+    "test:report": "node tests/report.mjs"
+  },
+  "dependencies": {
+    "maplibre-gl": "6.18.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.65.0",
+    "typescript": "7.0.2",
+    "vite": "8.3.8"
+  }
+}

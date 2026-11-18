@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>徐州：大水围城 · 苏轼 · 沿着他走过的路</title>
+<link rel="stylesheet" href="css/page.css">
+<link rel="stylesheet" href="css/scene.css">
+</head>
+<body class="stop">
+<main class="spread">
+  <article class="reading">
+    <nav class="crumbs" aria-label="所在位置">
+      <a href="home.html">沿着他走过的路</a><span class="sep">／</span><a class="here" href="home.html">苏轼</a><span class="count">第 4 站 · 共 8 站</span>
+    </nav>
+    <ol class="route" id="route" aria-label="苏轼的八站"></ol>
+
+    <header class="headblock">
+      <h1>徐州：大水围城</h1>
+      <dl class="meta">
+        <div><dt>时间</dt><dd>1077–1079</dd></div>
+        <div><dt>地点</dt><dd>徐州（今江苏徐州）</dd></div>
+        <div><dt>年纪</dt><dd>虚岁四十二到四十四</dd></div>
+      </dl>
+    </header>
+
+    <div id="text"></div>
+
+    <nav class="endnav" aria-label="上一站和下一站">
+      <a class="prev" href="#"><small>上一站</small><b>密州</b></a>
+      <a class="next" href="#"><small>下一站</small><b>汴京</b></a>
+    </nav>
+  </article>
+
+  <aside class="plate" aria-label="徐州一带的沙盘">
+    <!-- 窄屏上，面包屑放在沙盘上面这一条里（宽屏上它在正文栏的顶上） -->
+    <div class="plate-bar" aria-hidden="true"><span>沿着他走过的路</span><span class="sep">／</span><span class="here">苏轼</span><span class="count">第 4 站 · 共 8 站</span></div>
+    <div class="plate-photo">
+      <div class="table-host" id="table"></div>
+      <div class="plate-cap" id="cap"><div class="wide-crumbs">沿着他走过的路　／　苏轼　／　第 4 站 徐州</div><div class="no"></div><b></b><p></p></div>
+      <div class="compass" id="compass">
+        <svg viewBox="-28 -28 56 56" role="img" aria-label="指北">
+          <circle r="26.5" fill="rgba(244,239,228,0.72)" stroke="rgba(30,28,25,0.5)" stroke-width="0.8"/>
+          <g id="needle">
+            <path d="M0 -8 L4 6 L0 3.4 L-4 6 Z" fill="#1e1c19"/>
+            <path d="M0 3.4 L0 17" stroke="#1e1c19" stroke-width="1"/>
+          </g>
+          <text id="needle-n" text-anchor="middle" dominant-baseline="central" font-size="11" font-weight="600" fill="#1e1c19">北</text>
+        </svg>
+        <div class="scale" id="scale" title="比例尺量的是画面正中的地面；近处大，远处小"><i></i><span></span></div>
+      </div>
+      <div class="plate-tools"><button class="wide-toggle" id="wide-toggle">看大图</button><ol class="steps" id="steps" aria-label="沙盘跟着正文的哪一节"></ol></div>
+    </div>
+    <p class="plate-note" id="note"></p>
+  </aside>
+</main>
+
+<div class="dock">
+  <a class="prev" href="#"><small>上一站</small><b>密州</b></a>
+  <button class="ask" id="ask" aria-expanded="false" aria-controls="ask-sheet">问讲解员</button>
+  <a class="next" href="#"><small>下一站</small><b>汴京</b></a>
+</div>
+<div class="ask-sheet" id="ask-sheet" hidden>
+  <h3>问讲解员</h3>
+  <p class="hint">讲解员站在故事外面，照这一站写好的内容回答。回答的功能还没有接上，下面是可以问的例子。</p>
+  <ul id="ask-list"></ul>
+</div>
+
+<script type="module" src="js/stop.js"></script>
+</body>
+</html>

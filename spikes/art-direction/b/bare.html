@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>沙盘（只看场景）</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #cdb98f; }
+  canvas { display: block; width: 100vw; height: 100vh; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<script type="module">
+import { createSandTable } from './scene/sandtable.js';
+const q = new URLSearchParams(location.search);
+const t0 = performance.now();
+const table = await createSandTable(document.getElementById('c'), { shot: q.get('shot') || 'arrive' });
+window.table = table;
+requestAnimationFrame(() => {
+  table.render();
+  const i = table.renderer.info.render;
+  let tri = 0; const parts = {};
+  table.scene.traverseVisible((o) => { if (!o.isMesh) return; const g = o.geometry; const n = (g.index ? g.index.count : g.attributes.position.count) / 3 * (o.isInstancedMesh ? o.count : 1); tri += n; const k = o.isInstancedMesh ? 'instanced' : (o.material && o.material.type) + (o.material.map ? '+map' : ''); parts[k] = (parts[k] || 0) + Math.round(n); });
+  console.log('TRI visible', Math.round(tri), JSON.stringify(parts), 'render-info', i.triangles, 'calls', i.calls, 'build ms', Math.round(performance.now() - t0));
+  window.__ready = true;
+});
+</script>
+</body>
+</html>

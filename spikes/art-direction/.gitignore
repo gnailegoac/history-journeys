@@ -1,0 +1,4 @@
+node_modules
+*/shots-work/
+# 样张的大图（PNG）留在本机，进仓库的是另存的小图（JPG）。
+*/shots/*.png

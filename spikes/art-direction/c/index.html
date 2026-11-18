@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>徐州：大水围城 · 苏轼 · 沿着他走过的路</title>
+    <link rel="stylesheet" href="./page.css" />
+    <link rel="stylesheet" href="./labels.css" />
+  </head>
+  <body class="stop">
+    <canvas id="stage" aria-label="徐州一带的立体沙盘"></canvas>
+    <div class="mat" aria-hidden="true"></div>
+    <div id="labels" aria-hidden="true"></div>
+
+    <header class="topbar">
+      <nav class="crumbs" aria-label="位置">
+        <a class="brand" href="./home.html">
+          <svg class="mark" viewBox="0 0 28 28" aria-hidden="true">
+            <circle cx="14" cy="14" r="14" fill="#17806F" />
+            <path d="M7 19c3-1 3.5-5 6.5-5.5S17 10 21 9" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-dasharray="0.1 4" />
+            <circle cx="7" cy="19" r="2.1" fill="#fff" />
+            <circle cx="21" cy="9" r="2.6" fill="#F1C25B" />
+          </svg>
+          沿着他走过的路
+        </a>
+        <span class="sep" aria-hidden="true">›</span>
+        <a href="./home.html">苏轼</a>
+        <span class="sep" aria-hidden="true">›</span>
+        <span class="here">徐州</span>
+      </nav>
+      <button class="ask" type="button">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v8a2.5 2.5 0 0 1-2.5 2.5H12l-4.6 3.9A.6.6 0 0 1 6.4 19.4V16A2.5 2.5 0 0 1 4 13.5z" fill="currentColor" /><circle cx="8.6" cy="9.5" r="1.15" fill="#fff" /><circle cx="12" cy="9.5" r="1.15" fill="#fff" /><circle cx="15.4" cy="9.5" r="1.15" fill="#fff" /></svg>
+        问讲解员
+      </button>
+    </header>
+
+    <section class="headline">
+      <div class="count">
+        <span class="count-chip">第 4 站 · 共 8 站</span>
+        <ol class="dots" aria-hidden="true">
+          <li class="past"></li><li class="past"></li><li class="past"></li><li class="now"></li><li></li><li></li><li></li><li></li>
+        </ol>
+      </div>
+      <div class="title-row">
+        <h1>徐州<span class="colon">：</span>大水围城</h1>
+        <dl class="facts">
+          <div><dt>时间</dt><dd>1077–1079</dd></div>
+          <div><dt>地点</dt><dd>徐州<span class="soft">（今江苏徐州）</span></dd></div>
+          <div><dt>年纪</dt><dd>虚岁四十二到四十四</dd></div>
+        </dl>
+      </div>
+    </section>
+
+    <main class="reader" id="reader">
+      <div class="reader-scroll" id="scroll">
+        <article id="text"></article>
+      </div>
+      <nav class="stops" aria-label="上一站和下一站">
+        <a class="stop-link prev" href="#">
+          <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M12.5 4.5 7 10l5.5 5.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></svg>
+          <span><small>上一站</small><b>密州</b></span>
+        </a>
+        <a class="stop-link next" href="#">
+          <span><small>下一站</small><b>汴京</b></span>
+          <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M7.5 4.5 13 10l-5.5 5.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></svg>
+        </a>
+      </nav>
+    </main>
+
+    <aside class="legend" id="legend">
+      <div class="legend-row">
+        <span class="viewing"><i></i><b id="viewing">到徐州</b></span>
+        <span class="compass" title="北">
+          <svg viewBox="0 0 32 32" id="compass" aria-hidden="true">
+            <circle cx="16" cy="16" r="14.5" fill="#fff" stroke="#C9D3D0" />
+            <path d="M16 4.5 20.2 17H11.8z" fill="#17806F" />
+            <path d="M16 27.5 11.8 17h8.4z" fill="#C9D3D0" />
+          </svg>
+          <em>北</em>
+        </span>
+        <span class="scale"><span class="bar" id="scalebar"></span><em id="scaletext">2 公里</em></span>
+      </div>
+      <p class="honest" id="honest"></p>
+    </aside>
+
+    <script type="module" src="./page.js"></script>
+  </body>
+</html>

@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>沙盘（开发用整页）</title>
+<link rel="stylesheet" href="css/scene.css">
+<style>html,body{margin:0;height:100%;background:#cac3b7}#host{position:fixed;inset:0}</style>
+</head>
+<body>
+<div id="host" class="table-host"></div>
+<script type="module">
+import { createTable } from './js/table.js';
+const q = new URLSearchParams(location.search);
+const custom = q.get('cam') ? JSON.parse(q.get('cam')) : undefined;
+const t0 = performance.now();
+const table = await createTable(document.getElementById('host'), { shot: q.get('shot') || 'arrive', custom });
+window.__table = table;
+requestAnimationFrame(() => { table.render(); window.__info = { ms: Math.round(performance.now() - t0), ...table.stats(), ...table.models.counts }; window.__ready = true; });
+</script>
+</body>
+</html>

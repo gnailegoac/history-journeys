@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>徐州：大水围城 · 苏轼 · 沿着他走过的路</title>
+<link rel="stylesheet" href="./style.css">
+</head>
+<body>
+
+<div class="scene" id="scene" aria-label="徐州一带的沙盘">
+  <canvas id="table"></canvas>
+  <div class="scrim"></div>
+  <div class="over">
+    <svg class="leaders" id="leaders" aria-hidden="true"></svg>
+    <div id="labels"></div>
+    <div class="caption">
+      <span class="sec" id="cap-sec"></span>
+      <p class="line" id="cap-line"></p>
+      <p class="honest" id="cap-honest"></p>
+    </div>
+    <button class="wide-toggle" id="wide" type="button">只看沙盘</button>
+    <div class="legend">
+      <div class="scalebar" id="scalebar"><span></span><div class="bar"></div></div>
+      <div class="compass" aria-label="指北">
+        北
+        <svg viewBox="-23 -23 46 46" id="compass">
+          <circle r="20" fill="none" stroke="#28231f" stroke-width="1" opacity=".55"/>
+          <g id="needle">
+            <path d="M0 -17 L5.2 2 L0 -1.5 L-5.2 2 Z" fill="#b03a2a"/>
+            <path d="M0 17 L4 3 L0 5 L-4 3 Z" fill="none" stroke="#28231f" stroke-width="1"/>
+          </g>
+        </svg>
+      </div>
+    </div>
+  </div>
+</div>
+
+<main class="leaf">
+  <nav class="crumbs" aria-label="位置">
+    <a href="./home.html">沿着他走过的路</a><span class="sep"></span><a class="here" href="./home.html">苏轼</a>
+  </nav>
+
+  <header>
+    <div class="stopno">
+      <span>第 4 站 · 共 8 站</span>
+      <span class="ticks" aria-hidden="true"><i class="done"></i><i class="done"></i><i class="done"></i><i class="now"></i><i></i><i></i><i></i><i></i></span>
+    </div>
+    <h1>徐州<span class="colon">：</span>大水围城</h1>
+    <dl class="meta">
+      <dt>时间</dt><dd>1077–1079</dd>
+      <dt>地点</dt><dd>徐州（今江苏徐州）</dd>
+      <dt>年纪</dt><dd>虚岁四十二到四十四</dd>
+    </dl>
+  </header>
+
+  <article class="text" id="text"></article>
+  <div class="tail"></div>
+
+  <footer class="walk">
+    <a class="prev" href="#"><small>上一站</small><b>密州</b></a>
+    <button class="ask" type="button">问讲解员</button>
+    <a class="next" href="#"><small>下一站</small><b>汴京</b></a>
+  </footer>
+</main>
+
+<script type="module" src="./stop.js"></script>
+</body>
+</html>

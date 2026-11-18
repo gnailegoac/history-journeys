@@ -1,0 +1,330 @@
+/* 首页：左上是大标题，右上是浮着的沙盘，下面一排人物卡片。 */
+body.home {
+  overflow: hidden;
+}
+
+.hero {
+  position: fixed;
+  z-index: 4;
+  left: 64px;
+  top: 132px;
+  width: 460px;
+}
+
+.hero-title {
+  margin: 0;
+  font: 900 92px/1.1 var(--serif);
+  letter-spacing: 0.035em;
+  color: var(--ink);
+}
+
+.hero-line {
+  margin: 26px 0 0;
+  max-width: 400px;
+  font: 500 21px/1.75 var(--sans);
+  color: var(--ink-2);
+  letter-spacing: 0.02em;
+}
+
+.figures {
+  position: fixed;
+  z-index: 5;
+  left: 52px;
+  right: 52px;
+  bottom: 34px;
+}
+
+.figures-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-end;
+  margin: 0 6px 14px 12px;
+}
+
+.cards {
+  display: grid;
+  grid-template-columns: 1.3fr 1fr 1fr;
+  gap: 22px;
+}
+
+.fig {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 300px;
+  padding: 26px 28px 24px;
+  border-radius: 26px;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(27, 40, 38, 0.06), 0 16px 44px rgba(27, 40, 38, 0.14);
+  overflow: hidden;
+  color: var(--ink);
+  --c: var(--jade);
+  --c-deep: var(--jade-deep);
+  --c-tint: var(--jade-tint);
+}
+
+.fig.xu-xiake {
+  --c: #35568f;
+  --c-deep: #25406f;
+  --c-tint: #e6ecf6;
+}
+
+.fig.darwin {
+  --c: #6b5a3c;
+  --c-deep: #4f4129;
+  --c-tint: #f0ebdf;
+}
+
+.fig.open {
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+
+.fig.open:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 2px 4px rgba(27, 40, 38, 0.06), 0 24px 56px rgba(27, 40, 38, 0.2);
+}
+
+.fig.soon {
+  background: rgba(255, 255, 255, 0.72);
+  box-shadow: 0 1px 2px rgba(27, 40, 38, 0.05), 0 10px 30px rgba(27, 40, 38, 0.08);
+}
+
+/* 苏轼卡片右上角：他自己那座沙盘上的一小块 */
+.fig-cut {
+  position: absolute;
+  right: 22px;
+  top: 22px;
+  width: 214px;
+  height: 120px;
+  border-radius: 16px;
+  overflow: hidden;
+  background: #dfe6dc;
+  box-shadow: 0 0 0 1px rgba(27, 40, 38, 0.08), 0 6px 16px rgba(27, 40, 38, 0.14);
+}
+
+.fig-cut img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* 还没写的两位：底边一条线画，只占最下面一小条 */
+.fig .strip {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 68px;
+  color: var(--c);
+  opacity: 0.46;
+  pointer-events: none;
+}
+
+.fig .strip svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.fig.soon {
+  padding-bottom: 80px;
+}
+
+.fig-top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font: 500 13.5px/1 var(--sans);
+  color: var(--ink-2);
+  letter-spacing: 0.06em;
+}
+
+.fig-era {
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: var(--c-tint);
+  color: var(--c-deep);
+  font-weight: 600;
+  letter-spacing: 0.12em;
+}
+
+.fig-soon {
+  margin-left: auto;
+  position: relative;
+  z-index: 1;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: #ecebe6;
+  color: #6c746f;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+}
+
+.fig-name {
+  margin: 18px 0 0;
+  font: 900 52px/1.1 var(--serif);
+  letter-spacing: 0.08em;
+}
+
+.fig.xu-xiake .fig-name {
+  font-family: 'KaiTi', 'Kaiti SC', 'STKaiti', serif;
+  font-weight: 700;
+  font-size: 54px;
+}
+
+.fig.darwin .fig-name {
+  font-family: 'Noto Serif SC', 'Songti SC', serif;
+  font-weight: 300;
+  letter-spacing: 0.16em;
+}
+
+.fig.soon .fig-name {
+  color: #3c4845;
+}
+
+.fig-tag {
+  position: relative;
+  margin: 14px 0 0;
+  max-width: 30em;
+  font: 400 15.5px/1.75 var(--sans);
+  color: var(--ink-2);
+}
+
+.fig.open .fig-tag {
+  margin-top: 22px;
+}
+
+.fig-route {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0;
+  row-gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font: 500 13.5px/1 var(--sans);
+  color: var(--ink-2);
+}
+
+.fig-routes {
+  display: grid;
+  row-gap: 9px;
+}
+
+/* 第二行开头也带一段虚线：接着上一行往下走 */
+.fig-route.cont::before {
+  content: '';
+  width: 12px;
+  height: 0;
+  margin: 0 6px 0 0;
+  border-top: 2px dotted var(--jade);
+}
+
+.fig-route li {
+  display: inline-flex;
+  align-items: center;
+}
+
+.fig-route li + li::before {
+  content: '';
+  width: 12px;
+  height: 0;
+  margin: 0 6px;
+  border-top: 2px dotted var(--jade);
+}
+
+.fig-route li.here {
+  color: var(--jade-deep);
+  font-weight: 700;
+}
+
+.fig-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  margin-top: auto;
+  padding-top: 18px;
+}
+
+/* 圆的箭头：这张卡片点得进去 */
+.fig-go {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: var(--jade);
+  color: #fff;
+  box-shadow: 0 1px 1px rgba(14, 95, 83, 0.25), 0 8px 20px rgba(14, 95, 83, 0.22);
+  transition: transform 0.18s ease;
+}
+
+.fig.open:hover .fig-go {
+  transform: translateX(3px);
+}
+
+.fig-go svg {
+  width: 22px;
+  height: 22px;
+}
+
+.fig-count {
+  font: 500 14px/1 var(--sans);
+  color: var(--ink-2);
+  letter-spacing: 0.06em;
+}
+
+.fig-wait {
+  font: 500 14px/1 var(--sans);
+  color: #7b837e;
+  letter-spacing: 0.06em;
+}
+
+.hero-note {
+  margin: 0;
+  padding: 7px 14px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.78);
+  font: 400 14px/1.4 var(--sans);
+  color: #33423f;
+}
+
+@media (max-width: 900px) {
+  body.home {
+    overflow: auto;
+  }
+  body.home #stage,
+  body.home #labels {
+    height: 44vh;
+  }
+  .hero {
+    position: static;
+    width: auto;
+    padding: 46vh 20px 0;
+  }
+  .hero-title {
+    font-size: 44px;
+  }
+  .hero-title br {
+    display: none;
+  }
+  .figures {
+    position: static;
+    margin: 28px 12px 24px;
+  }
+  .cards {
+    grid-template-columns: 1fr;
+  }
+  .figures-head {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  .hero-note {
+    border-radius: 12px;
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "west": 117.05,
+  "east": 117.32,
+  "south": 34.17,
+  "north": 34.35,
+  "cols": 415,
+  "rows": 334,
+  "widthM": 24841,
+  "heightM": 19971,
+  "cellM": 60,
+  "minM": 15.8,
+  "maxM": 233.3,
+  "format": "Int16 little-endian, 分米；第 0 行在最北，第 0 列在最西；逐行存",
+  "source": "Mapzen Terrarium 高程瓦片（今天的地形）"
+}

@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>沿着他走过的路</title>
+<link rel="stylesheet" href="css/page.css">
+<link rel="stylesheet" href="css/scene.css">
+</head>
+<body class="home">
+<header class="hero">
+  <div class="table-host" id="table"></div>
+  <div class="hero-text">
+    <p class="mark">一位人物 · 一条路 · 一站一站</p>
+    <h1>沿着他走过的路</h1>
+    <p class="lede">选一位历史人物，沿着他一生走过的路，<br>一站一站读下去。</p>
+  </div>
+  <p class="hero-cap">沙盘：徐州，熙宁十年（1077）秋，大水围城。水位是示意。<a href="index.html">看这一站</a></p>
+  <div class="compass" id="compass">
+    <svg viewBox="-28 -28 56 56" role="img" aria-label="指北">
+      <circle r="26.5" fill="rgba(244,239,228,0.8)" stroke="rgba(30,28,25,0.5)" stroke-width="0.8"/>
+      <g id="needle">
+        <path d="M0 -8 L4 6 L0 3.4 L-4 6 Z" fill="#1e1c19"/>
+        <path d="M0 3.4 L0 17" stroke="#1e1c19" stroke-width="1"/>
+      </g>
+      <text id="needle-n" text-anchor="middle" dominant-baseline="central" font-size="11" font-weight="600" fill="#1e1c19">北</text>
+    </svg>
+    <div class="scale" id="scale" title="比例尺量的是画面正中的地面；近处大，远处小"><i></i><span></span></div>
+  </div>
+</header>
+
+<main class="figures" id="figures" aria-label="人物"></main>
+<footer class="home-foot"><p>每一站有一张当地的沙盘，正文用他自己的口吻讲，生词可以点开小注，读不明白的可以问讲解员。</p></footer>
+
+<script type="module" src="js/home.js"></script>
+</body>
+</html>

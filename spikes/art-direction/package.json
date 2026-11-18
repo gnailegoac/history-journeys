@@ -1,0 +1,11 @@
+{
+  "name": "art-direction-samples",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "three": "*"
+  },
+  "devDependencies": {
+    "pngjs": "*"
+  }
+}

@@ -20,7 +20,7 @@
 import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
 import type { StageTier } from '../../src/stage/types';
-import { expectRealTable, expectStill, headingsOf, openFigureWithTable, realUrl, scrollToSection, stagePane } from './helpers';
+import { expectRealTable, expectStill, headingsOf, openFigureWithTable, realUrl, scrollToSection, shoot, stagePane } from './helpers';
 
 const env = (globalThis as { process?: { env: Record<string, string | undefined> } }).process?.env ?? {};
 // 存到哪：平时是 tests/shots/real；想另存一套（比如留着对比）就设 SHOTS_DIR。
@@ -76,7 +76,7 @@ async function shootStills(page: Page, tag: string): Promise<void> {
     // 再留一点时间：让题签摆稳
     await page.waitForTimeout(1_500);
     await expectStillPicture(page, headings[i]);
-    await page.screenshot({ path: `${DIR}/${found.stopId}-${i + 1}-${tag}.png` });
+    await shoot(page, { path: `${DIR}/${found.stopId}-${i + 1}-${tag}.png` });
   }
   if (problems.length > 0) console.log(`[${tag}] 页面上的报错和警告：\n${problems.join('\n')}`);
 }
@@ -107,7 +107,7 @@ async function shootEverything(page: Page, size: { width: number; height: number
   if (await expectStill(page)) {
     await expect.poll(() => page.locator('.stage-still img').evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth > 0)).toBe(true);
   }
-  await page.screenshot({ path: `${DIR}/figure-${tag}.png` });
+  await shoot(page, { path: `${DIR}/figure-${tag}.png` });
 
   test.skip(!found, '还没有哪一站有沙盘');
   if (!found) return;
@@ -128,7 +128,7 @@ async function shootEverything(page: Page, size: { width: number; height: number
     await page.waitForTimeout(1_500);
     // 拍之前看一眼：放着的还是立体的沙盘，还是要的这一档
     await expectRealTable(page, tier);
-    await page.screenshot({ path: `${DIR}/${found.stopId}-${i + 1}-${tag}.png` });
+    await shoot(page, { path: `${DIR}/${found.stopId}-${i + 1}-${tag}.png` });
   }
 
   // 最后一节：点开“说明”，拍一张完整的说明盖在沙盘上的样子。
@@ -139,7 +139,7 @@ async function shootEverything(page: Page, size: { width: number; height: number
   await expect(pane).toHaveAttribute('data-stage-section', headings[headings.length - 1]);
   await page.waitForTimeout(300);
   await expectRealTable(page, tier);
-  await page.screenshot({ path: `${DIR}/${found.stopId}-${headings.length}-${tag}-note.png` });
+  await shoot(page, { path: `${DIR}/${found.stopId}-${headings.length}-${tag}-note.png` });
   await page.keyboard.press('Escape');
   await expect(pane.locator('.stage-note-panel')).toHaveCount(0);
 

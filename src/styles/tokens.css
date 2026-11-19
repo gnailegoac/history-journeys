@@ -1,5 +1,6 @@
 /* 全站的颜色、字体、字号和尺寸都在这一个文件里。要换风格，只改这里。
-   宽屏和窄屏的分界是 960px，写在 layout.css 和 guide.css 的媒体查询里（媒体查询不能用变量）。 */
+   宽屏和窄屏的分界是 960px，写在 layout.css 和 guide.css 的媒体查询里（媒体查询不能用变量）；
+   这个文件末尾按宽窄另定字号的两处用的也是它，和 1280px。 */
 
 :root {
   /* 颜色：暖色的纸，深色的墨，一种强调色（朱砂红） */
@@ -16,22 +17,29 @@
   --color-shadow: rgb(42 37 32 / 0.18);
   --color-stage-veil: rgb(245 239 227 / 0.9);
 
-  /* 字体：正文用系统自带的宋体，界面上的小字用系统自带的黑体；不下载字体 */
-  --font-reading: 'Songti SC', 'Noto Serif CJK SC', 'Source Han Serif SC', 'SimSun', serif;
-  --font-ui: system-ui, -apple-system, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;
+  /* 字体：随站带着两套，各只有一种粗细。宋体排正文和成句的话，楷体排标题、题签、按钮和几个固定的小标签。
+     文件和 @font-face 在 src/fonts/（工具做的，npm run fonts），说明见 docs/data-spec.md“随站的字体”。
+     名单里排在后面的是设备自带的：随站的文件还在路上、或者没取到的时候先顶着。
+     设备上没有楷体的（平板大多没有），楷体的字先用随站的宋体，不会变成黑体。 */
+  --font-song: 'Yanlu Song', 'Songti SC', 'STSong', 'Noto Serif CJK SC', 'Source Han Serif SC', 'SimSun', serif;
+  --font-kai: 'Yanlu Kai', 'Kaiti SC', 'STKaiti', 'KaiTi', 'Yanlu Song', 'Songti SC', 'Noto Serif CJK SC', 'SimSun', serif;
 
-  /* 字号 */
-  --size-reading: 1.0625rem; /* 正文，手机上 17px；600px 以上见下面 */
+  /* 字号。这里写的是竖着拿的平板（和更窄的窗口）上的；宽屏上不一样的几个见文件末尾。这里最小的是 14px
+     （沙盘栏里还有几处直接写着更小的字号：比例尺、指北、“说明”和“换回图片”两个小按钮，在 stage.css，换沙盘栏的样子时改） */
+  --size-reading: 1.1875rem; /* 正文，19px */
   --leading-reading: 1.9;
-  --size-note: 1rem; /* 小注、白话、凭据 */
-  --leading-note: 1.75;
-  --size-ui: 0.9375rem; /* 按钮和标签 */
-  --size-small: 0.8125rem; /* 说明性的小字 */
-  --size-site-title: 2rem;
-  --size-title: 1.625rem; /* 一页的大标题 */
-  --size-heading: 1.25rem; /* 小节标题 */
+  --size-note: 1.0625rem; /* 小注、白话、凭据、讲解员面板，17px */
+  --leading-note: 1.8;
+  --size-ui: 1rem; /* 抬头里的时间地点、目录里的摘要、位置那一行，16px */
+  --size-small: 0.875rem; /* 说明性的小字、出处、小标签，14px */
+  --size-site-title: 2.75rem; /* 网站的名字，44px */
+  --size-title: 2.5rem; /* 一页的大标题，40px */
+  --size-heading: 1.5rem; /* 小节标题，24px */
+  --size-label: 1.0625rem; /* 楷体的小标签：时间、地点、年纪，沙盘栏的按钮，17px */
+  --size-ask: 1.125rem; /* “问讲解员”，18px */
+  --size-nav: 1.25rem; /* 上一站、下一站的站名，20px */
   --size-card-name: 1.5rem;
-  --weight-heading: 700;
+  --weight-heading: 400; /* 没有粗体：两套字体都只带了一种粗细。这个记号留着，各处照旧引用它 */
 
   /* 尺寸 */
   --measure: 34em; /* 正文一行最多这么宽，约 34 个字 */
@@ -55,9 +63,24 @@
 
 @media (min-width: 600px) {
   :root {
-    --size-reading: 1.125rem; /* 18px */
-    --size-site-title: 2.5rem;
-    --size-title: 1.875rem;
     --page-pad: 1.75rem;
+  }
+}
+
+/* 宽屏（文字栏在左、沙盘栏在右）：标题按文字栏的宽窄另定。 */
+@media (min-width: 960px) {
+  :root {
+    --size-site-title: 3.25rem; /* 52px */
+    --size-title: 2.375rem; /* 38px：文字栏只有 440px 宽 */
+  }
+}
+
+@media (min-width: 1280px) {
+  :root {
+    --size-site-title: 4.125rem; /* 66px */
+    --size-title: 2.9375rem; /* 47px */
+    --size-heading: 1.6875rem; /* 27px */
+    --size-ask: 1.1875rem; /* 19px */
+    --size-nav: 1.375rem; /* 22px */
   }
 }

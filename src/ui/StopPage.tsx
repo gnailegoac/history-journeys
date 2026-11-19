@@ -1,12 +1,13 @@
 // 站点页的文字栏：抬头、正文是怎么来的两句说明、正文、凭据、上一站和下一站、问讲解员。
 // 这一站有沙盘时，它还盯着读者读到了哪一小节，报给上面，沙盘的镜头跟着走。
 
-import { useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import { figureHref, stopHref } from '../app/router';
 import { useLoaded } from '../app/useLoaded';
 import type { Loaded } from '../app/useLoaded';
 import { loadStop, neighbours } from '../domain';
 import type { Figure, StopMeta } from '../domain';
+import { SONG_MORE_PROBE } from '../fonts/shipped';
 import type { StopTable } from '../stage/types';
 import { GuidePanel } from './GuidePanel';
 import { PageTitle } from './PageTitle';
@@ -36,6 +37,24 @@ export function StopPage({ figure, stop, table, onSection }: Props) {
   const scene = table.state === 'ready' && table.value ? table.value.scene : null;
   // 这一站有没有沙盘：yes 有，none 没有，loading 还不知道，failed 沙盘的数据没读出来。
   const sceneState = table.state === 'loading' ? 'loading' : table.state === 'error' ? 'failed' : scene ? 'yes' : 'none';
+
+  // 点开才看得见的字在另一个字体文件里，平常要到点开小注、原文、凭据的那一刻才去取：网慢的时候，
+  // 刚点开的那几句里会有几个字先用设备自带的字顶着，过一会儿才换过来。所以写好了的一站，正文出来以后，等头两个字体文件到了、
+  // 再过两秒，就叫浏览器先把它取来（拿它里面的一个字去要）；读者已经走开了就不取。取过一次浏览器自己记着，不会再取。
+  // 首页、人物页和还没写的站不这样做：那里没有要点开的东西。字体的名字“Yanlu Song”是工具写进文件里的（src/fonts/fonts.css）。
+  const hasText = written !== null;
+  useEffect(() => {
+    if (!hasText) return;
+    let timer = 0;
+    let left = false;
+    void document.fonts?.ready.then(() => {
+      if (!left) timer = setTimeout(() => void document.fonts.load('1em "Yanlu Song"', SONG_MORE_PROBE).catch(() => {}), 2000);
+    });
+    return () => {
+      left = true;
+      clearTimeout(timer);
+    };
+  }, [hasText]);
 
   const article = useRef<HTMLElement>(null);
   useReadingSection(article, written !== null && scene !== null, onSection);

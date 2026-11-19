@@ -99,6 +99,57 @@ export const REGISTER_TEXT = {
   cite: '出处：',
 } as const;
 
+/**
+ * 界面上用楷体排的固定的字，一处列全。做字体的工具照这张表把这些字放进楷体的文件
+ *（tests/support/fontTool.ts；说明见 docs/data-spec.md“随站的字体”）：要用楷体排的字没有列在这里，
+ * 楷体文件里就没有它，页面上它只能用宋体显示。
+ * 不在这张表里、也用楷体排的，是内容里来的字（人物的名字、各站的标题、小节标题、小注的标题、题签、题记），
+ * 和沙盘上东西的五个类别名（src/domain/scene.ts 的 SCENE_CLASS_LABEL），工具自己去数。
+ * 用楷体排的字里不要有弯引号（这套楷体里它们只有三分之一个字宽）。
+ *
+ * 前面几项就是上面那些常数；后面直接写着字的几项，现在还写在各个组件里，或者页面上还没有
+ *（“来源”页、目录上的数字印、首页的“从第一站读起”），换字体、换样子的时候挪到这个文件里来，这里改成引用。
+ *
+ * 写成“叫一个函数”再标上 PURE，是为了页面的程序里不带它：页面不用这张表，直接写成数组的话，
+ * 打包的时候数组虽然去掉了，取 STAGE_TEXT.ancient 这些的那一串会留下来（多一百多个字节）。
+ */
+export const KAI_LABELS: readonly string[] = /* @__PURE__ */ kaiLabels();
+
+function kaiLabels(): string[] {
+  return [
+    SITE_TITLE,
+    STAGE_TEXT.ancient,
+    STAGE_TEXT.modern,
+    STAGE_TEXT.reset,
+    STAGE_TEXT.fold,
+    STAGE_TEXT.unfold,
+    STAGE_TEXT.retry,
+    STAGE_TEXT.rebuild,
+    STAGE_TEXT.tryTable,
+    STAGE_TEXT.noteTitle,
+    STAGE_TEXT.north,
+    REGISTER_TEXT.heading,
+    REGISTER_TEXT.notDrawn,
+    '时间',
+    '地点',
+    '年纪',
+    '各站目录',
+    '读原文',
+    '凭据',
+    '问讲解员',
+    '发送',
+    '没有找到这位人物',
+    '没有这一站',
+    '从第一站读起',
+    '来源',
+    '字体',
+    '地形和水',
+    '图片',
+    '程序',
+    '一二三四五六七八九十',
+  ];
+}
+
 /** 古名带今名，如“黄州（今湖北黄冈）”；两个名字一样时只写一个。 */
 export function placeLabel(place: Pick<Place, 'ancient' | 'modern'>): string {
   return place.ancient === place.modern ? place.ancient : `${place.ancient}（今${place.modern}）`;

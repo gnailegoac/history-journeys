@@ -235,7 +235,8 @@
   border: 0;
   border-radius: var(--radius);
   background: transparent;
-  font-size: var(--size-ui);
+  font-family: var(--font-kai);
+  font-size: var(--size-label);
   line-height: 1;
 }
 
@@ -363,7 +364,7 @@
 .stage-section-name {
   flex: none;
   color: var(--color-accent);
-  font-family: var(--font-reading);
+  font-family: var(--font-kai);
   font-size: var(--size-ui);
   font-weight: var(--weight-heading);
 }
@@ -377,11 +378,12 @@
 
 /* 题记，和题签指到的远处。栏窄时远处接在题记后面，合起来最多两行：
    题记不超过 40 个字，带着远处的小节两样合起来也不超过两行放得下的数（校验的规则 14 管着）。 */
-/* 字体写在外面这一层上：里面的两样和它用同一种字，每一行才正好是一行高（字体不一样，行会被撑高一两个像素，两行就放不下了）。 */
+/* 字体写在外面这一层上：里面的两样和它用同一种字（宋体），每一行才正好是一行高
+  （楷体和宋体掺在一行里，行会被撑高一两个像素，两行就放不下了）。栏宽时题记自己一行，那里才用楷体。 */
 .stage-words {
   max-height: 2.375rem;
   overflow: hidden;
-  font-family: var(--font-reading);
+  font-family: var(--font-song);
 }
 
 .stage-line {
@@ -393,11 +395,10 @@
   display: inline;
 }
 
-/* 远处那句话用界面的字体；它和题记不是一种字体，靠着行的上边排，不把行撑高。 */
+/* 远处那句话和题记是同一种字（都跟着 .stage-words），接在题记后面。 */
 .stage-far li {
   margin-left: 0.5em;
   color: var(--color-ink-soft);
-  font-family: var(--font-ui);
   vertical-align: top;
 }
 
@@ -481,7 +482,7 @@
     max-width: 44rem;
     height: 1.625rem;
     overflow: hidden;
-    font-family: var(--font-reading);
+    font-family: var(--font-kai);
     font-size: clamp(var(--size-small), calc((100cqw - 1.5rem) / 40), var(--size-note));
     line-height: 1.625rem;
     white-space: nowrap;
@@ -519,7 +520,6 @@
     max-width: 44rem;
     height: 1.25rem;
     overflow: hidden;
-    font-family: var(--font-ui);
   }
 
   .stage-far li {
@@ -582,12 +582,16 @@
 }
 
 .stage-note-panel-title {
+  font-family: var(--font-kai);
+  font-size: var(--size-label);
   font-weight: var(--weight-heading);
 }
 
 .stage-note-panel-title span {
   margin-left: var(--gap-2);
   color: var(--color-ink-soft);
+  font-family: var(--font-song);
+  font-size: var(--size-small);
   font-weight: 400;
 }
 
@@ -694,7 +698,7 @@
 }
 
 .stage-still-caption {
-  font-family: var(--font-reading);
+  font-family: var(--font-kai);
   font-size: var(--size-note);
 }
 
@@ -726,13 +730,15 @@
 }
 
 .scene-register h3 {
+  font-family: var(--font-kai);
   font-size: var(--size-note);
   font-weight: var(--weight-heading);
 }
 
 .scene-register-group h4 {
   margin: var(--gap-4) 0 0;
-  font-size: var(--size-ui);
+  font-family: var(--font-kai);
+  font-size: var(--size-label);
   font-weight: var(--weight-heading);
   color: var(--color-accent);
 }
@@ -763,15 +769,16 @@
 /* ---------------------------------------------------------------- 题签 */
 
 /* 题签是沙盘程序挂在自己容器里的（src/stage/overlay）：竖写的字，一条引线指着地方。
-   位置和竖写由程序写在元素上，这里只管样子。有楷体的设备用楷体。
-   沙盘也可能摆在没有 tokens.css 的页面上（开发用的单独一页），所以颜色都带一个备用的值。 */
+   位置和竖写由程序写在元素上，这里只管样子。字是随站的楷体。
+   沙盘也可能摆在没有 tokens.css 的页面上（开发用的单独一页），所以颜色和字体都带一个备用的值
+  （那一页上没有随站的字体，用设备自带的楷体）。 */
 .strip {
   padding: 8px 5px;
   border: 1px solid var(--color-ink-soft, #5e5548);
   background: var(--color-paper-raised, #fbf7ee);
   box-shadow: 0 1px 3px var(--color-shadow, rgb(42 37 32 / 0.18));
   color: var(--color-ink, #2a2520);
-  font-family: 'Kaiti SC', 'STKaiti', 'KaiTi', '楷体', 'Songti SC', 'Noto Serif CJK SC', 'SimSun', serif;
+  font-family: var(--font-kai, 'Kaiti SC', 'STKaiti', 'KaiTi', serif);
   font-size: 17px;
   line-height: 1;
   letter-spacing: 0.12em;

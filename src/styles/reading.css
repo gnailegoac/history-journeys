@@ -6,7 +6,7 @@
   align-items: center;
   gap: var(--gap-1);
   margin-bottom: var(--gap-4);
-  font-family: var(--font-ui);
+  font-family: var(--font-song);
   font-size: var(--size-ui);
   color: var(--color-ink-soft);
 }
@@ -53,7 +53,7 @@
 
 .eyebrow,
 .meta {
-  font-family: var(--font-ui);
+  font-family: var(--font-song);
   font-size: var(--size-ui);
   color: var(--color-ink-soft);
 }
@@ -68,14 +68,14 @@
 
 .figure-tagline {
   margin-top: var(--gap-3);
-  font-family: var(--font-reading);
+  font-family: var(--font-song);
   line-height: 1.7;
 }
 
 /* 抬头里的时间、地点、年纪。 */
 .facts {
   margin-top: var(--gap-3);
-  font-family: var(--font-ui);
+  font-family: var(--font-song);
   font-size: var(--size-ui);
   line-height: 1.8;
 }
@@ -85,15 +85,18 @@
   gap: var(--gap-3);
 }
 
+/* “时间”“地点”“年纪”是楷体的小标签。它和后面宋体的字各是一块（.facts > div 里横着排的两块），不挤在同一行字里。 */
 .facts dt {
   flex: none;
   color: var(--color-ink-soft);
+  font-family: var(--font-kai);
+  font-size: var(--size-label);
 }
 
 /* 抬头下面的两句说明：正文是改写的，带虚线的词可以点开。 */
 .text-about {
   margin-bottom: var(--gap-5);
-  font-family: var(--font-ui);
+  font-family: var(--font-song);
   font-size: var(--size-small);
   line-height: 1.7;
   color: var(--color-ink-soft);
@@ -102,7 +105,7 @@
 /* ---------------------------------------------------------------- 正文 */
 
 .prose {
-  font-family: var(--font-reading);
+  font-family: var(--font-song);
   font-size: var(--size-reading);
   line-height: var(--leading-reading);
 }
@@ -127,11 +130,14 @@
   margin-top: 0.6em;
 }
 
-/* 可以点开小注的词：下面一道虚线。 */
+/* 可以点开小注的词：下面一道虚线。线的种类、样子、颜色分开写：合成一句的写法（text-decoration 后面跟着样子和颜色）
+   iPad 上的 Safari 到 26.2 版才认，早些的版本里这道线会整个没有。构建出来的样式表里也不许合回去（tests/build/dist-size.test.ts 查）。 */
 .note-term {
   padding: 0.25em 0;
   border-radius: 2px;
-  text-decoration: underline dotted var(--color-accent);
+  text-decoration-line: underline;
+  text-decoration-style: dotted;
+  text-decoration-color: var(--color-accent);
   text-decoration-thickness: 2px;
   text-underline-offset: 0.3em;
   cursor: pointer;
@@ -148,7 +154,7 @@
   border-left: 3px solid var(--color-accent);
   border-radius: 0 var(--radius) var(--radius) 0;
   background: var(--color-paper-raised);
-  font-family: var(--font-ui);
+  font-family: var(--font-song);
   font-size: var(--size-note);
   line-height: var(--leading-note);
 }
@@ -169,8 +175,10 @@
   line-height: 1.7;
 }
 
+/* 小注的标题是楷体；它和前面的小标签、后面的“关闭”各是一块。 */
 .note-title {
   flex: 1;
+  font-family: var(--font-kai);
   font-weight: var(--weight-heading);
 }
 
@@ -218,7 +226,7 @@
   gap: var(--gap-2);
   min-height: var(--tap);
   padding: var(--gap-1) var(--gap-4);
-  font-family: var(--font-ui);
+  font-family: var(--font-song);
   font-size: var(--size-ui);
   color: var(--color-accent);
   cursor: pointer;
@@ -252,7 +260,7 @@
 .prose .original-date,
 .prose .original-plain-label {
   margin-top: 0;
-  font-family: var(--font-ui);
+  font-family: var(--font-song);
   font-size: var(--size-small);
   color: var(--color-ink-soft);
 }
@@ -270,7 +278,7 @@
 
 .prose .original-plain {
   margin-top: var(--gap-2);
-  font-family: var(--font-ui);
+  font-family: var(--font-song);
   font-size: var(--size-note);
   line-height: var(--leading-note);
   white-space: pre-line;
@@ -289,7 +297,7 @@
 
 .stop-image figcaption {
   margin-top: var(--gap-2);
-  font-family: var(--font-ui);
+  font-family: var(--font-song);
   font-size: var(--size-ui);
   line-height: 1.6;
 }
@@ -306,7 +314,7 @@
 
 .provenance {
   margin-top: var(--gap-6);
-  font-family: var(--font-ui);
+  font-family: var(--font-song);
   font-size: var(--size-note);
   line-height: var(--leading-note);
 }
@@ -316,8 +324,10 @@
   font-size: var(--size-ui);
 }
 
+/* 凭据里每一小节的名字：楷体。 */
 .provenance-group h3 {
   margin-top: var(--gap-4);
+  font-family: var(--font-kai);
   font-size: var(--size-note);
   font-weight: var(--weight-heading);
 }
@@ -355,7 +365,7 @@
 .stop-number {
   flex: none;
   width: 1.75em;
-  font-family: var(--font-reading);
+  font-family: var(--font-song);
   font-size: var(--size-heading);
   line-height: 1.5;
   color: var(--color-accent);
@@ -370,7 +380,7 @@
 }
 
 .stop-title {
-  font-family: var(--font-reading);
+  font-family: var(--font-kai);
   font-size: var(--size-reading);
   font-weight: var(--weight-heading);
   line-height: 1.5;
@@ -381,7 +391,7 @@
 }
 
 .stop-meta {
-  font-family: var(--font-ui);
+  font-family: var(--font-song);
   font-size: var(--size-small);
   color: var(--color-ink-soft);
 }
@@ -393,7 +403,7 @@
 }
 
 .stop-summary {
-  font-family: var(--font-reading);
+  font-family: var(--font-song);
   font-size: var(--size-note);
   line-height: 1.7;
 }
@@ -404,7 +414,7 @@
   margin-top: var(--gap-6);
   padding-top: var(--gap-4);
   border-top: 1px solid var(--color-line);
-  font-family: var(--font-ui);
+  font-family: var(--font-song);
   font-size: var(--size-ui);
 }
 
@@ -441,8 +451,8 @@
 }
 
 .stop-nav-name {
-  font-family: var(--font-reading);
-  font-size: var(--size-reading);
+  font-family: var(--font-kai);
+  font-size: var(--size-nav);
   font-weight: var(--weight-heading);
 }
 

@@ -4,6 +4,13 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>沿着他走过的路</title>
+    <!--
+      随站的字体里一打开就要用的两个文件：楷体，和不用点开就看得见的宋体。先在这里说一声，浏览器不等样式表读完就去取。
+      都是网站自己的文件。crossorigin 不能少：取字体一律按“跨站”的规矩取，少了它，这里取来的那一份样式表用不上，会再取一遍。
+      第三个文件（点开才看得见的字）不在这里：页面上用到它里面的字时才取，站点页空下来以后也会先取来（src/ui/StopPage.tsx）。
+    -->
+    <link rel="preload" href="/src/fonts/yanlu-kai.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/src/fonts/yanlu-song.woff2" as="font" type="font/woff2" crossorigin />
   </head>
   <body>
     <div id="root"></div>

@@ -6,7 +6,12 @@
 //   页面      一打开就下载的程序（index.html 的入口和它静态引入的块），压缩以后
 //   样式表    页面一打开就下载的样式表，压缩以后
 //   dist/     整个文件夹，不压缩
-// 另外查一件事：沙盘程序不能是页面一打开就下载的东西（页面只许用动态 import 取它）。
+// 另外查四件事：沙盘程序不能是页面一打开就下载的东西（页面只许用动态 import 取它）；
+// 沙盘用到的文件（地形文件、先画好的地面、定格图）的网址也不能在页面一打开就下载的那一块里
+//（一座沙盘十几二十个网址，沙盘越多越长：它们单独一块，打开人物页或者一站时才下载）；
+// 随站的字体带得对不对（dist/ 里正好是放进仓库的那三个文件，index.html 预先声明的和样式表里写的是同一个文件），
+// 字体多大也印出来；构建出来的样式表里没有 Safari 读不懂的那几种写法（查的是构建以后的原文：构建的工具会改写样式表）。
+// 后两件怎么查在 tests/support/builtFonts.ts。
 // “压缩以后”用的是 gzip 平常的力度，和构建时印在屏幕上的那一列是同一个算法。
 //
 // 哪一块是哪一块，照构建清单（dist/.vite/manifest.json，vite.config.ts 里开的）找：
@@ -17,8 +22,11 @@
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { gzipSync } from 'node:zlib';
 import { describe, expect, it } from 'vitest';
-import { ENGINE_ENTRY, ENGINE_GZIP_MAX, PAGE_ENTRY, programReport, programSizes } from '../content/budgetRules';
+import { createHash } from 'node:crypto';
+import { ENGINE_ENTRY, ENGINE_GZIP_MAX, FILE_URLS_ENTRY, PAGE_ENTRY, fontReport, programReport, programSizes, staticClosure, withCommas } from '../content/budgetRules';
 import type { BuildManifest, SizeReport } from '../content/budgetRules';
+import { CONTAINER_MAX, CQW_MAX, builtFonts, builtStyleProblems } from '../support/builtFonts';
+import type { BuiltSite, CommittedFont } from '../support/builtFonts';
 
 /** 项目的根目录下的 dist/：这个文件在 tests/build/ 里，往上两层。 */
 const DIST = new URL('../../dist/', import.meta.url);
@@ -70,6 +78,154 @@ describe('构建出来的文件', () => {
     console.log(['构建出来的程序有多大', ...report.lines.map((line) => `  ${line}`)].join('\n'));
     for (const warn of report.warns) console.warn(`[check:size] 快到上限了：${warn}`);
     expect(report.fails).toEqual([]);
+  });
+});
+
+describe('沙盘用到的文件的网址', () => {
+  it('单独一块，用到时才下载；页面一打开就下载的程序里一个也没有', () => {
+    expect(existsSync(MANIFEST), '没有 dist/.vite/manifest.json：先运行 npm run build').toBe(true);
+    const manifest = readManifest(new TextDecoder().decode(readFileSync(MANIFEST)));
+    const urls = manifest[FILE_URLS_ENTRY];
+    expect(urls, `清单里没有 ${FILE_URLS_ENTRY} 这一项：它被打进了别的块，或者挪了地方（挪了就改 tests/content/budgetRules.ts 的 FILE_URLS_ENTRY）`).toBeDefined();
+    expect(urls.isDynamicEntry, '网址那一块在清单里没有标成“用到时才下载”').toBe(true);
+    const pageKeys = staticClosure(manifest, PAGE_ENTRY);
+    expect(pageKeys, '网址那一块成了页面一打开就下载的东西').not.toContain(FILE_URLS_ENTRY);
+    // 它里面写着网址的文件：content/ 里有沙盘的话，至少有一个地形文件
+    const files = (urls.assets ?? []).map((file) => file.slice(file.lastIndexOf('/') + 1));
+    expect(files.length).toBeGreaterThan(0);
+    const page = pageKeys.map((key) => new TextDecoder().decode(readFileSync(new URL(manifest[key].file, DIST)))).join(' ');
+    expect(files.filter((file) => page.includes(file)), '这几个文件的网址出现在页面一打开就下载的程序里').toEqual([]);
+    console.log(`  沙盘用到的文件的网址（压缩以后）：${withCommas(gzipOnDisk(urls.file))} 字节，${files.length} 个网址，用到时才下载　${urls.file}`);
+  });
+});
+
+/** dist/ 里叫这种名字的文件（子文件夹里的也算），路径相对 dist/，用“/”分隔。 */
+function filesEnding(ending: string): string[] {
+  return readdirSync(DIST, { recursive: true })
+    .map((name) => name.split('\\').join('/'))
+    .filter((name) => name.endsWith(ending))
+    .sort();
+}
+
+const utf8 = new TextDecoder();
+/** dist/ 里的一个文件，路径相对 dist/（文件名里可能有汉字，一段一段转好再拼）。 */
+const inDistFolder = (file: string): URL => new URL(file.split('/').map(encodeURIComponent).join('/'), DIST);
+
+/** 构建出来的网站里和字体有关的几样：index.html、每一份样式表、每一个 .woff2。 */
+function readBuiltSite(): BuiltSite {
+  const sheets: Record<string, string> = {};
+  for (const file of filesEnding('.css')) sheets[file] = utf8.decode(readFileSync(inDistFolder(file)));
+  const fonts: Record<string, { bytes: number; sha256: string }> = {};
+  for (const file of filesEnding('.woff2')) {
+    const bytes = readFileSync(inDistFolder(file));
+    fonts[file] = { bytes: bytes.length, sha256: createHash('sha256').update(bytes).digest('hex') };
+  }
+  return { html: utf8.decode(readFileSync(new URL('index.html', DIST))), sheets, fonts };
+}
+
+/** 放进仓库的字体文件（src/fonts/fonts.json 里记的）。 */
+function committedFonts(): CommittedFont[] {
+  const record = JSON.parse(utf8.decode(readFileSync(new URL('../../src/fonts/fonts.json', import.meta.url)))) as { files: CommittedFont[] };
+  return record.files.map(({ file, sha256, range, first, stop }) => ({ file, sha256, range, first, stop }));
+}
+
+describe('随站的字体在构建出来的网站里', () => {
+  it('dist/ 里正好是放进仓库的那几个字体文件（现在是三个）；index.html 预先声明的两个就是样式表里一打开就要用的两个，地址是同一个文件；大小不超过上限', () => {
+    expect(existsSync(MANIFEST), '没有 dist/.vite/manifest.json：先运行 npm run build').toBe(true);
+    // 是哪几个文件，照记录（src/fonts/fonts.json）来，不在这里另写一遍名字：记录对不对由 tests/fonts/font-files.test.ts 查
+    const committed = committedFonts();
+    expect(committed.length).toBeGreaterThanOrEqual(3);
+    const site = readBuiltSite();
+    const built = builtFonts(site, committed);
+    expect(built.problems).toEqual([]);
+    expect(Object.keys(site.fonts)).toHaveLength(committed.length);
+    expect(built.files.map((item) => item.file)).toEqual(committed.map((item) => item.file));
+    // 一打开就下载的（index.html 里预先声明了的）：正好是样式表里不带 unicode-range 的那几个——楷体和头一个宋体文件
+    expect(built.files.filter((item) => item.first).map((item) => item.file)).toEqual(committed.filter((item) => !item.range).map((item) => item.file));
+    expect(built.files.filter((item) => item.first).map((item) => item.file)).toEqual(['yanlu-kai.woff2', 'yanlu-song.woff2']);
+    // 大小量的是 dist/ 里的文件；哪几个算首次打开要下载的、各归哪一站，照记录（宋体按站拆开以后按站分开算）
+    const sized = built.files.map(({ file, bytes }) => {
+      const record = committed.find((item) => item.file === file);
+      return { file, bytes, first: record?.first ?? false, stop: record?.stop ?? null };
+    });
+    const report = fontReport(sized);
+    const where = built.files.map((item) => `${item.file} → ${item.built}${item.first ? '（index.html 里预先声明了，一打开就下载）' : '（用到时才下载）'}`);
+    console.log(['构建出来的网站带的字体有多大（.woff2 文件自己的字节数，不另外压缩）', ...report.lines.map((line) => `  ${line}`), ...where.map((line) => `  ${line}`)].join('\n'));
+    for (const warn of report.warns) console.warn(`[check:size] 快到上限了：${warn}`);
+    expect(report.fails).toEqual([]);
+  });
+
+  it(`构建出来的样式表里：带虚线的词那道线没有被合回一句的写法；@container 至多 ${CONTAINER_MAX} 处、cqw 至多 ${CQW_MAX} 处；没有指着别的网站的地址`, () => {
+    const site = readBuiltSite();
+    expect(Object.keys(site.sheets).length).toBeGreaterThan(0);
+    expect(builtStyleProblems(site.sheets)).toEqual([]);
+    // index.html 里的样式表和程序也都是网站自己的
+    const addresses = [...site.html.replace(/<!--[\s\S]*?-->/g, '').matchAll(/\s(?:href|src)\s*=\s*["']([^"']*)["']/g)].map((match) => match[1]);
+    expect(addresses.length).toBeGreaterThan(3);
+    expect(addresses.filter((address) => /^[a-z][a-z0-9+.-]*:|^\/\//i.test(address)), 'index.html 里指着别的网站的地址').toEqual([]);
+  });
+});
+
+describe('字体带得不对的时候这里通不过（用编出来的网页和样式表，走的是同一条路）', () => {
+  const COMMITTED: CommittedFont[] = [
+    { file: 'yanlu-kai.woff2', sha256: 'k', range: false, first: true, stop: null },
+    { file: 'yanlu-song.woff2', sha256: 's', range: false, first: true, stop: null },
+    { file: 'yanlu-song-more.woff2', sha256: 'm', range: true, first: false, stop: null },
+  ];
+  const FONTS = { 'assets/kai-1.woff2': { bytes: 50_000, sha256: 'k' }, 'assets/song-2.woff2': { bytes: 240_000, sha256: 's' }, 'assets/more-3.woff2': { bytes: 180_000, sha256: 'm' } };
+  const RANGE = ';unicode-range:U+A9,U+2014';
+  const face = (family: string, file: string, rest = ''): string => `@font-face{font-family:${family};src:url(./${file})format("woff2");font-weight:400;font-style:normal;font-display:swap${rest}}`;
+  const SHEET = [face('Yanlu Kai', 'kai-1.woff2'), face('Yanlu Song', 'song-2.woff2'), face('Yanlu Song', 'more-3.woff2', RANGE), '.a{color:red}'].join('');
+  const link = (file: string, rest = ' crossorigin'): string => `<link rel="preload" href="./assets/${file}" as="font" type="font/woff2"${rest} />`;
+  const HTML = `<html><head>${link('kai-1.woff2')}${link('song-2.woff2')}<link rel="stylesheet" crossorigin href="./assets/index.css"></head></html>`;
+  const site = (change: Partial<BuiltSite> = {}): BuiltSite => ({ html: HTML, sheets: { 'assets/index.css': SHEET }, fonts: FONTS, ...change });
+  const sheet = (css: string): Partial<BuiltSite> => ({ sheets: { 'assets/index.css': css } });
+
+  it('都对：没有话说，前两个是一打开就下载的', () => {
+    const built = builtFonts(site(), COMMITTED);
+    expect(built.problems).toEqual([]);
+    expect(built.files).toEqual([
+      { file: 'yanlu-kai.woff2', built: 'assets/kai-1.woff2', bytes: 50_000, first: true },
+      { file: 'yanlu-song.woff2', built: 'assets/song-2.woff2', bytes: 240_000, first: true },
+      { file: 'yanlu-song-more.woff2', built: 'assets/more-3.woff2', bytes: 180_000, first: false },
+    ]);
+  });
+
+  it('预先声明的和样式表里的成了两个文件（同一个字体有两份）：通不过', () => {
+    const problems = builtFonts(site({ html: HTML.replace('kai-1.woff2', 'kai-9.woff2'), fonts: { ...FONTS, 'assets/kai-9.woff2': { bytes: 50_000, sha256: 'k' } } }), COMMITTED).problems;
+    expect(problems).toContain('yanlu-kai.woff2 在 dist/ 里有两份：assets/kai-1.woff2 和 assets/kai-9.woff2（同一个字体会下载两遍）');
+    expect(problems).toContain('样式表里一打开就要用的 assets/kai-1.woff2 没有在 index.html 里预先声明');
+  });
+
+  it('预先声明少了 crossorigin、把第三个文件也预先声明了、少声明了一个：各有一句；写在注释里的不算声明了', () => {
+    expect(builtFonts(site({ html: HTML.replace(link('kai-1.woff2'), link('kai-1.woff2', '')) }), COMMITTED).problems).toEqual(['index.html 里预先声明的 ./assets/kai-1.woff2没有 crossorigin：浏览器取来的这一份样式表用不上，会再取一遍']);
+    expect(builtFonts(site({ html: HTML.replace('</head>', `${link('more-3.woff2')}</head>`) }), COMMITTED).problems).toHaveLength(1);
+    expect(builtFonts(site({ html: HTML.replace(link('song-2.woff2'), '') }), COMMITTED).problems).toEqual(['样式表里一打开就要用的 assets/song-2.woff2 没有在 index.html 里预先声明']);
+    expect(builtFonts(site({ html: HTML.replace(link('song-2.woff2'), `<!-- ${link('song-2.woff2')} -->`) }), COMMITTED).problems).toHaveLength(1);
+  });
+
+  it('dist/ 里的字体不是放进仓库的那一个、少了一个、font-display 不是 swap、第三个文件没带 unicode-range、指着别的网站：通不过', () => {
+    expect(builtFonts(site({ fonts: { ...FONTS, 'assets/kai-1.woff2': { bytes: 50_000, sha256: 'x' } } }), COMMITTED).problems).toContain('dist/ 里的 assets/kai-1.woff2 不是放进仓库的字体文件（记号对不上）');
+    const two = { 'assets/kai-1.woff2': FONTS['assets/kai-1.woff2'], 'assets/song-2.woff2': FONTS['assets/song-2.woff2'] };
+    expect(builtFonts(site({ ...sheet(SHEET.replace(face('Yanlu Song', 'more-3.woff2', RANGE), '')), fonts: two }), COMMITTED).problems).toContain('放进仓库的 yanlu-song-more.woff2 不在 dist/ 里：页面没有用上它');
+    expect(builtFonts(site(sheet(SHEET.replace('font-display:swap', 'font-display:block'))), COMMITTED).problems.some((line) => line.includes('应该是 swap'))).toBe(true);
+    expect(builtFonts(site(sheet(SHEET.replace(RANGE, ''))), COMMITTED).problems.some((line) => line.includes('unicode-range'))).toBe(true);
+    expect(builtFonts(site(sheet(SHEET.replace('url(./kai-1.woff2)', 'url(https://fonts.example/kai.woff2)'))), COMMITTED).problems.some((line) => line.includes('指着别的网站'))).toBe(true);
+  });
+
+  it('构建出来的样式表里，带虚线的词那道线合成了一句、@container 和 cqw 多了、地址指着别的网站：通不过；分开写的不算', () => {
+    const apart = '.note-term{text-decoration-line:underline;text-decoration-style:dotted;-webkit-text-decoration-color:var(--color-accent);text-decoration-color:var(--color-accent)}a{text-decoration:none}';
+    expect(builtStyleProblems({ 'a.css': apart })).toEqual([]);
+    const folded = builtStyleProblems({ 'a.css': '.note-term{-webkit-text-decoration:underline dotted var(--color-accent);text-decoration:underline dotted var(--color-accent)}' });
+    expect(folded).toHaveLength(2);
+    expect(folded[0]).toContain('Safari 26.2 以前这道线会没有');
+    const tooMany = Array.from({ length: CONTAINER_MAX + 1 }, (_, i) => `@container pane (min-width:${i}px){.a{width:1cqw}}`).join('');
+    expect(builtStyleProblems({ 'a.css': tooMany })).toEqual([
+      `构建出来的样式表里 @container 有 ${CONTAINER_MAX + 1} 处，最多 ${CONTAINER_MAX} 处（iPadOS 15 不认，写在里面的东西老平板上等于没有）`,
+      `构建出来的样式表里 cqw 有 ${CONTAINER_MAX + 1} 处，最多 ${CQW_MAX} 处（iPadOS 15 不认）`,
+    ]);
+    const addresses = '.a{background:url(https://example.com/a.png)}.b{background:url("data:image/svg+xml;utf8,<svg/>")}.c{background:url(./c.png)}';
+    expect(builtStyleProblems({ 'a.css': addresses })).toEqual(['a.css 里 .a 的 background 指着别的网站：https://example.com/a.png']);
   });
 });
 

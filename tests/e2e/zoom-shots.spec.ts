@@ -17,7 +17,7 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
 import type { StageTier } from '../../src/stage/types';
-import { expectRealTable, headingsOf, openFigureWithTable, realUrl, scrollToSection, stagePane, twoFrames } from './helpers';
+import { expectRealTable, headingsOf, openFigureWithTable, realUrl, scrollToSection, shoot, stagePane, twoFrames } from './helpers';
 
 const env = (globalThis as { process?: { env: Record<string, string | undefined> } }).process?.env ?? {};
 const DIR = env.SHOTS_DIR ?? 'tests/shots/zoom';
@@ -121,7 +121,7 @@ test('宽屏 1440×900：第 3、第 5 小节，从近到远各拍一排', async
       await expect(pane).toHaveAttribute('data-stage-section', heading);
       await expectRealTable(page, tier);
       const file = `zoom-${found.stopId}-${n}-${String(wantKm).padStart(2, '0')}km.png`;
-      await page.screenshot({ path: `${DIR}/${file}`, clip: box });
+      await shoot(page, { path: `${DIR}/${file}`, clip: box });
       shots.push({ file, wantKm, gotKm: gotM / 1000 });
       console.log(`“${heading}” D ${wantKm} 公里（实际 ${(gotM / 1000).toFixed(2)}）：${DIR}/${file}`);
     }

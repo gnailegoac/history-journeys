@@ -1,5 +1,6 @@
 // 文件大小的上限：每个数只在这里写一次。校验规则（sceneRules.ts 的规则 16、17、18）、拍定格图的工具、
-// 先画好地面的工具、查构建结果有多大的测试（tests/build/dist-size.test.ts）都从这里取，不各记一遍。
+// 先画好地面的工具、做字体的工具和查字体文件的测试（tests/fonts/font-files.test.ts）、
+// 查构建结果有多大的测试（tests/build/dist-size.test.ts）都从这里取，不各记一遍。
 // 一个画面的三角形数、画几批这两个上限不是文件大小，写在 tests/stage/support/budgets.ts。
 //
 // 照这些数查大小的函数也在这里。全是算数：不读磁盘，不压缩，不依赖测试框架；
@@ -23,6 +24,18 @@ export const PICTURE_EDGE_MAX = 2048;
 /** 先画好的颜色压成 JPEG 以后，和原来比的清晰度（psnr，分贝）最低多少。 */
 export const COLOUR_PSNR_MIN = 40;
 
+// ---------------------------------------------------------------- 随站的字体
+
+/**
+ * 首次打开网站要下载的字体（楷体和头一个宋体文件；宋体按站拆开以后，再加上这一站自己的那个）合计最大多少字节：450 KB。
+ * 字体的大小都按放进仓库的 .woff2 文件自己的字节数算（它本身就是压缩过的），不另外压。
+ */
+export const FONT_FIRST_MAX_BYTES = 450 * 1024;
+/** 任何一个字体文件最大多少字节：300 KB。 */
+export const FONT_FILE_MAX_BYTES = 300 * 1024;
+/** 一个字体文件过了这么多字节，提醒一句（还算合格）：280 KB。到了这条线，就把宋体按站拆开，不抬上限。 */
+export const FONT_FILE_WARN_BYTES = 280 * 1024;
+
 // ---------------------------------------------------------------- 程序自己的下载量
 
 /** 沙盘程序（摆立体的沙盘时才下载的那几块）压缩以后最大多少字节；过了多少提醒一句。 */
@@ -33,7 +46,9 @@ export const PAGE_GZIP_MAX = 95_000;
 export const PAGE_GZIP_WARN = 90_000;
 /** 样式表压缩以后最大多少字节；过了多少提醒一句。 */
 export const STYLE_GZIP_MAX = 15_000;
-export const STYLE_GZIP_WARN = 10_000;
+// 提醒的线原来是 10,000。随站的字体里，点开才下载的那个文件有哪些字要逐个列在样式表里（每个字压缩以后约三个字节），
+// 字越写越多，这一截跟着长：线挪到 13,000，免得每次都提醒。上限没有动。
+export const STYLE_GZIP_WARN = 13_000;
 /** 整个 dist/ 最大多少字节：900 MB（发布的地方最多放 1 GB）；过了 500 MB 提醒一句。 */
 export const DIST_MAX_BYTES = 900 * 1024 * 1024;
 export const DIST_WARN_BYTES = 500 * 1024 * 1024;
@@ -41,6 +56,8 @@ export const DIST_WARN_BYTES = 500 * 1024 * 1024;
 /** 构建清单里，页面的入口和沙盘程序各叫什么（清单的键是源文件的路径）。 */
 export const PAGE_ENTRY = 'index.html';
 export const ENGINE_ENTRY = 'src/stage/three/engine.ts';
+/** 沙盘用到的文件（地形文件、先画好的地面、定格图）的网址那一块在清单里叫什么。它要用到时才下载，不能进页面那一块。 */
+export const FILE_URLS_ENTRY = 'src/domain/sceneFileUrls.ts';
 
 // ---------------------------------------------------------------- 一个数查下来怎么样
 
@@ -91,6 +108,50 @@ export function tableFiles(bytes: { terrain: number; colour: number; fields: num
   return { total, verdict: verdict(total, TABLE_FILES_MAX_BYTES, TABLE_FILES_MAX_BYTES * TABLE_FILES_WARN_SHARE) };
 }
 
+// ---------------------------------------------------------------- 随站的字体
+
+/**
+ * 一个字体文件：叫什么，多少字节，是不是不用点开就要的（first），只归哪一站（stop：宋体按站拆开以后才有；
+ * 大家共用的不写，或者写 null）。
+ */
+export interface FontFileSize {
+  file: string;
+  bytes: number;
+  first: boolean;
+  stop?: string | null;
+}
+
+/**
+ * 字体文件对着上限查一遍：每个文件一行，再加首次打开要下载的合计和全部合计（全部合计没有上限，只是印出来）。
+ * 首次打开要下载的：first 是 true、大家共用的那几个（楷体和头一个宋体文件）。宋体按站拆开以后，打开一站还要这一站
+ * 自己的那一个（first 是 true、stop 是这一站）；一位读者一次只打开一站，所以按站分开算，取最大的那一站——
+ * 不是把各站自己的文件都加在一起（那样站越多越大，其实没有谁要下载那么多）。
+ */
+export function fontReport(files: FontFileSize[]): SizeReport {
+  const report: SizeReport = { lines: [], fails: [], warns: [] };
+  for (const { file, bytes } of files) {
+    const share = Math.round((bytes / FONT_FILE_MAX_BYTES) * 100);
+    report.lines.push(`${file}：${withCommas(bytes)} 字节，上限 ${withCommas(FONT_FILE_MAX_BYTES)}（用了 ${share}%）`);
+    const result = verdict(bytes, FONT_FILE_MAX_BYTES, FONT_FILE_WARN_BYTES);
+    if (result === 'fail') report.fails.push(`字体文件 ${file} 有 ${withCommas(bytes)} 字节，超过了上限 ${withCommas(FONT_FILE_MAX_BYTES)}`);
+    if (result === 'warn') report.warns.push(`字体文件 ${file} 有 ${withCommas(bytes)} 字节，快到上限 ${withCommas(FONT_FILE_MAX_BYTES)} 了（过了 ${withCommas(FONT_FILE_WARN_BYTES)} 就提醒）：该把宋体按站拆开了（打开以前还要做什么，写在 tests/support/fontTool.ts 的 SPLIT_SONG_BY_STOP 上面）`);
+  }
+  const bytesOf = (list: FontFileSize[]): number => list.reduce((sum, item) => sum + item.bytes, 0);
+  const common = files.filter((item) => item.first && !item.stop);
+  // 各站自己的、不用点开就要的文件，按站合起来，取最大的一站（一样大时取先碰到的）
+  const byStop = new Map<string, FontFileSize[]>();
+  for (const item of files) if (item.first && item.stop) byStop.set(item.stop, [...(byStop.get(item.stop) ?? []), item]);
+  let largest: { stop: string; files: FontFileSize[]; bytes: number } | null = null;
+  for (const [stop, own] of byStop) if (!largest || bytesOf(own) > largest.bytes) largest = { stop, files: own, bytes: bytesOf(own) };
+  const firstBytes = bytesOf(common) + (largest?.bytes ?? 0);
+  const firstShare = Math.round((firstBytes / FONT_FIRST_MAX_BYTES) * 100);
+  const firstNames = common.map((item) => item.file).join('、') + (largest ? `，加上自己的文件最大的一站（${largest.stop}）的 ${largest.files.map((item) => item.file).join('、')}` : '');
+  report.lines.push(`首次打开要下载的字体（${firstNames}）：${withCommas(firstBytes)} 字节，上限 ${withCommas(FONT_FIRST_MAX_BYTES)}（用了 ${firstShare}%）`);
+  if (firstBytes > FONT_FIRST_MAX_BYTES) report.fails.push(`首次打开要下载的字体合计 ${withCommas(firstBytes)} 字节，超过了上限 ${withCommas(FONT_FIRST_MAX_BYTES)}`);
+  report.lines.push(`全部字体文件合计：${withCommas(files.reduce((sum, item) => sum + item.bytes, 0))} 字节（没有上限）`);
+  return report;
+}
+
 // ---------------------------------------------------------------- 构建出来的程序
 
 /** 构建清单（dist/.vite/manifest.json）里的一项：一个源文件构建成了哪个文件，它又引入了谁。 */
@@ -105,6 +166,8 @@ export interface BuildChunk {
   dynamicImports?: string[];
   /** 跟着这一项一起下载的样式表，相对 dist/。 */
   css?: string[];
+  /** 这一项的程序里写着网址的图片和别的文件，相对 dist/。 */
+  assets?: string[];
 }
 
 export type BuildManifest = Record<string, BuildChunk>;

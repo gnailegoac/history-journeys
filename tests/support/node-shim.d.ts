@@ -19,4 +19,33 @@ declare module 'node:zlib' {
   export function deflateSync(data: Uint8Array, options?: { level?: number }): Uint8Array;
   export function inflateSync(data: Uint8Array): Uint8Array;
   export function gzipSync(data: Uint8Array, options?: { level?: number }): Uint8Array;
+  /** 解开一段 Brotli 压缩的数据（WOFF2 字体文件里用的就是它）。 */
+  export function brotliDecompressSync(data: Uint8Array): Uint8Array;
+}
+
+// 做字体的工具（tests/support/fontTool.ts）另外要用的三样。
+declare module 'node:crypto' {
+  /** 只用到 SHA-256：createHash('sha256').update(字节).digest('hex') 给出 64 个字符。 */
+  export function createHash(algorithm: 'sha256'): { update(data: Uint8Array): { digest(encoding: 'hex'): string } };
+}
+
+declare module 'node:buffer' {
+  /** Node 自己的那种字节数组。裁剪字体的库只认它，不认普通的 Uint8Array，所以交给它之前要转一下。 */
+  export const Buffer: { from(data: Uint8Array): Uint8Array };
+}
+
+// 裁剪字体的库（subset-font）自己没有带类型声明。只声明用到的这一个函数和这几个选项。
+declare module 'subset-font' {
+  export interface SubsetFontOptions {
+    /** 做成什么格式。 */
+    targetFormat?: 'sfnt' | 'woff' | 'woff2';
+    /** 名称表里另外要留下的几条（编号）。 */
+    preserveNameIds?: number[];
+    /** 只留这几种排版功能（四个字符的名字）；不写是全留。 */
+    keepFeatures?: string[];
+    /** 去掉提示信息。 */
+    noHinting?: boolean;
+  }
+  /** font 要是 Node 的 Buffer；text 是要留下的字。 */
+  export default function subsetFont(font: Uint8Array, text: string, options?: SubsetFontOptions): Promise<Uint8Array>;
 }

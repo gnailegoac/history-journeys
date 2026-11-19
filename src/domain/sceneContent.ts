@@ -4,8 +4,9 @@
 //
 // 场景文件只用 import.meta.glob<StopScene>(...) 读，不直接 import 那个 JSON
 // （直接 import 时坐标会被当成 number[]，对不上 LngLat）；两份清单也是这样读。
-// 地形文件用 ?url 取网址，要用的时候才去下载。图片的网址打包时就知道，直接带在页面的程序里（一个网址几十个字节），
-// 图片本身仍然是用到时才下载。
+// 地形文件、先画好的地面、定格图的网址打包时就知道，但是不带在页面一打开就下载的那一块里
+// （一座沙盘十几二十个网址，沙盘越多越长）：它们在 sceneFileUrls.ts 里，这里用动态 import 取，
+// 打开人物页或者一站时才下载，和场景文件、清单一起取，不排队。文件本身仍然是用到时才下载。
 //
 // 工具做的两样可以没有：还没做的沙盘照样摆得出来（地面打开时现画，没有定格图）。清单在、它写的图片却不齐时，
 // 这一样就当作没有——宁可不用，也不拿半套去用。它们齐不齐、对不对得上，由 npm run validate 的规则 17、18 管。
@@ -19,12 +20,24 @@ import type { Figure } from './types';
 const ROOT = '/content/figures';
 
 const sceneFiles = import.meta.glob<StopScene>('/content/figures/*/scenes/*.json', { import: 'default' });
-const terrainFiles = import.meta.glob<string>('/content/figures/*/scenes/*.terrain.bin', { query: '?url', import: 'default' });
-// stills/ 里只取图片（人物页的一张，每一小节的）；每一站的清单另读。
-const stillUrls = import.meta.glob<string>('/content/figures/*/stills/*.{jpg,jpeg,png,webp,svg}', { query: '?url', import: 'default', eager: true });
 const stillManifests = import.meta.glob<StillManifest>('/content/figures/*/stills/*.json', { import: 'default' });
-const bakedUrls = import.meta.glob<string>('/content/figures/*/baked/*.{jpg,png}', { query: '?url', import: 'default', eager: true });
 const bakedManifests = import.meta.glob<BakedGroundManifest>('/content/figures/*/baked/*.json', { import: 'default' });
+
+/** 文件的网址那三张表（地形文件、先画好的地面、stills/ 里的图片）。第一次叫它时才下载；没取到的话，下一次叫它再取。 */
+const loadFileUrls = () => import('./sceneFileUrls');
+
+/**
+ * 从一张“路径 → 怎么读”的表里马上去读这一项（没有这一项就什么也不读），返回只有这一项的表：
+ * 再读它，给的是已经在路上的那一份，不读第二遍。
+ */
+function started<T>(table: Record<string, () => Promise<T>>, path: string): Record<string, () => Promise<T>> {
+  const load = table[path];
+  if (!load) return {};
+  const reading = load();
+  // 这一份要是没读出来，而别的先出了错、没有人来接它：不让浏览器另报一次“未处理的错误”
+  reading.catch(() => {});
+  return { [path]: () => reading };
+}
 
 /**
  * 一站的沙盘读出来的样子：就是 StopTable（src/stage/types.ts）里由内容决定的那几样，字段的意思见那里。
@@ -52,8 +65,17 @@ export function hasStopTable(figureId: string, stopId: string): boolean {
  * 一站的沙盘：场景和地形文件的网址；做过先画好的地面、每一小节的定格图的，一并带上。
  * 这一站还没有场景文件、或者场景写的地形文件不在时返回 null。
  */
-export function loadStopTable(figureId: string, stopId: string): Promise<StopTableContent | null> {
-  return pickStopTable(sceneFiles, terrainFiles, figureId, stopId, { bakedManifests, bakedUrls, stillManifests, stillUrls });
+export async function loadStopTable(figureId: string, stopId: string): Promise<StopTableContent | null> {
+  // 没有场景文件的站，什么也不用取
+  if (!hasStopTable(figureId, stopId)) return null;
+  const dir = `${ROOT}/${figureId}`;
+  // 四样一起去取，不排队：场景，两份清单，网址的那三张表。网址到了，就能照场景和清单挑出这一站要的那几个
+  const scenes = started(sceneFiles, `${dir}/scenes/${stopId}.json`);
+  const baked = started(bakedManifests, `${dir}/baked/${stopId}.json`);
+  const stills = started(stillManifests, `${dir}/stills/${stopId}.json`);
+  const urls = await loadFileUrls();
+  const terrains = Object.fromEntries(Object.entries(urls.terrain).map(([path, url]) => [path, () => Promise.resolve(url)]));
+  return pickStopTable(scenes, terrains, figureId, stopId, { bakedManifests: baked, bakedUrls: urls.baked, stillManifests: stills, stillUrls: urls.stills });
 }
 
 /**
@@ -129,7 +151,7 @@ export async function loadRouteStill(
 ): Promise<{ url: string; width: number; height: number; alt: string; caption: string; note: string; credit: string } | null> {
   const still = figure.routeStill;
   if (!still) return null;
-  const url = stillUrls[`${ROOT}/${figure.id}/stills/${still.file}`];
+  const url = (await loadFileUrls()).stills[`${ROOT}/${figure.id}/stills/${still.file}`];
   if (!url) return null;
   return { url, width: still.width, height: still.height, alt: still.alt, caption: still.caption, note: still.note, credit: still.credit };
 }

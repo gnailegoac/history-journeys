@@ -23,6 +23,7 @@ import { styleFor } from '../../src/stage/three/style';
 import type { StageInsets } from '../../src/stage/types';
 import { realScene, realSceneKeys } from './support/realScenes';
 import type { RealScene } from './support/realScenes';
+import { STANDARD_PANES } from './support/standardPanes';
 import { sectionStrips } from './support/stripSizes';
 
 interface Pane {
@@ -34,12 +35,11 @@ interface Pane {
 
 const leave = (top: number, bottom: number): StageInsets => ({ top, right: 0, bottom, left: 0 });
 
-/** 三种标准的画面：每一节的题签在这上面必须都摆得下（docs/data-spec.md）。 */
-const STANDARD: Pane[] = [
-  { name: '940 × 900', size: { width: 940, height: 900 }, insets: leave(62, 130) },
-  { name: '584 × 768', size: { width: 584, height: 768 }, insets: leave(62, 130) },
-  { name: '768 × 573', size: { width: 768, height: 573 }, insets: leave(54, 131) },
-];
+/**
+ * 三种标准的画面：每一节的题签在这上面必须都摆得下（docs/data-spec.md）。
+ * 数写在 ./support/standardPanes.ts：浏览器测试 tests/e2e/pane-boxes.spec.ts 拿同一份到真的页面上去量。
+ */
+const STANDARD: Pane[] = STANDARD_PANES.map(({ name, size, insets }) => ({ name, size, insets }));
 
 /** 只报告的画面。 */
 const REPORTED: Pane[] = [

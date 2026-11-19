@@ -56,6 +56,28 @@ export async function stageReadout(page: Page): Promise<StageReadout | null> {
   return page.evaluate(() => (window as Window & { __stageReadout?: () => StageReadout }).__stageReadout?.() ?? null);
 }
 
+/**
+ * 等随站的字体都到了、页面也照着排好了。字体文件比页面晚到一步的那一会儿，字是设备自带的字体顶着的
+ *（样式里写的是 font-display: swap）：这时候拍的照片、量的字宽，都不是读者平常看到的样子。
+ * 页面上新出来的字要是用到了还没取的那个字体文件（点开小注、原文、凭据），浏览器这时才去取，所以多等几轮，
+ * 到“没有正在取的字体”为止。
+ */
+export async function fontsReady(page: Page): Promise<void> {
+  await page.evaluate(async () => {
+    for (let i = 0; i < 5; i++) {
+      await document.fonts.ready;
+      await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+      if (document.fonts.status === 'loaded') return;
+    }
+  });
+}
+
+/** 拍一张照：先等字体到齐（见 fontsReady），再拍。给人看的照片都从这里拍。 */
+export async function shoot(page: Page, options: Parameters<Page['screenshot']>[0]): Promise<void> {
+  await fontsReady(page);
+  await page.screenshot(options);
+}
+
 /** 等页面画过两帧（沙盘是有变化才画的，约好的一帧画完，指北和比例尺也就跟着改了）。 */
 export async function twoFrames(page: Page): Promise<void> {
   await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));

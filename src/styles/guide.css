@@ -24,8 +24,8 @@
   border-radius: var(--radius);
   background: var(--color-accent);
   color: var(--color-on-accent);
-  font-family: var(--font-ui);
-  font-size: var(--size-ui);
+  font-family: var(--font-kai);
+  font-size: var(--size-ask);
 }
 
 .guide-panel {
@@ -40,7 +40,7 @@
   border-top: 3px solid var(--color-accent);
   background: var(--color-paper-raised);
   box-shadow: 0 -4px 16px var(--color-shadow);
-  font-family: var(--font-ui);
+  font-family: var(--font-song);
   font-size: var(--size-note);
   line-height: var(--leading-note);
 }
@@ -56,6 +56,7 @@
 }
 
 .guide-head h2 {
+  font-family: var(--font-kai);
   font-size: var(--size-heading);
   font-weight: var(--weight-heading);
 }
@@ -128,7 +129,8 @@
   border-radius: var(--radius);
   background: var(--color-accent);
   color: var(--color-on-accent);
-  font-size: var(--size-ui);
+  font-family: var(--font-kai);
+  font-size: var(--size-ask);
 }
 
 .guide-form textarea:disabled {

@@ -9,15 +9,39 @@
 html {
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
+  /* 两套字体都只带了一种粗细、一种正的写法：不许浏览器自己把字描粗、歪成斜体。 */
+  font-synthesis: none;
+  /* 全角的标点（，。：；“”（）《》）个个占满一个字宽，两个挨着也不挤紧：Chrome 平常会把挨着的两个挤紧，
+     iPad 上的 Safari 不会，同一段话在两边会断在不同的地方。
+     随站的字体画的字，靠的不是这一句：那两套字体里没有带把标点挤窄的排版功能，浏览器想挤也挤不了
+     （在 Chromium 里量过，这一句写不写都是两个字宽；由 tests/fonts/font-files.test.ts 守着）。
+     这一句管的是随站的字体还没到、设备自带的字体顶着的那一会儿：那些字体里常有那几项功能。所以不要当成没用的删掉。
+     不认识这一句的浏览器（Safari、Firefox）本来就不挤，跳过它。 */
+  text-spacing-trim: space-all;
 }
 
 body {
   margin: 0;
   background: var(--color-paper);
   color: var(--color-ink);
-  font-family: var(--font-ui);
+  font-family: var(--font-song);
   font-size: var(--size-ui);
   line-height: 1.6;
+}
+
+/* 没有粗体，也没有斜体：浏览器给标题这些东西自带的加粗都去掉。
+   要显眼，靠楷体和宋体的分别、字的大小和红色的记号。 */
+h1,
+h2,
+h3,
+h4,
+b,
+strong,
+th,
+dt,
+summary {
+  font-weight: 400;
+  font-style: normal;
 }
 
 h1,
@@ -96,7 +120,7 @@ button:disabled {
   border-radius: var(--radius);
   background: var(--color-paper);
   color: var(--color-ink-soft);
-  font-family: var(--font-ui);
+  font-family: var(--font-song);
   font-size: var(--size-small);
   font-weight: 400;
   line-height: 1.6;
@@ -111,14 +135,14 @@ button:disabled {
 }
 
 .page-title {
-  font-family: var(--font-reading);
+  font-family: var(--font-kai);
   font-size: var(--size-title);
   font-weight: var(--weight-heading);
   line-height: 1.35;
 }
 
 .section-heading {
-  font-family: var(--font-reading);
+  font-family: var(--font-kai);
   font-size: var(--size-heading);
   font-weight: var(--weight-heading);
   line-height: 1.5;

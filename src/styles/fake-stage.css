@@ -15,7 +15,6 @@
   padding: var(--gap-2);
   background: var(--color-paper-sunk);
   color: var(--color-ink-soft);
-  font-family: var(--font-ui);
   font-size: var(--size-small);
   text-align: center;
 }
@@ -51,7 +50,6 @@
   padding: var(--gap-2);
   background: var(--color-accent-wash);
   color: var(--color-ink-soft);
-  font-family: var(--font-ui);
   font-size: var(--size-small);
   text-align: center;
 }

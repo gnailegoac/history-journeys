@@ -52,9 +52,8 @@ jobs:
           cache: npm
       - name: 安装依赖
         run: npm ci
-      # 这台机器上没有页面字体表里列的任何一种中文字体。装上表里列着的 Noto 那一套（题签用 Noto Serif CJK SC）：
-      # 浏览器测试量到的字，就和 Linux、安卓上的读者看到的是同一套；题签的大小才和测试里算的对得上
-      # （竖写的字要字体自己带竖排的尺寸，临时顶替的字体没有）。
+      # 页面上的字都用随站的两套字体画（第 2 步起）。这台机器上没有任何中文字体，装上 Noto 那一套，
+      # 只在随站的字体还没取到的那一小会儿顶替：测试里有一项故意拖住字体文件，看这时候按钮和标题上有没有字。
       - name: 安装中文字体
         run: sudo apt-get update && sudo apt-get install -y fonts-noto-cjk
       - name: 安装 Chromium

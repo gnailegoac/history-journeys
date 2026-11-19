@@ -23,15 +23,15 @@ npm start
 |---|---|
 | `npm run typecheck` | 类型检查 |
 | `npm run validate` | 内容校验：按数据规格检查 `content/` 里的每位人物、每一站，把不合规格的地方逐条列出来 |
-| `npm test` | 单元测试 |
+| `npm test` | 单元测试；每座沙盘的验收（地面、镜头、题签、预算，先画好的地面和定格图旧不旧）；随站的字体够不够、对不对 |
 | `npm run build` | 构建，结果在 `dist/` |
-| `npm run check:size` | 查刚构建出来的 `dist/` 有多大（要先构建）：摆沙盘时才下载的沙盘程序、页面一打开就下载的程序和样式表、整个文件夹，超过上限就通不过，每次都印一张表 |
+| `npm run check:size` | 查刚构建出来的 `dist/` 有多大（要先构建）：摆沙盘时才下载的沙盘程序、页面一打开就下载的程序和样式表、随站的字体、整个文件夹，超过上限就通不过，每次都印一张表；顺带查随站的字体在构建出来的网站里带得对不对（正好是那三个文件，`index.html` 预先声明的和样式表里写的是同一个），构建出来的样式表里没有老平板读不懂的几种写法 |
 | `npm run check` | 上面五项依次跑一遍 |
-| `npm run test:e2e` | 浏览器端到端测试（第一次先运行 `npx playwright install chromium`）。页面的各项用不画沙盘的替身来测；另有几项用真的沙盘，看它摆不摆得出来、换不换得动小节、一个画面要画的东西在不在预算里 |
+| `npm run test:e2e` | 浏览器端到端测试（第一次先运行 `npx playwright install chromium`）。页面的各项用不画沙盘的替身来测；另有几项用真的沙盘，看它摆不摆得出来、换不换得动小节、一个画面要画的东西在不在预算里；还有一组在浏览器里把网站走一遍，看每一个字是不是随站的字体画的、有没有请求出了网站自己的地址、字体文件来得晚时按钮上有没有字（`tests/e2e/fonts.spec.ts`） |
 
-各种上限只写在两个地方：文件有多大（定格图、一座沙盘的文件、程序的下载量）在 `tests/content/budgetRules.ts`，一个画面的三角形数、画几批、贴图多大在 `tests/stage/support/budgets.ts`。
+各种上限只写在两个地方：文件有多大（定格图、一座沙盘的文件、随站的字体、程序的下载量）在 `tests/content/budgetRules.ts`，一个画面的三角形数、画几批、贴图多大在 `tests/stage/support/budgets.ts`。
 
-沙盘画得对不对要人看。先设环境变量 `REAL_SHOTS=1`，再运行 `npx playwright test tests/e2e/real-shots.spec.ts`，会用真的沙盘给人物页和有沙盘的那一站的每一小节各拍一张照，最后一节再拍一张点开“说明”的（电脑 1440×900、横着拿的平板 1024×768 和竖着拿的平板 768×1024 各一套），存在 `tests/shots/real/`（不进仓库）。想另存一套留着对比，再设 `SHOTS_DIR`（存到哪个文件夹）；想看减配的画质，再设 `TIER=reduced`（不设拍的是完整的画质）；想看只放定格图、不摆立体沙盘时的样子，设 `TIER=still`（这时只拍有沙盘的那一站的每一小节，不拍人物页和“说明”）。只拍一种窗口，命令后面加 `-g "1440"`（电脑）、`-g "横着"` 或 `-g "竖着"`（两种平板）。同样设了 `REAL_SHOTS=1`，运行 `npx playwright test tests/e2e/zoom-shots.spec.ts`，会在两个小节上把镜头从近拉到远拍一排，看模型跟着远近变的时候连不连得上，存在 `tests/shots/zoom/`。只看界面的照片同理：设 `UI_SHOTS=1`，运行 `npx playwright test tests/e2e/shots.spec.ts`，存在 `tests/shots/ui/`。
+沙盘画得对不对要人看。先设环境变量 `REAL_SHOTS=1`，再运行 `npx playwright test tests/e2e/real-shots.spec.ts`，会用真的沙盘给人物页和有沙盘的那一站的每一小节各拍一张照，最后一节再拍一张点开“说明”的（电脑 1440×900、横着拿的平板 1024×768 和竖着拿的平板 768×1024 各一套），存在 `tests/shots/real/`（不进仓库）。想另存一套留着对比，再设 `SHOTS_DIR`（存到哪个文件夹）；想看减配的画质，再设 `TIER=reduced`（不设拍的是完整的画质）；想看只放定格图、不摆立体沙盘时的样子，设 `TIER=still`（这时只拍有沙盘的那一站的每一小节，不拍人物页和“说明”）。只拍一种窗口，命令后面加 `-g "1440"`（电脑）、`-g "横着"` 或 `-g "竖着"`（两种平板）。页面别的几种状态（首页、点开的小注、原文、凭据、讲解员面板、还没写的一站、没有沙盘的一站、两种“没找到”）另有一条：`npx playwright test tests/e2e/state-shots.spec.ts`，用的是同样的几个环境变量，存在同一个文件夹。拍照之前都等随站的字体到齐。同样设了 `REAL_SHOTS=1`，运行 `npx playwright test tests/e2e/zoom-shots.spec.ts`，会在两个小节上把镜头从近拉到远拍一排，看模型跟着远近变的时候连不连得上，存在 `tests/shots/zoom/`。只看界面的照片同理：设 `UI_SHOTS=1`，运行 `npx playwright test tests/e2e/shots.spec.ts`，存在 `tests/shots/ui/`。
 
 ## 工具做出来的两样：先画好的地面，每一小节的定格图
 
@@ -56,6 +56,38 @@ npm start
 
 重做以后，把 `baked/`、`stills/` 里变了的文件和改动一起提交。文件不齐、对不上清单时，通不过的是 `npm run validate`（规则 17、18），办法一样。
 
+## 随站的字体
+
+网站自己带着两套字体，打开网页时不向别的网站要：楷体是霞鹜文楷 GB，宋体是 Noto Serif SC（思源宋体的谷歌发行版），都按 SIL 开放字体许可 1.1 版使用。只带网站用到的字，做成三个文件放在 `src/fonts/`，随仓库走，发布的流程不重新做；这些文件都不手改。哪些字归哪个文件、记录里记了什么，见 [docs/data-spec.md](docs/data-spec.md) 的“随站的字体”。页面上的字全用这两套：宋体排正文，楷体排标题、题签和按钮；怎么用、什么时候下载，见同一节的“页面怎么用这两套字体”。
+
+| 命令 | 做什么 |
+|---|---|
+| `npm run fonts` | 数出网站上显示的字，从原字体里裁出来，做成 `src/fonts/` 里的三个字体文件、样式表、记录和给页面用的一个小模块，并把四份许可全文照原样放进 `public/licences/`。字、原字体的说明和做法都没有变时不重做：说一声“已经是新的”，什么也不写；这时样式表、那个小模块或者哪一份字体的许可全文要是不在、被改过，它照记录把这一样重写（前两样用不到原字体）。做一遍几秒钟，不开浏览器 |
+| `FONTS_OUT=.cache/fonts-trial npm run fonts` | 试做：做出来的放到那个文件夹（相对项目的根目录；`.cache/` 不进仓库），不动 `src/fonts/` 和 `public/licences/`，不管新不新都做。再加 `FONTS_COMPARE=1`，另外印出宋体不留提示信息时有多大 |
+
+（`FONTS_OUT=…` 放在命令前面是 bash 的写法；PowerShell 里先写 `$env:FONTS_OUT = '.cache/fonts-trial'`，做完 `Remove-Item Env:FONTS_OUT`。）
+
+要真的重做（不是“已经是新的”），先把原字体放到 `.cache/fonts/`（这个文件夹不进仓库）。工具会核对它们的 SHA-256，对不上就停：
+
+| 放到 `.cache/fonts/` 里叫什么 | 是什么，从哪里取 | 字节数 | SHA-256 |
+|---|---|---|---|
+| `LXGWWenKaiGB-Regular.ttf` | 霞鹜文楷 GB 1.530 版：<https://github.com/lxgw/LxgwWenkaiGB/releases/download/v1.530/LXGWWenKaiGB-Regular.ttf> | 26,170,696 | `5561d48097d92e5ab99fe7b1459d381bbcdff533bfc479207b089c6860c3990e` |
+| `NotoSerifSC-Regular.otf` | Noto Serif SC 2.003 版：<https://github.com/notofonts/noto-cjk> 的 `Serif2.003` 这一版，`Serif/SubsetOTF/SC/NotoSerifSC-Regular.otf` | 11,625,800 | `e8f396decc1f0963a016a989c3d8852e863d1350996f573860a80767c83a1cd3` |
+| `lxgw-wenkai-gb-OFL.txt` | 霞鹜文楷 GB 的许可全文：它的仓库里 v1.530 这一版的 `OFL.txt` | 5,173 | `a8aa32c38a3402ba4e40fb6d39c913300dd4a0336290dce5c14e3a2f9308d092` |
+| `noto-serif-cjk-OFL.txt` | Noto Serif CJK 的许可全文：它的仓库里的 `Serif/LICENSE` | 4,301 | `6a73f9541c2de74158c0e7cf6b0a58ef774f5a780bf191f2d7ec9cc53efe2bf2` |
+
+工具自己不下载：要用的时候照这张表取来放好。裁剪用的是开发依赖 `subset-font`（`npm install` 就装上了，不随网站发）。
+
+现在的大小（2026-11-19，两站正文、一座沙盘）：`yanlu-kai.woff2` 55,988 字节（252 个字），`yanlu-song.woff2` 243,544 字节（1,003 个字），`yanlu-song-more.woff2` 185,848 字节（643 个字）。首次打开要下载的是前两个，合计 299,532 字节（上限 460,800）；一个文件的上限是 307,200，过了 286,720 提醒。
+
+忘了重做会怎样：正文、小注、场景文件或者界面上添了字体文件里没有的字，`npm test` 通不过，说出是哪个字、在哪里用的：
+
+- “……不在随站的字体里：运行 npm run fonts，再提交。”：照做，把 `src/fonts/` 里变了的文件和改动一起提交。
+
+查字体的测试里别的几处“运行 npm run fonts”也是照做就行（改了 `tests/support/fontTool.ts` 里原字体的说明或者做法；样式表、小模块、许可全文和记录对不上）。
+
+同一组检查（`tests/fonts/font-files.test.ts`）还守着几条写法上的规矩：界面上的字要原样写在程序里（不用转义、HTML 实体、`String.fromCharCode`、`Intl`、`toLocale` 打头的函数）；样式表的 `content:` 里不写字，不加粗，不用斜体，不用 Safari 15 读不懂的写法。换字体以前的页面还留着几处，在那个文件的 `PENDING` 里一处一处点了名，后面改到哪里就删到哪里。
+
 ## 内容在哪，怎么加一站
 
 内容都在 `content/figures/` 里，程序里不写内容。文件怎么放、正文怎么写、有哪些校验规则，见 [docs/data-spec.md](docs/data-spec.md)。
@@ -78,11 +110,14 @@ src/stage/           沙盘适配层：页面只认 types.ts 里的约定；地�
 src/guide/           答疑适配层（原型里是占位）
 src/app/ src/ui/     界面：首页、人物页、站点页、讲解员面板
 src/styles/          样式
+src/fonts/           随站的字体：三个字体文件、样式表、记录（都是工具做的，不手改）
+public/licences/     两套字体和两个程序库（React、three.js）的许可全文，随网站发
 tests/unit/          单元测试
+tests/fonts/         查随站的字体：网站上的字都在不在字体文件里，文件和记录对不对得上
 tests/stage/         沙盘程序的单元测试，以及拿真的场景文件做的验收（地面、镜头、三角形数和别的预算）
 tests/content/       内容校验器，以及它自己用的样本；文件大小的上限
 tests/build/         查构建出来的 dist/ 有多大
-tests/tools/         做先画好的地面、拍定格图的工具
+tests/tools/         做先画好的地面、拍定格图、做随站的字体的工具
 tests/e2e/           浏览器端到端测试
 tests/support/       几组测试共用的小工具和样本
 stage-dev.html       开发时单看一座沙盘的页面（不随网站发布）

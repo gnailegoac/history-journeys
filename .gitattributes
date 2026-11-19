@@ -4,3 +4,6 @@
 *.jpg binary
 *.png binary
 *.bin binary
+*.woff2 binary
+# 许可全文照原样放，一个字节也不动（测试拿它和原件比）
+public/licences/* -text

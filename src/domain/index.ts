@@ -1,5 +1,10 @@
 export * from './types';
+export * from './scene';
+export { frameCoords, farEdgePoint } from './sceneGeo';
+export type { FrameCoords } from './sceneGeo';
+export { sectionHeadings, existsAt, thingsAt, stripTexts, farSay, reliefSay, sectionInfo, sceneRegister } from './sceneText';
+export { hasStopTable, loadStopTable, loadRouteStill } from './sceneContent';
 export { loadFigureCards, loadFigure, loadStop } from './content';
-export { toMapRoute, neighbours } from './route';
+export { neighbours } from './route';
 export { parseBody, annotate, bodyLength, BodyFormatError } from './body';
 export type { RawBlock, RawSection } from './body';

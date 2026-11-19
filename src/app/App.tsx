@@ -1,4 +1,4 @@
-// 三种页面的分派。人物页和它的各站共用一个版面（FigureLayout），地图在其中一直挂着。
+// 三种页面的分派。人物页和它的各站共用一个版面（FigureLayout），沙盘栏在其中一直挂着。
 
 import { useEffect } from 'react';
 import { FigureLayout } from '../ui/FigureLayout';

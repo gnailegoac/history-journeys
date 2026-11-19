@@ -1,0 +1,106 @@
+{
+  "stopId": "c",
+  "style": "song-qinglv",
+  "credits": ["地形：校验器用的假数据。"],
+  "frame": {
+    "center": [31, 112],
+    "westM": 0,
+    "eastM": 1000,
+    "northM": 1000,
+    "southM": 1000,
+    "datumM": 40,
+    "relief": { "kind": "uniform", "times": 6, "curve": 0.6 }
+  },
+  "terrain": {
+    "class": "real",
+    "basis": "山的位置照高程网格。",
+    "sourceIds": [],
+    "file": "c.terrain.bin",
+    "cols": 8.5,
+    "rows": 8,
+    "west": 111.98,
+    "east": 112.02,
+    "south": 30.98,
+    "north": 31.02,
+    "recipe": {
+      "class": "schematic",
+      "basis": "平地留的起伏写成了一百成。",
+      "sourceIds": [],
+      "note": "平地是修整过的。",
+      "kind": "plain-and-hills",
+      "plainBelowM": 47,
+      "hillAboveM": 60,
+      "plainBaseM": 40,
+      "plainKeep": 10,
+      "edgeTaperM": 100
+    },
+    "edits": [
+      {
+        "id": "pit",
+        "name": "坑",
+        "op": "dig",
+        "at": [112, 31],
+        "class": "schematic",
+        "basis": "没有“挖坑”这种修整。",
+        "sourceIds": []
+      }
+    ]
+  },
+  "water": {
+    "levels": {
+      "class": "schematic",
+      "basis": "水位写成了文字。",
+      "sourceIds": [],
+      "note": "水位是示意。",
+      "values": { "normal": "37.6" }
+    },
+    "banks": {
+      "class": "schematic",
+      "basis": "河岸的规矩没有错。",
+      "sourceIds": [],
+      "bankM": 39,
+      "bedM": 3,
+      "keepOffWallsM": 50
+    },
+    "rivers": [],
+    "rapids": [],
+    "dry": []
+  },
+  "places": [],
+  "things": [
+    {
+      "id": "tower",
+      "name": "塔",
+      "kind": "tower",
+      "at": [112, 31],
+      "when": { "form": "只有正文" },
+      "class": "schematic",
+      "basis": "把 from 错写成了 form。",
+      "sourceIds": []
+    }
+  ],
+  "dressing": [
+    {
+      "id": "woods",
+      "name": "树",
+      "kind": "trees",
+      "when": { "only": ["只有正文"], "from": "只有正文" },
+      "class": "dressing",
+      "basis": "only 和 from 一起写了。",
+      "sourceIds": []
+    }
+  ],
+  "strips": [{ "id": "t1", "text": "塔", "of": "tower", "liftM": 12 }],
+  "sections": [
+    {
+      "heading": "只有正文",
+      "date": "某年",
+      "line": "一句题记。",
+      "camera": { "target": [112, 31], "distanceM": 3000, "pitch": 90, "bearing": 0, "fov": 60 },
+      "water": "normal",
+      "strips": "t1",
+      "explain": ["tower"]
+    }
+  ],
+  "notDrawn": []
+}

@@ -1,11 +1,20 @@
-/* 人物页和站点页共用的版面：文字栏和地图栏。
-   窄屏：地图在上，留在原处，文字在下面滚动，地图可以收起。
-   宽屏（960px 以上）：文字栏在左，地图占满右边，文字滚动时地图不动。 */
+/* 人物页和站点页共用的版面：文字栏和沙盘栏。
+   窄屏：沙盘栏在上。摆着沙盘时它钉在顶上（.is-pinned），文字在下面滚动，可以收起；摆着的沙盘画面断了，它也留在原处；
+         只有一张图或一句话时，它跟着页面一起滚走，不占着屏幕。
+   宽屏（960px 以上）：文字栏在左，沙盘栏占满右边，文字滚动时它不动。
+   沙盘栏里面的东西（按钮、题记、题签、定格图）在 stage.css。高度的几个数（--stage-height-…）在 tokens.css。 */
 
-/* 用键盘走到的东西不要被顶上的地图和底下的按钮挡住。 */
+/* 用键盘走到的东西不要被底下的按钮挡住；沙盘钉在顶上时，也不要被它挡住。 */
 html:has(.figure-layout) {
-  scroll-padding-top: calc(max(var(--map-height-narrow), var(--map-height-narrow-min)) + var(--gap-4));
   scroll-padding-bottom: calc(5rem + env(safe-area-inset-bottom, 0px));
+}
+
+html:has(.stage-pane.is-pinned) {
+  scroll-padding-top: calc(max(var(--stage-height-narrow), var(--stage-height-narrow-min)) + var(--gap-4));
+}
+
+html:has(.stage-pane.is-pinned.is-folded) {
+  scroll-padding-top: calc(var(--stage-height-folded) + var(--gap-4));
 }
 
 .figure-layout {
@@ -25,160 +34,41 @@ html:has(.figure-layout) {
   font-size: var(--size-reading);
 }
 
-/* ---------------------------------------------------------------- 地图栏 */
+/* ---------------------------------------------------------------- 沙盘栏 */
 
-.map-pane {
-  /* 让里面的东西能按地图栏自己的宽度排（见文件末尾）。 */
-  container: map-pane / inline-size;
+.stage-pane {
+  /* 现在是窄的排法还是宽的排法（narrow、wide）。只给程序读：定格图照它挑宽的那张还是窄的那张，不用再记一遍 960 这个数。 */
+  --stage-shape: narrow;
+  /* 让里面的东西能按沙盘栏自己的宽度排（见 stage.css）。 */
+  container: stage-pane / inline-size;
   order: -1;
-  position: sticky;
-  top: 0;
-  z-index: 2;
-  height: max(var(--map-height-narrow), var(--map-height-narrow-min));
-  overflow: hidden;
+  position: relative;
   background: var(--color-paper-sunk);
   border-bottom: 1px solid var(--color-line);
 }
 
-.map-pane.is-folded {
-  height: var(--map-height-folded);
+/* --stage-pane-h 是摆着沙盘时这一栏的高，--stage-controls-room 是顶上那排按钮连上下的空占的高：
+   点“说明”展开的那一块（stage.css）靠这两个数算自己最高能有多高。 */
+.stage-pane.is-pinned {
+  --stage-pane-h: max(var(--stage-height-narrow), var(--stage-height-narrow-min));
+  --stage-controls-room: calc(var(--tap) + 2 * var(--gap-2));
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  height: var(--stage-pane-h);
+  overflow: hidden;
 }
 
-/* 地图起不来：窄屏上只留一句话，不占地方。 */
-.map-pane.is-failed {
-  position: static;
-  height: auto;
-}
-
-/* z-index: 0 把引擎自己的层叠关在里面，不会盖住上面的按钮。 */
-.map-canvas {
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-}
-
-/* 交给地图引擎的容器。引擎自己的样式可能改它的 position，所以大小用宽高写死。 */
-.map-host {
-  width: 100%;
-  height: 100%;
-}
-
-.map-message {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: var(--gap-4);
-  color: var(--color-ink-soft);
-  font-size: var(--size-ui);
-  text-align: center;
-  pointer-events: none;
-}
-
-/* 加载中的一句话：在地图栏的下半截正中，带底色，不压在地图正中的那一站上。 */
-.map-loading {
-  position: absolute;
-  left: 50%;
-  bottom: 25%;
-  z-index: 1;
-  transform: translateX(-50%);
-  padding: 0 var(--gap-2);
-  border-radius: var(--radius);
-  background: var(--color-map-veil);
-  color: var(--color-ink-soft);
-  font-size: var(--size-ui);
-  line-height: 1.7;
-  white-space: nowrap;
-  pointer-events: none;
-}
-
-.map-pane.is-failed .map-canvas {
-  display: none;
-}
-
-.map-pane.is-failed .map-message {
-  position: static;
-  padding: var(--gap-3) var(--page-pad);
-}
-
-.map-controls {
-  position: absolute;
-  top: var(--gap-2);
-  left: var(--gap-2);
-  right: var(--gap-2);
-  z-index: 1;
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--gap-2);
-  pointer-events: none;
-}
-
-.map-controls > * {
-  pointer-events: auto;
-}
-
-.names-switch {
-  display: inline-flex;
-  border: 1px solid var(--color-line);
-  border-radius: var(--radius);
-  background: var(--color-paper-raised);
-  box-shadow: 0 1px 3px var(--color-shadow);
-}
-
-.names-switch button,
-.map-button {
-  min-width: var(--tap);
-  min-height: var(--tap);
-  padding: 0 var(--gap-3);
-  border: 0;
-  border-radius: var(--radius);
-  background: transparent;
-  font-size: var(--size-ui);
-  line-height: 1;
-}
-
-.names-switch button[aria-pressed='true'] {
-  background: var(--color-accent);
-  color: var(--color-on-accent);
-}
-
-.map-button {
-  border: 1px solid var(--color-line);
-  background: var(--color-paper-raised);
-  box-shadow: 0 1px 3px var(--color-shadow);
-}
-
-.map-button:disabled {
-  color: var(--color-ink-soft);
-  opacity: 0.6;
-  box-shadow: none;
-}
-
-.map-fold {
-  margin-left: auto;
-}
-
-.map-notice {
-  position: absolute;
-  left: var(--gap-2);
-  bottom: var(--gap-2);
-  z-index: 1;
-  /* 右下角留给地图引擎自己的署名。 */
-  max-width: calc(100% - 4rem);
-  padding: 0 var(--gap-2);
-  border-radius: var(--radius);
-  background: var(--color-map-veil);
-  color: var(--color-ink-soft);
-  font-size: var(--size-small);
-  line-height: 1.7;
-  pointer-events: none;
+.stage-pane.is-pinned.is-folded {
+  height: var(--stage-height-folded);
 }
 
 /* ---------------------------------------------------------------- 宽屏 */
 
 @media (min-width: 960px) {
-  html:has(.figure-layout) {
+  html:has(.figure-layout),
+  html:has(.stage-pane.is-pinned),
+  html:has(.stage-pane.is-pinned.is-folded) {
     scroll-padding-top: var(--gap-4);
   }
 
@@ -192,42 +82,33 @@ html:has(.figure-layout) {
     padding-top: var(--gap-5);
   }
 
-  .map-pane,
-  .map-pane.is-folded,
-  .map-pane.is-failed {
+  .stage-pane,
+  .stage-pane.is-pinned,
+  .stage-pane.is-pinned.is-folded {
+    --stage-shape: wide;
+    --stage-pane-h: 100vh;
+    --stage-controls-room: calc(var(--tap) + 2 * var(--gap-4));
     order: 0;
     position: sticky;
+    top: 0;
+    z-index: auto;
     height: 100vh;
     height: 100dvh;
+    overflow: hidden;
     border-bottom: 0;
     border-left: 1px solid var(--color-line);
   }
 
-  .map-pane.is-failed .map-message {
-    position: absolute;
-    padding: var(--gap-4);
+  @supports (height: 100dvh) {
+    .stage-pane,
+    .stage-pane.is-pinned,
+    .stage-pane.is-pinned.is-folded {
+      --stage-pane-h: 100dvh;
+    }
   }
 
-  .map-controls {
-    top: var(--gap-4);
-    left: var(--gap-4);
-    right: var(--gap-4);
-  }
-
-  .map-notice {
-    left: var(--gap-4);
-    bottom: var(--gap-4);
-  }
-
-  .map-fold {
-    display: none;
-  }
-}
-
-/* 地图栏够宽时，地图引擎的署名在右下角排成一整行，左下角的说明往上让一行，两者不叠在一起。
-   地图栏窄时署名收成右下角的小按钮，说明留在最下面。 */
-@container map-pane (min-width: 641px) {
-  .map-notice {
-    bottom: 2.9rem;
+  /* 没摆沙盘时里面是图和字，放不下就在栏里滚。 */
+  .stage-pane:not(.is-pinned) {
+    overflow-y: auto;
   }
 }

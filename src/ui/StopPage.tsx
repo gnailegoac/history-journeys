@@ -1,32 +1,64 @@
 // 站点页的文字栏：抬头、正文是怎么来的两句说明、正文、凭据、上一站和下一站、问讲解员。
+// 这一站有沙盘时，它还盯着读者读到了哪一小节，报给上面，沙盘的镜头跟着走。
 
+import { useRef } from 'react';
 import { figureHref, stopHref } from '../app/router';
 import { useLoaded } from '../app/useLoaded';
+import type { Loaded } from '../app/useLoaded';
 import { loadStop, neighbours } from '../domain';
 import type { Figure, StopMeta } from '../domain';
+import type { StopTable } from '../stage/types';
 import { GuidePanel } from './GuidePanel';
 import { PageTitle } from './PageTitle';
 import { Provenance } from './Provenance';
 import { StopText } from './StopText';
-import { STOP_TEXT_LINES, pageTitle, placeLabel } from './text';
+import { STAGE_TEXT, STOP_TEXT_LINES, pageTitle, placeLabel } from './text';
+import { useReadingSection } from './useReadingSection';
 
 interface Props {
   figure: Figure;
   stop: StopMeta;
+  /** 这一站的沙盘；读出来是 null 表示这一站还没有沙盘。 */
+  table: Loaded<StopTable | null>;
+  /** 读者读到了另一小节（小节标题）。 */
+  onSection: (section: string) => void;
 }
 
-export function StopPage({ figure, stop }: Props) {
+/** 把焦点放到沙盘栏上；下一步 Tab 就到它的第一个按钮。 */
+function toStage(): void {
+  document.querySelector<HTMLElement>('.stage-pane')?.focus();
+}
+
+export function StopPage({ figure, stop, table, onSection }: Props) {
   const content = useLoaded(`${figure.id}/${stop.id}`, () => loadStop(figure.id, stop.id));
   const { index, prev, next } = neighbours(figure, stop.id);
   const written = content.state === 'ready' && content.value !== null ? content.value : null;
+  const scene = table.state === 'ready' && table.value ? table.value.scene : null;
+  // 这一站有没有沙盘：yes 有，none 没有，loading 还不知道，failed 沙盘的数据没读出来。
+  const sceneState = table.state === 'loading' ? 'loading' : table.state === 'error' ? 'failed' : scene ? 'yes' : 'none';
+
+  const article = useRef<HTMLElement>(null);
+  useReadingSection(article, written !== null && scene !== null, onSection);
 
   return (
-    <article className="stop-page" data-stop-id={stop.id} data-stop-text={written ? 'written' : content.state === 'loading' ? 'loading' : 'none'}>
+    <article
+      ref={article}
+      className="stop-page"
+      data-stop-id={stop.id}
+      data-stop-text={written ? 'written' : content.state === 'loading' ? 'loading' : 'none'}
+      data-stop-scene={sceneState}
+    >
       <header className="page-head">
         <p className="eyebrow">
           第 {index + 1} 站 · 共 {figure.stops.length} 站
         </p>
         <PageTitle documentTitle={pageTitle(stop.title, figure.name)}>{stop.title}</PageTitle>
+        {/* 沙盘栏在页面的结构里排在正文后面：用键盘、读屏的人要走完整篇正文才到得了它的按钮。这里给一步直接过去的。 */}
+        {scene && (
+          <button type="button" className="skip-to-stage" onClick={toStage}>
+            {STAGE_TEXT.toStage}
+          </button>
+        )}
         <dl className="facts">
           <div>
             <dt>时间</dt>
@@ -56,7 +88,7 @@ export function StopPage({ figure, stop }: Props) {
             ))}
           </div>
           <StopText content={written} />
-          <Provenance content={written} />
+          <Provenance content={written} scene={scene} />
         </>
       )}
 

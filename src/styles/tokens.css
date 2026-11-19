@@ -14,7 +14,7 @@
   --color-on-accent: #fffaf2;
   --color-focus: #8f2d1c;
   --color-shadow: rgb(42 37 32 / 0.18);
-  --color-map-veil: rgb(245 239 227 / 0.9);
+  --color-stage-veil: rgb(245 239 227 / 0.9);
 
   /* 字体：正文用系统自带的宋体，界面上的小字用系统自带的黑体；不下载字体 */
   --font-reading: 'Songti SC', 'Noto Serif CJK SC', 'Source Han Serif SC', 'SimSun', serif;
@@ -48,9 +48,9 @@
 
   /* 版面 */
   --column-width: clamp(27.5rem, 36vw, 31.25rem); /* 宽屏上文字栏的宽度，440 到 500px */
-  --map-height-narrow: 40vh; /* 窄屏上地图的高度 */
-  --map-height-narrow-min: 11rem;
-  --map-height-folded: 7rem; /* 窄屏上收起后的高度 */
+  --stage-height-narrow: 56vh; /* 窄屏上沙盘栏的高度：竖着拿的平板上，沙盘占屏幕的一多半（decisions.md 第 23 条） */
+  --stage-height-narrow-min: 11rem;
+  --stage-height-folded: calc(var(--tap) + 2 * var(--gap-2)); /* 窄屏上收起后的高度：只留一排按钮 */
 }
 
 @media (min-width: 600px) {

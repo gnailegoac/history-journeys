@@ -1,0 +1,61 @@
+/* 沙盘的替身（?stage=fake）和定格图的替身（?sectionstills=fake）的样子。只在用到替身时才加载。
+   替身的几个按钮摆在正中：上面是页面的按钮，下面是题记，都不会盖住它们。 */
+
+.fake-stage {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--gap-2);
+  padding: var(--gap-2);
+  background: var(--color-paper-sunk);
+  color: var(--color-ink-soft);
+  font-family: var(--font-ui);
+  font-size: var(--size-small);
+  text-align: center;
+}
+
+.fake-stage-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--gap-2);
+}
+
+.fake-stage-nudge,
+.fake-stage-lose,
+.fake-stage-slow {
+  min-height: 1.75rem;
+  padding: 0 var(--gap-2);
+  border: 1px dashed var(--color-ink-soft);
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--color-ink-soft);
+}
+
+/* 定格图的替身：底色和沙盘的替身不一样，照片上分得出现在放的是哪一个。它那一行字靠上摆，不和题签挤在一起。 */
+.fake-still {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--gap-2);
+  background: var(--color-accent-wash);
+  color: var(--color-ink-soft);
+  font-family: var(--font-ui);
+  font-size: var(--size-small);
+  text-align: center;
+}
+
+.fake-still-title {
+  transform: translateY(-2.5rem);
+}

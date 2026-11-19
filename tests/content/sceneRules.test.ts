@@ -1,0 +1,1634 @@
+// 场景数据校验规则自己的测试：规则 10 到 18 和场景文件的格式，都用合格的样本（fixtures/good）和出错的样本
+// （fixtures/bad）各试一遍，再在合格样本上一次只改坏一处，看是不是正好查出那一处。
+// 合格样本里的沙盘是 figures/demo/scenes/river.json；出错样本里 scenes/a.json 格式是对的、规则 10 到 15 条条都错，
+// scenes/c.json 错在格式上。
+//
+// 规则 17、18 查的是工具做出来的文件。合格样本里也带着一套（baked/river.*，stills/river.json 和六张 river-*-*.jpg）：
+// 清单是照规格手写的，图片只有文件头（写着是哪一种图片、多宽多高），没有画面，够校验用；清单里的字节数和文件的记号
+// 是照这几个小文件算的，“照什么做的”那几个记号是编的（校验不看它们旧不旧）。
+// 出错的样本里没有这两条规则的例子：那里的场景本身就不合格，而场景不合格时这两条先不查。
+// 所以规则 17、18 每一句的反例，都是在合格样本上改一处（清单、量到的大小、宽高、记号，都在内存里改）。
+
+import { describe, expect, it } from 'vitest';
+import type { BakedGroundManifest } from '../../src/domain/bakedGround';
+import type { StopScene } from '../../src/domain/scene';
+import type { StillManifest } from '../../src/domain/stills';
+import type { Figure } from '../../src/domain/types';
+import { FIXTURE_HEADINGS, fixtureScene, fixtureSources } from '../support/fixtureScene';
+import { fileSize, readBytes } from '../support/readBytes';
+import { PICTURE_EDGE_MAX, TABLE_FILES_MAX_BYTES } from './budgetRules';
+import { pictureSize, toContentFiles, toFileKeys, toFileSizes, toPictureSizes } from './files';
+import { formatViolation, RULE_NAMES, validateContent } from './rules';
+import type { ContentFiles } from './rules';
+import { bakedPictureSize, checkBakedGround, checkScene, checkSceneShape, checkSectionStills, MADE_FILES_REQUIRED, STILL_MAX_BYTES, TERRAIN_MAX_BYTES, textWidth, unsureProblem, WORDS_MAX } from './sceneRules';
+import type { Measured } from './sceneRules';
+import type { FileSizes, PictureSizes, Violation } from './shape';
+
+const texts = import.meta.glob<string>('./fixtures/**/*.{json,md}', { query: '?raw', import: 'default', eager: true });
+const paths = Object.keys(import.meta.glob('./fixtures/**/*'));
+const fixture = (name: string): ContentFiles => toContentFiles(`./fixtures/${name}/`, paths, texts);
+
+const GOOD = fixture('good');
+const BAD = fixture('bad');
+
+const FIGURE = 'figures/demo/figure.json';
+const STOP = 'figures/demo/stops/river.json';
+const BODY = 'figures/demo/stops/river.md';
+const SCENE = 'figures/demo/scenes/river.json';
+const TERRAIN = 'figures/demo/scenes/river.terrain.bin';
+const STILL = 'figures/demo/stills/route.svg';
+const BAD_SCENE = 'figures/broken/scenes/a.json';
+const BAD_FORMAT = 'figures/broken/scenes/c.json';
+/** 这位人物的文件夹，和工具照着他的沙盘做出来的文件。 */
+const DIR = 'figures/demo';
+const BAKED = 'figures/demo/baked/river.json';
+const COLOUR = 'figures/demo/baked/river.colour.jpg';
+const FIELDS = 'figures/demo/baked/river.fields.png';
+const STILLS = 'figures/demo/stills/river.json';
+const shot = (n: number, shape: 'wide' | 'narrow'): string => `figures/demo/stills/river-${n}-${shape}.jpg`;
+const SHOTS = [shot(1, 'wide'), shot(2, 'wide'), shot(3, 'wide'), shot(1, 'narrow'), shot(2, 'narrow'), shot(3, 'narrow')];
+
+/** 样本里的文件在磁盘上的路径（相对项目的根目录）。 */
+const onDisk = (path: string): string => `tests/content/${path.slice(2)}`;
+/** 合格样本里地形文件、先画好的地面和定格图的大小，从磁盘量的。 */
+const SIZES = toFileSizes('./fixtures/good/', paths, (path) => fileSize(onDisk(path)));
+/** 合格样本里的图片各有多宽多高、是哪一种，和它们的记号，也是从磁盘上的文件里读的。 */
+const PICTURES = toPictureSizes('./fixtures/good/', paths, (path) => readBytes(onDisk(path)));
+const KEYS = toFileKeys('./fixtures/good/', paths, (path) => readBytes(onDisk(path)));
+const MEASURED: Measured = { sizes: SIZES, pictures: PICTURES, keys: KEYS };
+
+/**
+ * 全部问题，每处写成“规则号 文件 › 字段”。只给了文件的大小（没有量宽高、没有算记号）；
+ * “每座沙盘都要有先画好的地面和定格图”的开关在这里一律当作没开：这些测试看的是场景自己，
+ * 开关开没开，在规则 17、18 那两组里另外各试一遍。
+ */
+function all(files: ContentFiles, sizes: FileSizes = SIZES): string[] {
+  return validateContent(files, sizes, {}, {}, false).map((v) => `${v.rule} ${v.file}${v.field === '' ? '' : ` › ${v.field}`}`);
+}
+
+/** 某一条规则在某个文件里查出来的地方，每处只写字段。 */
+function fields(files: ContentFiles, rule: number, file: string): string[] {
+  return validateContent(files, SIZES)
+    .filter((v) => v.rule === rule && v.file === file)
+    .map((v) => v.field);
+}
+
+/** 在合格样本上改一个 JSON 文件。T 写成这一处改动用得着的样子，可以比真的类型松（为了改出类型不许的错）。 */
+function edit<T>(path: string, change: (data: T) => void): ContentFiles {
+  const data = JSON.parse(GOOD[path]) as T;
+  change(data);
+  return { ...GOOD, [path]: JSON.stringify(data) };
+}
+const editScene = (change: (scene: StopScene) => void) => edit<StopScene>(SCENE, change);
+const editFigure = (change: (figure: Figure) => void) => edit<Figure>(FIGURE, change);
+
+/** 合格样本改一处以后，这个场景文件查出来的全部问题，写成“规则号 字段”。别的文件有问题也算进来，写全。 */
+function sceneProblems(change: (scene: StopScene) => void): string[] {
+  const prefix = `${SCENE} › `;
+  return all(editScene(change)).map((line) => line.replace(prefix, ''));
+}
+
+/** 同上，改成类型不许的样子。 */
+function looseProblems<T>(change: (scene: T) => void): string[] {
+  const prefix = `${SCENE} › `;
+  return all(edit<T>(SCENE, change)).map((line) => line.replace(prefix, ''));
+}
+
+/** 在合格样本上换掉或加上一个文件。 */
+const withFile = (path: string, content: string): ContentFiles => ({ ...GOOD, [path]: content });
+
+/** 在合格样本上去掉一个文件。 */
+function without(path: string): ContentFiles {
+  const files = { ...GOOD };
+  delete files[path];
+  return files;
+}
+
+/** 把工具做出来的那几样（先画好的地面、每一小节的定格图）都拿开：只看场景自己的时候用。 */
+function withoutMade(files: ContentFiles = GOOD): ContentFiles {
+  const out = { ...files };
+  for (const path of [BAKED, COLOUR, FIELDS, STILLS, ...SHOTS]) delete out[path];
+  return out;
+}
+
+const goodScene = (): StopScene => JSON.parse(GOOD[SCENE]) as StopScene;
+
+describe('两份样本', () => {
+  it('合格的样本带着沙盘、定格图和工具做出来的两样，量了文件大小，一处问题也没有', () => {
+    expect(GOOD[SCENE]).toContain('"stopId": "river"');
+    // stills/ 和 baked/ 里的文件都量了大小（清单也量了，用不着）
+    expect(Object.keys(SIZES).sort()).toEqual([TERRAIN, STILL, BAKED, COLOUR, FIELDS, STILLS, ...SHOTS].sort());
+    expect(SIZES[TERRAIN]).toBe(128);
+    expect(SIZES[STILL]).toBe(fileSize('tests/content/fixtures/good/figures/demo/stills/route.svg'));
+    expect(all(GOOD)).toEqual([]);
+    // 量到的宽高、是哪一种图片、文件的记号都交进去，也一处没有；“每座沙盘都要有这两样”的开关开着也一样
+    expect(validateContent(GOOD, SIZES, PICTURES, KEYS, true)).toEqual([]);
+    expect(validateContent(GOOD, SIZES, PICTURES, KEYS, false)).toEqual([]);
+    // 不给大小，只凭清单和有哪些文件，也一处没有
+    expect(validateContent(GOOD)).toEqual([]);
+  });
+
+  it('出错的样本里，规则 10 到 16 都查出了问题', () => {
+    const rules = new Set(validateContent(BAD).map((v) => v.rule));
+    for (const rule of [10, 11, 12, 13, 14, 15, 16]) expect(rules.has(rule), `规则 ${rule} ${RULE_NAMES[rule]}`).toBe(true);
+  });
+
+  it('几组测试共用的小沙盘（tests/support/fixtureScene.ts）合乎格式和规则 10 到 15', () => {
+    const scene = fixtureScene();
+    const file = 'figures/sample/scenes/sample-town.json';
+    const terrain = 'figures/sample/scenes/sample-town.terrain.bin';
+    const stop = { id: 'sample-town', status: 'complete' as const, headings: [...FIXTURE_HEADINGS], sourceIds: fixtureSources().map((s) => s.id) };
+    expect(checkSceneShape(JSON.parse(JSON.stringify(scene)), file)).toEqual([]);
+    expect(checkScene(scene, file, stop, { [file]: '', [terrain]: '' }, { [terrain]: 8 * 8 * 2 })).toEqual([]);
+  });
+});
+
+describe('场景文件的格式：字段齐全、类型对、没有不认识的字段、数字在范围里', () => {
+  it('合格的样本通过', () => {
+    expect(fields(GOOD, 0, SCENE)).toEqual([]);
+  });
+
+  it('出错的样本：坐标写反、数字不在范围里、不认识的字段、op 和 when 写错、缺字段、类型不对', () => {
+    expect(fields(BAD, 1, BAD_FORMAT)).toEqual(['frame.center']);
+    expect(fields(BAD, 0, BAD_FORMAT)).toEqual([
+      'frame.westM',
+      'frame.relief.curve',
+      'terrain.cols',
+      'terrain.recipe.plainKeep',
+      'terrain.edits[0].op',
+      'water.levels.values.normal',
+      'things[0].when.form',
+      'dressing[0].when',
+      'strips[0].liftM',
+      'far',
+      'sections[0].camera.pitch',
+      'sections[0].camera.fov',
+      'sections[0].strips',
+    ]);
+  });
+
+  it('格式有问题的场景文件，规则 10 到 15 先不查', () => {
+    const rules = new Set(validateContent(BAD).filter((v) => v.file === BAD_FORMAT).map((v) => v.rule));
+    expect([...rules].sort()).toEqual([0, 1]);
+    // 这个文件要是查了规则 12，会报“这一站的 .json 读不出来”以外的好几处。
+    const files = edit<{ stopId: string; extra: number }>(SCENE, (scene) => {
+      scene.stopId = 'lake';
+      scene.extra = 1;
+    });
+    expect(all(files)).toEqual([`0 ${SCENE} › extra`]);
+  });
+
+  it('把 from 错写成 form：不认识这个字段', () => {
+    const files = edit<{ things: { when: unknown }[] }>(SCENE, (scene) => (scene.things[2].when = { form: '河上' }));
+    expect(validateContent(files, SIZES).map((v) => `${v.rule} ${v.field}｜${v.problem}`)).toEqual(['0 things[2].when.form｜不认识这个字段（这里可以写：from、until）']);
+  });
+
+  it('不认识的字段，哪一层都查', () => {
+    expect(looseProblems<{ notes: string }>((scene) => (scene.notes = '多出来的'))).toEqual(['0 notes']);
+    expect(looseProblems<{ frame: { tilt: number } }>((scene) => (scene.frame.tilt = 3))).toEqual(['0 frame.tilt']);
+    expect(looseProblems<{ terrain: { recipe: { blur: number } } }>((scene) => (scene.terrain.recipe.blur = 3))).toEqual(['0 terrain.recipe.blur']);
+    expect(looseProblems<{ terrain: { edits: { after: string }[] } }>((scene) => (scene.terrain.edits[0].after = 'water'))).toEqual(['0 terrain.edits[0].after']);
+    expect(looseProblems<{ water: { rivers: { bedM: number }[] } }>((scene) => (scene.water.rivers[0].bedM = 3))).toEqual(['0 water.rivers[0].bedM']);
+    expect(looseProblems<{ things: { size: string }[] }>((scene) => (scene.things[2].size = 'large'))).toEqual(['0 things[2].size']);
+    expect(looseProblems<{ strips: { kind: string; liftM: number }[] }>((scene) => Object.assign(scene.strips[0], { kind: 'place', liftM: 12 }))).toEqual([
+      '0 strips[0].kind',
+      '0 strips[0].liftM',
+    ]);
+    expect(looseProblems<{ far: { modern: string }[] }>((scene) => (scene.far[0].modern = '东港市'))).toEqual(['0 far[0].modern']);
+    expect(looseProblems<{ sections: { camera: { targetLiftM: number }; light: string }[] }>((scene) => {
+      scene.sections[1].camera.targetLiftM = 40;
+      scene.sections[1].light = 'west';
+    })).toEqual(['0 sections[1].camera.targetLiftM', '0 sections[1].light']);
+    expect(looseProblems<{ notDrawn: { note: string }[] }>((scene) => (scene.notDrawn[0].note = '多出来的'))).toEqual(['0 notDrawn[0].note']);
+  });
+
+  it('when 只有两种写法：only 不能和 from、until 一起写，也不能是别的样子', () => {
+    expect(looseProblems<{ things: { when: unknown }[] }>((scene) => (scene.things[2].when = { only: ['河上'], until: '渡口' }))).toEqual(['0 things[2].when']);
+    expect(looseProblems<{ things: { when: unknown }[] }>((scene) => (scene.things[2].when = '河上'))).toEqual(['0 things[2].when']);
+    expect(looseProblems<{ things: { when: unknown }[] }>((scene) => (scene.things[2].when = { only: '河上' }))).toEqual(['0 things[2].when.only']);
+    expect(looseProblems<{ things: { when: unknown }[] }>((scene) => (scene.things[2].when = { from: 2 }))).toEqual(['0 things[2].when.from']);
+  });
+
+  it('修整的 op 只有 level 和 mound；每一种有它自己的字段', () => {
+    expect(looseProblems<{ terrain: { edits: { op?: string }[] } }>((scene) => (scene.terrain.edits[2].op = 'cliff'))).toEqual(['0 terrain.edits[2].op']);
+    expect(looseProblems<{ terrain: { edits: { op?: string }[] } }>((scene) => delete scene.terrain.edits[2].op)).toEqual(['0 terrain.edits[2].op']);
+    // 土丘写成 level：缺 level 的字段，土丘的字段成了不认识的。
+    expect(looseProblems<{ terrain: { edits: { op: string }[] } }>((scene) => (scene.terrain.edits[2].op = 'level'))).toEqual([
+      '0 terrain.edits[2].mode',
+      '0 terrain.edits[2].toM',
+      '0 terrain.edits[2].featherM',
+      '0 terrain.edits[2].at',
+      '0 terrain.edits[2].addM',
+      '0 terrain.edits[2].innerM',
+      '0 terrain.edits[2].outerM',
+    ]);
+  });
+
+  it('缺字段、类型不对', () => {
+    expect(looseProblems<{ credits?: string[] }>((scene) => delete scene.credits)).toEqual(['0 credits']);
+    expect(looseProblems<{ things: { basis?: string }[] }>((scene) => delete scene.things[0].basis)).toEqual(['0 things[0].basis']);
+    expect(looseProblems<{ things: { sourceIds: unknown }[] }>((scene) => (scene.things[0].sourceIds = 's1'))).toEqual(['0 things[0].sourceIds']);
+    expect(looseProblems<{ things: { params: unknown }[] }>((scene) => (scene.things[0].params = ['earth']))).toEqual(['0 things[0].params']);
+    expect(looseProblems<{ water: { levels: { values: unknown } } }>((scene) => (scene.water.levels.values = { normal: 37.6, flood: '43' }))).toEqual([
+      '0 water.levels.values.flood',
+    ]);
+    expect(looseProblems<{ water: { rivers: { kind: string }[] } }>((scene) => (scene.water.rivers[1].kind = 'canal'))).toEqual(['0 water.rivers[1].kind']);
+    expect(looseProblems<{ sections: { sky: string }[] }>((scene) => (scene.sections[1].sky = 'night'))).toEqual(['0 sections[1].sky']);
+    expect(looseProblems<{ strips: { side: string }[] }>((scene) => (scene.strips[1].side = 'east'))).toEqual(['0 strips[1].side']);
+    expect(looseProblems<{ terrain: { recipe: { kind: string } } }>((scene) => (scene.terrain.recipe.kind = 'flat'))).toEqual(['0 terrain.recipe.kind']);
+    expect(looseProblems<{ terrain: { edits: { mode: string }[] } }>((scene) => (scene.terrain.edits[0].mode = 'fill'))).toEqual(['0 terrain.edits[0].mode']);
+  });
+
+  it('数字不在说得通的范围里', () => {
+    const cases: [string, (scene: StopScene) => void][] = [
+      ['frame.westM', (s) => (s.frame.westM = 0)],
+      ['frame.relief.times', (s) => (s.frame.relief.times = 0)],
+      ['terrain.cols', (s) => (s.terrain.cols = 8.5)],
+      ['terrain.rows', (s) => (s.terrain.rows = 0)],
+      ['terrain.recipe.plainKeep', (s) => (s.terrain.recipe.plainKeep = 1.2)],
+      ['terrain.recipe.edgeTaperM', (s) => (s.terrain.recipe.edgeTaperM = -1)],
+      ['terrain.edits[0].featherM', (s) => ((s.terrain.edits[0] as { featherM: number }).featherM = -5)],
+      ['terrain.edits[2].addM', (s) => ((s.terrain.edits[2] as { addM: number }).addM = 0)],
+      ['water.banks.bedM', (s) => (s.water.banks.bedM = 0)],
+      ['water.banks.keepOffWallsM', (s) => (s.water.banks.keepOffWallsM = -1)],
+      ['water.rivers[0].drawWidthM', (s) => (s.water.rivers[0].drawWidthM = 0)],
+      ['water.rapids[0].lengthM', (s) => (s.water.rapids[0].lengthM = -200)],
+      ['things[4].facing', (s) => (s.things[4].facing = 400)],
+      ['sections[0].camera.distanceM', (s) => (s.sections[0].camera.distanceM = 0)],
+      ['sections[0].camera.pitch', (s) => (s.sections[0].camera.pitch = 86)],
+      ['sections[0].camera.bearing', (s) => (s.sections[0].camera.bearing = -10)],
+      ['sections[1].camera.fov', (s) => (s.sections[1].camera.fov = 9)],
+      ['sections[1].camera.closest', (s) => (s.sections[1].camera.closest = 0.4)],
+      ['sections[1].camera.closest', (s) => (s.sections[1].camera.closest = 1.1)],
+      ['sections[1].camera.targetUpM', (s) => (s.sections[1].camera.targetUpM = -1)],
+    ];
+    for (const [field, change] of cases) expect(sceneProblems(change), field).toEqual([`0 ${field}`]);
+  });
+
+  it('范围的边界值算合格', () => {
+    const ok = editScene((s) => {
+      s.terrain.recipe.plainKeep = 0;
+      s.terrain.recipe.edgeTaperM = 0;
+      s.water.banks.keepOffWallsM = 0;
+      s.sections[0].camera.pitch = 0;
+      s.sections[1].camera.pitch = 85;
+      s.sections[0].camera.fov = 10;
+      s.sections[1].camera.fov = 40;
+      s.sections[0].camera.closest = 0.5;
+      s.sections[1].camera.closest = 1;
+      s.sections[0].camera.bearing = 360;
+      s.sections[1].camera.targetUpM = 0;
+    });
+    expect(all(ok)).toEqual([]);
+  });
+
+  it('两处要拿两个数比着看的：算山的海拔要比算平地的高，土丘的外圈要比内圈大', () => {
+    expect(sceneProblems((s) => (s.terrain.recipe.hillAboveM = 47))).toEqual(['0 terrain.recipe.hillAboveM']);
+    expect(sceneProblems((s) => ((s.terrain.edits[2] as { outerM: number }).outerM = 40))).toEqual(['0 terrain.edits[2].outerM']);
+  });
+
+  it('坐标写得不对，算在规则 1 上', () => {
+    expect(sceneProblems((s) => (s.things[0].line![1] = [30.002, 110]))).toEqual(['1 things[0].line[1]']);
+    expect(looseProblems<{ places: { at: unknown }[] }>((scene) => (scene.places[0].at = [110.01]))).toEqual(['1 places[0].at']);
+    expect(sceneProblems((s) => (s.sections[2].camera.target = [200, 30]))).toEqual(['1 sections[2].camera.target']);
+  });
+
+  it('场景文件不是合法的 JSON', () => {
+    expect(all(withFile(SCENE, '{ "stopId": "river", '))).toEqual([`0 ${SCENE}`]);
+  });
+
+  it('scenes/ 里不是 .json 的文件不当成场景', () => {
+    expect(all(withFile('figures/demo/scenes/notes.txt', '随手记的'))).toEqual([]);
+  });
+});
+
+describe('规则 10 场景文件', () => {
+  it('合格的样本通过', () => {
+    expect(fields(GOOD, 10, SCENE)).toEqual([]);
+  });
+
+  it('出错的样本：stopId 和文件名不一样、样式没有、credits 是空的、山高不是统一夸大、地形文件不存在、盖不住沙盘的东边', () => {
+    expect(fields(BAD, 10, BAD_SCENE)).toEqual(['stopId', 'style', 'credits', 'frame.relief.kind', 'terrain.file', 'terrain.east']);
+  });
+
+  it('stopId 和文件名不一样', () => {
+    expect(sceneProblems((s) => (s.stopId = 'lake'))).toEqual(['10 stopId']);
+  });
+
+  it('这一站在 figure.json 里没有，或者还是 outline', () => {
+    const sceneFor = (stopId: string) => {
+      const scene = goodScene();
+      scene.stopId = stopId;
+      scene.terrain.file = `${stopId}.terrain.bin`;
+      return { ...GOOD, [`figures/demo/scenes/${stopId}.json`]: JSON.stringify(scene), [`figures/demo/scenes/${stopId}.terrain.bin`]: '' };
+    };
+    const unknown = validateContent(sceneFor('lake'), SIZES);
+    expect(unknown.map((v) => `${v.rule} ${v.file}｜${v.problem}`)).toEqual(['10 figures/demo/scenes/lake.json｜figure.json 里没有 id 是“lake”的站，这个场景文件对不上任何一站']);
+    const outline = validateContent(sceneFor('pass'), SIZES);
+    expect(outline.map((v) => `${v.rule} ${v.file}`)).toEqual(['10 figures/demo/scenes/pass.json']);
+    expect(outline[0].problem).toContain('outline');
+  });
+
+  it('style 不是程序里有的样式', () => {
+    expect(looseProblems<{ style: string }>((scene) => (scene.style = 'tang-gold'))).toEqual(['10 style']);
+  });
+
+  it('credits 一条也没有，或者有一条是空的', () => {
+    expect(sceneProblems((s) => (s.credits = []))).toEqual(['10 credits']);
+    expect(sceneProblems((s) => s.credits.push('  '))).toEqual(['10 credits[1]']);
+  });
+
+  it('站点沙盘的山高只能是统一夸大：矮山多夸的写法通不过', () => {
+    const files = edit<{ frame: { relief: unknown } }>(SCENE, (scene) => (scene.frame.relief = { kind: 'low-more', lowTimes: 25, above: 300, power: 0.6 }));
+    expect(validateContent(files, SIZES).map((v) => `${v.rule} ${v.field}｜${v.problem}`)).toEqual([
+      '10 frame.relief.kind｜站点沙盘的山高只有统一夸大一种写法（kind 写 uniform），现在是“low-more”',
+    ]);
+  });
+
+  it('地形文件不存在，或者名字不是 <站>.terrain.bin', () => {
+    expect(all(without(TERRAIN))).toEqual([`10 ${SCENE} › terrain.file`]);
+    expect(sceneProblems((s) => (s.terrain.file = 'river.bin'))).toEqual(['10 terrain.file']);
+    expect(sceneProblems((s) => (s.terrain.file = '../images/boat.svg'))).toEqual(['10 terrain.file']);
+    // 文件在，名字却不是 <站>.terrain.bin：程序只认这个名字，读不到它，这一站就没有沙盘了。
+    const renamed = { ...editScene((s) => (s.terrain.file = 'river.bin')), 'figures/demo/scenes/river.bin': '' };
+    const found = validateContent(renamed, SIZES);
+    expect(found.map((v) => `${v.rule} ${v.field}｜${v.problem}`)).toEqual(['10 terrain.file｜地形文件应该叫 river.terrain.bin，和场景文件放在一起，现在写的是“river.bin”']);
+  });
+
+  it('地形文件的大小不是 行 × 列 × 2 字节', () => {
+    const found = validateContent(GOOD, { ...SIZES, [TERRAIN]: 130 });
+    expect(found.map((v) => `${v.rule} ${v.field}｜${v.problem}`)).toEqual(['10 terrain.file｜地形文件有 130 字节；按 8 行 × 8 列、每个数 2 字节算，应该正好是 128 字节']);
+    expect(sceneProblems((s) => (s.terrain.cols = 9))).toEqual(['10 terrain.file']);
+  });
+
+  it('地形文件超过 1.5 MB', () => {
+    const files = editScene((s) => {
+      s.terrain.cols = 1000;
+      s.terrain.rows = 1000;
+    });
+    const found = validateContent(files, { ...SIZES, [TERRAIN]: 2_000_000 });
+    expect(found.map((v) => `${v.rule} ${v.field}｜${v.problem}`)).toEqual(['10 terrain.file｜地形文件有 1.91 MB，不能超过 1.5 MB']);
+    // 正好 1.5 MB，规则 10 算合格。（这时候再加上先画好的两张图，三个文件合计就超了：那是规则 17 的事，它报一处。）
+    const edge = editScene((s) => {
+      s.terrain.cols = 1024;
+      s.terrain.rows = 768;
+    });
+    expect(TERRAIN_MAX_BYTES).toBe(1024 * 768 * 2);
+    expect(all(edge, { ...SIZES, [TERRAIN]: 1024 * 768 * 2 })).toEqual([`17 ${BAKED}`]);
+    // 还没有先画好的地面的沙盘，地形文件正好 1.5 MB 就是一处问题也没有。
+    const alone = { ...edge };
+    for (const path of [BAKED, COLOUR, FIELDS]) delete alone[path];
+    expect(all(alone, { ...SIZES, [TERRAIN]: 1024 * 768 * 2 })).toEqual([]);
+  });
+
+  it('没有给出大小的文件不查大小', () => {
+    expect(all(editScene((s) => (s.terrain.cols = 9)), {})).toEqual([]);
+  });
+
+  it('地形文件盖不住整块沙盘', () => {
+    expect(sceneProblems((s) => (s.terrain.east = 110.01))).toEqual(['10 terrain.east']);
+    expect(sceneProblems((s) => (s.terrain.west = 109.99))).toEqual(['10 terrain.west']);
+    expect(sceneProblems((s) => (s.terrain.south = 29.99))).toEqual(['10 terrain.south']);
+    expect(sceneProblems((s) => (s.terrain.north = 30.01))).toEqual(['10 terrain.north']);
+    expect(sceneProblems((s) => (s.frame.eastM = 2500))).toEqual(['10 terrain.east']);
+    expect(sceneProblems((s) => (s.terrain.west = 110.03))).toEqual(['10 terrain.west']);
+  });
+});
+
+describe('规则 11 范围', () => {
+  it('合格的样本通过：河的线和路的线伸到了沙盘外面，不算错', () => {
+    expect(fields(GOOD, 11, SCENE)).toEqual([]);
+    const scene = goodScene();
+    expect(scene.water.rivers[0].line[0]).toEqual([110.004, 30.02]);
+    expect(scene.dressing[3]).toMatchObject({ kind: 'roads', line: [[109.998, 29.9974], [109.998, 29.98]] });
+  });
+
+  it('出错的样本：土丘的中心、一样摆件、镜头对准的点在沙盘外面；远处却在沙盘里面', () => {
+    expect(fields(BAD, 11, BAD_SCENE)).toEqual(['terrain.edits[1].at', 'things[6].at', 'sections[0].camera.target', 'far[0].at']);
+  });
+
+  it('该在沙盘里面的点，哪一种跑到外面都查得出', () => {
+    const outside: [number, number] = [110.02, 30.004];
+    const cases: [string, (scene: StopScene) => void][] = [
+      ['terrain.edits[1].area[0]', (s) => ((s.terrain.edits[1] as { area: [number, number][] }).area[0] = [109.98, 30.008])],
+      ['terrain.edits[2].at', (s) => ((s.terrain.edits[2] as { at: [number, number] }).at = outside)],
+      ['water.rivers[1].crossings[0]', (s) => (s.water.rivers[1].crossings = [[109.998, 29.98]])],
+      ['water.rapids[0].at', (s) => (s.water.rapids[0].at = [110.0046, 29.985])],
+      ['water.dry[0].area[2]', (s) => (s.water.dry[0].area[2] = [110, 29.98])],
+      ['places[0].at', (s) => (s.places[0].at = outside)],
+      ['things[4].at', (s) => (s.things[4].at = outside)],
+      ['things[3].line[1]', (s) => (s.things[3].line![1] = [109.9995, 29.98])],
+      ['dressing[2].at', (s) => (s.dressing[2].at = [110.004, 29.98])],
+      ['dressing[1].line[0]', (s) => (s.dressing[1].line![0] = [110.003, 30.02])],
+      ['strips[1].at', (s) => (s.strips[1].at = [110.004, 30.015])],
+      ['sections[2].camera.target', (s) => (s.sections[2].camera.target = outside)],
+    ];
+    for (const [field, change] of cases) expect(sceneProblems(change), field).toEqual([`11 ${field}`]);
+  });
+
+  it('点缀的一块地方跑到外面', () => {
+    const files = editScene((s) => {
+      delete s.dressing[4].params;
+      s.dressing[4].area = [
+        [110.008, 30.006],
+        [110.02, 30.006],
+        [110.012, 30.002],
+      ];
+    });
+    expect(all(files)).toEqual([`11 ${SCENE} › dressing[4].area[1]`]);
+  });
+
+  it('远处的地点在沙盘里面', () => {
+    const found = validateContent(editScene((s) => (s.far[0].at = [110.005, 29.995])), SIZES);
+    expect(found.map((v) => `${v.rule} ${v.field}`)).toEqual(['11 far[0].at']);
+    expect(found[0].problem).toContain('远处“far-port”在沙盘里面');
+  });
+
+  it('说出沙盘的范围，四个数都往里收：照着写的点一定在沙盘里面', () => {
+    // 沙盘的东边在经度 110.01556，西边 109.98444，南边在纬度 29.98918，北边 30.01082。
+    const found = validateContent(editScene((s) => (s.places[0].at = [110.02, 30.004])), SIZES);
+    expect(found[0].problem).toBe('地名点“east-hill”在沙盘外面；沙盘的范围是经度 109.9845 到 110.0155、纬度 29.9892 到 30.0108');
+    expect(sceneProblems((s) => (s.places[0].at = [110.0155, 30.0108]))).toEqual([]);
+    expect(sceneProblems((s) => (s.places[0].at = [109.9845, 29.9892]))).toEqual([]);
+    // 四舍五入出来的 110.0156 已经在东边外面 4 米了。
+    expect(sceneProblems((s) => (s.places[0].at = [110.0156, 30.004]))).toEqual(['11 places[0].at']);
+    expect(sceneProblems((s) => (s.water.dry[0].area[2] = [110, 29.9891]))).toEqual(['11 water.dry[0].area[2]']);
+  });
+});
+
+describe('规则 12 类别和依据', () => {
+  it('合格的样本通过：示意的和点缀可以不填出处', () => {
+    expect(fields(GOOD, 12, SCENE)).toEqual([]);
+    const scene = goodScene();
+    expect(scene.things[0]).toMatchObject({ class: 'schematic', sourceIds: [] });
+    expect(scene.dressing[0]).toMatchObject({ class: 'dressing', sourceIds: [] });
+    expect(scene.dressing[2]).toMatchObject({ class: 'text', sourceIds: ['s1'] });
+  });
+
+  it('出错的样本：出处找不到、类别写错、没有依据、该有出处的没有、点缀规则归成了示意、recipe 和 levels 没有 note', () => {
+    expect(fields(BAD, 12, BAD_SCENE)).toEqual([
+      'terrain.sourceIds[0]',
+      'water.levels.class',
+      'water.levels.basis',
+      'water.banks.sourceIds',
+      'dressing[0].class',
+      'terrain.recipe.note',
+      'water.levels.note',
+      'notDrawn[0].sourceIds[0]',
+    ]);
+  });
+
+  it('类别不是五类之一', () => {
+    const files = edit<{ things: { class: string }[] }>(SCENE, (scene) => (scene.things[0].class = '示意'));
+    const found = validateContent(files, SIZES);
+    expect(found.map((v) => `${v.rule} ${v.field}`)).toEqual(['12 things[0].class']);
+    expect(found[0].problem).toBe('摆件“wall”的类别是“示意”，只能是 real（真的）、today（今天的位置）、text（按正文摆的）、schematic（示意的）、dressing（点缀）之一');
+  });
+
+  it('依据是空的：带类别的十二处，哪一处都查', () => {
+    const cases: [string, (scene: StopScene) => void][] = [
+      ['terrain', (s) => (s.terrain.basis = '')],
+      ['terrain.recipe', (s) => (s.terrain.recipe.basis = '')],
+      ['terrain.edits[1]', (s) => (s.terrain.edits[1].basis = '')],
+      ['water.levels', (s) => (s.water.levels.basis = '')],
+      ['water.banks', (s) => (s.water.banks.basis = '')],
+      ['water.rivers[0]', (s) => (s.water.rivers[0].basis = ' ')],
+      ['water.rapids[0]', (s) => (s.water.rapids[0].basis = '')],
+      ['water.dry[0]', (s) => (s.water.dry[0].basis = '')],
+      ['places[0]', (s) => (s.places[0].basis = '')],
+      ['things[3]', (s) => (s.things[3].basis = '\n')],
+      ['dressing[1]', (s) => (s.dressing[1].basis = '')],
+      ['far[0]', (s) => (s.far[0].basis = '')],
+    ];
+    for (const [path, change] of cases) expect(sceneProblems(change), path).toEqual([`12 ${path}.basis`]);
+  });
+
+  it('真的、今天的位置、按正文摆的，没有出处', () => {
+    expect(sceneProblems((s) => (s.places[0].sourceIds = []))).toEqual(['12 places[0].sourceIds']);
+    expect(sceneProblems((s) => (s.far[0].sourceIds = []))).toEqual(['12 far[0].sourceIds']);
+    expect(sceneProblems((s) => (s.things[1].sourceIds = []))).toEqual(['12 things[1].sourceIds']);
+    expect(sceneProblems((s) => (s.things[0].class = 'text'))).toEqual(['12 things[0].sourceIds']);
+  });
+
+  it('出处在这一站的 sources 里找不到', () => {
+    expect(sceneProblems((s) => (s.things[1].sourceIds = ['s1', 's7']))).toEqual(['12 things[1].sourceIds[1]']);
+    expect(sceneProblems((s) => (s.notDrawn[0].sourceIds = ['s7']))).toEqual(['12 notDrawn[0].sourceIds[0]']);
+  });
+
+  it('这一站的 .json 读不出来时，出处在不在先不查', () => {
+    expect(all(withFile(STOP, '{ "stopId": '))).toEqual([`0 ${STOP}`]);
+  });
+
+  it('点缀规则的类别只能是点缀或按正文摆的', () => {
+    expect(sceneProblems((s) => (s.dressing[0].class = 'schematic'))).toEqual(['12 dressing[0].class']);
+    expect(sceneProblems((s) => Object.assign(s.dressing[0], { class: 'real', sourceIds: ['s2'] }))).toEqual(['12 dressing[0].class']);
+  });
+
+  it('unsure 要能接在“某某的”后面：不能是半句话，末尾不带标点', () => {
+    // 页面把它拼成“南门的〈unsure〉是示意”。
+    expect(unsureProblem('位置')).toBeNull();
+    expect(unsureProblem('位置（在南墙的哪一点）')).toBeNull();
+    expect(unsureProblem('层数、高矮和在东墙的哪一点')).toBeNull();
+    expect(unsureProblem('数目和系在哪一面')).toBeNull();
+    expect(unsureProblem('  ')).toBeNull();
+    for (const bad of ['在南墙的哪一点', '搭在哪一段城墙', '系在哪一面', '从哪里来', '到哪里为止', '山比平地高出多少', '位置。', '位置，']) {
+      expect(unsureProblem(bad), bad).not.toBeNull();
+      expect(sceneProblems((s) => (s.things[1].unsure = bad)), bad).toEqual(['12 things[1].unsure']);
+    }
+    expect(sceneProblems((s) => (s.water.rivers[1].unsure = '在哪'))).toEqual(['12 water.rivers[1].unsure']);
+    expect(sceneProblems((s) => (s.terrain.edits[0].unsure = '山比平地高出多少'))).toEqual(['12 terrain.edits[0].unsure']);
+    const found = validateContent(editScene((s) => (s.things[1].unsure = '在南墙的哪一点')), SIZES);
+    expect(found.map((v) => v.problem)).toEqual(['摆件“gate-south”的 unsure 是“在南墙的哪一点”，接在“某某的”后面读不通；写成一个词组，比如“位置（在南墙的哪一点）”']);
+  });
+
+  it('recipe 和 levels 必须写 note', () => {
+    expect(sceneProblems((s) => delete s.terrain.recipe.note)).toEqual(['12 terrain.recipe.note']);
+    // 水位的 note 没了，“河上”那一节的 explain 点到了水位，规则 14 也跟着报。
+    expect(sceneProblems((s) => (s.water.levels.note = '  '))).toEqual(['12 water.levels.note', '14 sections[1].explain[0]']);
+  });
+});
+
+describe('规则 13 零件', () => {
+  it('合格的样本通过', () => {
+    expect(fields(GOOD, 13, SCENE)).toEqual([]);
+  });
+
+  it('出错的样本：id、修整、急滩、参数、位置、on、点缀的位置和 kind，各有各的错', () => {
+    expect(fields(BAD, 13, BAD_SCENE)).toEqual([
+      'things[7].id',
+      'things[8].id',
+      'terrain.edits[0]',
+      'terrain.edits[0].inside',
+      'water.rapids',
+      'water.rapids[1].river',
+      'things[0].params.face',
+      'things[0].params.colour',
+      'things[0].line',
+      'things[1].on',
+      'things[3].on',
+      'things[4].params.halls',
+      'things[5].on',
+      'things[8].kind',
+      'dressing[0]',
+      'dressing[1]',
+      'dressing[2].params.count',
+      'dressing[2].area',
+      'dressing[3].kind',
+    ]);
+  });
+
+  it('id 在整个文件里重复，或者用了留用的词', () => {
+    const found = validateContent(editScene((s) => (s.dressing[4].id = 'wall')), SIZES);
+    expect(found.map((v) => `${v.rule} ${v.field}｜${v.problem}`)).toEqual(['13 dressing[4].id｜id“wall”和 things[0] 重复了；带 id 的东西，id 在整个场景文件里不能重复']);
+    expect(sceneProblems((s) => (s.water.dry[0].id = 'knoll'))).toEqual(['13 water.dry[0].id']);
+    for (const word of ['frame', 'terrain', 'recipe', 'levels', 'banks']) {
+      expect(sceneProblems((s) => (s.dressing[4].id = word)), word).toEqual(['13 dressing[4].id']);
+    }
+    expect(sceneProblems((s) => (s.dressing[4].id = ''))).toEqual(['13 dressing[4].id']);
+  });
+
+  it('带名字的东西名字不能空着；没有画的东西要写为什么不画', () => {
+    // 名字印在沙盘旁边的说明和凭据里。
+    const cases: [string, (scene: StopScene) => void][] = [
+      ['terrain.edits[0].name', (s) => (s.terrain.edits[0].name = '')],
+      ['water.rivers[0].name', (s) => (s.water.rivers[0].name = '  ')],
+      ['water.rapids[0].name', (s) => (s.water.rapids[0].name = '')],
+      ['water.dry[0].name', (s) => (s.water.dry[0].name = '')],
+      ['places[0].name', (s) => (s.places[0].name = '')],
+      ['things[0].name', (s) => (s.things[0].name = '')],
+      ['dressing[0].name', (s) => (s.dressing[0].name = '')],
+      ['far[0].name', (s) => (s.far[0].name = ' ')],
+      ['notDrawn[0].name', (s) => (s.notDrawn[0].name = '')],
+    ];
+    for (const [field, change] of cases) expect(sceneProblems(change), field).toEqual([`13 ${field}`]);
+    // “渡口”那一节的 explain 点到了这样没有画的东西，规则 14 也跟着报。
+    expect(sceneProblems((s) => (s.notDrawn[0].why = '  '))).toEqual(['13 notDrawn[0].why', '14 sections[2].explain[1]']);
+    // 没有哪一节点到它，也一样要写。
+    expect(
+      sceneProblems((s) => {
+        s.sections[2].explain = ['far-port'];
+        s.notDrawn[0].why = '';
+      }),
+    ).toEqual(['13 notDrawn[0].why']);
+  });
+
+  it('kind 不是零件库里有的', () => {
+    expect(looseProblems<{ things: { kind: string }[] }>((scene) => (scene.things[4].kind = 'bridge'))).toEqual(['13 things[4].kind']);
+    expect(looseProblems<{ dressing: { kind: string }[] }>((scene) => (scene.dressing[4].kind = 'grass'))).toEqual(['13 dressing[4].kind']);
+  });
+
+  it('参数表里没有的参数', () => {
+    const found = validateContent(editScene((s) => (s.things[0].params = { face: 'earth', colour: 'red' })), SIZES);
+    expect(found.map((v) => `${v.rule} ${v.field}｜${v.problem}`)).toEqual(['13 things[0].params.colour｜wall 这种零件没有“colour”这个参数；可以写的是：face、parapet']);
+    expect(sceneProblems((s) => (s.dressing[0].params = { lanes: true, storeys: 2 }))).toEqual(['13 dressing[0].params.storeys']);
+    // 名字碰巧和对象自带的东西一样，也不认。
+    expect(sceneProblems((s) => (s.things[0].params = { toString: 'x' }))).toEqual(['13 things[0].params.toString']);
+  });
+
+  it('参数的类型不对', () => {
+    expect(sceneProblems((s) => (s.things[2].params = { storeys: '2' }))).toEqual(['13 things[2].params.storeys']);
+    expect(sceneProblems((s) => (s.things[0].params = { parapet: 'yes' }))).toEqual(['13 things[0].params.parapet']);
+    expect(sceneProblems((s) => (s.things[0].params = { face: 'stone' }))).toEqual(['13 things[0].params.face']);
+    expect(sceneProblems((s) => (s.things[0].params = { face: true }))).toEqual(['13 things[0].params.face']);
+    expect(sceneProblems((s) => (s.dressing[1].params = { type: 'bamboo' }))).toEqual(['13 dressing[1].params.type']);
+    expect(sceneProblems((s) => (s.dressing[2].params = { count: '3' }))).toEqual(['13 dressing[2].params.count']);
+  });
+
+  it('参数可以一个都不写', () => {
+    const files = editScene((s) => {
+      for (const thing of s.things) delete thing.params;
+      for (const rule of s.dressing) delete rule.params;
+    });
+    expect(all(files)).toEqual([]);
+  });
+
+  it('城墙是一圈至少三个点的线，最后一点不重复第一点', () => {
+    expect(sceneProblems((s) => (s.things[0].line = s.things[0].line!.slice(0, 2)))).toEqual(['13 things[0].line']);
+    expect(sceneProblems((s) => s.things[0].line!.push(s.things[0].line![0]))).toEqual(['13 things[0].line']);
+    // 五个角的城墙也行。
+    expect(sceneProblems((s) => s.things[0].line!.splice(1, 0, [109.998, 30.0025]))).toEqual([]);
+  });
+
+  it('位置是一个点的写了 line，是一条线的写了 at', () => {
+    const pointAsLine = editScene((s) => {
+      s.things[4].line = [s.things[4].at!, [110.0099, 30.0039]];
+      delete s.things[4].at;
+    });
+    expect(all(pointAsLine)).toEqual([`13 ${SCENE} › things[4].at`, `13 ${SCENE} › things[4].line`]);
+    const lineAsPoint = editScene((s) => {
+      s.things[3].at = s.things[3].line![0];
+      delete s.things[3].line;
+    });
+    expect(all(lineAsPoint)).toEqual([`13 ${SCENE} › things[3].at`, `13 ${SCENE} › things[3].line`]);
+    expect(sceneProblems((s) => (s.things[3].line = [s.things[3].line![0]]))).toEqual(['13 things[3].line']);
+  });
+
+  it('城门必须写 on', () => {
+    expect(sceneProblems((s) => delete s.things[1].on)).toEqual(['13 things[1].on']);
+  });
+
+  it('on 指的东西不存在，或者种类不对', () => {
+    expect(sceneProblems((s) => (s.things[2].on = 'gate-north'))).toEqual(['13 things[2].on']);
+    expect(sceneProblems((s) => (s.things[2].on = 'pavilion'))).toEqual(['13 things[2].on']);
+    expect(sceneProblems((s) => (s.things[1].on = 'gate-tower'))).toEqual(['13 things[1].on']);
+    // 城墙只能摆在地上。
+    expect(sceneProblems((s) => (s.things[0].on = 'gate-south'))).toEqual(['13 things[0].on']);
+    // 楼可以在城门上，也可以直接在城墙上；堤写了 on 是贴在城墙里侧。
+    expect(sceneProblems((s) => (s.things[2].on = 'wall'))).toEqual([]);
+    expect(sceneProblems((s) => (s.things[3].on = 'wall'))).toEqual([]);
+  });
+
+  it('这样东西有的小节里，它摆在上面的东西也要有', () => {
+    const found = validateContent(editScene((s) => (s.things[1].when = { from: '渡口' })), SIZES);
+    expect(found.map((v) => `${v.rule} ${v.field}｜${v.problem}`)).toEqual([
+      '13 things[2].on｜小节“河上”里有摆件“gate-tower”，却没有它摆在上面的“gate-south”；两样东西的 when 要对得上',
+    ]);
+    // 前后接上的两座门、各带一座楼，是合格的。
+    const relay = editScene((s) => {
+      s.things[1].when = { until: '上船' };
+      s.things.push({ ...s.things[1], id: 'gate-south-new', when: { from: '河上' }, params: { face: 'brick', big: true } });
+      s.things[2].on = 'gate-south-new';
+    });
+    expect(all(relay)).toEqual([]);
+  });
+
+  it('点缀的位置最多写一种', () => {
+    expect(sceneProblems((s) => (s.dressing[0].at = [109.998, 30]))).toEqual(['13 dressing[0]']);
+  });
+
+  it('点缀的位置用了这种点缀不能用的写法', () => {
+    const found = validateContent(editScene((s) => delete s.dressing[0].inside), SIZES);
+    expect(found.map((v) => `${v.rule} ${v.field}｜${v.problem}`)).toEqual([
+      '13 dressing[0]｜点缀“homes”是 houses，不能摆满整块沙盘；位置要写 inside（一道城墙里面），或 area（一块地方）',
+    ]);
+    const boats = editScene((s) => {
+      delete s.dressing[2].at;
+      s.dressing[2].inside = 'wall';
+    });
+    expect(all(boats)).toEqual([`13 ${SCENE} › dressing[2].inside`]);
+    const fieldsAlongLine = editScene((s) => {
+      s.dressing[4].kind = 'fields';
+      delete s.dressing[4].params;
+      s.dressing[4].line = [
+        [110.008, 30.006],
+        [110.012, 30.002],
+      ];
+    });
+    expect(all(fieldsAlongLine)).toEqual([`13 ${SCENE} › dressing[4].line`]);
+  });
+
+  it('点缀的 inside 要写一道城墙；一块地方至少三个点；沿着的线至少两个点', () => {
+    expect(sceneProblems((s) => (s.dressing[0].inside = 'gate-south'))).toEqual(['13 dressing[0].inside']);
+    expect(sceneProblems((s) => (s.dressing[0].inside = 'old-wall'))).toEqual(['13 dressing[0].inside']);
+    expect(sceneProblems((s) => (s.dressing[1].line = [s.dressing[1].line![0]]))).toEqual(['13 dressing[1].line']);
+    const smallArea = editScene((s) => {
+      delete s.dressing[0].inside;
+      s.dressing[0].area = [
+        [109.997, 30.001],
+        [109.999, 30.001],
+      ];
+    });
+    expect(all(smallArea)).toEqual([`13 ${SCENE} › dressing[0].area`]);
+  });
+
+  it('修整的 area 和 inside 正好写一个', () => {
+    const both = edit<{ terrain: { edits: { area: unknown }[] } }>(SCENE, (scene) => {
+      scene.terrain.edits[0].area = [
+        [109.997, 30.001],
+        [109.999, 30.001],
+        [109.999, 29.999],
+      ];
+    });
+    expect(all(both)).toEqual([`13 ${SCENE} › terrain.edits[0]`]);
+    const neither = edit<{ terrain: { edits: { inside?: string }[] } }>(SCENE, (scene) => delete scene.terrain.edits[0].inside);
+    expect(all(neither)).toEqual([`13 ${SCENE} › terrain.edits[0]`]);
+  });
+
+  it('修整的 inside 要写一道城墙；area 至少三个点', () => {
+    const notWall = edit<{ terrain: { edits: { inside: string }[] } }>(SCENE, (scene) => (scene.terrain.edits[0].inside = 'gate-south'));
+    expect(all(notWall)).toEqual([`13 ${SCENE} › terrain.edits[0].inside`]);
+    const twoPoints = edit<{ terrain: { edits: { area: unknown[] }[] } }>(SCENE, (scene) => scene.terrain.edits[1].area.splice(2));
+    expect(all(twoPoints)).toEqual([`13 ${SCENE} › terrain.edits[1].area`]);
+  });
+
+  it('急滩最多一处，它的 river 是文件里有的河', () => {
+    expect(sceneProblems((s) => s.water.rapids.push({ ...s.water.rapids[0], id: 'shoal-2', at: [110.004, 30.004] }))).toEqual(['13 water.rapids']);
+    expect(sceneProblems((s) => (s.water.rapids[0].river = 'short-river'))).toEqual(['13 water.rapids[0].river']);
+    expect(sceneProblems((s) => (s.water.rapids = []))).toEqual([]);
+  });
+
+  it('河的中线至少两个点；水漫不进去的地方至少三个点', () => {
+    expect(sceneProblems((s) => (s.water.rivers[1].line = [[109.9954, 30.002]]))).toEqual(['13 water.rivers[1].line']);
+    expect(sceneProblems((s) => s.water.dry[0].area.splice(2))).toEqual(['13 water.dry[0].area']);
+  });
+
+  it('没有壕的城也合格', () => {
+    expect(sceneProblems((s) => s.water.rivers.splice(1, 1))).toEqual([]);
+  });
+});
+
+describe('规则 14 小节', () => {
+  it('合格的样本通过', () => {
+    expect(fields(GOOD, 14, SCENE)).toEqual([]);
+  });
+
+  it('出错的样本：小节和正文对不上、没有 normal、没有时间、题记太长、水位没有、explain 和 mustShow 写错、when 写错', () => {
+    expect(fields(BAD, 14, BAD_SCENE)).toEqual([
+      'sections',
+      'sections[1].heading',
+      'water.levels.values',
+      'sections[0].date',
+      'sections[0].line',
+      'sections[0].water',
+      'sections[0].explain',
+      'sections[1].explain[0]',
+      'sections[1].explain[1]',
+      'sections[1].explain[2]',
+      'sections[1].camera.mustShow[1]',
+      'sections[2].explain[0]',
+      'things[6].when',
+      'things[7].when',
+      'things[8].when.from',
+    ]);
+  });
+
+  it('场景比正文少一节', () => {
+    const found = validateContent(editScene((s) => s.sections.pop()), SIZES);
+    expect(found.map((v) => `${v.rule} ${v.field}｜${v.problem}`)).toEqual(['14 sections｜正文的小节“渡口”在场景里没有；场景的小节要和正文的小节一一对上']);
+  });
+
+  it('场景的小节标题和正文差一个字', () => {
+    // 标题对不上以后，“从河上起才有”的楼哪一节都不算有，指着它的题签也跟着报（规则 15）。
+    expect(sceneProblems((s) => (s.sections[1].heading = '河 上'))).toEqual(['14 sections', '14 sections[1].heading', '15 sections[1].strips', '15 sections[2].strips']);
+  });
+
+  it('小节的先后和正文不一样', () => {
+    // 先后一乱，“从河上起才有”的楼在排到前面的“渡口”里就不算有了，所以规则 15 也跟着报一处。
+    const found = validateContent(editScene((s) => s.sections.reverse()), SIZES);
+    expect(found.map((v) => `${v.rule} ${v.field}｜${v.problem}`)).toEqual([
+      '14 sections｜小节的先后和正文不一样；正文是：上船、河上、渡口',
+      '15 sections[0].strips｜小节“渡口”摆了题签“s-tower”（门楼），但它指的“gate-tower”这一节沙盘上没有',
+    ]);
+  });
+
+  it('同一个小节写了两次', () => {
+    expect(sceneProblems((s) => s.sections.push({ ...s.sections[0] }))).toEqual(['14 sections[3].heading']);
+  });
+
+  it('正文改了小节标题，场景没有跟着改', () => {
+    const files = withFile(BODY, GOOD[BODY].replace('## 渡口', '## 码头'));
+    expect(all(files).filter((line) => line.includes('/scenes/'))).toEqual([`14 ${SCENE} › sections`, `14 ${SCENE} › sections[2].heading`, `14 ${SCENE} › dressing[2].when.only[1]`]);
+  });
+
+  it('正文读不出来时，和正文对不对得上先不查', () => {
+    expect(all(withFile(BODY, `# 大标题\n\n${GOOD[BODY]}`))).toEqual([`4 ${BODY}`]);
+  });
+
+  it('没有时间、没有题记、题记超过 40 个字', () => {
+    expect(sceneProblems((s) => (s.sections[0].date = ' '))).toEqual(['14 sections[0].date']);
+    expect(sceneProblems((s) => (s.sections[0].line = ''))).toEqual(['14 sections[0].line']);
+    const found = validateContent(editScene((s) => (s.sections[0].line = '字'.repeat(41))), SIZES);
+    expect(found.map((v) => `${v.rule} ${v.field}｜${v.problem}`)).toEqual(['14 sections[0].line｜小节“上船”的题记有 41 个字，不能超过 40 个']);
+    expect(sceneProblems((s) => (s.sections[0].line = '字'.repeat(40)))).toEqual([]);
+  });
+
+  it('题签指到远处的小节：题记连同远处的那句话，窄栏的两行要放得下', () => {
+    // 汉字算一个字宽，数字、字母、空格算半个。
+    expect(textWidth('往西约 145 公里（今河南商丘）')).toBe(3 + 0.5 + 1.5 + 0.5 + 2 + 7);
+    const farPort = '东港：往东南约 465 公里（今东港市）';
+    const room = Math.floor(WORDS_MAX - 0.5 - textWidth(farPort));
+    expect(room).toBeLessThan(40);
+    // “渡口”那一节的题签指着远处：题记正好放得下合格，多一个字就不行。
+    expect(sceneProblems((s) => (s.sections[2].line = '渡'.repeat(room)))).toEqual([]);
+    const found = validateContent(editScene((s) => (s.sections[2].line = '渡'.repeat(room + 1))), SIZES);
+    expect(found.map((v) => `${v.rule} ${v.field}｜${v.problem}`)).toEqual([
+      `14 sections[2].line｜小节“渡口”的题记后面还要接远处的那句话（${farPort}），合起来有 ${WORDS_MAX + 1} 个字宽，沙盘栏窄的时候两行放不下；不能超过 ${WORDS_MAX} 个字宽，把题记写短一些`,
+    ]);
+    // 没有指到远处的小节，题记只管不超过 40 个字。
+    expect(sceneProblems((s) => (s.sections[0].line = '船'.repeat(40)))).toEqual([]);
+  });
+
+  it('水位的名字在 levels.values 里没有', () => {
+    const found = validateContent(editScene((s) => (s.sections[1].water = 'high')), SIZES);
+    expect(found.map((v) => `${v.rule} ${v.field}｜${v.problem}`)).toEqual(['14 sections[1].water｜小节“河上”的水位“high”在 water.levels.values 里没有；有的是：normal、flood']);
+  });
+
+  it('levels.values 里没有 normal', () => {
+    const files = editScene((s) => {
+      s.water.levels.values = { calm: 37.6, flood: 43 };
+      s.sections[0].water = 'calm';
+      s.sections[2].water = 'calm';
+    });
+    expect(all(files)).toEqual([`14 ${SCENE} › water.levels.values`]);
+  });
+
+  it('when 里写的小节标题不是正文里的', () => {
+    expect(sceneProblems((s) => (s.things[4].when = { from: '下船' }))).toEqual(['14 things[4].when.from']);
+    expect(sceneProblems((s) => (s.things[4].when = { until: '下船' }))).toEqual(['14 things[4].when.until']);
+    expect(sceneProblems((s) => (s.dressing[2].when = { only: ['上船', '下船'] }))).toEqual(['14 dressing[2].when.only[1]']);
+  });
+
+  it('from 比 until 晚；同一节起、同一节止是合格的', () => {
+    expect(sceneProblems((s) => (s.things[4].when = { from: '渡口', until: '上船' }))).toEqual(['14 things[4].when']);
+    expect(sceneProblems((s) => (s.things[4].when = { from: '河上', until: '河上' }))).toEqual([]);
+  });
+
+  it('when 是空的', () => {
+    expect(sceneProblems((s) => (s.things[4].when = {}))).toEqual(['14 things[4].when']);
+    expect(sceneProblems((s) => (s.dressing[2].when = { only: [] }))).toEqual(['14 dressing[2].when.only']);
+  });
+
+  it('城墙、路、田不能写 when：地面只算一次、只上一次色，不跟着小节变', () => {
+    expect(sceneProblems((s) => (s.dressing[3].when = { from: '河上' }))).toEqual(['14 dressing[3].when']);
+    // 城墙晚出来，摆在它上面的城门前两节就没了着落，规则 13 也跟着报。
+    expect(sceneProblems((s) => (s.things[0].when = { from: '河上' })).filter((problem) => problem.startsWith('14 '))).toEqual(['14 things[0].when']);
+    // 田也是画在地面上的：不写 when 合格，写了不行。
+    const paddies = { id: 'paddies', name: '城外的田', kind: 'fields' as const, class: 'dressing' as const, basis: '点缀。', sourceIds: [] };
+    expect(sceneProblems((s) => s.dressing.push(paddies))).toEqual([]);
+    expect(sceneProblems((s) => s.dressing.push({ ...paddies, when: { from: '河上' } }))).toEqual(['14 dressing[5].when']);
+    // 别的点缀（船、树、民居）照常可以写。
+    expect(sceneProblems((s) => (s.dressing[1].when = { from: '河上' }))).toEqual([]);
+  });
+
+  it('explain 一样也没有，或者写的 id 找不到', () => {
+    expect(sceneProblems((s) => (s.sections[0].explain = []))).toEqual(['14 sections[0].explain']);
+    expect(sceneProblems((s) => s.sections[0].explain.push('nothing'))).toEqual(['14 sections[0].explain[2]']);
+    // 题签自己没有类别和依据，不能点；frame 也不能。
+    expect(sceneProblems((s) => (s.sections[0].explain = ['wall', 's-town', 'frame']))).toEqual(['14 sections[0].explain[1]', '14 sections[0].explain[2]']);
+  });
+
+  it('explain 里点到的东西没有 note', () => {
+    const found = validateContent(editScene((s) => (s.sections[0].explain = ['gate-south'])), SIZES);
+    expect(found.map((v) => `${v.rule} ${v.field}｜${v.problem}`)).toEqual(['14 sections[0].explain[0]｜“gate-south”没有写 note；explain 里点到的东西都要有一句给读者看的说明']);
+    expect(sceneProblems((s) => (s.things[0].note = ' '))).toEqual(['14 sections[0].explain[0]']);
+    // 没有画的东西用它的 why。（why 空着本身也不行，规则 13 先报一处。）
+    const why = validateContent(editScene((s) => (s.notDrawn[0].why = '')), SIZES);
+    expect(why.map((v) => `${v.rule} ${v.field}｜${v.problem}`)).toEqual([
+      '13 notDrawn[0].why｜没有画的“old-lock”没有写为什么不画：凭据里要印这一句',
+      '14 sections[2].explain[1]｜“old-lock”没有写 why；explain 里点到的东西都要有一句给读者看的说明',
+    ]);
+  });
+
+  it('explain 可以写 levels、banks、terrain、recipe 四个词，一样要有 note', () => {
+    expect(sceneProblems((s) => (s.sections[0].explain = ['levels', 'recipe']))).toEqual([]);
+    expect(sceneProblems((s) => (s.sections[0].explain = ['banks', 'terrain']))).toEqual(['14 sections[0].explain[0]', '14 sections[0].explain[1]']);
+    const withNotes = editScene((s) => {
+      s.water.banks.note = '河岸的高矮是示意。';
+      s.terrain.note = '山的位置是真的。';
+      s.sections[0].explain = ['banks', 'terrain'];
+    });
+    expect(all(withNotes)).toEqual([]);
+  });
+
+  it('explain 可以点修整、河、急滩、水漫不进去的地方、地名点、点缀、远处，只要有 note', () => {
+    const files = editScene((s) => {
+      const note = '给读者看的一句话。';
+      s.terrain.edits[1].note = note;
+      s.water.rapids[0].note = note;
+      s.water.dry[0].note = note;
+      s.places[0].note = note;
+      s.dressing[2].note = note;
+      s.sections[0].explain = ['low-field', 'long-river', 'shoal', 'south-yard', 'east-hill', 'ferry-boats', 'far-port'];
+    });
+    expect(all(files)).toEqual([]);
+  });
+
+  it('mustShow 写的 id 找不到', () => {
+    expect(sceneProblems((s) => (s.sections[1].camera.mustShow = ['ghost']))).toEqual(['14 sections[1].camera.mustShow[0]']);
+    // 修整、没有画的东西、题签都不是沙盘上看得见的一样东西。
+    expect(sceneProblems((s) => (s.sections[1].camera.mustShow = ['frame', 'city-ground', 'old-lock', 's-town']))).toEqual([
+      '14 sections[1].camera.mustShow[1]',
+      '14 sections[1].camera.mustShow[2]',
+      '14 sections[1].camera.mustShow[3]',
+    ]);
+    expect(sceneProblems((s) => (s.sections[1].camera.mustShow = ['frame', 'wall', 'homes', 'east-hill', 'long-river', 'shoal', 'far-port']))).toEqual([]);
+  });
+});
+
+describe('规则 15 题签', () => {
+  it('合格的样本通过', () => {
+    expect(fields(GOOD, 15, SCENE)).toEqual([]);
+  });
+
+  it('出错的样本：字里有标点和数字、of 找不到、指着城墙没有写 at、at 太远、指的东西那一节没有、重复、没有这条题签、一条也没有', () => {
+    expect(fields(BAD, 15, BAD_SCENE)).toEqual([
+      'strips[0].text',
+      'strips[1].modern',
+      'strips[1].of',
+      'strips[2].at',
+      'strips[3].at',
+      'sections[0].strips',
+      'sections[0].strips[1]',
+      'sections[0].strips[3]',
+      'sections[1].strips',
+    ]);
+  });
+
+  it('text 和 modern 只能是汉字，一到七个', () => {
+    for (const text of ['东门。', 'East', '东 门', '东门2', '', '示例城的老城墙上']) {
+      expect(sceneProblems((s) => (s.strips[0].text = text)), `text“${text}”`).toEqual(['15 strips[0].text']);
+      expect(sceneProblems((s) => (s.strips[0].modern = text)), `modern“${text}”`).toEqual(['15 strips[0].modern']);
+    }
+    expect(sceneProblems((s) => (s.strips[0].text = '示例城的老城墙'))).toEqual([]);
+    expect(sceneProblems((s) => (s.strips[0].text = '城'))).toEqual([]);
+  });
+
+  it('of 指的东西找不到', () => {
+    const found = validateContent(editScene((s) => (s.strips[3].of = 'west-hill')), SIZES);
+    expect(found.map((v) => `${v.rule} ${v.field}｜${v.problem}`)).toEqual(['15 strips[3].of｜题签“s-hill”指的“west-hill”找不到；这里可以写摆件、点缀、地名点、河、急滩、远处的 id']);
+    // 修整、水漫不进去的地方、没有画的东西、别的题签，题签都不能指。
+    for (const id of ['city-ground', 'south-yard', 'old-lock', 's-town', 'levels']) {
+      expect(sceneProblems((s) => (s.strips[3].of = id)), id).toEqual(['15 strips[3].of']);
+    }
+  });
+
+  it('缺 of 是格式问题', () => {
+    expect(looseProblems<{ strips: { of?: string }[] }>((scene) => delete scene.strips[3].of)).toEqual(['0 strips[3].of']);
+  });
+
+  it('指着一圈城墙、一条河、一片点缀时必须写 at', () => {
+    const found = validateContent(editScene((s) => delete s.strips[0].at), SIZES);
+    expect(found.map((v) => `${v.rule} ${v.field}｜${v.problem}`)).toEqual(['15 strips[0].at｜题签“s-town”指的“wall”是一条线或一片地方，要写 at：指在它的哪一点']);
+    expect(sceneProblems((s) => delete s.strips[1].at)).toEqual(['15 strips[1].at']);
+    expect(sceneProblems((s) => delete s.strips[4].at)).toEqual(['15 strips[4].at']);
+    expect(sceneProblems((s) => (s.strips[3].of = 'dike'))).toEqual(['15 strips[3].at']);
+    expect(sceneProblems((s) => (s.strips[3].of = 'woods'))).toEqual(['15 strips[3].at']);
+    expect(sceneProblems((s) => (s.strips[3].of = 'willows'))).toEqual(['15 strips[3].at']);
+  });
+
+  it('指着只有一个点的东西不用写 at：摆件、地名点、急滩、一个点周围的点缀、远处', () => {
+    for (const id of ['gate-south', 'east-hill', 'shoal', 'far-port']) {
+      expect(sceneProblems((s) => (s.strips[3].of = id)), id).toEqual([]);
+    }
+    // 渡口的船只在“上船”和“渡口”两节有，题签也只摆在“渡口”一节。
+    const boats = editScene((s) => {
+      s.strips[3].of = 'ferry-boats';
+      s.sections[1].strips = ['s-river', 's-tower'];
+      s.sections[2].strips.push('s-hill');
+    });
+    // 场景本身合格。两节的题签换过了，照旧题签拍的定格图就对不上了：那是规则 18 的事（宽、窄各两张）。
+    expect(all(boats)).toEqual([`18 ${STILLS} › stills[1].anchors`, `18 ${STILLS} › stills[2].anchors`, `18 ${STILLS} › stills[4].anchors`, `18 ${STILLS} › stills[5].anchors`]);
+    expect(all(withoutMade(boats))).toEqual([]);
+  });
+
+  it('at 离它指的东西超过 300 米', () => {
+    // 城墙北边 388 米。
+    const wall = validateContent(editScene((s) => (s.strips[0].at = [109.998, 30.0055])), SIZES);
+    expect(wall.map((v) => `${v.rule} ${v.field}｜${v.problem}`)).toEqual(['15 strips[0].at｜题签“s-town”的 at 离它指的“wall”有 388 米，不能超过 300 米']);
+    // 河西边 386 米。
+    expect(sceneProblems((s) => (s.strips[1].at = [110, 30]))).toEqual(['15 strips[1].at']);
+    // 只有一个点的东西写了 at，也不能离得太远。
+    expect(sceneProblems((s) => (s.strips[2].at = [109.998, 30.003]))).toEqual(['15 strips[2].at']);
+    expect(sceneProblems((s) => (s.strips[2].at = [109.998, 29.9985]))).toEqual([]);
+    // 城里的民居：在城墙里面哪一点都行，出了城墙 300 米以内也行，再远不行。
+    expect(sceneProblems((s) => (s.strips[4].at = [109.9965, 30.0015]))).toEqual([]);
+    expect(sceneProblems((s) => (s.strips[4].at = [109.998, 30.003]))).toEqual([]);
+    expect(sceneProblems((s) => (s.strips[4].at = [109.998, 30.0055]))).toEqual(['15 strips[4].at']);
+    // 摆满整块沙盘的点缀，指在哪里都行。
+    const anywhere = editScene((s) => {
+      s.strips[3].of = 'woods';
+      s.strips[3].at = [109.99, 29.992];
+    });
+    expect(all(anywhere)).toEqual([]);
+  });
+
+  it('指着远处的题签写了 at：要在沙盘边上朝着它的那一点附近', () => {
+    // 东港在东南偏东，朝着它走，从沙盘东边上大约 [110.0156, 29.9922] 的地方出去。
+    expect(sceneProblems((s) => (s.strips[5].at = [110.015, 29.993]))).toEqual([]);
+    expect(sceneProblems((s) => (s.strips[5].at = [109.985, 30.01]))).toEqual(['15 strips[5].at']);
+  });
+
+  it('题签指的东西，在用到这条题签的小节里还没有或者已经没有了', () => {
+    const found = validateContent(editScene((s) => s.sections[0].strips.push('s-tower')), SIZES);
+    expect(found.map((v) => `${v.rule} ${v.field}｜${v.problem}`)).toEqual(['15 sections[0].strips｜小节“上船”摆了题签“s-tower”（门楼），但它指的“gate-tower”这一节沙盘上没有']);
+    // 指着点缀的也查：渡口的船“河上”那一节没有。
+    const boats = editScene((s) => {
+      s.strips[3].of = 'ferry-boats';
+    });
+    expect(all(boats)).toEqual([`15 ${SCENE} › sections[1].strips`]);
+  });
+
+  it('每节一到六条', () => {
+    expect(sceneProblems((s) => (s.sections[0].strips = []))).toEqual(['15 sections[0].strips']);
+    const seven = editScene((s) => {
+      s.strips.push({ id: 's-shoal', text: '乱石滩', of: 'shoal' });
+      s.sections[1].strips = ['s-town', 's-river', 's-tower', 's-hill', 's-homes', 's-far', 's-shoal'];
+    });
+    const found = validateContent(seven, SIZES);
+    expect(found.map((v) => `${v.rule} ${v.field}｜${v.problem}`)).toEqual(['15 sections[1].strips｜小节“河上”有 7 条题签，应该是一到 6 条']);
+    // 六条合格。（这一节的题签换过了，定格图要重拍，规则 18 另报；这里只看场景自己，所以先把工具做的那几样拿开。）
+    const six = withoutMade(editScene((s) => (s.sections[1].strips = ['s-town', 's-river', 's-tower', 's-hill', 's-homes', 's-far'])));
+    expect(all(six)).toEqual([]);
+  });
+
+  it('一节里同一条题签写了两次，或者写了文件里没有的题签', () => {
+    expect(sceneProblems((s) => s.sections[0].strips.push('s-town'))).toEqual(['15 sections[0].strips[3]']);
+    expect(sceneProblems((s) => s.sections[0].strips.push('s-ghost'))).toEqual(['15 sections[0].strips[3]']);
+  });
+});
+
+describe('规则 16 人物页的定格图', () => {
+  it('合格的样本通过', () => {
+    expect(JSON.parse(GOOD[FIGURE]).routeStill.file).toBe('route.svg');
+    expect(all(GOOD).filter((line) => line.startsWith('16 '))).toEqual([]);
+  });
+
+  it('出错的样本：图片文件不存在，alt 和 note 没有填', () => {
+    expect(fields(BAD, 16, 'figures/broken/figure.json')).toEqual(['routeStill.file', 'routeStill.alt', 'routeStill.note']);
+  });
+
+  it('没有写 routeStill 是合格的', () => {
+    expect(all(editFigure((f) => delete f.routeStill))).toEqual([]);
+  });
+
+  it('图片文件不在 stills/ 里', () => {
+    expect(all(without(STILL))).toEqual([`16 ${FIGURE} › routeStill.file`]);
+    expect(all(editFigure((f) => (f.routeStill!.file = 'Route.svg')))).toEqual([`16 ${FIGURE} › routeStill.file`]);
+    expect(all(editFigure((f) => (f.routeStill!.file = '')))).toEqual([`16 ${FIGURE} › routeStill.file`]);
+    // 放在 images/ 里的不算。
+    expect(all(editFigure((f) => (f.routeStill!.file = '../images/boat.svg')))).toEqual([`16 ${FIGURE} › routeStill.file`]);
+  });
+
+  it('图片超过 300 KB', () => {
+    const found = validateContent(GOOD, { ...SIZES, [STILL]: STILL_MAX_BYTES + 1 });
+    expect(found.map((v) => `${v.rule} ${v.file} › ${v.field}｜${v.problem}`)).toEqual([`16 ${FIGURE} › routeStill.file｜定格图有 301 KB，不能超过 300 KB`]);
+    expect(all(GOOD, { ...SIZES, [STILL]: STILL_MAX_BYTES })).toEqual([]);
+  });
+
+  it('alt、caption、note、credit 哪个没填都不行', () => {
+    for (const key of ['alt', 'caption', 'note', 'credit'] as const) {
+      expect(all(editFigure((f) => (f.routeStill![key] = '  '))), key).toEqual([`16 ${FIGURE} › routeStill.${key}`]);
+    }
+  });
+
+  it('缺字段是格式问题', () => {
+    const files = edit<{ routeStill: { credit?: string } }>(FIGURE, (figure) => delete figure.routeStill.credit);
+    expect(all(files)).toEqual([`0 ${FIGURE} › routeStill.credit`]);
+    const noWidth = edit<{ routeStill: { width?: number } }>(FIGURE, (figure) => delete figure.routeStill.width);
+    expect(all(noWidth)).toEqual([`0 ${FIGURE} › routeStill.width`]);
+  });
+
+  it('width、height 是正整数', () => {
+    expect(all(editFigure((f) => (f.routeStill!.width = 0)))).toEqual([`16 ${FIGURE} › routeStill.width`]);
+    expect(all(editFigure((f) => (f.routeStill!.height = -90)))).toEqual([`16 ${FIGURE} › routeStill.height`]);
+    expect(all(editFigure((f) => (f.routeStill!.height = 90.5)))).toEqual([`16 ${FIGURE} › routeStill.height`]);
+  });
+
+  it('width、height 要和图片文件的宽高一样（量得出宽高的图片才对）', () => {
+    const measured = (width: number, height: number): PictureSizes => ({ [STILL]: { width, height } });
+    const problems = (pictures: PictureSizes) => validateContent(GOOD, SIZES, pictures).map((v) => `${v.rule} ${v.file} › ${v.field}｜${v.problem}`);
+    expect(problems(measured(160, 90))).toEqual([]);
+    expect(problems(measured(320, 180))).toEqual([`16 ${FIGURE} › routeStill.width｜图片文件是 320 × 180 像素，这里写的是 160 × 90`]);
+    expect(problems(measured(160, 100))).toEqual([`16 ${FIGURE} › routeStill.height｜图片文件是 160 × 100 像素，这里写的是 160 × 90`]);
+    // 样本里的图是 SVG，量不出宽高：不给就不对。
+    expect(toPictureSizes('./fixtures/good/', paths, () => new ArrayBuffer(0))).toEqual({});
+    expect(problems({})).toEqual([]);
+  });
+
+  it('从图片文件的开头读出宽高：PNG 和 JPEG 读得出，别的读不出', () => {
+    const bytes = (...values: number[]) => new Uint8Array(values).buffer;
+    // PNG：8 个字节的开头，IHDR 的长度和名字，然后是宽 300、高 200。
+    const png = bytes(0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13, 0x49, 0x48, 0x44, 0x52, 0, 0, 1, 44, 0, 0, 0, 200);
+    expect(pictureSize(png)).toEqual({ width: 300, height: 200, kind: 'png' });
+    // JPEG：开头，一段别的（APP0，长 4），然后是写着宽高的一段（SOF0）：高 1171、宽 1404。
+    const jpeg = bytes(0xff, 0xd8, 0xff, 0xe0, 0, 4, 1, 2, 0xff, 0xc0, 0, 17, 8, 0x04, 0x93, 0x05, 0x7c, 3, 0, 0);
+    expect(pictureSize(jpeg)).toEqual({ width: 1404, height: 1171, kind: 'jpeg' });
+    expect(pictureSize(new TextEncoder().encode('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 90"></svg>').buffer as ArrayBuffer)).toBeNull();
+    expect(pictureSize(new ArrayBuffer(0))).toBeNull();
+    expect(pictureSize(bytes(0xff, 0xd8, 0x00, 0x00, 0, 0, 0, 0, 0, 0, 0, 0))).toBeNull();
+  });
+});
+
+/** 一处问题写成“规则号 文件 › 字段”，文件只写人物文件夹后面的一截（baked/river.json）。 */
+const where = (v: Violation): string => `${v.rule} ${v.file.slice(DIR.length + 1)}${v.field === '' ? '' : ` › ${v.field}`}`;
+
+/** 量到的三样里改几处（别的照合格样本从磁盘量到的）。 */
+function measuredWith(change: { sizes?: FileSizes; pictures?: Measured['pictures']; keys?: Record<string, string> }): Measured {
+  return { sizes: { ...SIZES, ...change.sizes }, pictures: { ...PICTURES, ...change.pictures }, keys: { ...KEYS, ...change.keys } };
+}
+
+describe('从磁盘量工具做出来的文件', () => {
+  it('baked/ 和 stills/ 里的文件都量大小；JPEG、PNG 量宽高、认是哪一种、算记号', () => {
+    expect(PICTURES[COLOUR]).toEqual({ width: 301, height: 241, kind: 'jpeg' });
+    expect(PICTURES[FIELDS]).toEqual({ width: 301, height: 241, kind: 'png' });
+    expect(PICTURES[shot(1, 'wide')]).toEqual({ width: 1800, height: 1350, kind: 'jpeg' });
+    expect(PICTURES[shot(3, 'narrow')]).toEqual({ width: 1920, height: 1146, kind: 'jpeg' });
+    // 清单和 SVG 读不出宽高，不在里面
+    expect(Object.keys(PICTURES).sort()).toEqual([COLOUR, FIELDS, ...SHOTS].sort());
+    expect(Object.keys(KEYS).sort()).toEqual([COLOUR, FIELDS, ...SHOTS].sort());
+    for (const key of Object.values(KEYS)) expect(key).toMatch(/^[0-9a-f]{16}$/);
+    // 六张定格图的字节各不相同，记号也各不相同
+    expect(new Set(SHOTS.map((path) => KEYS[path])).size).toBe(6);
+    expect(SIZES[COLOUR]).toBe(29);
+    expect(SIZES[FIELDS]).toBe(45);
+  });
+
+  it('认的是文件里的字节，不是文件名', () => {
+    // 把 PNG 的字节放在叫 .jpg 的文件里：量出来还是 PNG
+    const swapped = toPictureSizes('./fixtures/good/', paths, (path) => readBytes(onDisk(path.endsWith('river.colour.jpg') ? path.replace('colour.jpg', 'fields.png') : path)));
+    expect(swapped[COLOUR]).toEqual({ width: 301, height: 241, kind: 'png' });
+    // 字节变了一个，记号就不一样
+    const changed = toFileKeys('./fixtures/good/', paths, (path) => {
+      const bytes = new Uint8Array(readBytes(onDisk(path)).slice(0));
+      if (path.endsWith('river.colour.jpg')) bytes[7] = 9;
+      return bytes.buffer;
+    });
+    expect(changed[COLOUR]).not.toBe(KEYS[COLOUR]);
+    expect(changed[FIELDS]).toBe(KEYS[FIELDS]);
+  });
+});
+
+describe('规则 17 先画好的地面', () => {
+  /** 规则 17 查出来的地方。不另说的话：合格的样本，量到的大小、宽高、记号都交进去，“每座沙盘都要有”的开关开着。 */
+  const baked = (files: ContentFiles = GOOD, measured: Measured = MEASURED, required = true, scene: StopScene = goodScene()): string[] =>
+    checkBakedGround(scene, DIR, files, measured, required).map(where);
+  const problems = (files: ContentFiles, measured: Measured = MEASURED): string[] => checkBakedGround(goodScene(), DIR, files, measured, true).map((v) => v.problem);
+  const editBaked = (change: (manifest: BakedGroundManifest) => void): ContentFiles => edit<BakedGroundManifest>(BAKED, change);
+  const sceneWith = (change: (scene: StopScene) => void): StopScene => {
+    const scene = goodScene();
+    change(scene);
+    return scene;
+  };
+
+  it('合格的样本通过：清单和两张图都在，宽高是照沙盘的范围每 10 米一个点算的', () => {
+    expect(baked()).toEqual([]);
+    expect(baked(GOOD, MEASURED, false)).toEqual([]);
+    // 什么都没量，只凭清单和有哪些文件，也通过
+    expect(baked(GOOD, {})).toEqual([]);
+    // 样本的沙盘东西 3000 米、南北 2400 米
+    expect(bakedPictureSize(goodScene())).toEqual({ width: 301, height: 241 });
+    const manifest = JSON.parse(GOOD[BAKED]) as BakedGroundManifest;
+    expect(manifest.colour).toMatchObject({ file: 'river.colour.jpg', width: 301, height: 241, bytes: SIZES[COLOUR], key: KEYS[COLOUR] });
+    expect(manifest.fields).toMatchObject({ file: 'river.fields.png', width: 301, height: 241, bytes: SIZES[FIELDS], key: KEYS[FIELDS] });
+  });
+
+  it('还没有清单的沙盘：开关没开算合格，开了就不行', () => {
+    const none = withoutMade();
+    expect(baked(none, MEASURED, false)).toEqual([]);
+    expect(baked(none, MEASURED, true)).toEqual(['17 baked/river.json']);
+    expect(problems(none)).toEqual(['没有这个文件：“river”的沙盘还没有先画好的地面；运行 npm run bake，再提交']);
+    // 整份内容一起查也一样；不另说的时候照开关现在的样子
+    expect(validateContent(none, SIZES, PICTURES, KEYS, true).map(where)).toEqual(['17 baked/river.json', '18 stills/river.json']);
+    expect(validateContent(none, SIZES, PICTURES, KEYS, false)).toEqual([]);
+    expect(validateContent(none, SIZES, PICTURES, KEYS).map(where)).toEqual(MADE_FILES_REQUIRED ? ['17 baked/river.json', '18 stills/river.json'] : []);
+  });
+
+  it('有图没有清单：这两张图对不上', () => {
+    expect(baked(without(BAKED), MEASURED, false)).toEqual(['17 baked/river.colour.jpg', '17 baked/river.fields.png']);
+    expect(baked(without(BAKED), MEASURED, true)).toEqual(['17 baked/river.json', '17 baked/river.colour.jpg', '17 baked/river.fields.png']);
+  });
+
+  it('清单不是合法的 JSON 算格式问题', () => {
+    expect(baked(withFile(BAKED, '{ "tool": 1, '))).toEqual(['0 baked/river.json']);
+  });
+
+  it('清单里有不认识的字段、缺字段、类型不对、数不在范围里', () => {
+    expect(baked(edit<{ note: string }>(BAKED, (m) => (m.note = '手写的一句')))).toEqual(['17 baked/river.json › note']);
+    expect(baked(edit<{ colour: { made: string } }>(BAKED, (m) => (m.colour.made = '昨天')))).toEqual(['17 baked/river.json › colour.made']);
+    expect(baked(edit<{ colour: { psnr?: number } }>(BAKED, (m) => delete m.colour.psnr))).toEqual(['17 baked/river.json › colour.psnr']);
+    expect(baked(edit<{ pixels?: unknown }>(BAKED, (m) => delete m.pixels))).toEqual(['17 baked/river.json › pixels']);
+    expect(baked(edit<{ fields: { bytes: unknown } }>(BAKED, (m) => (m.fields.bytes = '45')))).toEqual(['17 baked/river.json › fields.bytes']);
+    expect(baked(editBaked((m) => (m.colour.width = 300.5)))).toEqual(['17 baked/river.json › colour.width']);
+    // 质量是 0 到 1 之间的数，不是 0 到 100
+    expect(baked(editBaked((m) => (m.colour.quality = 95)))).toEqual(['17 baked/river.json › colour.quality']);
+    expect(baked(edit<{ tool: number }>(BAKED, (m) => (m.tool = 2)))).toEqual(['17 baked/river.json › tool']);
+  });
+
+  it('清单写的一张图不在', () => {
+    expect(baked(without(COLOUR))).toEqual(['17 baked/river.json › colour.file']);
+    expect(baked(without(FIELDS))).toEqual(['17 baked/river.json › fields.file']);
+    expect(problems(without(COLOUR))).toEqual(['颜色那张图 baked/river.colour.jpg 不存在；图片和清单都不手改，运行 npm run bake 重新做']);
+  });
+
+  it('图的名字不是 <站>.colour.jpg、<站>.fields.png', () => {
+    // 清单写了别的名字：名字不对；而 baked/ 里真的那张图就成了清单里没有的
+    expect(baked(editBaked((m) => (m.colour.file = 'river.jpg')))).toEqual(['17 baked/river.json › colour.file', '17 baked/river.colour.jpg']);
+    expect(baked(editBaked((m) => (m.fields.file = '../scenes/river.fields.png')))).toEqual(['17 baked/river.json › fields.file', '17 baked/river.fields.png']);
+  });
+
+  it('颜色不是 JPEG，田的标记不是 PNG', () => {
+    const colourIsPng = measuredWith({ pictures: { [COLOUR]: { width: 301, height: 241, kind: 'png' } } });
+    expect(baked(GOOD, colourIsPng)).toEqual(['17 baked/river.json › colour.file']);
+    expect(problems(GOOD, colourIsPng)).toEqual(['颜色那张图应该是 JPEG，baked/river.colour.jpg 却是 PNG']);
+    expect(baked(GOOD, measuredWith({ pictures: { [FIELDS]: { width: 301, height: 241, kind: 'jpeg' } } }))).toEqual(['17 baked/river.json › fields.file']);
+    // 只量了宽高、没认是哪一种的，不对这一样
+    expect(baked(GOOD, measuredWith({ pictures: { [COLOUR]: { width: 301, height: 241 } } }))).toEqual([]);
+  });
+
+  it('图片文件的宽高和清单里写的不一样', () => {
+    const narrower = measuredWith({ pictures: { [COLOUR]: { width: 300, height: 241, kind: 'jpeg' } } });
+    expect(baked(GOOD, narrower)).toEqual(['17 baked/river.json › colour.width']);
+    expect(problems(GOOD, narrower)).toEqual(['颜色那张图的文件是 300 × 241 像素，清单里写的是 301 × 241']);
+    expect(baked(GOOD, measuredWith({ pictures: { [FIELDS]: { width: 301, height: 240, kind: 'png' } } }))).toEqual(['17 baked/river.json › fields.height']);
+  });
+
+  it('清单里写的宽高，和沙盘的范围算出来的不一样', () => {
+    // 不量图片，只拿清单对沙盘的范围
+    const unmeasured: Measured = { sizes: SIZES, keys: KEYS };
+    const files = editBaked((m) => (m.colour.width = 300));
+    expect(baked(files, unmeasured)).toEqual(['17 baked/river.json › colour.width']);
+    expect(problems(files, unmeasured)).toEqual(['颜色那张图写的是 300 × 241 像素；照沙盘的范围每 10 米一个点算，应该是 301 × 241']);
+    expect(baked(editBaked((m) => (m.fields.height = 121)), unmeasured)).toEqual(['17 baked/river.json › fields.height']);
+    // 沙盘往东放大了 200 米，图还是原来的：两张都对不上（每 10 米一个点，该宽 321）
+    const wider = sceneWith((s) => (s.frame.eastM = 1700));
+    expect(bakedPictureSize(wider)).toEqual({ width: 321, height: 241 });
+    expect(baked(GOOD, MEASURED, true, wider)).toEqual(['17 baked/river.json › colour.width', '17 baked/river.json › fields.width']);
+  });
+
+  it('宽或高超过 2048 像素', () => {
+    // 东西 21 公里的沙盘，每 10 米一个点就是 2101 个点
+    const huge = sceneWith((s) => {
+      s.frame.westM = 10500;
+      s.frame.eastM = 10500;
+    });
+    expect(bakedPictureSize(huge).width).toBe(2101);
+    const files = editBaked((m) => {
+      m.colour.width = 2101;
+      m.fields.width = 2101;
+    });
+    const measured = measuredWith({ pictures: { [COLOUR]: { width: 2101, height: 241, kind: 'jpeg' }, [FIELDS]: { width: 2101, height: 241, kind: 'png' } } });
+    const found = checkBakedGround(huge, DIR, files, measured, true);
+    expect(found.map(where)).toEqual(['17 baked/river.json › colour.width', '17 baked/river.json › fields.width']);
+    expect(found[0].problem).toBe(`颜色那张图有 2101 × 241 像素，宽和高都不能超过 ${PICTURE_EDGE_MAX}`);
+    // 东西 20460 米是 2047 个点，合格
+    const wide = sceneWith((s) => {
+      s.frame.westM = 10230;
+      s.frame.eastM = 10230;
+    });
+    const fits = editBaked((m) => {
+      m.colour.width = 2047;
+      m.fields.width = 2047;
+    });
+    expect(checkBakedGround(wide, DIR, fits, { sizes: SIZES, keys: KEYS }, true)).toEqual([]);
+  });
+
+  it('字节数、文件的记号和清单里写的不一样', () => {
+    const bigger = measuredWith({ sizes: { [COLOUR]: 30 } });
+    expect(baked(GOOD, bigger)).toEqual(['17 baked/river.json › colour.bytes']);
+    expect(problems(GOOD, bigger)).toEqual(['颜色那张图的文件有 30 字节，清单里写的是 29']);
+    expect(baked(editBaked((m) => (m.fields.bytes = 44)))).toEqual(['17 baked/river.json › fields.bytes']);
+    const touched = measuredWith({ keys: { [FIELDS]: '0123456789abcdef' } });
+    expect(baked(GOOD, touched)).toEqual(['17 baked/river.json › fields.key']);
+    expect(problems(GOOD, touched)).toEqual([
+      `田的标记那张图的文件不是清单里记的那一份（文件的记号是 0123456789abcdef，清单里写的是 ${KEYS[FIELDS]}）；图片和清单都不手改，运行 npm run bake 重新做`,
+    ]);
+    expect(baked(editBaked((m) => (m.colour.key = 'ffffffffffffffff')))).toEqual(['17 baked/river.json › colour.key']);
+    // 没有量的不对
+    expect(baked(editBaked((m) => Object.assign(m.colour, { bytes: 999, key: 'ffffffffffffffff' })), {})).toEqual([]);
+  });
+
+  it('地形文件、颜色、田的标记三个文件合计超过 1.5 MB', () => {
+    // 地形文件 128 字节，田的标记 45 字节，颜色占满剩下的：正好 1.5 MB 合格，多一个字节不行
+    const room = TABLE_FILES_MAX_BYTES - SIZES[TERRAIN] - SIZES[FIELDS];
+    const withColour = (bytes: number): [ContentFiles, Measured] => [editBaked((m) => (m.colour.bytes = bytes)), measuredWith({ sizes: { [COLOUR]: bytes } })];
+    expect(baked(...withColour(room))).toEqual([]);
+    expect(baked(...withColour(room + 1))).toEqual(['17 baked/river.json']);
+    expect(problems(...withColour(room + 1))).toEqual(['地形文件、颜色、田的标记三个文件合计 1.50 MB，不能超过 1.5 MB']);
+    expect(problems(...withColour(room + 300_000))).toEqual(['地形文件、颜色、田的标记三个文件合计 1.79 MB，不能超过 1.5 MB']);
+    // 没有量大小的时候，图片照清单里写的字节数算，地形文件照 行 × 列 × 2 算
+    expect(baked(editBaked((m) => (m.colour.bytes = room)), {})).toEqual([]);
+    expect(baked(editBaked((m) => (m.colour.bytes = room + 1)), {})).toEqual(['17 baked/river.json']);
+    // 地形文件大了也一样算进去
+    expect(baked(GOOD, measuredWith({ sizes: { [TERRAIN]: TABLE_FILES_MAX_BYTES } }))).toEqual(['17 baked/river.json']);
+  });
+
+  it('颜色那张图的清晰度（psnr）低于 40', () => {
+    expect(baked(editBaked((m) => (m.colour.psnr = 39.9)))).toEqual(['17 baked/river.json › colour.psnr']);
+    expect(problems(editBaked((m) => (m.colour.psnr = 39.9)))).toEqual(['颜色那张图压得太狠：清晰度（psnr）是 39.9，不能低于 40；用高一点的质量重新做']);
+    expect(baked(editBaked((m) => (m.colour.psnr = 40)))).toEqual([]);
+  });
+
+  it('baked/ 里以“<站>.”开头的文件都要在清单里', () => {
+    expect(baked(withFile('figures/demo/baked/river.normals.png', ''))).toEqual(['17 baked/river.normals.png']);
+    expect(baked(withFile('figures/demo/baked/river.colour.png', ''))).toEqual(['17 baked/river.colour.png']);
+    // 别的站的、不以“river.”开头的，不归这一站管
+    expect(baked({ ...GOOD, 'figures/demo/baked/lake.colour.jpg': '', 'figures/demo/baked/riverside.json': '{}' })).toEqual([]);
+  });
+
+  it('场景自己不合格（规则 10 到 15）时，规则 17、18 先不查', () => {
+    // 颜色那张图没了、定格图清单也没了；场景的 stopId 又写错了：只报场景的那一处
+    const files = editScene((s) => (s.stopId = 'lake'));
+    delete files[COLOUR];
+    delete files[STILLS];
+    expect(validateContent(files, SIZES, PICTURES, KEYS, true).map(where)).toEqual(['10 scenes/river.json › stopId']);
+    // 场景改对以后，那两处就报出来了（没有清单的六张定格图，一张一处）
+    const fixed = { ...files, [SCENE]: GOOD[SCENE] };
+    expect(validateContent(fixed, SIZES, PICTURES, KEYS, true).map(where)).toEqual([
+      '17 baked/river.json › colour.file',
+      '18 stills/river.json',
+      ...[...SHOTS].sort().map((path) => `18 ${path.slice(DIR.length + 1)}`),
+    ]);
+    // 出错的样本里的两个场景文件都不合格，所以开关开着也没有规则 17、18 的问题
+    expect(validateContent(BAD, {}, {}, {}, true).some((v) => v.rule >= 17)).toBe(false);
+  });
+});
+
+describe('规则 18 每一小节的定格图', () => {
+  /** 规则 18 查出来的地方。不另说的话：合格的样本，量到的大小、宽高、记号都交进去，“每座沙盘都要有”的开关开着。 */
+  const stills = (files: ContentFiles = GOOD, measured: Measured = MEASURED, required = true, scene: StopScene = goodScene()): string[] =>
+    checkSectionStills(scene, DIR, files, measured, required).map(where);
+  const problems = (files: ContentFiles, measured: Measured = MEASURED): string[] => checkSectionStills(goodScene(), DIR, files, measured, true).map((v) => v.problem);
+  const editStills = (change: (manifest: StillManifest) => void): ContentFiles => edit<StillManifest>(STILLS, change);
+  /** 改成类型不许的样子。 */
+  const looseStills = <T>(change: (manifest: T) => void): ContentFiles => edit<T>(STILLS, change);
+  const goodStills = (): StillManifest => JSON.parse(GOOD[STILLS]) as StillManifest;
+
+  it('合格的样本通过：三个小节，宽、窄各一张，每张记着这一节题签指着的点', () => {
+    expect(stills()).toEqual([]);
+    expect(stills(GOOD, MEASURED, false)).toEqual([]);
+    expect(stills(GOOD, {})).toEqual([]);
+    const manifest = goodStills();
+    expect(manifest.stills.map((s) => `${s.section} ${s.shape} ${s.file}`)).toEqual([
+      '上船 wide river-1-wide.jpg',
+      '河上 wide river-2-wide.jpg',
+      '渡口 wide river-3-wide.jpg',
+      '上船 narrow river-1-narrow.jpg',
+      '河上 narrow river-2-narrow.jpg',
+      '渡口 narrow river-3-narrow.jpg',
+    ]);
+    const scene = goodScene();
+    for (const still of manifest.stills) {
+      expect(still.anchors.map((a) => a.id)).toEqual(scene.sections.find((s) => s.heading === still.section)?.strips);
+      expect(still.bytes).toBe(SIZES[`${DIR}/stills/${still.file}`]);
+      expect(still.key).toBe(KEYS[`${DIR}/stills/${still.file}`]);
+    }
+    // 样本里有远处的题签（带 out）、抬高了的题签（带 foot）
+    expect(manifest.stills[2].anchors[0]).toMatchObject({ id: 's-far', out: [0.0995, -0.995] });
+    expect(manifest.stills[1].anchors[1]).toMatchObject({ id: 's-tower', foot: [0.2136, 0.3812] });
+  });
+
+  it('宽、窄两种在清单里怎么穿插都行，只要各自的先后和小节一样', () => {
+    const interleaved = editStills((m) => {
+      const [w1, w2, w3, n1, n2, n3] = m.stills;
+      m.stills = [w1, n1, w2, n2, w3, n3];
+    });
+    expect(stills(interleaved)).toEqual([]);
+  });
+
+  it('还没有清单的沙盘：开关没开算合格，开了就不行', () => {
+    const none = withoutMade();
+    expect(stills(none, MEASURED, false)).toEqual([]);
+    expect(stills(none, MEASURED, true)).toEqual(['18 stills/river.json']);
+    expect(problems(none)).toEqual(['没有这个文件：“river”的沙盘还没有每一小节的定格图；运行 STILLS_OUT=content/figures npm run stills（见 README），再提交']);
+  });
+
+  it('有图没有清单：这几张图对不上；人物页的那一张不算', () => {
+    expect(stills(without(STILLS), MEASURED, false)).toEqual([...SHOTS].sort().map((path) => `18 ${path.slice(DIR.length + 1)}`));
+    expect(GOOD[STILL]).toBeDefined();
+  });
+
+  it('清单不是合法的 JSON 算格式问题', () => {
+    expect(stills(withFile(STILLS, '{ "tool": 1, '))).toEqual(['0 stills/river.json']);
+  });
+
+  it('清单里有不认识的字段、缺字段、类型不对', () => {
+    expect(stills(looseStills<{ note: string }>((m) => (m.note = '手写的一句')))).toEqual(['18 stills/river.json › note']);
+    expect(stills(looseStills<{ stills: { caption: string }[] }>((m) => (m.stills[0].caption = '图上的字')))).toEqual(['18 stills/river.json › stills[0].caption']);
+    expect(stills(looseStills<{ stills: { anchors: { text: string }[] }[] }>((m) => (m.stills[0].anchors[0].text = '示例城')))).toEqual(['18 stills/river.json › stills[0].anchors[0].text']);
+    expect(stills(looseStills<{ made: { background?: string } }>((m) => delete m.made.background))).toEqual(['18 stills/river.json › made.background']);
+    expect(stills(looseStills<{ madeFrom: { program?: string } }>((m) => delete m.madeFrom.program))).toEqual(['18 stills/river.json › madeFrom.program']);
+    expect(stills(looseStills<{ stills: { raw?: string }[] }>((m) => delete m.stills[3].raw))).toEqual(['18 stills/river.json › stills[3].raw']);
+    expect(stills(looseStills<{ stills: { shape: string }[] }>((m) => (m.stills[0].shape = 'tall')))).toEqual(['18 stills/river.json › stills[0].shape']);
+    expect(stills(looseStills<{ stills: { quality: number }[] }>((m) => (m.stills[0].quality = 101)))).toEqual(['18 stills/river.json › stills[0].quality']);
+    // 定格图只用完整的画质拍
+    expect(stills(looseStills<{ made: { tier: string } }>((m) => (m.made.tier = 'reduced')))).toEqual(['18 stills/river.json › made.tier']);
+    expect(stills(looseStills<{ tool: number }>((m) => (m.tool = 2)))).toEqual(['18 stills/river.json › tool']);
+  });
+
+  it('两种形状都要写全：窗口、沙盘栏、四边留的空、左右多拍多少、像素比', () => {
+    expect(stills(looseStills<{ shapes: { narrow?: unknown } }>((m) => delete m.shapes.narrow))).toEqual(['18 stills/river.json › shapes.narrow']);
+    for (const field of ['window', 'pane', 'insets', 'extra', 'pixelRatio']) {
+      expect(stills(looseStills<{ shapes: { wide: Record<string, unknown> } }>((m) => delete m.shapes.wide[field])), field).toEqual([`18 stills/river.json › shapes.wide.${field}`]);
+    }
+    expect(stills(editStills((m) => (m.shapes.wide.pixelRatio = 0)))).toEqual(['18 stills/river.json › shapes.wide.pixelRatio']);
+    expect(stills(editStills((m) => (m.shapes.narrow.extra = -1)))).toEqual(['18 stills/river.json › shapes.narrow.extra']);
+    // 窗口、沙盘栏是两个数，四边留的空是四个数
+    expect(stills(looseStills<{ shapes: { wide: { window: number[] } } }>((m) => (m.shapes.wide.window = [1440])))).toEqual(['18 stills/river.json › shapes.wide.window']);
+    expect(stills(looseStills<{ shapes: { narrow: { pane: number[] } } }>((m) => (m.shapes.narrow.pane = [768, 573, 2])))).toEqual(['18 stills/river.json › shapes.narrow.pane']);
+    const twoInsets = looseStills<{ shapes: { narrow: { insets: number[] } } }>((m) => (m.shapes.narrow.insets = [54, 95]));
+    expect(stills(twoInsets)).toEqual(['18 stills/river.json › shapes.narrow.insets']);
+    expect(problems(twoInsets)).toEqual(['窄的那种，四边留的空（上、右、下、左）要写成四个数，现在是 2 个']);
+  });
+
+  it('少了一个小节的、少了一种形状的', () => {
+    // 去掉“河上”窄的那一张：清单里缺一张；stills/ 里那张图也成了清单里没有的
+    const missing = editStills((m) => m.stills.splice(4, 1));
+    expect(stills(missing)).toEqual(['18 stills/river.json › stills', '18 stills/river-2-narrow.jpg']);
+    expect(problems(missing)[0]).toBe('小节“河上”没有窄的定格图；每个小节宽、窄各要一张');
+    // 场景添了一节，定格图还没重拍：宽、窄各缺一张
+    const scene = goodScene();
+    scene.sections.push({ ...scene.sections[0], heading: '下船' });
+    expect(stills(GOOD, MEASURED, true, scene)).toEqual(['18 stills/river.json › stills', '18 stills/river.json › stills']);
+  });
+
+  it('多出一张、同一张写了两次、先后和小节不一样', () => {
+    const extra = editStills((m) => m.stills.push({ ...m.stills[0], section: '下船' }));
+    expect(stills(extra)).toEqual(['18 stills/river.json › stills[6].section']);
+    expect(problems(extra)).toEqual(['清单里多出一张宽的定格图：场景里没有“下船”这个小节']);
+    const twice = editStills((m) => m.stills.push({ ...m.stills[3] }));
+    expect(stills(twice)).toEqual(['18 stills/river.json › stills[6].section']);
+    expect(problems(twice)).toEqual(['小节“上船”窄的定格图写了不止一张']);
+    const swapped = editStills((m) => {
+      [m.stills[0], m.stills[1]] = [m.stills[1], m.stills[0]];
+    });
+    expect(stills(swapped)).toEqual(['18 stills/river.json › stills']);
+    expect(problems(swapped)).toEqual(['宽的定格图先后和小节不一样；小节是：上船、河上、渡口']);
+  });
+
+  it('文件名不是 <站>-<第几节>-wide.jpg、<站>-<第几节>-narrow.jpg', () => {
+    // 名字写错的那一张；真的那张图也就成了清单里没有的
+    const jpeg = editStills((m) => (m.stills[0].file = 'river-1-wide.jpeg'));
+    expect(stills(jpeg)).toEqual(['18 stills/river.json › stills[0].file', '18 stills/river-1-wide.jpg']);
+    expect(problems(jpeg)[0]).toBe('小节“上船”宽的定格图应该叫 river-1-wide.jpg（<站>-<第几节>-wide.jpg，不带文件夹），现在写的是“river-1-wide.jpeg”');
+    // 带了文件夹
+    expect(stills(editStills((m) => (m.stills[4].file = 'stills/river-2-narrow.jpg')))).toEqual(['18 stills/river.json › stills[4].file', '18 stills/river-2-narrow.jpg']);
+    // 第几节写错了：“渡口”是第三节
+    expect(stills(editStills((m) => (m.stills[2].file = 'river-2-wide.jpg')))).toEqual(['18 stills/river.json › stills[2].file', '18 stills/river-3-wide.jpg']);
+    // 宽的写成了窄的名字
+    expect(stills(editStills((m) => (m.stills[0].file = 'river-1-narrow.jpg')))).toEqual(['18 stills/river.json › stills[0].file', '18 stills/river-1-wide.jpg']);
+  });
+
+  it('stills/ 里以“<站>-”开头的图片都要在清单里', () => {
+    expect(stills(withFile('figures/demo/stills/river-4-wide.jpg', ''))).toEqual(['18 stills/river-4-wide.jpg']);
+    expect(stills(withFile('figures/demo/stills/river-1-wide.png', ''))).toEqual(['18 stills/river-1-wide.png']);
+    // 人物页的那一张、别的站的、不是图片的，不归这一站管
+    expect(stills({ ...GOOD, 'figures/demo/stills/route.jpg': '', 'figures/demo/stills/lake-1-wide.jpg': '', 'figures/demo/stills/river-notes.txt': '' })).toEqual([]);
+  });
+
+  it('清单写的一张图不在', () => {
+    expect(stills(without(shot(2, 'narrow')))).toEqual(['18 stills/river.json › stills[4].file']);
+    expect(problems(without(shot(2, 'narrow')))).toEqual(['小节“河上”窄的定格图 stills/river-2-narrow.jpg 不存在；图片和清单都不手改，运行 STILLS_OUT=content/figures npm run stills 重新做（见 README）']);
+  });
+
+  it('不是 JPEG', () => {
+    const png = measuredWith({ pictures: { [shot(1, 'wide')]: { width: 1800, height: 1350, kind: 'png' } } });
+    expect(stills(GOOD, png)).toEqual(['18 stills/river.json › stills[0].file']);
+    expect(problems(GOOD, png)).toEqual(['小节“上船”宽的定格图应该是 JPEG，stills/river-1-wide.jpg 却是 PNG']);
+  });
+
+  it('超过 300 KB', () => {
+    const withBytes = (bytes: number): [ContentFiles, Measured] => [editStills((m) => (m.stills[5].bytes = bytes)), measuredWith({ sizes: { [shot(3, 'narrow')]: bytes } })];
+    expect(stills(...withBytes(STILL_MAX_BYTES))).toEqual([]);
+    expect(stills(...withBytes(STILL_MAX_BYTES + 1))).toEqual(['18 stills/river.json › stills[5].bytes']);
+    expect(problems(...withBytes(STILL_MAX_BYTES + 1))).toEqual(['小节“渡口”窄的定格图有 301 KB，不能超过 300 KB']);
+    // 没有量大小的时候照清单里写的字节数查
+    expect(stills(editStills((m) => (m.stills[5].bytes = STILL_MAX_BYTES + 1)), {})).toEqual(['18 stills/river.json › stills[5].bytes']);
+    // 文件比清单里写的大，而且超了：两处都说
+    expect(stills(GOOD, measuredWith({ sizes: { [shot(3, 'narrow')]: 400_000 } }))).toEqual(['18 stills/river.json › stills[5].bytes', '18 stills/river.json › stills[5].bytes']);
+  });
+
+  it('宽或高超过 2048 像素', () => {
+    const withWidth = (width: number): [ContentFiles, Measured] => [
+      editStills((m) => (m.stills[0].width = width)),
+      measuredWith({ pictures: { [shot(1, 'wide')]: { width, height: 1350, kind: 'jpeg' } } }),
+    ];
+    expect(stills(...withWidth(PICTURE_EDGE_MAX))).toEqual([]);
+    expect(stills(...withWidth(PICTURE_EDGE_MAX + 1))).toEqual(['18 stills/river.json › stills[0].width']);
+    expect(problems(...withWidth(PICTURE_EDGE_MAX + 1))).toEqual(['小节“上船”宽的定格图有 2049 × 1350 像素，宽和高都不能超过 2048']);
+    expect(stills(editStills((m) => (m.stills[3].height = 2100)), {})).toEqual(['18 stills/river.json › stills[3].height']);
+  });
+
+  it('宽高、字节数、文件的记号和清单里写的不一样', () => {
+    const shorter = measuredWith({ pictures: { [shot(1, 'narrow')]: { width: 1920, height: 1144, kind: 'jpeg' } } });
+    expect(stills(GOOD, shorter)).toEqual(['18 stills/river.json › stills[3].height']);
+    expect(problems(GOOD, shorter)).toEqual(['小节“上船”窄的定格图的文件是 1920 × 1144 像素，清单里写的是 1920 × 1146']);
+    expect(stills(editStills((m) => (m.stills[1].width = 1799)))).toEqual(['18 stills/river.json › stills[1].width']);
+    expect(stills(GOOD, measuredWith({ sizes: { [shot(2, 'wide')]: 31 } }))).toEqual(['18 stills/river.json › stills[1].bytes']);
+    expect(stills(editStills((m) => (m.stills[1].bytes = 28)))).toEqual(['18 stills/river.json › stills[1].bytes']);
+    // 两张图调了个儿：各自的记号都对不上清单
+    const swappedKeys = measuredWith({ keys: { [shot(1, 'wide')]: KEYS[shot(2, 'wide')], [shot(2, 'wide')]: KEYS[shot(1, 'wide')] } });
+    expect(stills(GOOD, swappedKeys)).toEqual(['18 stills/river.json › stills[0].key', '18 stills/river.json › stills[1].key']);
+    expect(stills(editStills((m) => (m.stills[2].key = 'ffffffffffffffff')))).toEqual(['18 stills/river.json › stills[2].key']);
+    // 没有量的不对
+    expect(stills(editStills((m) => Object.assign(m.stills[2], { bytes: 999, key: 'ffffffffffffffff', width: 1700 })), {})).toEqual([]);
+  });
+
+  it('anchors 要正好是这一小节的题签，先后相同', () => {
+    const fewer = editStills((m) => m.stills[0].anchors.pop());
+    expect(stills(fewer)).toEqual(['18 stills/river.json › stills[0].anchors']);
+    expect(problems(fewer)).toEqual(['小节“上船”宽的定格图记的题签是 s-town、s-river，这一小节的题签是 s-town、s-river、s-homes；要一条不多、一条不少，先后相同']);
+    expect(stills(editStills((m) => m.stills[0].anchors.push({ id: 's-hill', x: 0.7, y: 0.2, visible: true })))).toEqual(['18 stills/river.json › stills[0].anchors']);
+    expect(stills(editStills((m) => m.stills[4].anchors.reverse()))).toEqual(['18 stills/river.json › stills[4].anchors']);
+    expect(stills(editStills((m) => (m.stills[2].anchors = [])))).toEqual(['18 stills/river.json › stills[2].anchors']);
+    // 场景里这一节换了题签，定格图还没重拍
+    const scene = goodScene();
+    scene.sections[1].strips = ['s-river', 's-tower'];
+    expect(stills(GOOD, MEASURED, true, scene)).toEqual(['18 stills/river.json › stills[1].anchors', '18 stills/river.json › stills[4].anchors']);
+  });
+
+  it('x、y 是数；看得见的要落在 0 到 1 之间', () => {
+    expect(stills(looseStills<{ stills: { anchors: { x: unknown }[] }[] }>((m) => (m.stills[0].anchors[0].x = '0.44')))).toEqual(['18 stills/river.json › stills[0].anchors[0].x']);
+    expect(stills(looseStills<{ stills: { anchors: { y?: number }[] }[] }>((m) => delete m.stills[0].anchors[1].y))).toEqual(['18 stills/river.json › stills[0].anchors[1].y']);
+    const outside = editStills((m) => (m.stills[0].anchors[0].x = 1.2));
+    expect(stills(outside)).toEqual(['18 stills/river.json › stills[0].anchors[0]']);
+    expect(problems(outside)).toEqual(['题签“s-town”标着看得见，位置却在图片外面（x 1.2，y 0.3912）；看得见的要落在 0 到 1 之间']);
+    expect(stills(editStills((m) => (m.stills[0].anchors[2].y = -0.01)))).toEqual(['18 stills/river.json › stills[0].anchors[2]']);
+    // 正好在边上算在里面；看不见的可以在外面
+    expect(stills(editStills((m) => Object.assign(m.stills[0].anchors[0], { x: 0, y: 1 })))).toEqual([]);
+    expect(stills(editStills((m) => Object.assign(m.stills[0].anchors[0], { x: -0.3, y: 1.4, visible: false })))).toEqual([]);
+  });
+
+  it('写了 out 的是长度为 1 的方向，写了 foot 的是两个数', () => {
+    expect(stills(editStills((m) => (m.stills[2].anchors[0].out = [0.5, 0.5])))).toEqual(['18 stills/river.json › stills[2].anchors[0].out']);
+    expect(stills(editStills((m) => (m.stills[2].anchors[0].out = [3, 4])))).toEqual(['18 stills/river.json › stills[2].anchors[0].out']);
+    expect(stills(looseStills<{ stills: { anchors: { out: number[] }[] }[] }>((m) => (m.stills[2].anchors[0].out = [1])))).toEqual(['18 stills/river.json › stills[2].anchors[0].out']);
+    expect(stills(looseStills<{ stills: { anchors: { out: unknown }[] }[] }>((m) => (m.stills[2].anchors[0].out = 'south')))).toEqual(['18 stills/river.json › stills[2].anchors[0].out']);
+    expect(stills(editStills((m) => (m.stills[2].anchors[0].out = [0, -1])))).toEqual([]);
+    expect(stills(editStills((m) => (m.stills[2].anchors[0].out = [0.6, 0.8])))).toEqual([]);
+    expect(stills(looseStills<{ stills: { anchors: { foot: number[] }[] }[] }>((m) => (m.stills[1].anchors[1].foot = [0.2136])))).toEqual(['18 stills/river.json › stills[1].anchors[1].foot']);
+    expect(stills(looseStills<{ stills: { anchors: { foot: unknown }[] }[] }>((m) => (m.stills[1].anchors[1].foot = { x: 0.2, y: 0.4 })))).toEqual(['18 stills/river.json › stills[1].anchors[1].foot']);
+  });
+
+  it('northDeg 在 −180 到 180 之间；pxPerMetre、fit 大于 0；镜头的几个数个数要对', () => {
+    expect(stills(editStills((m) => (m.stills[0].northDeg = 180.5)))).toEqual(['18 stills/river.json › stills[0].northDeg']);
+    expect(stills(editStills((m) => (m.stills[0].northDeg = -181)))).toEqual(['18 stills/river.json › stills[0].northDeg']);
+    expect(stills(editStills((m) => (m.stills[0].northDeg = 180)))).toEqual([]);
+    expect(stills(editStills((m) => (m.stills[0].northDeg = -180)))).toEqual([]);
+    expect(stills(editStills((m) => (m.stills[3].pxPerMetre = 0)))).toEqual(['18 stills/river.json › stills[3].pxPerMetre']);
+    expect(stills(editStills((m) => (m.stills[3].fit = 0)))).toEqual(['18 stills/river.json › stills[3].fit']);
+    expect(stills(editStills((m) => (m.stills[3].fit = -1.5)))).toEqual(['18 stills/river.json › stills[3].fit']);
+    expect(stills(looseStills<{ stills: { pose: { target: number[] } }[] }>((m) => (m.stills[0].pose.target = [0, 0])))).toEqual(['18 stills/river.json › stills[0].pose.target']);
+    expect(stills(looseStills<{ stills: { pose: { position: number[] } }[] }>((m) => m.stills[0].pose.position.push(1)))).toEqual(['18 stills/river.json › stills[0].pose.position']);
+    expect(stills(looseStills<{ stills: { reach: number[] }[] }>((m) => (m.stills[0].reach = [400])))).toEqual(['18 stills/river.json › stills[0].reach']);
+  });
+});
+
+describe('规则 9 没有占位：场景文件里的文字也查', () => {
+  it('依据、说明、题记、没有画的原因里留了占位', () => {
+    expect(sceneProblems((s) => (s.things[0].basis += '（待核）'))).toEqual(['9 things[0].basis']);
+    expect(sceneProblems((s) => (s.water.levels.note = '水位是示意（约数，待核）。'))).toEqual(['9 water.levels.note']);
+    expect(sceneProblems((s) => (s.sections[2].line = '（待写）'))).toEqual(['9 sections[2].line']);
+    expect(sceneProblems((s) => (s.notDrawn[0].why = '位置（待查）'))).toEqual(['9 notDrawn[0].why']);
+    expect(sceneProblems((s) => (s.credits[0] = '地形：（待填）'))).toEqual(['9 credits[0]']);
+  });
+
+  it('查不到的事直接写“没有查到”，不算占位', () => {
+    expect(sceneProblems((s) => (s.things[0].basis = '城墙的位置没有查到，是自己定的。'))).toEqual([]);
+  });
+
+  it('人物页定格图的字里留了占位', () => {
+    expect(all(editFigure((f) => (f.routeStill!.note = '（待核）')))).toEqual([`9 ${FIGURE} › routeStill.note`]);
+  });
+});
+
+describe('报告的写法', () => {
+  it('规则的名字有十九个：格式，加上十八条', () => {
+    expect(RULE_NAMES).toHaveLength(19);
+    expect(RULE_NAMES.slice(10)).toEqual(['场景文件', '范围', '类别和依据', '零件', '小节', '题签', '人物页的定格图', '先画好的地面', '每一小节的定格图']);
+  });
+
+  it('场景的问题也写成一句话：哪条规则、哪个文件、哪个字段、哪里不对', () => {
+    expect(formatViolation({ rule: 13, file: 'figures/su-shi/scenes/xuzhou.json', field: 'things[3].on', problem: '城门必须写 on' })).toBe(
+      '【规则 13 零件】content/figures/su-shi/scenes/xuzhou.json › things[3].on：城门必须写 on',
+    );
+    // 工具做出来的文件：说的是清单，或者 baked/、stills/ 里的那个文件
+    const none = withoutMade();
+    expect(validateContent(none, SIZES, PICTURES, KEYS, true).map(formatViolation)).toEqual([
+      '【规则 17 先画好的地面】content/figures/demo/baked/river.json：没有这个文件：“river”的沙盘还没有先画好的地面；运行 npm run bake，再提交',
+      '【规则 18 每一小节的定格图】content/figures/demo/stills/river.json：没有这个文件：“river”的沙盘还没有每一小节的定格图；运行 STILLS_OUT=content/figures npm run stills（见 README），再提交',
+    ]);
+    for (const v of validateContent(BAD).filter((found) => found.rule >= 10)) {
+      expect(formatViolation(v)).toMatch(/^【规则 1[0-6] .+】content\/figures\/broken\/.+ › .+：.+$/);
+    }
+  });
+});

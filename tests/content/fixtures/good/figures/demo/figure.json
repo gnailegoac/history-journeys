@@ -50,5 +50,14 @@
   "legs": [
     { "from": "river", "to": "pass", "via": [{ "name": "渡口", "lngLat": [111.2, 30.2] }] },
     { "from": "pass", "to": "port", "via": [] }
-  ]
+  ],
+  "routeStill": {
+    "file": "route.svg",
+    "width": 160,
+    "height": 90,
+    "alt": "一条从长河到海边的路线，上面有三个点",
+    "caption": "示例先生走过的三站。",
+    "note": "这是一张图片，还不能转动。路线是示意，没有核对。",
+    "credit": "校验器示例"
+  }
 }

@@ -1,0 +1,316 @@
+{
+  "stopId": "b",
+  "style": "ming-blue",
+  "credits": [],
+  "frame": {
+    "center": [111, 31],
+    "westM": 1000,
+    "eastM": 1000,
+    "northM": 1000,
+    "southM": 1000,
+    "datumM": 40,
+    "relief": { "kind": "low-more", "lowTimes": 25 }
+  },
+  "terrain": {
+    "class": "real",
+    "basis": "山的位置照高程网格。",
+    "sourceIds": ["s9"],
+    "file": "a.terrain.bin",
+    "cols": 8,
+    "rows": 8,
+    "west": 110.98,
+    "east": 111.005,
+    "south": 30.98,
+    "north": 31.02,
+    "recipe": {
+      "class": "schematic",
+      "basis": "平地压平是设计上定的（待核）。",
+      "sourceIds": [],
+      "kind": "plain-and-hills",
+      "plainBelowM": 47,
+      "hillAboveM": 60,
+      "plainBaseM": 40,
+      "plainKeep": 0.1,
+      "edgeTaperM": 100
+    },
+    "edits": [
+      {
+        "id": "ground",
+        "name": "城里的地面",
+        "op": "level",
+        "inside": "keep",
+        "area": [
+          [111.001, 31.001],
+          [111.002, 31.001],
+          [111.002, 31.002]
+        ],
+        "mode": "set",
+        "toM": 41,
+        "featherM": 50,
+        "class": "schematic",
+        "basis": "修整的 area 和 inside 都写了，inside 写的还不是城墙。",
+        "sourceIds": []
+      },
+      {
+        "id": "mound",
+        "name": "土丘",
+        "op": "mound",
+        "at": [111.02, 31],
+        "addM": 5,
+        "innerM": 20,
+        "outerM": 80,
+        "class": "schematic",
+        "basis": "土丘的中心在沙盘外面。",
+        "sourceIds": []
+      }
+    ]
+  },
+  "water": {
+    "levels": {
+      "class": "guess",
+      "basis": "",
+      "sourceIds": [],
+      "note": " ",
+      "values": { "flood": 43 }
+    },
+    "banks": {
+      "class": "text",
+      "basis": "类别是按正文摆的，却没有出处。",
+      "sourceIds": [],
+      "bankM": 39,
+      "bedM": 3,
+      "keepOffWallsM": 50
+    },
+    "rivers": [
+      {
+        "id": "stream",
+        "name": "小河",
+        "kind": "river",
+        "line": [
+          [111.004, 31.02],
+          [111.004, 30.98]
+        ],
+        "drawWidthM": 60,
+        "class": "schematic",
+        "basis": "这条河没有错。",
+        "sourceIds": []
+      }
+    ],
+    "rapids": [
+      {
+        "id": "shoal-a",
+        "name": "上滩",
+        "river": "stream",
+        "at": [111.004, 31.004],
+        "lengthM": 100,
+        "class": "schematic",
+        "basis": "急滩写了两处。",
+        "sourceIds": []
+      },
+      {
+        "id": "shoal-b",
+        "name": "下滩",
+        "river": "brook",
+        "at": [111.004, 30.996],
+        "lengthM": 100,
+        "class": "schematic",
+        "basis": "它写的河在文件里没有。",
+        "sourceIds": []
+      }
+    ],
+    "dry": []
+  },
+  "places": [],
+  "things": [
+    {
+      "id": "wall",
+      "name": "城墙",
+      "kind": "wall",
+      "line": [
+        [110.998, 31.002],
+        [111.002, 31.002]
+      ],
+      "params": { "face": "stone", "colour": "red" },
+      "class": "schematic",
+      "basis": "城墙只有两个点；face 写了表里没有的词，还多了一个不认识的参数。",
+      "sourceIds": []
+    },
+    {
+      "id": "gate",
+      "name": "东门",
+      "kind": "gate",
+      "at": [111.002, 31],
+      "class": "schematic",
+      "basis": "城门没有写 on。",
+      "sourceIds": []
+    },
+    {
+      "id": "gate-late",
+      "name": "后来的北门",
+      "kind": "gate",
+      "at": [111, 31.002],
+      "on": "wall",
+      "when": { "from": "结尾" },
+      "class": "schematic",
+      "basis": "这座门没有错，最后一节才有。",
+      "sourceIds": []
+    },
+    {
+      "id": "tower",
+      "name": "北门上的楼",
+      "kind": "tower",
+      "at": [111, 31.002],
+      "on": "gate-late",
+      "class": "schematic",
+      "basis": "楼一直有，它下面的门最后一节才有。",
+      "sourceIds": []
+    },
+    {
+      "id": "keep",
+      "name": "衙署",
+      "kind": "hall-group",
+      "at": [111, 31],
+      "params": { "halls": "two" },
+      "class": "schematic",
+      "basis": "几进应该是一个数。",
+      "sourceIds": []
+    },
+    {
+      "id": "flag",
+      "name": "衙署上的亭子",
+      "kind": "pavilion",
+      "at": [111, 31],
+      "on": "keep",
+      "class": "schematic",
+      "basis": "亭子只能摆在城墙上，不能摆在衙署上。",
+      "sourceIds": []
+    },
+    {
+      "id": "shed",
+      "name": "棚子",
+      "kind": "house",
+      "at": [111.03, 31],
+      "on": "wall",
+      "when": { "from": "结尾", "until": "开头" },
+      "class": "schematic",
+      "basis": "棚子在沙盘外面；from 比 until 晚。",
+      "sourceIds": []
+    },
+    {
+      "id": "levels",
+      "name": "水尺",
+      "kind": "pavilion",
+      "at": [111.001, 31.001],
+      "when": {},
+      "class": "schematic",
+      "basis": "用了留用的词当 id；when 是空的。",
+      "sourceIds": []
+    },
+    {
+      "id": "gate",
+      "name": "西门",
+      "kind": "bridge",
+      "at": [110.998, 31],
+      "when": { "from": "没有的小节" },
+      "class": "schematic",
+      "basis": "id 重复了；零件库里没有这一种；when 写的小节正文里没有。",
+      "sourceIds": []
+    }
+  ],
+  "dressing": [
+    {
+      "id": "homes",
+      "name": "民居",
+      "kind": "houses",
+      "class": "schematic",
+      "basis": "点缀的类别不能是示意；民居不能摆满整块沙盘。",
+      "sourceIds": []
+    },
+    {
+      "id": "trees",
+      "name": "树",
+      "kind": "trees",
+      "inside": "wall",
+      "at": [111, 31],
+      "class": "dressing",
+      "basis": "位置写了两种。",
+      "sourceIds": []
+    },
+    {
+      "id": "boats",
+      "name": "船",
+      "kind": "boats",
+      "area": [
+        [111.003, 31.001],
+        [111.005, 31.001],
+        [111.005, 30.999]
+      ],
+      "params": { "count": true },
+      "class": "dressing",
+      "basis": "船不能用 area；count 应该是一个数。",
+      "sourceIds": []
+    },
+    {
+      "id": "crops",
+      "name": "庄稼",
+      "kind": "crops",
+      "class": "dressing",
+      "basis": "没有这种点缀。",
+      "sourceIds": []
+    }
+  ],
+  "strips": [
+    { "id": "t1", "text": "东门。", "of": "gate" },
+    { "id": "t2", "text": "城", "modern": "城2", "of": "nowhere" },
+    { "id": "t3", "text": "城墙", "of": "wall" },
+    { "id": "t4", "text": "小河", "of": "stream", "at": [110.995, 31] },
+    { "id": "t5", "text": "北门", "of": "gate-late" }
+  ],
+  "far": [
+    {
+      "id": "near",
+      "name": "近处",
+      "at": [111.001, 30.999],
+      "class": "today",
+      "basis": "远处却在沙盘里面。",
+      "sourceIds": ["s1"]
+    }
+  ],
+  "sections": [
+    {
+      "heading": "开头",
+      "date": "",
+      "line": "这一句题记写得太长了，一共有四十一个字，比规定的四十个字多出了一个字，所以通不过。",
+      "camera": { "target": [111.05, 31], "distanceM": 3000, "pitch": 50, "bearing": 0 },
+      "water": "high",
+      "strips": ["t1", "t1", "t5", "t6"],
+      "explain": []
+    },
+    {
+      "heading": "多出来的小节",
+      "date": "某年",
+      "line": "正文里没有这一节。",
+      "camera": { "target": [111, 31], "distanceM": 3000, "pitch": 50, "bearing": 0, "mustShow": ["frame", "ghost"] },
+      "water": "flood",
+      "strips": [],
+      "explain": ["nothing", "gate", "t1"]
+    },
+    {
+      "heading": "结尾",
+      "date": "某年",
+      "line": "这一节点到的整理没有写说明。",
+      "camera": { "target": [111, 31], "distanceM": 3000, "pitch": 50, "bearing": 0 },
+      "water": "flood",
+      "strips": ["t3"],
+      "explain": ["recipe"]
+    }
+  ],
+  "notDrawn": [
+    {
+      "id": "lost",
+      "name": "旧城",
+      "why": "出处找不到。",
+      "sourceIds": ["s9"]
+    }
+  ]
+}

@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>苏轼 · 沿着他走过的路</title>
+<link rel="stylesheet" href="./style.css">
+</head>
+<body class="figpage">
+
+<div class="scene" id="scene" aria-label="苏轼走过的地方：全程沙盘">
+  <canvas id="table"></canvas>
+  <div class="scrim"></div>
+  <div class="over">
+    <svg class="leaders" id="leaders" aria-hidden="true"></svg>
+    <div class="marks" id="marks"></div>
+    <div id="labels"></div>
+    <div class="tags" id="tags"></div>
+    <div class="caption">
+      <span class="sec" id="cap-sec"></span>
+      <p class="line" id="cap-line"></p>
+      <p class="key" id="cap-key"></p>
+      <p class="honest" id="cap-honest"></p>
+    </div>
+    <div class="legend">
+      <div class="scalebar" id="scalebar"><span></span><div class="bar"></div></div>
+      <div class="compass" aria-label="指北">
+        北
+        <svg viewBox="-23 -23 46 46" id="compass">
+          <circle r="20" fill="none" stroke="#28231f" stroke-width="1" opacity=".55"/>
+          <g id="needle">
+            <path d="M0 -17 L5.2 2 L0 -1.5 L-5.2 2 Z" fill="#b03a2a"/>
+            <path d="M0 17 L4 3 L0 5 L-4 3 Z" fill="none" stroke="#28231f" stroke-width="1"/>
+          </g>
+        </svg>
+      </div>
+    </div>
+  </div>
+</div>
+
+<main class="leaf figure">
+  <nav class="crumbs" aria-label="位置">
+    <a href="#">沿着他走过的路</a><span class="sep"></span><a class="here" href="#">苏轼</a>
+  </nav>
+  <header class="fighead">
+    <h1 id="fig-name"></h1>
+    <div class="era" id="fig-era"></div>
+    <p class="tag" id="fig-tag"></p>
+  </header>
+  <ol class="stops" id="stops"></ol>
+</main>
+
+<script type="module" src="./page.js"></script>
+</body>
+</html>

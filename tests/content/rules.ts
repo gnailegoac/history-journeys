@@ -1,29 +1,41 @@
-// 内容校验规则：docs/data-spec.md 的九条，加上“格式”（文件读得出来、字段齐全、id 对得上）。
+// 内容校验规则：docs/data-spec.md 的十八条，加上“格式”（文件读得出来、字段齐全、id 对得上）。
+// 规则 1 到 9 和总的入口在这里；“格式”怎么查在 shape.ts；场景数据的规则 10 到 18 在 sceneRules.ts；
+// 大小的上限在 budgetRules.ts。
 // 全是纯函数：输入是读进内存的内容文件，输出是不合规格的地方。不读磁盘，也不依赖测试框架。
 
 import { annotate, BodyFormatError, bodyLength, parseBody } from '../../src/domain/body';
 import type { RawSection } from '../../src/domain/body';
+import type { StopScene } from '../../src/domain/scene';
 import type { Figure, FigureCard, StopExtras, StopMeta } from '../../src/domain/types';
+import { checkBakedGround, checkRouteStill, checkScene, checkSceneShape, checkSectionStills, MADE_FILES_REQUIRED } from './sceneRules';
+import type { FileKeys, Measured, MeasuredPictures, SceneStop } from './sceneRules';
+import { anything, bool, checkShape, has, list, lngLatProblem, number, object, oneOf, optional, readJson, text, violation } from './shape';
+import type { ContentFiles, FileSizes, PictureSizes, Violation } from './shape';
 
-/**
- * 内容目录读进内存的样子：相对 content/ 的路径（用“/”分隔，如 figures/su-shi/figure.json）→ 文件里的文字。
- * 图片等文件只看有没有，文字留空。
- */
-export type ContentFiles = Record<string, string>;
+export { lngLatProblem };
+export type { ContentFiles, FileKeys, FileSizes, MeasuredPictures, PictureSizes, Violation };
 
-/** 一处不合规格的地方。 */
-export interface Violation {
-  /** 0 是“格式”；1 到 9 对应数据规格里的九条校验规则。 */
-  rule: number;
-  /** 哪个文件，相对 content/ 的路径。 */
-  file: string;
-  /** 哪个字段（正文则是哪一行、哪个小节）；说的是整个文件时为空。 */
-  field: string;
-  /** 哪里不对。 */
-  problem: string;
-}
-
-export const RULE_NAMES = ['格式', '坐标', '站点与轨迹', '文件齐全', '正文', '小注', '原文', '图片', '凭据', '没有占位'] as const;
+export const RULE_NAMES = [
+  '格式',
+  '坐标',
+  '站点与轨迹',
+  '文件齐全',
+  '正文',
+  '小注',
+  '原文',
+  '图片',
+  '凭据',
+  '没有占位',
+  '场景文件',
+  '范围',
+  '类别和依据',
+  '零件',
+  '小节',
+  '题签',
+  '人物页的定格图',
+  '先画好的地面',
+  '每一小节的定格图',
+] as const;
 
 /** 正文字数的上下限（规则 4）。 */
 export const BODY_MIN = 800;
@@ -48,14 +60,26 @@ export function formatReport(violations: Violation[]): string {
   return [`内容校验没有通过，共 ${violations.length} 处：`, ...lines, ...note].join('\n');
 }
 
-/** 校验整个内容目录：首页卡片，以及每位人物和他的每一站。 */
-export function validateContent(files: ContentFiles): Violation[] {
+/**
+ * 校验整个内容目录：首页卡片，以及每位人物、他的每一站和每一站的沙盘。
+ * sizes 是二进制文件（地形文件、先画好的地面、定格图）的大小，pictures 是图片各有多宽多高、是哪一种图片，
+ * keys 是工具做出来的图片各自的记号，都由调用的人从磁盘量好给进来；没有给的文件不查。
+ * madeFilesRequired：是不是每座沙盘都必须有先画好的地面和每一小节的定格图（规则 17、18 的第一句）；
+ * 不写就照 sceneRules.ts 的开关 MADE_FILES_REQUIRED。
+ */
+export function validateContent(
+  files: ContentFiles,
+  sizes: FileSizes = {},
+  pictures: MeasuredPictures = {},
+  keys: FileKeys = {},
+  madeFilesRequired: boolean = MADE_FILES_REQUIRED,
+): Violation[] {
   const figureIds = new Set<string>();
   for (const path of Object.keys(files)) {
     const match = /^figures\/([^/]+)\//.exec(path);
     if (match) figureIds.add(match[1]);
   }
-  return [...checkIndex(files), ...[...figureIds].sort().flatMap((id) => validateFigure(files, id))];
+  return [...checkIndex(files), ...[...figureIds].sort().flatMap((id) => validateFigure(files, id, sizes, pictures, keys, madeFilesRequired))];
 }
 
 // ---------------------------------------------------------------- 首页卡片
@@ -80,7 +104,14 @@ export function checkIndex(files: ContentFiles): Violation[] {
 
 // ---------------------------------------------------------------- 一位人物
 
-export function validateFigure(files: ContentFiles, figureId: string): Violation[] {
+export function validateFigure(
+  files: ContentFiles,
+  figureId: string,
+  sizes: FileSizes = {},
+  pictures: MeasuredPictures = {},
+  keys: FileKeys = {},
+  madeFilesRequired: boolean = MADE_FILES_REQUIRED,
+): Violation[] {
   const dir = `figures/${figureId}`;
   const file = `${dir}/figure.json`;
   const read = readJson(files, file);
@@ -96,10 +127,64 @@ export function validateFigure(files: ContentFiles, figureId: string): Violation
   out.push(...checkRoute(figure, file));
   out.push(...checkStopFiles(figure, files, dir));
   out.push(...checkFigurePlaceholders(figure, file));
+  out.push(...checkRouteStill(figure, file, dir, files, sizes, pictures));
   for (const stop of figure.stops) {
     if (stop.status === 'complete') out.push(...validateStop(files, dir, stop));
   }
+  out.push(...validateScenes(files, sizes, dir, figure, { sizes, pictures, keys }, madeFilesRequired));
   return out;
+}
+
+/**
+ * 一位人物 scenes/ 里的每个场景文件：格式，规则 10 到 15，规则 9 在场景文件里的部分，
+ * 再加上工具照着它做出来的两样（规则 17 先画好的地面，规则 18 每一小节的定格图）。
+ * 格式有问题的文件，其余规则先不查。规则 10 到 15 有问题的场景文件，规则 17、18 先不查：
+ * 那两样是照着一份合格的场景做的，场景自己还不对的时候去对它们，同一处毛病会报成好几处。
+ * measured 是从磁盘量好的三样（见 Measured）；madeFilesRequired 见 validateContent。
+ */
+export function validateScenes(
+  files: ContentFiles,
+  sizes: FileSizes,
+  dir: string,
+  figure: Figure,
+  measured: Measured = { sizes },
+  madeFilesRequired: boolean = MADE_FILES_REQUIRED,
+): Violation[] {
+  const out: Violation[] = [];
+  for (const file of Object.keys(files).sort()) {
+    if (!file.startsWith(`${dir}/scenes/`)) continue;
+    const match = /^([^/]+)\.json$/.exec(file.slice(`${dir}/scenes/`.length));
+    if (!match) continue;
+    const read = readJson(files, file);
+    if (read.data === undefined) {
+      out.push(...read.violations);
+      continue;
+    }
+    const shape = checkSceneShape(read.data, file);
+    if (shape.length > 0) {
+      out.push(...shape);
+      continue;
+    }
+    const scene = read.data as StopScene;
+    const found = checkScene(scene, file, sceneStop(files, dir, figure, match[1]), files, sizes);
+    out.push(...found);
+    out.push(...findPlaceholders(scene, file, ''));
+    if (found.length > 0) continue;
+    out.push(...checkBakedGround(scene, dir, files, measured, madeFilesRequired));
+    out.push(...checkSectionStills(scene, dir, files, measured, madeFilesRequired));
+  }
+  return out;
+}
+
+/** 场景文件对着的那一站：在 figure.json 里标的状态，正文的小节标题，出处的 id。读不出来的给 null，不在这里报。 */
+function sceneStop(files: ContentFiles, dir: string, figure: Figure, stopId: string): SceneStop {
+  const mdFile = `${dir}/stops/${stopId}.md`;
+  const jsonFile = `${dir}/stops/${stopId}.json`;
+  const headings = has(files, mdFile) ? (checkBody(files[mdFile], mdFile).sections?.map((section) => section.heading) ?? null) : null;
+  let sourceIds: string[] | null = null;
+  const extras = has(files, jsonFile) ? readJson(files, jsonFile).data : undefined;
+  if (extras !== undefined && checkShape(extras, EXTRAS, jsonFile).length === 0) sourceIds = (extras as StopExtras).sources.map((source) => source.id);
+  return { id: stopId, status: figure.stops.find((stop) => stop.id === stopId)?.status, headings, sourceIds };
 }
 
 /** 规则 1 坐标：[经度, 纬度]，经度在 −180 到 180 之间，纬度在 −90 到 90 之间。 */
@@ -116,20 +201,6 @@ export function checkCoordinates(figure: Figure, file: string): Violation[] {
   });
   figure.legs.forEach((leg, i) => leg.via.forEach((point, j) => check(point.lngLat, `legs[${i}].via[${j}].lngLat`)));
   return out;
-}
-
-/** 一个坐标哪里不对；没问题时返回 null。 */
-export function lngLatProblem(value: unknown): string | null {
-  if (!Array.isArray(value) || value.length !== 2 || !value.every((n) => typeof n === 'number' && Number.isFinite(n))) {
-    return '应该写成 [经度, 纬度] 两个数';
-  }
-  const [lng, lat] = value as [number, number];
-  if (lng < -180 || lng > 180) return `经度 ${lng} 超出范围（应在 -180 到 180 之间）`;
-  if (lat < -90 || lat > 90) {
-    const swapped = Math.abs(lng) <= 90 ? '；是不是把经度和纬度写反了？' : '';
-    return `纬度 ${lat} 超出范围（应在 -90 到 90 之间）${swapped}`;
-  }
-  return null;
 }
 
 /** 规则 2 站点与轨迹：站的 id 不重复；legs 比 stops 少一个，并且依次首尾相连。 */
@@ -378,22 +449,15 @@ export function findBodyPlaceholders(markdown: string, file: string): Violation[
 
 // ---------------------------------------------------------------- 格式
 
-/** 字段该是什么样子。坐标、kind、basis 另有规则细查，这里只看有没有、是不是文字。 */
-type Shape =
-  | { is: 'string' | 'number' | 'boolean' | 'any' }
-  | { is: 'oneOf'; values: readonly string[] }
-  | { is: 'list'; item: Shape }
-  | { is: 'object'; fields: Record<string, Shape> };
+// 字段该是什么样子（怎么对照着查，见 shape.ts）。kind、basis 另有规则细查，这里只看有没有、是不是文字。
+// 首页卡片、人物资料和一站的 .json 多出别的字段不管；场景文件查得严，它的样子在 sceneRules.ts。
 
-const text: Shape = { is: 'string' };
-const number: Shape = { is: 'number' };
-const lngLat: Shape = { is: 'any' };
-const list = (item: Shape): Shape => ({ is: 'list', item });
-const object = (fields: Record<string, Shape>): Shape => ({ is: 'object', fields });
+/** 人物资料里的坐标另由规则 1 查，这里不管。 */
+const coordinate = anything;
 
-const CARD = object({ id: text, name: text, era: text, years: text, sortYear: number, tagline: text, available: { is: 'boolean' } });
+const CARD = object({ id: text, name: text, era: text, years: text, sortYear: number, tagline: text, available: bool });
 
-const PLACE = object({ id: text, ancient: text, modern: text, lngLat });
+const PLACE = object({ id: text, ancient: text, modern: text, lngLat: coordinate });
 
 const FIGURE = object({
   id: text,
@@ -402,7 +466,7 @@ const FIGURE = object({
   years: text,
   tagline: text,
   intro: list(text),
-  overview: object({ center: lngLat, distanceKm: number }),
+  overview: object({ center: coordinate, distanceKm: number }),
   stops: list(
     object({
       id: text,
@@ -413,11 +477,12 @@ const FIGURE = object({
       place: PLACE,
       camera: object({ distanceKm: number, pitch: number, bearing: number }),
       summary: text,
-      status: { is: 'oneOf', values: ['complete', 'outline'] },
+      status: oneOf(['complete', 'outline']),
       localPlaces: list(PLACE),
     }),
   ),
-  legs: list(object({ from: text, to: text, via: list(object({ name: text, lngLat })) })),
+  legs: list(object({ from: text, to: text, via: list(object({ name: text, lngLat: coordinate })) })),
+  routeStill: optional(object({ file: text, width: number, height: number, alt: text, caption: text, note: text, credit: text })),
 });
 
 const EXTRAS = object({
@@ -430,43 +495,6 @@ const EXTRAS = object({
   sampleQuestions: list(text),
 });
 
-/** 对照样子检查一份 JSON 数据：缺了哪个字段，哪个字段的类型不对。 */
-export function checkShape(value: unknown, shape: Shape, file: string, field = ''): Violation[] {
-  const bad = (problem: string) => [violation(0, file, field, problem)];
-  if (shape.is !== 'any' && value === undefined) return bad('缺少这个字段');
-  switch (shape.is) {
-    case 'any':
-      return [];
-    case 'string':
-      return typeof value === 'string' ? [] : bad('应该是一段文字（写在双引号里）');
-    case 'number':
-      return typeof value === 'number' && Number.isFinite(value) ? [] : bad('应该是一个数');
-    case 'boolean':
-      return typeof value === 'boolean' ? [] : bad('应该是 true 或 false');
-    case 'oneOf':
-      return typeof value === 'string' && shape.values.includes(value) ? [] : bad(`只能是 ${shape.values.join(' 或 ')}`);
-    case 'list':
-      if (!Array.isArray(value)) return bad('应该是一个列表（写在 [ ] 里）');
-      return value.flatMap((item, i) => checkShape(item, shape.item, file, `${field}[${i}]`));
-    case 'object': {
-      if (typeof value !== 'object' || value === null || Array.isArray(value)) return bad('应该是一组字段（写在 { } 里）');
-      const record = value as Record<string, unknown>;
-      return Object.entries(shape.fields).flatMap(([name, item]) => checkShape(record[name], item, file, field === '' ? name : `${field}.${name}`));
-    }
-  }
-}
-
-/** 读一个 JSON 文件；没有这个文件或读不出来时 data 为 undefined，并说明原因。 */
-function readJson(files: ContentFiles, file: string): { data?: unknown; violations: Violation[] } {
-  if (!has(files, file)) return { violations: [violation(0, file, '', '没有这个文件')] };
-  try {
-    return { data: JSON.parse(files[file].replace(/^﻿/, '')) as unknown, violations: [] };
-  } catch (error) {
-    const detail = error instanceof Error ? error.message : String(error);
-    return { violations: [violation(0, file, '', `不是合法的 JSON，程序读不出来（${detail}）`)] };
-  }
-}
-
 /** 同一个列表里 id 不能重复。 */
 function duplicateIds(items: { id: string }[], file: string, field: string): Violation[] {
   const out: Violation[] = [];
@@ -475,12 +503,4 @@ function duplicateIds(items: { id: string }[], file: string, field: string): Vio
     if (first < i) out.push(violation(0, file, `${field}[${i}].id`, `id“${item.id}”和这个列表里的第 ${first + 1} 项重复了`));
   });
   return out;
-}
-
-function has(files: ContentFiles, path: string): boolean {
-  return Object.hasOwn(files, path);
-}
-
-function violation(rule: number, file: string, field: string, problem: string): Violation {
-  return { rule, file, field, problem };
 }

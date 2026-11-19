@@ -1,0 +1,7 @@
+{
+  "tool": 1,
+  "inputs": { "ground": "9f1d3b5a7c2e4860", "terrain": "2b4d6f8091a3c5e7" },
+  "pixels": { "colour": "5a1c0e7b93d2f460", "fields": "c3e08b1d4f6a2957" },
+  "colour": { "file": "river.colour.jpg", "width": 301, "height": 241, "bytes": 29, "key": "cb39a586d2903f1f", "quality": 0.95, "psnr": 41.4 },
+  "fields": { "file": "river.fields.png", "width": 301, "height": 241, "bytes": 45, "key": "f2302686940ca1bd" }
+}

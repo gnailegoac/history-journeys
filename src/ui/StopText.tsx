@@ -1,4 +1,5 @@
 // 一站的正文：小节、段落、引用；点开的小注就地出现在它那一段下面；每节后面是原文和图片。
+// 每个小节带着 data-section（小节标题）：沙盘靠它知道读者读到了哪一节（见 useReadingSection.ts）。
 
 import { useCallback, useRef, useState } from 'react';
 import type { KeyboardEvent } from 'react';
@@ -65,7 +66,7 @@ interface SectionProps {
 
 function SectionView({ section, notes, cites, openNotes, onToggle, onClose, originals, images, imageUrls }: SectionProps) {
   return (
-    <section className="text-section">
+    <section className="text-section" data-section={section.heading}>
       <h2 className="section-heading">{section.heading}</h2>
       {section.blocks.map((block, i) => (
         <BlockView key={i} block={block} notes={notes} cites={cites} openNotes={openNotes} onToggle={onToggle} onClose={onClose} />

@@ -1,0 +1,252 @@
+// 题签这一层：页面上的字，竖着写，带一条引线，盖在沙盘上面。约定见 ./types.ts。
+// 摆在哪由 placeStrips 算，这里只管把字和线放到页面上。
+//
+// 排版离不了的几条样式（绝对定位、竖写、不折行）直接写在元素上：没有样式表也量得出大小、摆得对位置。
+// 字体、颜色、纸条的底这些样子，在 src/styles/stage.css 里按类名 .strip、.strip-leaders 写。
+// 容器要是定了位的元素（position 不是 static），这一层才盖得住它。
+//
+// 一条题签摆不下时不摆，在它指的那一点上画一个空心的圈：这里有一处没标出。这一层不写句子——沙盘旁边的话都是页面的。
+// 远处的题签，那一点上另画一个朝沙盘外面的小箭头（见 ARROW_LENGTH），底下垫一圈纸色的衬边。
+// 圈的样子（不填色、墨色的边）直接写在元素上：样式表里 .strip-leaders circle 那一条是给实心的点用的，会把圈也填上。
+
+import type { StageInsets } from '../types';
+import { placeStrips } from './placeStrips';
+import type { StripInput, StripLayer, StripPlacement, StripSpec } from './types';
+
+const SVG_NS = 'http://www.w3.org/2000/svg';
+
+/** 空心的圈：半径，和两层的样子（底下一圈纸色的衬边，深色的地面上也看得见；上面一圈墨色的线）。颜色和实心的点用同样的两个。 */
+const RING_RADIUS = '4.2';
+const RING_HALO_STYLE = 'fill:none;stroke:var(--color-paper, #f5efe3);stroke-width:3.6;opacity:0.85';
+const RING_LINE_STYLE = 'fill:none;stroke:var(--color-ink, #2a2520);stroke-width:1.3';
+
+/**
+ * 远处的题签，在它指的那一点上再画一个朝沙盘外面的小箭头：那一点只是沙盘的边，地方还在外面很远。
+ * 没有箭头的话，读的人会把沙盘边上的那一点当成那个地方。箭头多长、箭头尖多大（像素），和它的样子。
+ */
+const ARROW_LENGTH = 16;
+const ARROW_HEAD = 5;
+const ARROW_STYLE = 'fill:none;stroke:var(--color-ink, #2a2520);stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round';
+/** 箭头底下垫的衬边（和空心圈的衬边一个颜色）：竖着拿的平板上箭头尖正落在沙盘深色的边框上，墨色压着深褐色，没有衬边就只剩半截。 */
+const ARROW_HALO_STYLE = 'fill:none;stroke:var(--color-paper, #f5efe3);stroke-width:3.6;opacity:0.85;stroke-linecap:round;stroke-linejoin:round';
+
+interface Item {
+  spec: StripSpec;
+  el: HTMLDivElement;
+  line: SVGLineElement;
+  dot: SVGCircleElement;
+  /** 远处的题签才画的小箭头，和垫在它底下的衬边（两条一样的线，一起显、一起藏）。 */
+  arrow: SVGPathElement;
+  halo: SVGPathElement;
+  /** 摆不下时画在那一点上的空心的圈。 */
+  ring: SVGGElement;
+  w: number;
+  h: number;
+}
+
+/** 在沙盘的容器里挂一层题签。只往 container 里面添东西，destroy 时把自己添的都拿走。 */
+export function mountStrips(container: HTMLElement): StripLayer {
+  const doc = container.ownerDocument;
+
+  const root = doc.createElement('div');
+  root.className = 'strips';
+  root.style.cssText = 'position:absolute;inset:0;overflow:hidden;pointer-events:none';
+
+  const svg = doc.createElementNS(SVG_NS, 'svg');
+  svg.setAttribute('class', 'strip-leaders');
+  svg.setAttribute('aria-hidden', 'true');
+  svg.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;overflow:visible';
+  root.append(svg);
+  container.append(root);
+
+  let items: Item[] = [];
+  // 上一次 place 给的位置。换一批题签、重新量大小以后，先照它摆。
+  let last: { anchors: StripInput['anchors']; size: StripInput['size']; insets: StageInsets; moving: boolean } | null = null;
+  let placements: StripPlacement[] | undefined;
+  // hide() 之后、下一次 place 之前。
+  let concealed = false;
+
+  function make(spec: StripSpec): Item {
+    const el = doc.createElement('div');
+    el.className = 'strip';
+    el.dataset.stripId = spec.id;
+    el.dataset.tone = spec.tone;
+    // 先藏着：量得出大小，但还没摆好位置的时候不让人看见。
+    el.style.cssText = 'position:absolute;left:0;top:0;transform:translate(-50%,-50%);writing-mode:vertical-rl;white-space:nowrap;visibility:hidden';
+    el.textContent = spec.text;
+
+    const line = doc.createElementNS(SVG_NS, 'line');
+    line.setAttribute('stroke', 'currentColor');
+    line.setAttribute('stroke-width', '1');
+    line.style.display = 'none';
+    const dot = doc.createElementNS(SVG_NS, 'circle');
+    dot.setAttribute('r', '2.6');
+    dot.setAttribute('fill', 'currentColor');
+    dot.style.display = 'none';
+    const arrow = doc.createElementNS(SVG_NS, 'path');
+    arrow.setAttribute('data-strip-arrow', spec.id);
+    arrow.style.cssText = ARROW_STYLE;
+    arrow.style.display = 'none';
+    const halo = doc.createElementNS(SVG_NS, 'path');
+    halo.style.cssText = ARROW_HALO_STYLE;
+    halo.style.display = 'none';
+
+    const ring = doc.createElementNS(SVG_NS, 'g');
+    ring.setAttribute('data-strip-ring', spec.id);
+    ring.style.display = 'none';
+    for (const style of [RING_HALO_STYLE, RING_LINE_STYLE]) {
+      const circle = doc.createElementNS(SVG_NS, 'circle');
+      circle.setAttribute('r', RING_RADIUS);
+      circle.style.cssText = style;
+      ring.append(circle);
+    }
+
+    svg.append(line, halo, arrow, dot, ring);
+    root.append(el);
+    return { spec, el, line, dot, arrow, halo, ring, w: 0, h: 0 };
+  }
+
+  function measure(): void {
+    for (const item of items) {
+      item.w = item.el.offsetWidth;
+      item.h = item.el.offsetHeight;
+    }
+  }
+
+  /** 箭头和它的衬边：d 是画成什么样；null 是收起来。 */
+  function setArrow(item: Item, d: string | null): void {
+    for (const path of [item.halo, item.arrow]) {
+      if (d) path.setAttribute('d', d);
+      path.style.display = d ? '' : 'none';
+    }
+  }
+
+  function conceal(item: Item): void {
+    item.el.style.visibility = 'hidden';
+    item.line.style.display = 'none';
+    item.dot.style.display = 'none';
+    setArrow(item, null);
+    item.ring.style.display = 'none';
+  }
+
+  /** 这条题签指的那一点朝沙盘外面是哪个方向；不是远处的题签、或者这一帧没有给方向时是 null。 */
+  function outOf(item: Item): [number, number] | null {
+    if (item.spec.tone !== 'far') return null;
+    return last?.anchors.find((anchor) => anchor.id === item.spec.id)?.out ?? null;
+  }
+
+  function show(item: Item, placement: StripPlacement): void {
+    if (placement.hidden) {
+      conceal(item);
+      // 看得见但是摆不下：在那一点上留一个空心的圈。那一点不在画面里的，什么也不画。
+      if (placement.why === 'room') {
+        item.ring.setAttribute('transform', `translate(${placement.x.toFixed(1)} ${placement.y.toFixed(1)})`);
+        item.ring.style.display = '';
+      }
+      return;
+    }
+    item.ring.style.display = 'none';
+    item.el.style.left = `${placement.x}px`;
+    item.el.style.top = `${placement.y}px`;
+    item.el.style.visibility = '';
+    if (!placement.leader) {
+      item.line.style.display = 'none';
+      item.dot.style.display = 'none';
+      setArrow(item, null);
+      return;
+    }
+    const [x1, y1, x2, y2] = placement.leader;
+    item.line.setAttribute('x1', x1.toFixed(1));
+    item.line.setAttribute('y1', y1.toFixed(1));
+    item.line.setAttribute('x2', x2.toFixed(1));
+    item.line.setAttribute('y2', y2.toFixed(1));
+    item.line.style.display = '';
+    item.dot.setAttribute('cx', x1.toFixed(1));
+    item.dot.setAttribute('cy', y1.toFixed(1));
+    item.dot.style.display = '';
+    // 朝外的小箭头。题签自己已经摆在朝外的那一边时不画：引线就是朝外的，再画一个会叠在引线上
+    const out = outOf(item);
+    const length = Math.hypot(x2 - x1, y2 - y1);
+    if (!out || (length > 0 && ((x2 - x1) * out[0] + (y2 - y1) * out[1]) / length > 0.5)) {
+      setArrow(item, null);
+      return;
+    }
+    const tipX = x1 + out[0] * ARROW_LENGTH;
+    const tipY = y1 + out[1] * ARROW_LENGTH;
+    // 箭头尖的两条边：从尖上往回，各偏开半个弧度
+    const wing = (turn: number): string => {
+      const c = Math.cos(turn);
+      const s = Math.sin(turn);
+      return `${(tipX - (out[0] * c - out[1] * s) * ARROW_HEAD).toFixed(1)} ${(tipY - (out[0] * s + out[1] * c) * ARROW_HEAD).toFixed(1)}`;
+    };
+    const tip = `${tipX.toFixed(1)} ${tipY.toFixed(1)}`;
+    setArrow(item, `M${x1.toFixed(1)} ${y1.toFixed(1)}L${tip}M${wing(0.5)}L${tip}L${wing(-0.5)}`);
+  }
+
+  function arrange(): void {
+    if (!last) return;
+    // 传进来的先后就是要紧的先后。
+    const strips = items.map((item, rank) => ({ id: item.spec.id, w: item.w, h: item.h, rank, side: item.spec.side }));
+    const placed = placeStrips({ strips, anchors: last.anchors, size: last.size, insets: last.insets }, placements, { moving: last.moving });
+    placements = placed;
+    items.forEach((item, i) => show(item, placed[i]));
+  }
+
+  return {
+    set(strips) {
+      // 还是原来那几条（只是换了古今的叫法，或者同一节重摆），还是换了别的几条（换了小节）
+      const sameStrips = strips.length === items.length && strips.every((strip, i) => strip.id === items[i].spec.id);
+      for (const item of items) {
+        item.el.remove();
+        item.line.remove();
+        item.dot.remove();
+        item.arrow.remove();
+        item.halo.remove();
+        item.ring.remove();
+      }
+      items = strips.map(make);
+      measure();
+      // 换了一批：上一次摆在哪不算数了，每条重新挑位置（手还在动沙盘时也是）。
+      placements = undefined;
+      // 还是原来那几条（只是换了古今的叫法）：马上照原来的那几点摆。
+      // 换了别的几条：手里那几点是上一节的。照着摆的话，两节都有的题签（“徐州”“汴水”）先落在上一节的位置上，
+      // 下一次 place 又把它当成“上一次摆在哪”跟着走，这一节摆成什么样就看上一节是哪一节了。所以先不摆，等下一次 place。
+      if (!concealed && sameStrips) arrange();
+    },
+
+    place(anchors, size, insets, opts) {
+      // 画面大小变了，题签的字号可能跟着变，重新量一遍。
+      if (last && (last.size.width !== size.width || last.size.height !== size.height)) measure();
+      last = { anchors: anchors.map(copyAnchor), size: { ...size }, insets: { ...insets }, moving: opts?.moving === true };
+      concealed = false;
+      arrange();
+    },
+
+    hide() {
+      concealed = true;
+      items.forEach(conceal);
+      // 藏起来是因为镜头要滑到别处去：到了以后每条重新挑位置，不照滑之前的摆（“回到这一节”以后和头一次摆的一样）。
+      placements = undefined;
+    },
+
+    remeasure() {
+      measure();
+      if (!concealed) arrange();
+    },
+
+    destroy() {
+      root.remove();
+      items = [];
+      last = null;
+      placements = undefined;
+    },
+  };
+}
+
+/** 把一点抄一份留着：沙盘程序下一帧可能接着用原来那个对象。 */
+function copyAnchor(anchor: StripInput['anchors'][number]): StripInput['anchors'][number] {
+  const copy = { ...anchor };
+  if (anchor.out) copy.out = [anchor.out[0], anchor.out[1]];
+  if (anchor.foot) copy.foot = { x: anchor.foot.x, y: anchor.foot.y };
+  return copy;
+}

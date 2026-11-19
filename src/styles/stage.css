@@ -1,0 +1,808 @@
+/* 沙盘栏里面的东西：沙盘的容器、按钮、几句话、题记和说明、指北和比例尺、定格图、题签。
+   这里只求能用、看得清；样子到重做顺序第 2 步再定。沙盘栏本身的位置和大小在 layout.css。
+   第 1 步后一半新加的几条（两层容器、按钮下面的一行话、读数）只用老平板（iOS 15 的 Safari）也认得的写法。 */
+
+/* ---------------------------------------------------------------- 沙盘的容器 */
+
+/* z-index: 0 把沙盘程序自己的层叠关在里面，不会盖住上面的按钮和下面的题记。 */
+.stage-canvas {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+}
+
+/* 放画面的那一块里叠着两层，都盖满整块：下面是每一小节的图片（定格图），上面是立体的沙盘。 */
+
+/* 交给放图片的程序的容器。 */
+.stage-still-host {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  overflow: hidden;
+}
+
+/* 交给沙盘程序的容器。它是定了位的：题签那一层要靠它盖满整块。
+   沙盘摆好之前它不显出来，也不接手指和鼠标（下面的图片照常看）；摆好了才显出来（.is-up）。 */
+.stage-host {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.stage-host.is-up {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* 图片已经在了的时候，立体的沙盘盖着它慢慢显出来（.is-handing-over 只挂这一小会儿）；这中间图片上的题签先藏起来，
+   不和沙盘的题签叠成两层。240 毫秒和 StagePane.tsx 里的 HANDOVER_FADE_MS 是同一个数。
+   没有图片垫在下面的时候不挂这个类：沙盘直接显出来，不从底色里慢慢浮上来。 */
+.stage-canvas.is-handing-over .stage-host {
+  transition: opacity 240ms ease-out;
+}
+
+.stage-canvas.is-handing-over .stage-still-host .strips {
+  visibility: hidden;
+}
+
+/* ---------------------------------------------------------------- 几句话 */
+
+/* “正在摆”“没能摆出来”“画面断了”都在 .stage-says 这一块里（它一直在页面上，话是换进去的）。它自己不占地方。 */
+
+/* 正在摆：在沙盘栏的中间偏上，带底色。 */
+.stage-loading {
+  position: absolute;
+  left: 50%;
+  top: 42%;
+  z-index: 1;
+  transform: translate(-50%, -50%);
+  width: max-content;
+  max-width: calc(100% - 2 * var(--gap-4));
+  padding: var(--gap-1) var(--gap-3);
+  border-radius: var(--radius);
+  background: var(--color-stage-veil);
+  color: var(--color-ink);
+  font-size: var(--size-ui);
+  line-height: 1.7;
+  text-align: center;
+  pointer-events: none;
+}
+
+/* 没能摆出来、画不了、画面断了：一句话，下面可以有一个按钮。 */
+.stage-message {
+  padding: var(--gap-4) var(--page-pad);
+  color: var(--color-ink);
+  font-size: var(--size-ui);
+  line-height: 1.7;
+}
+
+.stage-message .stage-button {
+  margin-top: var(--gap-2);
+}
+
+/* 画面断了：沙盘栏留在原处、还是那么高，这句话和按钮摆在原来沙盘的地方，在题记上面。 */
+.stage-pane.is-pinned .stage-message {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 62%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+/* 立体的沙盘摆不了、放的是图片时的一行话：紧贴在那一排按钮下面，横着一整条，只占一行。
+   它的下边就是页面告诉画面“上面留出多少”的那条线，所以高度是定死的：窄屏 30px，宽屏 34px
+   （手机上量过：一行的时候 28 条题签都摆得下；两行的话有一条引线要拉到 83 像素长）。
+   上边的位置 = 那一排按钮上面的空 + 按钮的高 + 古名今名那个框上下两条 1px 的边。
+   字号跟着屏幕的宽窄缩一点（不用按栏宽算的单位，老平板不认）：最长的一句 22 个字，360px 宽的手机上也放得下。
+   底色是不透明的纸色，并且往上一直垫到沙盘栏的顶边（::before，垫在那一排按钮底下）：画面是照“这一行话的下边以下”
+   那一块摆的，比没有这一行话时低半行，图片的上边就够不着栏顶；不垫的话，栏顶露一条底色，按钮后面露一截图片，
+   这一行话又半透明地压在图片上，三层叠着。垫上以后是干干净净的一条，画面从它下边开始。 */
+.stage-notice {
+  --notice-top: calc(var(--gap-2) + var(--tap) + 2px);
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: var(--notice-top);
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: var(--gap-2);
+  height: 1.875rem;
+  padding: 0 var(--gap-2);
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font-size: clamp(0.75rem, 3.6vw, 0.875rem);
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.stage-notice::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 100%;
+  height: var(--notice-top);
+  background: var(--color-paper);
+}
+
+.stage-notice p {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.25rem;
+}
+
+/* 那一行话后面的小按钮（“换回图片”）：看着小（22px 高），能点的地方有 44px 高：::after 把它往下撑到沙盘上
+   （往上是那一排按钮，不往上撑）。 */
+.stage-notice-button {
+  position: relative;
+  flex: none;
+  height: 1.375rem;
+  padding: 0 0.5rem;
+  border: 1px solid var(--color-accent);
+  border-radius: var(--radius);
+  background: var(--color-paper-raised);
+  color: var(--color-accent);
+  font-size: 0.8125rem;
+  line-height: 1;
+}
+
+.stage-notice-button::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: -0.25rem;
+  bottom: -1.125rem;
+  width: max(100%, var(--tap));
+  transform: translateX(-50%);
+}
+
+@media (min-width: 960px) {
+  .stage-notice {
+    --notice-top: calc(var(--gap-4) + var(--tap) + 2px);
+    height: 2.125rem;
+    padding: 0 var(--gap-4);
+    font-size: 0.875rem;
+  }
+}
+
+/* 地址里带 ?debug=1 时印的一行读数（画质、快慢）：贴在题记那一条的上边，手指和鼠标穿过它。 */
+.stage-debug {
+  position: absolute;
+  left: 0;
+  bottom: 100%;
+  max-width: 100%;
+  padding: 2px var(--gap-2);
+  overflow: hidden;
+  background: var(--color-stage-veil);
+  color: var(--color-ink);
+  font-size: 0.6875rem;
+  line-height: 1.3;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  pointer-events: none;
+}
+
+/* 程序把焦点放到沙盘栏上时，框画在栏里面（栏贴着屏幕的边，画在外面看不见）。 */
+.stage-pane:focus-visible {
+  outline-offset: -3px;
+}
+
+/* ---------------------------------------------------------------- 按钮 */
+
+/* z-index 比那一行话（.stage-notice）高一层：那一行话的底色往上垫到栏顶，按钮要压在它上面。 */
+.stage-controls {
+  position: absolute;
+  top: var(--gap-2);
+  left: var(--gap-2);
+  right: var(--gap-2);
+  z-index: 2;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--gap-2);
+  pointer-events: none;
+}
+
+.stage-controls > * {
+  pointer-events: auto;
+}
+
+.names-switch {
+  display: inline-flex;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius);
+  background: var(--color-paper-raised);
+  box-shadow: 0 1px 3px var(--color-shadow);
+}
+
+.names-switch button,
+.stage-button {
+  min-width: var(--tap);
+  min-height: var(--tap);
+  padding: 0 var(--gap-3);
+  border: 0;
+  border-radius: var(--radius);
+  background: transparent;
+  font-size: var(--size-ui);
+  line-height: 1;
+}
+
+.names-switch button[aria-pressed='true'] {
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+}
+
+.stage-button {
+  border: 1px solid var(--color-line);
+  background: var(--color-paper-raised);
+  box-shadow: 0 1px 3px var(--color-shadow);
+}
+
+.stage-button:disabled,
+.stage-button[aria-disabled='true'] {
+  color: var(--color-ink-soft);
+  opacity: 0.6;
+  box-shadow: none;
+  cursor: default;
+}
+
+.stage-fold {
+  margin-left: auto;
+}
+
+/* 宽屏上沙盘栏占满一边，不用收起。 */
+@media (min-width: 960px) {
+  .stage-controls {
+    top: var(--gap-4);
+    left: var(--gap-4);
+    right: var(--gap-4);
+  }
+
+  .stage-fold {
+    display: none;
+  }
+}
+
+/* ---------------------------------------------------------------- 题记、说明、指北和比例尺 */
+
+/* 沙盘栏底下的一条：这一小节的字。
+   排法是定死的：一行小节和时间（右头是比例尺和指北），下面是题记、题签指到的远处、一句如实的说明。
+   摆着沙盘时这一条盖在沙盘的下边，高度也是定死的（--caption-h），不管哪一小节都一样高：
+   沙盘四边留的空不变，换小节以后画面不会再跳一下。字从上往下排，哪一节的字少，空就留在最下面。
+   栏窄（不到 560px）和栏宽各一种排法、各一个高度。这个 560 在 StagePane.tsx 里也有（WIDE_PANE_PX）。 */
+.stage-foot {
+  /* 窄：上边 5 + 抬头 22 + 题记和远处两行 38 + 说明一行 22 + 下边 7 = 94px */
+  --caption-h: 5.875rem;
+  position: relative;
+}
+
+.stage-foot:empty {
+  display: none;
+}
+
+@container stage-pane (min-width: 560px) {
+  .stage-foot {
+    /* 宽：上边 8 + 抬头 26 + 题记一行 26 + 说明两行 40 + 远处一行 20 + 下边 10 = 130px */
+    --caption-h: 8.125rem;
+  }
+}
+
+/* 摆着沙盘时，这一条盖在沙盘的下边；手指和鼠标穿过它，照样能转沙盘（“说明”按钮和展开的那一块除外）。 */
+.stage-pane.is-pinned .stage-foot {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1;
+  background: var(--color-stage-veil);
+  pointer-events: none;
+}
+
+.stage-pane.is-pinned .stage-caption {
+  height: var(--caption-h);
+  overflow: hidden;
+}
+
+/* 窄屏上收起以后只留一排按钮：沙盘（或者图片）、题记、“正在摆”那句话、按钮下面的那一行话和用不上的几个按钮都不显出来。
+   （沙盘缩在这么矮的一条里，镜头要退得老远，题签也摆不开。）
+   只在窄屏上算数：收起以后把窗口拉宽、把平板横过来，沙盘栏是整栏的，要照常显出来。 */
+@media not all and (min-width: 960px) {
+  .stage-pane.is-pinned.is-folded .stage-foot,
+  .stage-pane.is-pinned.is-folded .stage-loading,
+  .stage-pane.is-pinned.is-folded .stage-notice,
+  .stage-pane.is-pinned.is-folded .names-switch,
+  .stage-pane.is-pinned.is-folded .stage-reset,
+  .stage-pane.is-pinned.is-folded .stage-controls .stage-retry {
+    display: none;
+  }
+
+  .stage-pane.is-pinned.is-folded .stage-canvas {
+    visibility: hidden;
+  }
+}
+
+/* ---- 栏窄时的排法 */
+
+.stage-caption {
+  padding: 0.3125rem 0.625rem 0.4375rem;
+  color: var(--color-ink);
+  font-size: var(--size-small);
+  line-height: 1.1875rem;
+}
+
+/* 第一行：小节和时间在左，比例尺和指北在右。 */
+.stage-caption-head {
+  display: flex;
+  align-items: center;
+  gap: var(--gap-3);
+  height: 1.375rem;
+}
+
+.stage-caption-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  gap: var(--gap-2);
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.stage-section-name {
+  flex: none;
+  color: var(--color-accent);
+  font-family: var(--font-reading);
+  font-size: var(--size-ui);
+  font-weight: var(--weight-heading);
+}
+
+.stage-date {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--color-ink-soft);
+  text-overflow: ellipsis;
+}
+
+/* 题记，和题签指到的远处。栏窄时远处接在题记后面，合起来最多两行：
+   题记不超过 40 个字，带着远处的小节两样合起来也不超过两行放得下的数（校验的规则 14 管着）。 */
+/* 字体写在外面这一层上：里面的两样和它用同一种字，每一行才正好是一行高（字体不一样，行会被撑高一两个像素，两行就放不下了）。 */
+.stage-words {
+  max-height: 2.375rem;
+  overflow: hidden;
+  font-family: var(--font-reading);
+}
+
+.stage-line {
+  display: inline;
+}
+
+.stage-far,
+.stage-far li {
+  display: inline;
+}
+
+/* 远处那句话用界面的字体；它和题记不是一种字体，靠着行的上边排，不把行撑高。 */
+.stage-far li {
+  margin-left: 0.5em;
+  color: var(--color-ink-soft);
+  font-family: var(--font-ui);
+  vertical-align: top;
+}
+
+/* 一句如实的说明和“说明”按钮。栏窄时用一行的短写法（brief）：字号跟着栏的宽窄缩一点，
+   让这一行在 360px 宽的手机上也放得下、不截断；再窄才会截掉，截掉的可以点“说明”看全。 */
+.stage-note {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  height: 1.375rem;
+}
+
+.stage-note-short {
+  display: none;
+}
+
+.stage-note-brief {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  font-size: clamp(0.6875rem, calc((100cqw - 4rem) / 27), var(--size-small));
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* “说明”按钮：看着小（20px 高），能点的地方有 44px 高：::after 把它往上撑 16px、往下撑 8px。
+   往下只撑 8px，是因为栏窄时它下面到沙盘栏的底边正好只有这么多。 */
+.stage-note-button {
+  position: relative;
+  flex: none;
+  height: 1.25rem;
+  padding: 0 0.375rem;
+  border: 1px solid var(--color-accent);
+  border-radius: var(--radius);
+  background: var(--color-paper-raised);
+  color: var(--color-accent);
+  font-size: 0.75rem;
+  line-height: 1;
+  pointer-events: auto;
+}
+
+.stage-note-button::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: -1rem;
+  bottom: -0.5rem;
+  width: max(100%, var(--tap));
+  transform: translateX(-50%);
+}
+
+.stage-note-button[aria-expanded='true'] {
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+}
+
+/* ---- 栏宽时的排法：题记一行（字大一些，栏不够宽时缩一点，40 个字总放得下），
+   说明是最多两行的 short，远处另起一行排在最后。 */
+@container stage-pane (min-width: 560px) {
+  .stage-caption {
+    display: flex;
+    flex-direction: column;
+    padding: 0.5rem 0.75rem 0.625rem;
+    line-height: 1.25rem;
+  }
+
+  .stage-caption-head {
+    flex: none;
+    height: 1.625rem;
+  }
+
+  /* 题记和远处在这里各占一行，中间隔着说明：这一层不算数，里面的两样直接排进题记这一块。 */
+  .stage-words {
+    display: contents;
+  }
+
+  .stage-line {
+    display: block;
+    flex: none;
+    order: 1;
+    max-width: 44rem;
+    height: 1.625rem;
+    overflow: hidden;
+    font-family: var(--font-reading);
+    font-size: clamp(var(--size-small), calc((100cqw - 1.5rem) / 40), var(--size-note));
+    line-height: 1.625rem;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  .stage-note {
+    flex: none;
+    order: 2;
+    align-items: flex-start;
+    max-width: 44rem;
+    height: auto;
+    max-height: 2.5rem;
+  }
+
+  .stage-note-brief {
+    display: none;
+  }
+
+  .stage-note-short {
+    display: -webkit-box;
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+  }
+
+  .stage-far {
+    display: flex;
+    flex: none;
+    order: 3;
+    gap: 1em;
+    max-width: 44rem;
+    height: 1.25rem;
+    overflow: hidden;
+    font-family: var(--font-ui);
+  }
+
+  .stage-far li {
+    display: block;
+    min-width: 0;
+    margin-left: 0;
+    overflow: hidden;
+    color: inherit;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+}
+
+/* ---- 点“说明”展开的那一块：这一小节完整的几句说明。
+   摆着沙盘时它盖在沙盘的下边、题记的上面，不占题记的地方，沙盘四边留的空不变；放不下就在这一块里滚。
+   没摆着沙盘时（起不来、画不了）它接在题记下面。 */
+.stage-note-panel {
+  margin: 0 var(--gap-3) var(--gap-3);
+  padding: var(--gap-2) var(--gap-3) var(--gap-3);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius);
+  background: var(--color-paper-raised);
+  color: var(--color-ink);
+  font-size: var(--size-small);
+  line-height: 1.6;
+}
+
+.stage-pane.is-pinned .stage-note-panel {
+  position: absolute;
+  left: var(--gap-2);
+  right: var(--gap-2);
+  bottom: calc(100% + var(--gap-1));
+  max-width: 44rem;
+  /* 最高到按钮那一排的下边：沙盘栏的高，减去按钮那一排、题记和上下的空。 */
+  max-height: calc(var(--stage-pane-h) - var(--stage-controls-room) - var(--caption-h) - var(--gap-3));
+  margin: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  box-shadow: 0 2px 10px var(--color-shadow);
+  pointer-events: auto;
+}
+
+/* 按钮下面有一行话的时候（.under-notice 由页面挂在题记这一条上），展开的这一块再矮一行，不盖住那一行话。
+   减去的就是那一行话的高（见 .stage-notice）。 */
+.stage-pane.is-pinned .stage-foot.under-notice .stage-note-panel {
+  max-height: calc(var(--stage-pane-h) - var(--stage-controls-room) - var(--caption-h) - var(--gap-3) - 1.875rem);
+}
+
+@media (min-width: 960px) {
+  .stage-pane.is-pinned .stage-foot.under-notice .stage-note-panel {
+    max-height: calc(var(--stage-pane-h) - var(--stage-controls-room) - var(--caption-h) - var(--gap-3) - 2.125rem);
+  }
+}
+
+.stage-note-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--gap-3);
+}
+
+.stage-note-panel-title {
+  font-weight: var(--weight-heading);
+}
+
+.stage-note-panel-title span {
+  margin-left: var(--gap-2);
+  color: var(--color-ink-soft);
+  font-weight: 400;
+}
+
+.stage-note-close {
+  flex: none;
+  min-width: var(--tap);
+  min-height: var(--tap);
+  margin: calc(-1 * var(--gap-1)) calc(-1 * var(--gap-2)) calc(-1 * var(--gap-1)) 0;
+  padding: 0 var(--gap-2);
+  border: 0;
+  background: transparent;
+  color: var(--color-accent);
+  font-size: var(--size-small);
+}
+
+.stage-note-lines p + p {
+  margin-top: var(--gap-1);
+}
+
+/* ---- 比例尺和指北：在题记第一行的右头，不压在沙盘上。 */
+.stage-legend {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: var(--gap-2);
+  color: var(--color-ink);
+  font-size: 0.6875rem;
+  line-height: 1;
+}
+
+.stage-scale {
+  text-align: center;
+}
+
+.stage-scale-label {
+  display: block;
+  white-space: nowrap;
+}
+
+/* 比例尺的那一段：宽度由沙盘告诉页面（栏窄时页面换一段短的）。 */
+.stage-scale-bar {
+  display: block;
+  height: 5px;
+  margin: 2px auto 0;
+  border: 1px solid var(--color-ink);
+  border-top: 0;
+}
+
+.stage-north {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.stage-north svg {
+  display: block;
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+/* 指北针朝北的那一头。 */
+.stage-north-tip {
+  fill: var(--color-accent);
+}
+
+@container stage-pane (min-width: 560px) {
+  .stage-legend {
+    gap: var(--gap-3);
+    font-size: 0.75rem;
+  }
+
+  .stage-north svg {
+    width: 1.5rem;
+    height: 1.5rem;
+  }
+}
+
+/* ---------------------------------------------------------------- 定格图 */
+
+.stage-still-box {
+  padding: var(--gap-3) var(--page-pad) var(--gap-4);
+}
+
+.stage-still-line {
+  color: var(--color-ink);
+  font-size: var(--size-ui);
+  line-height: 1.7;
+}
+
+.stage-still-line + .stage-still {
+  margin-top: var(--gap-2);
+}
+
+.stage-still img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 1px solid var(--color-line);
+}
+
+.stage-still figcaption {
+  margin-top: var(--gap-2);
+  line-height: 1.6;
+}
+
+.stage-still-caption {
+  font-family: var(--font-reading);
+  font-size: var(--size-note);
+}
+
+.stage-still-note,
+.stage-still-credit {
+  margin-top: var(--gap-1);
+  color: var(--color-ink-soft);
+  font-size: var(--size-small);
+}
+
+@media (min-width: 960px) {
+  .stage-still-box {
+    max-width: 64rem;
+    margin: 0 auto;
+    padding: var(--gap-5);
+  }
+
+  .stage-message {
+    padding: var(--gap-5);
+  }
+}
+
+/* ---------------------------------------------------------------- 凭据里“沙盘上的东西”一栏 */
+
+.scene-register {
+  margin-top: var(--gap-5);
+  padding-top: var(--gap-3);
+  border-top: 1px solid var(--color-line);
+}
+
+.scene-register h3 {
+  font-size: var(--size-note);
+  font-weight: var(--weight-heading);
+}
+
+.scene-register-group h4 {
+  margin: var(--gap-4) 0 0;
+  font-size: var(--size-ui);
+  font-weight: var(--weight-heading);
+  color: var(--color-accent);
+}
+
+.scene-register-item {
+  margin-top: var(--gap-2);
+  padding-top: var(--gap-2);
+  border-top: 1px solid var(--color-line);
+}
+
+.scene-register-name {
+  font-weight: var(--weight-heading);
+}
+
+.scene-register-unsure {
+  color: var(--color-ink-soft);
+}
+
+/* 最后一行：用了谁的数据。 */
+.scene-credits {
+  margin-top: var(--gap-4);
+  padding-top: var(--gap-2);
+  border-top: 1px solid var(--color-line);
+  color: var(--color-ink-soft);
+  font-size: var(--size-small);
+}
+
+/* ---------------------------------------------------------------- 题签 */
+
+/* 题签是沙盘程序挂在自己容器里的（src/stage/overlay）：竖写的字，一条引线指着地方。
+   位置和竖写由程序写在元素上，这里只管样子。有楷体的设备用楷体。
+   沙盘也可能摆在没有 tokens.css 的页面上（开发用的单独一页），所以颜色都带一个备用的值。 */
+.strip {
+  padding: 8px 5px;
+  border: 1px solid var(--color-ink-soft, #5e5548);
+  background: var(--color-paper-raised, #fbf7ee);
+  box-shadow: 0 1px 3px var(--color-shadow, rgb(42 37 32 / 0.18));
+  color: var(--color-ink, #2a2520);
+  font-family: 'Kaiti SC', 'STKaiti', 'KaiTi', '楷体', 'Songti SC', 'Noto Serif CJK SC', 'SimSun', serif;
+  font-size: 17px;
+  line-height: 1;
+  letter-spacing: 0.12em;
+}
+
+/* 水名用靛青。 */
+.strip[data-tone='water'] {
+  color: #3e6072;
+}
+
+/* 沙盘外面的远处：虚线的边。 */
+.strip[data-tone='far'] {
+  border-style: dashed;
+}
+
+.strip-leaders line {
+  stroke: var(--color-ink, #2a2520);
+  stroke-width: 1;
+  opacity: 0.72;
+}
+
+.strip-leaders circle {
+  fill: var(--color-ink, #2a2520);
+  stroke: var(--color-paper, #f5efe3);
+  stroke-width: 1.4;
+}
+
+/* 栏窄时题签小一号。 */
+@container stage-pane (max-width: 559.98px) {
+  .strip {
+    padding: 6px 4px;
+    font-size: 14px;
+  }
+}

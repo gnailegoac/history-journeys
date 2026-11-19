@@ -7,6 +7,74 @@
   </head>
   <body>
     <div id="root"></div>
+    <!--
+      浏览器太旧、这个网站的程序起不来的时候，显示一句话，不留一张白页（最老要能打开的是 iOS 15 上的 Safari 15）。
+      这一段是普通的脚本（不是 module），不经过构建，用的是很老的浏览器也读得懂的写法。
+      程序起得来的浏览器里它什么也不显示：平常加载再慢也不显示，只在下面三种时候才显示；
+      过后程序要是起来了（#root 里有了东西），马上把这句话拿走，从此不管。
+      另有一种情形说的是另一句话：程序的脚本没取到（网断了一下，或者网站刚更新过、手里这一页是旧的）。
+      那不是浏览器旧，刷新一下就好，所以不叫读者去换浏览器。
+    -->
+    <script>
+      (function () {
+        var SAYS = '这个浏览器太旧，打不开这个网站。换一个新一点的浏览器再来看。';
+        var CUT = '网页没有加载完整，刷新一下再试。';
+        var root = document.getElementById('root');
+        var line = null;
+        var started = false;
+        var watcher = null;
+        var timer = 0;
+
+        function show(says) {
+          if (started || line || root.firstChild) return;
+          line = document.createElement('p');
+          line.id = 'too-old';
+          line.setAttribute('role', 'alert');
+          line.style.cssText = 'margin:0;padding:3rem 1.5rem;font-size:1.125rem;line-height:1.8;text-align:center';
+          line.appendChild(document.createTextNode(says));
+          document.body.insertBefore(line, root);
+        }
+
+        // 程序起来了：这以后再出什么错都不是“浏览器太旧”
+        function retire() {
+          started = true;
+          if (line && line.parentNode) line.parentNode.removeChild(line);
+          line = null;
+          window.removeEventListener('error', onError, true);
+          if (watcher) watcher.disconnect();
+          clearTimeout(timer);
+        }
+
+        function onError(event) {
+          var target = event.target;
+          // 只认程序的脚本。读不懂、跑到一半出了错，浏览器报在 window 上：浏览器太旧。
+          // 脚本没取到，浏览器报在那个 script 元素上：是网络的事，说另一句。图片、样式表取不到不算
+          if (target === window) show(SAYS);
+          else if (target && target.tagName === 'SCRIPT') show(CUT);
+        }
+
+        // 一、连 module 脚本都不认识：程序根本不会开始
+        if (!('noModule' in document.createElement('script'))) {
+          show(SAYS);
+          return;
+        }
+        // 二、页面上还什么都没有，程序的脚本就出了错
+        window.addEventListener('error', onError, true);
+        if (window.MutationObserver) {
+          watcher = new MutationObserver(function () {
+            if (root.firstChild) retire();
+          });
+          watcher.observe(root, { childList: true });
+        }
+        // 三、有的老浏览器读不懂程序时一声不响：整个页面（连程序）都下载完又过了十秒，页面上还是什么都没有
+        window.addEventListener('load', function () {
+          if (!started)
+            timer = setTimeout(function () {
+              show(SAYS);
+            }, 10000);
+        });
+      })();
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

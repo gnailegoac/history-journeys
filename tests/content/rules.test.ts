@@ -1,5 +1,6 @@
 // 校验规则自己的测试：每条规则都用合格的样本（fixtures/good）和出错的样本（fixtures/bad）各试一遍，
 // 再在合格样本上一次只改坏一处，看是不是正好查出那一处。
+// 这里是格式和规则 1 到 9；场景数据的规则 10 到 18 和场景文件的格式在 sceneRules.test.ts。
 
 import { describe, expect, it } from 'vitest';
 import type { Figure, FigureCard, StopExtras } from '../../src/domain/types';
@@ -59,10 +60,12 @@ describe('两份样本', () => {
     expect(all(GOOD)).toEqual([]);
   });
 
-  it('出错的样本里，九条规则和格式都查出了问题', () => {
+  it('出错的样本里，十六条规则和格式都查出了问题', () => {
     const rules = new Set(validateContent(BAD).map((v) => v.rule));
-    expect([...rules].sort()).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
-    expect(validateContent(BAD)).toHaveLength(41);
+    expect([...rules].sort((a, b) => a - b)).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]);
+    expect(validateContent(BAD)).toHaveLength(120);
+    // 其中格式和前九条的（两个场景文件的格式、坐标和占位算在里面）：
+    expect(validateContent(BAD).filter((v) => v.rule <= 9)).toHaveLength(56);
   });
 });
 
@@ -72,7 +75,9 @@ describe('格式：文件读得出来，字段齐全，id 对得上', () => {
   });
 
   it('出错的样本：可以点进去的卡片没有人物文件；figure.json 不是合法的 JSON', () => {
-    expect(flagged(BAD, 0)).toEqual(['figures/index.json › [1].available', 'figures/unreadable/figure.json']);
+    // 场景文件 scenes/c.json 的格式问题另在 sceneRules.test.ts 里逐条对。
+    const notScenes = flagged(BAD, 0).filter((where) => !where.includes('/scenes/'));
+    expect(notScenes).toEqual(['figures/index.json › [1].available', 'figures/unreadable/figure.json']);
   });
 
   it('没有 index.json', () => {
@@ -171,12 +176,13 @@ describe('规则 1 坐标', () => {
     expect(flagged(GOOD, 1)).toEqual([]);
   });
 
-  it('出错的样本：经纬度写反、经度超出范围、只写了一个数、途经点纬度超出范围', () => {
+  it('出错的样本：经纬度写反、经度超出范围、只写了一个数、途经点纬度超出范围；场景文件里的坐标也查', () => {
     expect(flagged(BAD, 1)).toEqual([
       'figures/broken/figure.json › stops[0].place.lngLat',
       'figures/broken/figure.json › stops[0].localPlaces[0].lngLat',
       'figures/broken/figure.json › stops[0].localPlaces[1].lngLat',
       'figures/broken/figure.json › legs[0].via[0].lngLat',
+      'figures/broken/scenes/c.json › frame.center',
     ]);
   });
 
@@ -285,7 +291,8 @@ describe('规则 3 文件齐全', () => {
 
   it('把站改成 outline 却留着文件', () => {
     const files = editFigure((f) => (f.stops[0].status = 'outline'));
-    expect(all(files)).toEqual(['3 figures/demo/stops/river.md', '3 figures/demo/stops/river.json']);
+    // 这一站的沙盘也跟着不合格了：还没写好的站不能有场景文件（规则 10）。
+    expect(all(files)).toEqual(['3 figures/demo/stops/river.md', '3 figures/demo/stops/river.json', '10 figures/demo/scenes/river.json']);
   });
 });
 
@@ -515,7 +522,7 @@ describe('规则 9 没有占位', () => {
     expect(flagged(GOOD, 9)).toEqual([]);
   });
 
-  it('出错的样本：卡片、人物资料、complete 的站的抬头、.json 和正文里的占位都查出来；outline 的站的抬头不查', () => {
+  it('出错的样本：卡片、人物资料、complete 的站的抬头、.json、正文和场景文件里的占位都查出来；outline 的站的抬头不查', () => {
     expect(BAD['figures/broken/figure.json']).toContain('"age": "（待填）"');
     expect(flagged(BAD, 9)).toEqual([
       'figures/index.json › [0].tagline',
@@ -524,6 +531,7 @@ describe('规则 9 没有占位', () => {
       'figures/broken/stops/a.json › sources[0].cite',
       'figures/broken/stops/a.json › provenance[1].items[1].what',
       'figures/broken/stops/c.md › 第 3 行',
+      'figures/broken/scenes/a.json › terrain.recipe.basis',
     ]);
   });
 
@@ -592,7 +600,7 @@ describe('报告的写法', () => {
 
   it('出错样本的每一处问题都写得出完整的一句话', () => {
     for (const v of validateContent(BAD)) {
-      expect(formatViolation(v)).toMatch(/^【(格式|规则 [1-9] .+)】content\/figures\/.+：.+$/);
+      expect(formatViolation(v)).toMatch(/^【(格式|规则 \d+ .+)】content\/figures\/.+：.+$/);
     }
   });
 });

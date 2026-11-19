@@ -1,0 +1,57 @@
+/* 定格图的沙盘（src/stage/still）：先拍好的图片铺在沙盘的容器里，题签那一层照旧盖在上面（题签的样子在 stage.css）。
+   图片摆在哪、摆多大，由程序算好写在元素上；这里只管叠放的先后和换小节时的淡入。
+   只用老一点的浏览器（Safari 15）也认得的写法。 */
+
+/* z-index: 0 把里面几层的叠放关在里面：后挂上去的题签那一层才盖得住图片。 */
+.still-table {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 0;
+  overflow: hidden;
+}
+
+/* 两张叠着的图片：is-top 是现在摆着的；另一张要么收着（is-idle），要么在新的一张淡入时垫在底下。 */
+.still-picture {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 1;
+  display: block;
+  max-width: none;
+  pointer-events: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.still-picture.is-top {
+  z-index: 2;
+}
+
+.still-picture.is-idle {
+  visibility: hidden;
+}
+
+/* 换小节：新的一张淡入。时长和 src/stage/still/engine.ts 的 FADE_MS 是同一个数。 */
+.still-picture.is-arriving {
+  animation: still-arrive 250ms linear both;
+}
+
+@keyframes still-arrive {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+/* 图片铺不到的那一边：贴着图片的边盖一条，从沙盘栏的底色淡到透明。位置和颜色由程序写在元素上。 */
+.still-fade {
+  position: absolute;
+  z-index: 3;
+  pointer-events: none;
+}

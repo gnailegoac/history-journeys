@@ -1,0 +1,137 @@
+{
+  "tool": 1,
+  "made": { "tier": "full", "three": "0.187.0", "background": "#e7dfcc", "fitMarginPx": 24, "maxFit": 2.5 },
+  "madeFrom": { "scene": "7d2e4b9a1c6f0835", "terrain": "2b4d6f8091a3c5e7", "ground": "4be90c2a7d135f68", "program": "e91b3c5d7f02a468" },
+  "shapes": {
+    "wide": { "window": [1440, 900], "pane": [940, 900], "insets": [62, 0, 130, 0], "extra": 130, "pixelRatio": 1.5 },
+    "narrow": { "window": [768, 1024], "pane": [768, 573], "insets": [54, 0, 131, 0], "extra": 96, "pixelRatio": 2 }
+  },
+  "stills": [
+    {
+      "section": "上船",
+      "shape": "wide",
+      "file": "river-1-wide.jpg",
+      "width": 1800,
+      "height": 1350,
+      "bytes": 29,
+      "quality": 82,
+      "key": "d695119105702e8f",
+      "raw": "1f3a5c7e9b0d2468",
+      "pose": { "target": [-193, 7.2, 0], "position": [-193, 4603.5, 3856.7], "fov": 21 },
+      "fit": 1,
+      "reach": [412.5, 301.2],
+      "northDeg": 0,
+      "pxPerMetre": 0.4047,
+      "anchors": [
+        { "id": "s-town", "x": 0.4418, "y": 0.3912, "visible": true },
+        { "id": "s-river", "x": 0.6634, "y": 0.4526, "visible": true },
+        { "id": "s-homes", "x": 0.4418, "y": 0.4526, "visible": true }
+      ]
+    },
+    {
+      "section": "河上",
+      "shape": "wide",
+      "file": "river-2-wide.jpg",
+      "width": 1800,
+      "height": 1350,
+      "bytes": 29,
+      "quality": 82,
+      "key": "5d203171011b0de6",
+      "raw": "2a4c6e8f1b3d5790",
+      "pose": { "target": [386, 12.4, 443.8], "position": [-24.4, 2090.9, 1571.4], "fov": 22 },
+      "fit": 1,
+      "reach": [388.1, 265.4],
+      "northDeg": -20,
+      "pxPerMetre": 0.9644,
+      "anchors": [
+        { "id": "s-river", "x": 0.5412, "y": 0.2874, "visible": true },
+        { "id": "s-tower", "x": 0.2136, "y": 0.3351, "visible": true, "foot": [0.2136, 0.3812] },
+        { "id": "s-hill", "x": 0.7745, "y": 0.1987, "visible": true }
+      ]
+    },
+    {
+      "section": "渡口",
+      "shape": "wide",
+      "file": "river-3-wide.jpg",
+      "width": 1800,
+      "height": 1350,
+      "bytes": 29,
+      "quality": 78,
+      "key": "3954cfffab3cc07f",
+      "raw": "3b5d7f9a0c2e4681",
+      "pose": { "target": [193, 7.2, 443.8], "position": [-1429.4, 3283.8, -1178.6], "fov": 21 },
+      "fit": 1,
+      "reach": [401.7, 288.9],
+      "northDeg": -135,
+      "pxPerMetre": 0.607,
+      "anchors": [
+        { "id": "s-far", "x": 0.5263, "y": 0.1042, "visible": true, "out": [0.0995, -0.995] },
+        { "id": "s-town", "x": 0.3871, "y": 0.4705, "visible": true },
+        { "id": "s-tower", "x": 0.4502, "y": 0.4139, "visible": true, "foot": [0.4502, 0.4467] }
+      ]
+    },
+    {
+      "section": "上船",
+      "shape": "narrow",
+      "file": "river-1-narrow.jpg",
+      "width": 1920,
+      "height": 1146,
+      "bytes": 29,
+      "quality": 86,
+      "key": "6cb7ee457c233a73",
+      "raw": "4c6e8a0b1d3f5792",
+      "pose": { "target": [-193, 7.2, 0], "position": [-193, 9207, 7713.4], "fov": 21 },
+      "fit": 2,
+      "reach": [171.4, 78.3],
+      "northDeg": 0,
+      "pxPerMetre": 0.0758,
+      "anchors": [
+        { "id": "s-town", "x": 0.4584, "y": 0.3127, "visible": true },
+        { "id": "s-river", "x": 0.6012, "y": 0.3498, "visible": true },
+        { "id": "s-homes", "x": 0.4584, "y": 0.3498, "visible": true }
+      ]
+    },
+    {
+      "section": "河上",
+      "shape": "narrow",
+      "file": "river-2-narrow.jpg",
+      "width": 1920,
+      "height": 1146,
+      "bytes": 29,
+      "quality": 86,
+      "key": "4b9ac0009df9f863",
+      "raw": "5d7f9b1c2e4a6803",
+      "pose": { "target": [386, 12.4, 443.8], "position": [-204.9, 3005.5, 2067], "fov": 22 },
+      "fit": 1.44,
+      "reach": [158.9, 80.6],
+      "northDeg": -20,
+      "pxPerMetre": 0.2508,
+      "anchors": [
+        { "id": "s-river", "x": 0.5371, "y": 0.2219, "visible": true },
+        { "id": "s-tower", "x": 0.3046, "y": 0.2604, "visible": true, "foot": [0.3046, 0.2981] },
+        { "id": "s-hill", "x": 0.7128, "y": 0.1533, "visible": true }
+      ]
+    },
+    {
+      "section": "渡口",
+      "shape": "narrow",
+      "file": "river-3-narrow.jpg",
+      "width": 1920,
+      "height": 1146,
+      "bytes": 29,
+      "quality": 82,
+      "key": "7bda67de72115e1b",
+      "raw": "6e8a0c2d3f5b7914",
+      "pose": { "target": [193, 7.2, 443.8], "position": [-2241.3, 4922.1, -1990.5], "fov": 21 },
+      "fit": 1.5,
+      "reach": [166.2, 79.4],
+      "northDeg": -135,
+      "pxPerMetre": 0.1515,
+      "anchors": [
+        { "id": "s-far", "x": 0.5187, "y": 0.0926, "visible": true, "out": [0.0995, -0.995] },
+        { "id": "s-town", "x": 0.4233, "y": 0.3655, "visible": true },
+        { "id": "s-tower", "x": 0.4671, "y": 0.3204, "visible": true, "foot": [0.4671, 0.3489] }
+      ]
+    }
+  ]
+}

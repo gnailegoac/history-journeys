@@ -1,0 +1,27 @@
+{
+  "tool": 1,
+  "inputs": {
+    "ground": "4c4bccf7b8b1ffb7",
+    "terrain": "69f43014f4863b78"
+  },
+  "pixels": {
+    "colour": "343f509b2c938963",
+    "fields": "5c45066965fced0e"
+  },
+  "colour": {
+    "file": "xuzhou.colour.jpg",
+    "width": 1171,
+    "height": 971,
+    "bytes": 279735,
+    "key": "88454805ccb62e6e",
+    "quality": 0.95,
+    "psnr": 41.36
+  },
+  "fields": {
+    "file": "xuzhou.fields.png",
+    "width": 1171,
+    "height": 971,
+    "bytes": 254181,
+    "key": "9d12b8857e800d66"
+  }
+}

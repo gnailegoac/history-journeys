@@ -10,3 +10,6 @@ tests/shots/
 # 引擎验证阶段留下的截图和检查记录很大，不进仓库
 spikes/*/verify-*/
 spikes/*/shots/
+
+# vitest 的 JSON 报告（--reporter=json 时写在这里），只是测试的输出
+.vitest/

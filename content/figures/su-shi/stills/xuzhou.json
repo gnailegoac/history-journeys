@@ -1,0 +1,966 @@
+{
+  "tool": 1,
+  "made": {
+    "tier": "full",
+    "three": "0.187.0",
+    "background": "#ebe3d3",
+    "fitMarginPx": 12,
+    "maxFit": 2.5
+  },
+  "madeFrom": {
+    "scene": "f6bdd7cd22e204a6",
+    "terrain": "69f43014f4863b78",
+    "ground": "145f606b05e88dc8",
+    "program": "ca18a940d3085dd5"
+  },
+  "shapes": {
+    "wide": {
+      "window": [
+        1440,
+        900
+      ],
+      "pane": [
+        939,
+        900
+      ],
+      "insets": [
+        62,
+        0,
+        130,
+        0
+      ],
+      "extra": 130.5,
+      "pixelRatio": 1.5
+    },
+    "narrow": {
+      "window": [
+        768,
+        1024
+      ],
+      "pane": [
+        768,
+        572
+      ],
+      "insets": [
+        54,
+        0,
+        131,
+        0
+      ],
+      "extra": 96,
+      "pixelRatio": 2
+    }
+  },
+  "stills": [
+    {
+      "section": "到徐州",
+      "shape": "wide",
+      "file": "xuzhou-1-wide.jpg",
+      "width": 1800,
+      "height": 1350,
+      "bytes": 126521,
+      "quality": 82,
+      "key": "7d39147b39898f73",
+      "raw": "8f6eed0759f622c6",
+      "pose": {
+        "target": [
+          -449.9,
+          7.2,
+          613.7
+        ],
+        "position": [
+          -449.9,
+          34802,
+          39257.2
+        ],
+        "fov": 18
+      },
+      "fit": 1,
+      "reach": [
+        396.2,
+        208
+      ],
+      "northDeg": 0,
+      "pxPerMetre": 0.054638,
+      "anchors": [
+        {
+          "id": "t-xuzhou",
+          "x": 0.50984,
+          "y": 0.40613,
+          "visible": true,
+          "foot": [
+            0.50983,
+            0.41045
+          ]
+        },
+        {
+          "id": "t-bian",
+          "x": 0.46593,
+          "y": 0.40392,
+          "visible": true
+        },
+        {
+          "id": "t-si-north",
+          "x": 0.56023,
+          "y": 0.36598,
+          "visible": true
+        },
+        {
+          "id": "t-ximatai",
+          "x": 0.51724,
+          "y": 0.4762,
+          "visible": true
+        },
+        {
+          "id": "t-yunlongshan",
+          "x": 0.49396,
+          "y": 0.50796,
+          "visible": true
+        }
+      ]
+    },
+    {
+      "section": "到徐州",
+      "shape": "narrow",
+      "file": "xuzhou-1-narrow.jpg",
+      "width": 1920,
+      "height": 1144,
+      "bytes": 117313,
+      "quality": 86,
+      "key": "ddf26e091c3ee977",
+      "raw": "5b3fbab4ccbbd380",
+      "pose": {
+        "target": [
+          -449.9,
+          7.2,
+          613.7
+        ],
+        "position": [
+          -449.9,
+          34802,
+          39257.2
+        ],
+        "fov": 18
+      },
+      "fit": 1,
+      "reach": [
+        251.8,
+        132.2
+      ],
+      "northDeg": 0,
+      "pxPerMetre": 0.034726,
+      "anchors": [
+        {
+          "id": "t-xuzhou",
+          "x": 0.50782,
+          "y": 0.3766,
+          "visible": true,
+          "foot": [
+            0.50781,
+            0.38092
+          ]
+        },
+        {
+          "id": "t-bian",
+          "x": 0.47293,
+          "y": 0.37439,
+          "visible": true
+        },
+        {
+          "id": "t-si-north",
+          "x": 0.54785,
+          "y": 0.33645,
+          "visible": true
+        },
+        {
+          "id": "t-ximatai",
+          "x": 0.5137,
+          "y": 0.44667,
+          "visible": true
+        },
+        {
+          "id": "t-yunlongshan",
+          "x": 0.4952,
+          "y": 0.47843,
+          "visible": true
+        }
+      ]
+    },
+    {
+      "section": "水来了",
+      "shape": "wide",
+      "file": "xuzhou-2-wide.jpg",
+      "width": 1800,
+      "height": 1350,
+      "bytes": 202479,
+      "quality": 82,
+      "key": "784a972ed8210d1f",
+      "raw": "ccc9cb3cbb93ff59",
+      "pose": {
+        "target": [
+          -184,
+          7.2,
+          77.7
+        ],
+        "position": [
+          -2375.2,
+          5889.3,
+          8866.3
+        ],
+        "fov": 21
+      },
+      "fit": 1,
+      "reach": [
+        262.6,
+        222
+      ],
+      "northDeg": -14,
+      "pxPerMetre": 0.224813,
+      "anchors": [
+        {
+          "id": "t-xuzhou",
+          "x": 0.45914,
+          "y": 0.35605,
+          "visible": true,
+          "foot": [
+            0.45926,
+            0.36866
+          ]
+        },
+        {
+          "id": "t-si-north",
+          "x": 0.59646,
+          "y": 0.21557,
+          "visible": true
+        },
+        {
+          "id": "t-bian",
+          "x": 0.28119,
+          "y": 0.37916,
+          "visible": true
+        }
+      ]
+    },
+    {
+      "section": "水来了",
+      "shape": "narrow",
+      "file": "xuzhou-2-narrow.jpg",
+      "width": 1920,
+      "height": 1144,
+      "bytes": 216442,
+      "quality": 86,
+      "key": "e75b804d64620b87",
+      "raw": "01c5834de2ed84cb",
+      "pose": {
+        "target": [
+          -184,
+          7.2,
+          77.7
+        ],
+        "position": [
+          -2375.2,
+          5889.3,
+          8866.3
+        ],
+        "fov": 21
+      },
+      "fit": 1,
+      "reach": [
+        166.9,
+        141.1
+      ],
+      "northDeg": -14,
+      "pxPerMetre": 0.142881,
+      "anchors": [
+        {
+          "id": "t-xuzhou",
+          "x": 0.46753,
+          "y": 0.32565,
+          "visible": true,
+          "foot": [
+            0.46764,
+            0.33913
+          ]
+        },
+        {
+          "id": "t-si-north",
+          "x": 0.57664,
+          "y": 0.18604,
+          "visible": true
+        },
+        {
+          "id": "t-bian",
+          "x": 0.32616,
+          "y": 0.34963,
+          "visible": true
+        }
+      ]
+    },
+    {
+      "section": "住在城墙上",
+      "shape": "wide",
+      "file": "xuzhou-3-wide.jpg",
+      "width": 1800,
+      "height": 1350,
+      "bytes": 198668,
+      "quality": 82,
+      "key": "a4d1ad979f123d2e",
+      "raw": "553e2333cd1b6a87",
+      "pose": {
+        "target": [
+          -55.2,
+          7.2,
+          299.6
+        ],
+        "position": [
+          968.1,
+          4661.4,
+          8633.3
+        ],
+        "fov": 21
+      },
+      "fit": 1,
+      "reach": [
+        273.4,
+        189.4
+      ],
+      "northDeg": 7,
+      "pxPerMetre": 0.252915,
+      "anchors": [
+        {
+          "id": "t-shed",
+          "x": 0.58027,
+          "y": 0.42733,
+          "visible": true,
+          "foot": [
+            0.57964,
+            0.4658
+          ]
+        },
+        {
+          "id": "t-xuzhou",
+          "x": 0.48971,
+          "y": 0.32355,
+          "visible": true,
+          "foot": [
+            0.48974,
+            0.33791
+          ]
+        },
+        {
+          "id": "t-dike",
+          "x": 0.51193,
+          "y": 0.52195,
+          "visible": true,
+          "foot": [
+            0.51191,
+            0.52955
+          ]
+        },
+        {
+          "id": "t-boats",
+          "x": 0.60152,
+          "y": 0.41902,
+          "visible": true
+        },
+        {
+          "id": "t-ximatai",
+          "x": 0.47634,
+          "y": 0.55196,
+          "visible": true
+        },
+        {
+          "id": "t-old-hut",
+          "x": 0.27217,
+          "y": 0.67263,
+          "visible": true,
+          "foot": [
+            0.27304,
+            0.69044
+          ]
+        }
+      ]
+    },
+    {
+      "section": "住在城墙上",
+      "shape": "narrow",
+      "file": "xuzhou-3-narrow.jpg",
+      "width": 1920,
+      "height": 1144,
+      "bytes": 206267,
+      "quality": 86,
+      "key": "45ec4bb5d138b44a",
+      "raw": "dc4b76da1a9bc8da",
+      "pose": {
+        "target": [
+          -55.2,
+          7.2,
+          299.6
+        ],
+        "position": [
+          968.1,
+          4661.4,
+          8633.3
+        ],
+        "fov": 21
+      },
+      "fit": 1,
+      "reach": [
+        174.1,
+        114.9
+      ],
+      "northDeg": 7,
+      "pxPerMetre": 0.160741,
+      "anchors": [
+        {
+          "id": "t-shed",
+          "x": 0.56378,
+          "y": 0.39756,
+          "visible": true,
+          "foot": [
+            0.56327,
+            0.43627
+          ]
+        },
+        {
+          "id": "t-xuzhou",
+          "x": 0.49182,
+          "y": 0.29392,
+          "visible": true,
+          "foot": [
+            0.49185,
+            0.30838
+          ]
+        },
+        {
+          "id": "t-dike",
+          "x": 0.50948,
+          "y": 0.49242,
+          "visible": true,
+          "foot": [
+            0.50946,
+            0.50002
+          ]
+        },
+        {
+          "id": "t-boats",
+          "x": 0.58065,
+          "y": 0.38949,
+          "visible": true
+        },
+        {
+          "id": "t-ximatai",
+          "x": 0.4812,
+          "y": 0.52243,
+          "visible": true
+        },
+        {
+          "id": "t-old-hut",
+          "x": 0.31863,
+          "y": 0.63365,
+          "visible": true,
+          "foot": [
+            0.31969,
+            0.66091
+          ]
+        }
+      ]
+    },
+    {
+      "section": "水退以后",
+      "shape": "wide",
+      "file": "xuzhou-4-wide.jpg",
+      "width": 1800,
+      "height": 1350,
+      "bytes": 258698,
+      "quality": 82,
+      "key": "1358d104ca853b52",
+      "raw": "1dfb692a55ff940c",
+      "pose": {
+        "target": [
+          312.8,
+          49.2,
+          -155.3
+        ],
+        "position": [
+          1395.5,
+          327.4,
+          -425.3
+        ],
+        "fov": 22
+      },
+      "fit": 1,
+      "reach": [
+        170.7,
+        323.4
+      ],
+      "northDeg": 104,
+      "pxPerMetre": 2.013086,
+      "anchors": [
+        {
+          "id": "t-huanglou",
+          "x": 0.49615,
+          "y": 0.23751,
+          "visible": true,
+          "foot": [
+            0.49627,
+            0.56077
+          ]
+        },
+        {
+          "id": "t-east-gate",
+          "x": 0.49622,
+          "y": 0.4083,
+          "visible": true,
+          "foot": [
+            0.49627,
+            0.56077
+          ]
+        },
+        {
+          "id": "t-si-gate",
+          "x": 0.35775,
+          "y": 0.82155,
+          "visible": true
+        }
+      ]
+    },
+    {
+      "section": "水退以后",
+      "shape": "narrow",
+      "file": "xuzhou-4-narrow.jpg",
+      "width": 1920,
+      "height": 1144,
+      "bytes": 280737,
+      "quality": 86,
+      "key": "cab986b51396eb0e",
+      "raw": "04d1976ef8970e23",
+      "pose": {
+        "target": [
+          312.8,
+          49.2,
+          -155.3
+        ],
+        "position": [
+          1508.4,
+          356.4,
+          -453.4
+        ],
+        "fov": 22
+      },
+      "fit": 1.1043,
+      "reach": [
+        95.8,
+        181.5
+      ],
+      "northDeg": 104,
+      "pxPerMetre": 1.158614,
+      "anchors": [
+        {
+          "id": "t-huanglou",
+          "x": 0.49724,
+          "y": 0.22978,
+          "visible": true,
+          "foot": [
+            0.49732,
+            0.52195
+          ]
+        },
+        {
+          "id": "t-east-gate",
+          "x": 0.49728,
+          "y": 0.38392,
+          "visible": true,
+          "foot": [
+            0.49732,
+            0.52195
+          ]
+        },
+        {
+          "id": "t-si-gate",
+          "x": 0.40021,
+          "y": 0.75,
+          "visible": true
+        }
+      ]
+    },
+    {
+      "section": "云龙山和百步洪",
+      "shape": "wide",
+      "file": "xuzhou-5-wide.jpg",
+      "width": 1800,
+      "height": 1350,
+      "bytes": 201178,
+      "quality": 82,
+      "key": "345ad36a50acd5a0",
+      "raw": "7e9f1c4f26dcacd2",
+      "pose": {
+        "target": [
+          -736,
+          43.2,
+          2807
+        ],
+        "position": [
+          -8315.3,
+          4443.2,
+          2010.4
+        ],
+        "fov": 21
+      },
+      "fit": 1,
+      "reach": [
+        417.3,
+        184.3
+      ],
+      "northDeg": -96,
+      "pxPerMetre": 0.275907,
+      "anchors": [
+        {
+          "id": "t-fangheting",
+          "x": 0.28368,
+          "y": 0.45071,
+          "visible": true,
+          "foot": [
+            0.28458,
+            0.47023
+          ]
+        },
+        {
+          "id": "t-huangmaogang",
+          "x": 0.2612,
+          "y": 0.45697,
+          "visible": true
+        },
+        {
+          "id": "t-baibuhong",
+          "x": 0.18583,
+          "y": 0.26832,
+          "visible": true
+        },
+        {
+          "id": "t-yunlongshan",
+          "x": 0.30508,
+          "y": 0.39873,
+          "visible": true
+        }
+      ]
+    },
+    {
+      "section": "云龙山和百步洪",
+      "shape": "narrow",
+      "file": "xuzhou-5-narrow.jpg",
+      "width": 1920,
+      "height": 1144,
+      "bytes": 227245,
+      "quality": 86,
+      "key": "047e7b4b691ce24c",
+      "raw": "da70ccaefa4a42dc",
+      "pose": {
+        "target": [
+          -736,
+          43.2,
+          2807
+        ],
+        "position": [
+          -8315.3,
+          4443.2,
+          2010.4
+        ],
+        "fov": 21
+      },
+      "fit": 1,
+      "reach": [
+        265.2,
+        117.1
+      ],
+      "northDeg": -96,
+      "pxPerMetre": 0.175354,
+      "anchors": [
+        {
+          "id": "t-fangheting",
+          "x": 0.32774,
+          "y": 0.41032,
+          "visible": true,
+          "foot": [
+            0.32886,
+            0.4407
+          ]
+        },
+        {
+          "id": "t-huangmaogang",
+          "x": 0.31028,
+          "y": 0.42744,
+          "visible": true
+        },
+        {
+          "id": "t-baibuhong",
+          "x": 0.25041,
+          "y": 0.23879,
+          "visible": true
+        },
+        {
+          "id": "t-yunlongshan",
+          "x": 0.34515,
+          "y": 0.3692,
+          "visible": true
+        }
+      ]
+    },
+    {
+      "section": "石炭",
+      "shape": "wide",
+      "file": "xuzhou-6-wide.jpg",
+      "width": 1800,
+      "height": 1350,
+      "bytes": 224643,
+      "quality": 82,
+      "key": "3b272f870a160fa3",
+      "raw": "97c683a0c4f86c04",
+      "pose": {
+        "target": [
+          -1242,
+          -6.9,
+          1664.3
+        ],
+        "position": [
+          5770.8,
+          8152.4,
+          -7642
+        ],
+        "fov": 21
+      },
+      "fit": 1.0943,
+      "reach": [
+        220.6,
+        342
+      ],
+      "northDeg": 143,
+      "pxPerMetre": 0.17068,
+      "anchors": [
+        {
+          "id": "t-baitu",
+          "x": 0.49901,
+          "y": 0.161,
+          "visible": true,
+          "out": [
+            -0.255639,
+            -0.966772
+          ]
+        },
+        {
+          "id": "t-xuzhou",
+          "x": 0.60118,
+          "y": 0.76583,
+          "visible": true,
+          "foot": [
+            0.60088,
+            0.77621
+          ]
+        },
+        {
+          "id": "t-yunlongshan",
+          "x": 0.39623,
+          "y": 0.43955,
+          "visible": true
+        }
+      ]
+    },
+    {
+      "section": "石炭",
+      "shape": "narrow",
+      "file": "xuzhou-6-narrow.jpg",
+      "width": 1920,
+      "height": 1144,
+      "bytes": 242690,
+      "quality": 86,
+      "key": "31d1fd124404a2d5",
+      "raw": "3d2e6343b1adca93",
+      "pose": {
+        "target": [
+          -1242,
+          -6.9,
+          1664.3
+        ],
+        "position": [
+          6924.8,
+          9495.1,
+          -9173.5
+        ],
+        "fov": 21
+      },
+      "fit": 1.2743,
+      "reach": [
+        118,
+        181.5
+      ],
+      "northDeg": 143,
+      "pxPerMetre": 0.093148,
+      "anchors": [
+        {
+          "id": "t-baitu",
+          "x": 0.49931,
+          "y": 0.16807,
+          "visible": true,
+          "out": [
+            -0.250332,
+            -0.96816
+          ]
+        },
+        {
+          "id": "t-xuzhou",
+          "x": 0.56748,
+          "y": 0.6825,
+          "visible": true,
+          "foot": [
+            0.56722,
+            0.69606
+          ]
+        },
+        {
+          "id": "t-yunlongshan",
+          "x": 0.4294,
+          "y": 0.41327,
+          "visible": true
+        }
+      ]
+    },
+    {
+      "section": "要走了",
+      "shape": "wide",
+      "file": "xuzhou-7-wide.jpg",
+      "width": 1800,
+      "height": 1350,
+      "bytes": 214746,
+      "quality": 82,
+      "key": "3255f62a8297a929",
+      "raw": "8045742bd9a76e58",
+      "pose": {
+        "target": [
+          -2603.6,
+          0.8,
+          -355
+        ],
+        "position": [
+          9702.8,
+          9621.5,
+          74.7
+        ],
+        "fov": 21
+      },
+      "fit": 1.0418,
+      "reach": [
+        165.3,
+        342
+      ],
+      "northDeg": 88,
+      "pxPerMetre": 0.155375,
+      "anchors": [
+        {
+          "id": "t-xuzhou",
+          "x": 0.56125,
+          "y": 0.7376,
+          "visible": true,
+          "foot": [
+            0.56107,
+            0.74655
+          ]
+        },
+        {
+          "id": "t-bian",
+          "x": 0.57918,
+          "y": 0.62078,
+          "visible": true
+        },
+        {
+          "id": "t-nanjing",
+          "x": 0.51164,
+          "y": 0.13085,
+          "visible": true,
+          "out": [
+            -0.062427,
+            -0.99805
+          ]
+        },
+        {
+          "id": "t-huanglou",
+          "x": 0.48505,
+          "y": 0.79857,
+          "visible": true,
+          "foot": [
+            0.48518,
+            0.82701
+          ]
+        }
+      ]
+    },
+    {
+      "section": "要走了",
+      "shape": "narrow",
+      "file": "xuzhou-7-narrow.jpg",
+      "width": 1920,
+      "height": 1144,
+      "bytes": 251015,
+      "quality": 86,
+      "key": "3d668c4ca963cb07",
+      "raw": "a8d8c434d91f6e26",
+      "pose": {
+        "target": [
+          -2603.6,
+          0.8,
+          -355
+        ],
+        "position": [
+          11766.2,
+          11234.5,
+          146.8
+        ],
+        "fov": 21
+      },
+      "fit": 1.2164,
+      "reach": [
+        87.7,
+        181.5
+      ],
+      "northDeg": 88,
+      "pxPerMetre": 0.08457,
+      "anchors": [
+        {
+          "id": "t-xuzhou",
+          "x": 0.54091,
+          "y": 0.65991,
+          "visible": true,
+          "foot": [
+            0.54076,
+            0.67155
+          ]
+        },
+        {
+          "id": "t-bian",
+          "x": 0.55331,
+          "y": 0.56706,
+          "visible": true
+        },
+        {
+          "id": "t-nanjing",
+          "x": 0.50811,
+          "y": 0.14234,
+          "visible": true,
+          "out": [
+            -0.059971,
+            -0.9982
+          ]
+        },
+        {
+          "id": "t-huanglou",
+          "x": 0.49006,
+          "y": 0.70316,
+          "visible": true,
+          "foot": [
+            0.49017,
+            0.7375
+          ]
+        }
+      ]
+    }
+  ]
+}

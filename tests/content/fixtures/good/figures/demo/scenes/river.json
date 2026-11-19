@@ -1,0 +1,357 @@
+{
+  "stopId": "river",
+  "style": "song-qinglv",
+  "credits": ["地形：校验器用的假数据，不是真的高程。"],
+  "frame": {
+    "center": [110, 30],
+    "westM": 1500,
+    "eastM": 1500,
+    "northM": 1200,
+    "southM": 1200,
+    "datumM": 40,
+    "relief": { "kind": "uniform", "times": 6 }
+  },
+  "terrain": {
+    "class": "real",
+    "basis": "山的位置和形状照高程网格。",
+    "sourceIds": ["s2"],
+    "file": "river.terrain.bin",
+    "cols": 8,
+    "rows": 8,
+    "west": 109.98,
+    "east": 110.02,
+    "south": 29.985,
+    "north": 30.015,
+    "recipe": {
+      "class": "schematic",
+      "basis": "平地压平，压到海拔 40 米上下；这个数是设计上定的。",
+      "sourceIds": [],
+      "note": "平地是修整过的，压平、压低是示意。",
+      "kind": "plain-and-hills",
+      "plainBelowM": 47,
+      "hillAboveM": 60,
+      "plainBaseM": 40,
+      "plainKeep": 0.1,
+      "edgeTaperM": 200
+    },
+    "edits": [
+      {
+        "id": "city-ground",
+        "name": "城里的地面",
+        "op": "level",
+        "inside": "wall",
+        "mode": "set",
+        "toM": 41.2,
+        "featherM": 100,
+        "class": "schematic",
+        "basis": "城里压成一块平地，比城外高多少是设计上定的。",
+        "sourceIds": []
+      },
+      {
+        "id": "low-field",
+        "name": "城北的洼地",
+        "op": "level",
+        "area": [
+          [109.996, 30.008],
+          [110, 30.008],
+          [110, 30.005],
+          [109.996, 30.005]
+        ],
+        "mode": "lower",
+        "toM": 39,
+        "featherM": 60,
+        "class": "schematic",
+        "basis": "为了让大水漫到城北，这一块压低了。",
+        "sourceIds": []
+      },
+      {
+        "id": "knoll",
+        "name": "东山垫高的一截",
+        "op": "mound",
+        "at": [110.01, 30.004],
+        "addM": 6,
+        "innerM": 40,
+        "outerM": 160,
+        "class": "schematic",
+        "basis": "高程网格太粗，小山读低了，垫高多少是设计上定的。",
+        "sourceIds": []
+      }
+    ]
+  },
+  "water": {
+    "levels": {
+      "class": "schematic",
+      "basis": "水位从修整过的地面上定，不照今天的高程算。",
+      "sourceIds": ["s1"],
+      "note": "水位是示意。",
+      "values": { "normal": 37.6, "flood": 43 }
+    },
+    "banks": {
+      "class": "schematic",
+      "basis": "河两边的岸不高；这几个数是设计上定的。",
+      "sourceIds": [],
+      "bankM": 39,
+      "bedM": 3,
+      "keepOffWallsM": 70
+    },
+    "rivers": [
+      {
+        "id": "long-river",
+        "name": "长河",
+        "kind": "river",
+        "line": [
+          [110.004, 30.02],
+          [110.004, 30],
+          [110.006, 29.98]
+        ],
+        "drawWidthM": 120,
+        "class": "schematic",
+        "basis": "从北往南流过城东，记里有；河道走哪条线、多宽没有依据。",
+        "sourceIds": ["s1"],
+        "note": "长河从北往南流过城东，河道走哪条线是示意。"
+      },
+      {
+        "id": "moat",
+        "name": "城壕",
+        "kind": "moat",
+        "line": [
+          [109.9954, 30.002],
+          [109.9954, 29.9974],
+          [110.004, 29.9974]
+        ],
+        "drawWidthM": 30,
+        "crossings": [[109.998, 29.9974]],
+        "class": "text",
+        "basis": "河志里说城西、城南有壕。",
+        "sourceIds": ["s2"],
+        "unsure": "线位"
+      }
+    ],
+    "rapids": [
+      {
+        "id": "shoal",
+        "name": "乱石滩",
+        "river": "long-river",
+        "at": [110.0046, 29.994],
+        "lengthM": 200,
+        "class": "text",
+        "basis": "记里说城南的河上有一段乱石滩。",
+        "sourceIds": ["s1"],
+        "unsure": "乱石的样子和具体在哪一点"
+      }
+    ],
+    "dry": [
+      {
+        "id": "south-yard",
+        "name": "城南的高地",
+        "area": [
+          [109.996, 29.9972],
+          [110, 29.9972],
+          [110, 29.996],
+          [109.996, 29.996]
+        ],
+        "class": "text",
+        "basis": "记里说大水没有漫到城南。",
+        "sourceIds": ["s1"]
+      }
+    ]
+  },
+  "places": [
+    {
+      "id": "east-hill",
+      "name": "东山",
+      "at": [110.01, 30.004],
+      "class": "real",
+      "basis": "城东的山，位置照高程网格。",
+      "sourceIds": ["s2"]
+    }
+  ],
+  "things": [
+    {
+      "id": "wall",
+      "name": "城墙",
+      "kind": "wall",
+      "line": [
+        [109.996, 30.002],
+        [110, 30.002],
+        [110, 29.998],
+        [109.996, 29.998]
+      ],
+      "params": { "face": "earth", "parapet": true },
+      "class": "schematic",
+      "basis": "城墙的位置和大小没有记载，是自己定的。",
+      "sourceIds": [],
+      "note": "城墙是示意：位置和大小都没有记载。"
+    },
+    {
+      "id": "gate-south",
+      "name": "南门",
+      "kind": "gate",
+      "at": [109.998, 29.998],
+      "on": "wall",
+      "params": { "face": "earth" },
+      "class": "text",
+      "basis": "记里说南面有门。",
+      "sourceIds": ["s1"],
+      "unsure": "位置（在南墙的哪一点）"
+    },
+    {
+      "id": "gate-tower",
+      "name": "南门上的楼",
+      "kind": "tower",
+      "at": [109.998, 29.998],
+      "on": "gate-south",
+      "params": { "storeys": 2, "size": "large", "walls": "plaster", "timber": "red" },
+      "when": { "from": "河上" },
+      "class": "text",
+      "basis": "记里说后来在南门上盖了一座楼。",
+      "sourceIds": ["s1", "s2"],
+      "unsure": "层数和高矮",
+      "note": "南门上的楼是按记载摆的；楼有几层、多高没有记载，样子是示意。"
+    },
+    {
+      "id": "dike",
+      "name": "城南的堤",
+      "kind": "dike",
+      "line": [
+        [109.999, 29.998],
+        [109.9995, 29.9965]
+      ],
+      "params": { "topM": 44 },
+      "when": { "only": ["河上"] },
+      "class": "text",
+      "basis": "记里说大水那一年在城南筑了一道堤。",
+      "sourceIds": ["s1"],
+      "unsure": "两头的位置和长短"
+    },
+    {
+      "id": "pavilion",
+      "name": "山上的亭子",
+      "kind": "pavilion",
+      "at": [110.0098, 30.0038],
+      "facing": 270,
+      "params": { "roof": "thatch" },
+      "when": { "until": "河上" },
+      "class": "schematic",
+      "basis": "只表示山上有人去；位置和样子都没有依据。",
+      "sourceIds": []
+    }
+  ],
+  "dressing": [
+    {
+      "id": "homes",
+      "name": "城里的民居",
+      "kind": "houses",
+      "inside": "wall",
+      "params": { "lanes": true, "seed": 7 },
+      "class": "dressing",
+      "basis": "只表示这是一座城。",
+      "sourceIds": []
+    },
+    {
+      "id": "willows",
+      "name": "河边的柳树",
+      "kind": "trees",
+      "line": [
+        [110.003, 30.008],
+        [110.003, 29.992]
+      ],
+      "params": { "type": "willow", "density": 1 },
+      "class": "dressing",
+      "basis": "只表示这是河岸。",
+      "sourceIds": []
+    },
+    {
+      "id": "ferry-boats",
+      "name": "渡口的船",
+      "kind": "boats",
+      "at": [110.004, 29.997],
+      "params": { "type": "small", "count": 3, "radiusM": 60 },
+      "when": { "only": ["上船", "渡口"] },
+      "class": "text",
+      "basis": "记里说码头上停着十几条船。",
+      "sourceIds": ["s1"],
+      "unsure": "数目和停在哪"
+    },
+    {
+      "id": "south-road",
+      "name": "南门外的路",
+      "kind": "roads",
+      "line": [
+        [109.998, 29.9974],
+        [109.998, 29.98]
+      ],
+      "params": { "type": "road" },
+      "class": "dressing",
+      "basis": "只表示南门外有路。",
+      "sourceIds": []
+    },
+    {
+      "id": "woods",
+      "name": "山上的树",
+      "kind": "trees",
+      "params": { "type": "mixed" },
+      "class": "dressing",
+      "basis": "只表示山上有树。",
+      "sourceIds": []
+    }
+  ],
+  "strips": [
+    { "id": "s-town", "text": "示例城", "modern": "示例市", "of": "wall", "at": [109.998, 30.002] },
+    { "id": "s-river", "text": "长河", "of": "long-river", "at": [110.004, 30], "side": "right" },
+    { "id": "s-tower", "text": "门楼", "of": "gate-tower" },
+    { "id": "s-hill", "text": "东山", "of": "east-hill" },
+    { "id": "s-homes", "text": "民居", "of": "homes", "at": [109.998, 30] },
+    { "id": "s-far", "text": "东港", "modern": "东港市", "of": "far-port" }
+  ],
+  "far": [
+    {
+      "id": "far-port",
+      "name": "东港",
+      "at": [114.2, 27.9],
+      "gloss": "今东港市",
+      "class": "today",
+      "basis": "按今天东港市的位置算方向和距离。",
+      "sourceIds": ["s2"],
+      "note": "东港在这块沙盘外面，往东南去。"
+    }
+  ],
+  "sections": [
+    {
+      "heading": "上船",
+      "date": "示例三年春",
+      "line": "城在河的西边，码头在城东南。",
+      "camera": { "target": [109.998, 30], "distanceM": 6000, "pitch": 50, "bearing": 0, "mustShow": ["frame"] },
+      "water": "normal",
+      "strips": ["s-town", "s-river", "s-homes"],
+      "explain": ["wall", "long-river"]
+    },
+    {
+      "heading": "河上",
+      "date": "示例三年夏",
+      "line": "水涨起来了，南门上添了一座楼。",
+      "camera": { "target": [110.004, 29.996], "targetUpM": 5, "distanceM": 2400, "pitch": 60, "bearing": 20, "fov": 22, "closest": 0.8, "mustShow": ["gate-tower", "long-river"] },
+      "water": "flood",
+      "sky": "day",
+      "strips": ["s-river", "s-tower", "s-hill"],
+      "explain": ["levels", "gate-tower"]
+    },
+    {
+      "heading": "渡口",
+      "date": "示例三年秋",
+      "line": "从渡口往东南去，是东港。",
+      "camera": { "target": [110.002, 29.996], "distanceM": 4000, "pitch": 55, "bearing": 135 },
+      "water": "normal",
+      "strips": ["s-far", "s-town", "s-tower"],
+      "explain": ["far-port", "old-lock"]
+    }
+  ],
+  "notDrawn": [
+    {
+      "id": "old-lock",
+      "name": "水闸",
+      "why": "正文里的水闸在这块沙盘的上游，沙盘上没有画。",
+      "sourceIds": ["s2"]
+    }
+  ]
+}

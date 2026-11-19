@@ -18,9 +18,37 @@
 }
 
 .page-head {
+  position: relative;
   margin-bottom: var(--gap-5);
   padding-bottom: var(--gap-4);
   border-bottom: 1px solid var(--color-line);
+}
+
+/* “到沙盘”：给用键盘的人从标题直接到沙盘栏的一步。平时看不见，走到它上面才显出来，
+   浮在抬头的右上角，不挤别的东西。 */
+.skip-to-stage {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius);
+  background: var(--color-paper-raised);
+  font-size: var(--size-ui);
+  white-space: nowrap;
+  clip-path: inset(50%);
+}
+
+.skip-to-stage:focus {
+  width: auto;
+  height: auto;
+  min-width: var(--tap);
+  min-height: var(--tap);
+  padding: 0 var(--gap-3);
+  clip-path: none;
 }
 
 .eyebrow,

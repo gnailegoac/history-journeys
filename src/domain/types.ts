@@ -53,15 +53,34 @@ export interface Figure {
   tagline: string;
   /** 人物页上“他是谁”的几段话，每个元素一段。第三人称。 */
   intro: string[];
-  /** 从地球上看整条轨迹时，镜头对准哪里、离多远。 */
+  /** 从地球上看整条轨迹时，镜头对准哪里、离多远。停用，第 4 步换掉：原来的地图用的，现在没有程序读，校验照旧查。 */
   overview: { center: LngLat; distanceKm: number };
   /** 各站，按先后排列。 */
   stops: StopMeta[];
   /** 相邻两站之间的路。legs[i] 连接 stops[i] 和 stops[i+1]。 */
   legs: Leg[];
+  /**
+   * 人物页上暂时放的一张全程沙盘的定格图和图旁边的字。可以不写；全程沙盘接进人物页以后（第 4 步）去掉。
+   * 说明见 docs/data-spec.md“人物页的定格图（暂时的）”。
+   */
+  routeStill?: {
+    /** 图片文件名，放在 content/figures/<人物>/stills/ 下。 */
+    file: string;
+    /** 图片有多宽、多高（像素）。页面靠这两个数在图片下载完之前先把地方留出来，图出来时下面的字不会被挤着跳一下。 */
+    width: number;
+    height: number;
+    /** 给看不见图的人的一句话。 */
+    alt: string;
+    /** 图下面的一句题记。 */
+    caption: string;
+    /** 如实的说明：地形是今天的，山高夸大多少，哪些河道和海岸是示意、没有核对。 */
+    note: string;
+    /** 用了谁的数据。 */
+    credit: string;
+  };
 }
 
-/** 一站的抬头和地图信息。正文另放在 stops/<id>.md 和 stops/<id>.json。 */
+/** 一站的抬头和地图信息。正文另放在 stops/<id>.md 和 stops/<id>.json；沙盘另放在 scenes/<id>.json。 */
 export interface StopMeta {
   id: string;
   /** 站名，如“黄州：东坡上的地”。 */
@@ -74,13 +93,13 @@ export interface StopMeta {
   age: string;
   /** 这一站的主要地点。 */
   place: Place;
-  /** 进入这一站时镜头停在哪。 */
+  /** 进入这一站时镜头停在哪。停用，第 4 步换掉：镜头现在写在场景文件的各小节里。 */
   camera: CameraPreset;
   /** 目录里的一句话。 */
   summary: string;
   /** complete：正文已写好；outline：只有抬头，还没写。 */
   status: 'complete' | 'outline';
-  /** 这一站正文里提到、要在地图上标出的地点。 */
+  /** 这一站正文里提到、要在地图上标出的地点。停用，第 4 步换掉：站内地点现在写在场景文件里，不要往这里加新东西。 */
   localPlaces: Place[];
 }
 

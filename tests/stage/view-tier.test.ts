@@ -446,10 +446,13 @@ describe('试画', () => {
 
   it('沙盘栏收着（竖着拿的平板上是 768 × 59 的一条）：先不试画，照样摆好；展开以后重摆的那一帧够格了才试——这时候慢了，是摆好以后才通知', { timeout: 60_000 }, async () => {
     // 收起来的一条多大是从页面上量的（tests/e2e/main-flow.spec.ts 里收起沙盘的那一项也拿它和这条线比）：
-    // 高 60 像素减去下边 1 像素的线，宽就是窗口的宽。窄屏最宽到 959。
+    // 高 60 像素减去下边 1 像素的线，宽就是窗口的宽。横着的窗口最宽到 959 才是上下排；竖着的窗口再宽也是上下排：
+    // 竖着拿的大平板是 1024 和 1032 宽（tests/e2e/large-upright.spec.ts 量到的是 1024 × 59）。
+    // 竖着的窗口宽到 1356 像素以上（竖起来的显示器），这一条就过线了：那时收着也会试画。平板没有这么宽的。
     const s = stage(768, 59);
     expect(768 * 59).toBeLessThan(TRIAL_MIN_AREA);
     expect(959 * 59).toBeLessThan(TRIAL_MIN_AREA);
+    expect(1032 * 59).toBeLessThan(TRIAL_MIN_AREA);
     const reported = vi.spyOn(s.host.tiers, 'reportTrial');
     s.cost.finishMs = TRIAL_SLOW_MS + 10;
     const view = await openView(s);

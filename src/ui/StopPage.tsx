@@ -70,6 +70,12 @@ export function StopPage({ figure, stop, table, onSection }: Props) {
       <header className="page-head">
         <p className="eyebrow">
           第 {index + 1} 站 · 共 {figure.stops.length} 站
+          {/* 一站一个小方块，这一站的那个是红的：只说它排在路上的第几个，不记读者读过哪几站。读屏不念：前面那句话已经说了。 */}
+          <span className="ticks" aria-hidden="true">
+            {figure.stops.map((item, i) => (
+              <span key={item.id} className={i === index ? 'is-here' : undefined} />
+            ))}
+          </span>
         </p>
         <PageTitle documentTitle={pageTitle(stop.title, figure.name)}>{stop.title}</PageTitle>
         {/* 沙盘栏在页面的结构里排在正文后面：用键盘、读屏的人要走完整篇正文才到得了它的按钮。这里给一步直接过去的。 */}

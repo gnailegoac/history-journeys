@@ -5,9 +5,9 @@
 // 分三组：
 //   一、网站上显示的每一个字都在字体文件里。少了一个，这里说出是哪个字、在哪里用的，办法是 npm run fonts。
 //   二、字体文件、记录、样式表、给页面用的模块、许可全文，彼此对得上；文件里的名称合许可的要求；大小不超过上限。
-//   三、源文件里没有“工具数不到的字”和“Safari 15 读不懂的写法”。眼下还有几处是后面的单元要改掉的，一处一处点了名列在
-//       PENDING 里，写着由哪个单元去掉：那个单元做完，这一项会因为“名单里的已经没有了”而通不过，那时把它从名单里删掉。
-//       名单只许变短。新冒出来的不许往里加。
+//   三、源文件里没有“工具数不到的字”和“Safari 15 读不懂的写法”。换字体以前的页面留下过几处，一处一处点了名列在
+//       PENDING 里，后面的单元改到哪里删到哪里；现在这张名单是空的（最后两处是“读原文”“凭据”前面用 content 画的加号、减号，
+//       换正文那一栏的样子时换成了页面上真的字）。名单只许变短，所以它只能一直空着：新冒出来的不许往里加，改掉它。
 
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
@@ -42,7 +42,7 @@ import {
 } from '../support/fontTool';
 import type { FontPlan, PlannedFile } from '../support/fontTool';
 import { charactersOf, englishName, featuresOf, glyphCountOf, hintingOf, readWoff2 } from '../support/sfnt';
-import { countIn, scanProgram, scanStyle, stripCssComments, tally } from '../support/sourceScan';
+import { countIn, mediaProblems, mediaQueries, scanMedia, scanProgram, scanStyle, stripCssComments, tally } from '../support/sourceScan';
 
 /** 项目的根目录：这个文件在 tests/fonts/ 里，往上两层。 */
 const ROOT = new URL('../../', import.meta.url);
@@ -272,15 +272,10 @@ describe('放进仓库的字体文件和它的记录、样式表、许可全文�
 
 /**
  * 眼下还许可的几处，一处一处点了名：哪个文件，犯的哪一条，原样是什么，有几处，由哪个单元去掉。
- * 这些都是换字体、换样子以前的页面留下的；第 2 步后面的单元做到那里时改掉，同时把这里对应的一项删掉
- * （不删这一项测试也通不过：它查的是“找到的”和“名单”一模一样）。名单只许变短。
+ * 这些都是换字体、换样子以前的页面留下的，改到哪里删到哪里（不删测试也通不过：它查的是“找到的”和“名单”一模一样）。
+ * 现在一处也没有了。名单只许变短，所以不要往里加：样式表里新冒出来的写法，改掉它。
  */
-const PENDING: { file: string; rule: string; what: string; times: number; unit: string }[] = [
-  // U3（正文那一栏的样子）：“读原文”“凭据”那两行前面的加号、减号是用 content 画的，工具数不到（减号 U+2212 现在不在字体里，
-  // 页面上它是设备自带的字体画的），换成页面上真的字或者画出来的记号
-  { file: 'src/styles/reading.css', rule: 'content', what: "content: '+'", times: 1, unit: 'U3' },
-  { file: 'src/styles/reading.css', rule: 'content', what: "content: '−'", times: 1, unit: 'U3' },
-];
+const PENDING: { file: string; rule: string; what: string; times: number; unit: string }[] = [];
 
 describe('源文件里的写法', () => {
   const programs = sourceFiles().filter((path) => isInterfaceSource(path) || path.startsWith(`${FONTS_DIR}/`));
@@ -317,7 +312,7 @@ describe('源文件里的写法', () => {
     expect(tally(scanProgram('index.html', page.replace(/<!--[\s\S]*?-->/g, '')))).toEqual(['index.html | entity | &hellip; × 1', 'index.html | escape | \\u2026 × 1']);
   });
 
-  it('样式表里：不加粗、不用斜体、字体只用两个记号、content 里不写字、不用 Safari 15 读不懂的写法（眼下还许可的见 PENDING）', () => {
+  it('样式表里：不加粗、不用斜体、字体只用两个记号、content 里不写字、不用 Safari 15 读不懂的写法（PENDING 里点了名的除外：现在一处也没有）', () => {
     expect(styles.length).toBeGreaterThan(5);
     const found = tally(styles.flatMap((path) => scanStyle(path, text(path))));
     const allowed = PENDING.map((item) => `${item.file} | ${item.rule} | ${item.what} × ${item.times}`).sort();
@@ -362,16 +357,61 @@ describe('源文件里的写法', () => {
     ]);
   });
 
-  it('@container 最多四处、cqw 最多两处，都只在 stage.css 里；:has( 最多六处，只在 layout.css 里（iPadOS 15 的 Safari 都不认，不能再添）', () => {
+  it('样式表里每一句 @media：照窗口的宽窄分版面的都带着“横着”（竖着拿的大平板够宽，可它是上下排的版面），没有老平板不认的写法', () => {
+    const found = tally(styles.flatMap((path) => scanMedia(path, text(path))));
+    expect(
+      found,
+      '左右排的版面要窗口 960 像素以上宽、而且横着：写成 @media (min-width: 960px) and (orientation: landscape)；要说“不是左右排”，写 @media not all and (min-width: 960px) and (orientation: landscape)。比大小的新写法（width >= …）iPadOS 15 不认',
+    ).toEqual([]);
+    // 确实查到了东西：分版面的那一句有好几处（layout.css、stage.css、guide.css、tokens.css），句句带着“横着”
+    const byWidth = styles.flatMap((path) => mediaQueries(text(path))).filter((query) => /min-width:\s*(960|1280)px/.test(query));
+    expect(byWidth.length).toBeGreaterThanOrEqual(8);
+    for (const query of byWidth) expect(query).toContain('(orientation: landscape)');
+    // 页面的程序里用到这句条件的只有一处（只有上下排的时候能收起沙盘）：和 layout.css 里分版面的那一句一字不差
+    const inProgram = /const WIDE_SCREEN = '([^']+)';/.exec(text('src/ui/StagePane.tsx'))?.[1] ?? '';
+    expect(mediaProblems(inProgram), `StagePane.tsx 的 WIDE_SCREEN：${inProgram}`).toEqual([]);
+    expect(mediaQueries(text('src/styles/layout.css')), 'StagePane.tsx 的 WIDE_SCREEN 和 layout.css 分版面的那一句不是同一句了').toContain(inProgram);
+  });
+
+  it('查得出来：分版面的一句少了“横着”、拿 max-width 说上下排、比大小的新写法；别的 @media 不算', () => {
+    expect(mediaProblems('(min-width: 960px)')).toEqual(['wide-layout']);
+    expect(mediaProblems('(min-width: 1280px)')).toEqual(['wide-layout']);
+    expect(mediaProblems('(min-width: 60rem)')).toEqual(['wide-layout']);
+    expect(mediaProblems('not all and (min-width: 960px)')).toEqual(['wide-layout']);
+    expect(mediaProblems('(max-width: 959px)')).toEqual(['max-width']);
+    expect(mediaProblems('(width >= 960px) and (orientation: landscape)')).toEqual(['media-range']);
+    expect(mediaProblems('(400px <= width <= 700px)')).toEqual(['media-range']);
+    expect(mediaProblems('not (hover: hover)')).toEqual(['media-range']);
+    expect(mediaProblems('(hover: hover) or (pointer: fine)')).toEqual(['media-range']);
+    // 对的写法：源文件里的，和构建压缩以后的
+    for (const fine of [
+      '(min-width: 960px) and (orientation: landscape)',
+      '(min-width:960px) and (orientation:landscape)',
+      'not all and (min-width: 960px) and (orientation: landscape)',
+      '(min-width: 1280px) and (orientation: landscape)',
+      '(min-width: 600px)',
+      '(max-width: 420px)',
+      '(hover: hover)',
+      '(prefers-reduced-motion: reduce)',
+    ]) {
+      expect(mediaProblems(fine), fine).toEqual([]);
+    }
+    const sheet = '/* @media (min-width: 960px) { 注释里的不算 } */ @media (min-width: 960px) { .a { color: red; } } @media (hover: hover) { .a:hover { color: blue; } } @media (min-width:960px) and (orientation:landscape){.b{color:red}}';
+    expect(mediaQueries(sheet)).toEqual(['(min-width: 960px)', '(hover: hover)', '(min-width:960px) and (orientation:landscape)']);
+    expect(tally(scanMedia('x.css', sheet))).toEqual(['x.css | wide-layout | (min-width: 960px) × 1']);
+  });
+
+  it('@container、cqw 一处也没有；:has( 最多六处，只在 layout.css 里（iPadOS 15 的 Safari 都不认：前两样原来分着沙盘栏宽窄两种排法，现在由页面量了栏宽挂类名来分）', () => {
     const count = (needle: string): Record<string, number> => Object.fromEntries(styles.map((path) => [path, countIn(stripCssComments(text(path)), needle)] as const).filter(([, times]) => times > 0));
     const total = (counts: Record<string, number>): number => Object.values(counts).reduce((sum, times) => sum + times, 0);
     const container = count('@container');
     const cqw = count('cqw');
     const has = count(':has(');
-    expect(Object.keys(container).every((path) => path === 'src/styles/stage.css'), JSON.stringify(container)).toBe(true);
-    expect(total(container)).toBeLessThanOrEqual(4);
-    expect(Object.keys(cqw).every((path) => path === 'src/styles/stage.css'), JSON.stringify(cqw)).toBe(true);
-    expect(total(cqw)).toBeLessThanOrEqual(2);
+    expect(container, '样式表里又有了 @container：老平板上它里面的东西等于没有。改用沙盘栏上的 .is-wide、.is-kai（见 stage.css 开头）').toEqual({});
+    expect(cqw, '样式表里又有了 cqw：老平板不认。沙盘栏的宽度用 --pane-w（见 stage.css 开头）').toEqual({});
+    // 给沙盘栏起“可以按它的宽度查询”的名字（container、container-type、container-name）也不要了：用不着，还会让新旧浏览器排版的规矩不一样
+    expect(count('container:'), JSON.stringify(count('container:'))).toEqual({});
+    expect(count('container-'), JSON.stringify(count('container-'))).toEqual({});
     expect(Object.keys(has).every((path) => path === 'src/styles/layout.css'), JSON.stringify(has)).toBe(true);
     expect(total(has)).toBeLessThanOrEqual(6);
   });

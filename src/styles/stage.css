@@ -1,6 +1,11 @@
 /* 沙盘栏里面的东西：沙盘的容器、按钮、几句话、题记和说明、指北和比例尺、定格图、题签。
-   这里只求能用、看得清；样子到重做顺序第 2 步再定。沙盘栏本身的位置和大小在 layout.css。
-   第 1 步后一半新加的几条（两层容器、按钮下面的一行话、读数）只用老平板（iOS 15 的 Safari）也认得的写法。 */
+   沙盘栏本身的位置和大小在 layout.css。
+   样子：沙盘栏的底是一块绢（平的一种颜色）。绢上的字都是墨色，红只做记号；摆在绢上的东西——按钮、题签、
+   展开的说明、一句话底下垫的那一小块——都是纸条：浅纸色，里面一圈深色的细线，右下一点影子，方角。
+   栏宽、栏窄各一种排法，由页面量了栏的宽度以后在栏上挂类名来分（.is-wide、.is-kai，见 StagePane.tsx），
+   题记的字号照页面写在栏上的 --pane-w（栏里面的宽度）算：不用按栏宽查询的写法（@container、cqw），
+   老平板（iPadOS 15 的 Safari）不认那两样。别的也只用它认得的写法。
+   各处的边、垫的空、高度都不动（tests/e2e/pane-boxes.spec.ts 守着沙盘四边留的空）：换的只是颜色、字和影子。 */
 
 /* ---------------------------------------------------------------- 沙盘的容器 */
 
@@ -54,7 +59,7 @@
 
 /* “正在摆”“没能摆出来”“画面断了”都在 .stage-says 这一块里（它一直在页面上，话是换进去的）。它自己不占地方。 */
 
-/* 正在摆：在沙盘栏的中间偏上，带底色。 */
+/* 正在摆：在沙盘栏的中间偏上，垫着一小块纸条。 */
 .stage-loading {
   position: absolute;
   left: 50%;
@@ -64,25 +69,33 @@
   width: max-content;
   max-width: calc(100% - 2 * var(--gap-4));
   padding: var(--gap-1) var(--gap-3);
-  border-radius: var(--radius);
-  background: var(--color-stage-veil);
+  background: var(--color-slip-veil);
+  box-shadow: 0 0 0 1px var(--color-line-on-silk);
   color: var(--color-ink);
-  font-size: var(--size-ui);
+  font-size: var(--size-fine);
   line-height: 1.7;
   text-align: center;
   pointer-events: none;
 }
 
-/* 没能摆出来、画不了、画面断了：一句话，下面可以有一个按钮。 */
+/* 没能摆出来、画不了、画面断了：一句话，下面可以有一个按钮。那句话也垫着一小块纸条（不是整栏铺一片浅色）。 */
 .stage-message {
   padding: var(--gap-4) var(--page-pad);
   color: var(--color-ink);
-  font-size: var(--size-ui);
+  font-size: var(--size-fine);
   line-height: 1.7;
 }
 
+.stage-message p {
+  display: inline-block;
+  padding: var(--gap-1) var(--gap-3);
+  background: var(--color-slip-veil);
+  box-shadow: 0 0 0 1px var(--color-line-on-silk);
+}
+
 .stage-message .stage-button {
-  margin-top: var(--gap-2);
+  display: block;
+  margin-top: var(--gap-3);
 }
 
 /* 画面断了：沙盘栏留在原处、还是那么高，这句话和按钮摆在原来沙盘的地方，在题记上面。 */
@@ -103,10 +116,10 @@
    它的下边就是页面告诉画面“上面留出多少”的那条线，所以高度是定死的：窄屏 30px，宽屏 34px
    （手机上量过：一行的时候 28 条题签都摆得下；两行的话有一条引线要拉到 83 像素长）。
    上边的位置 = 那一排按钮上面的空 + 按钮的高 + 古名今名那个框上下两条 1px 的边。
-   字号跟着屏幕的宽窄缩一点（不用按栏宽算的单位，老平板不认）：最长的一句 22 个字，360px 宽的手机上也放得下。
-   底色是不透明的纸色，并且往上一直垫到沙盘栏的顶边（::before，垫在那一排按钮底下）：画面是照“这一行话的下边以下”
-   那一块摆的，比没有这一行话时低半行，图片的上边就够不着栏顶；不垫的话，栏顶露一条底色，按钮后面露一截图片，
-   这一行话又半透明地压在图片上，三层叠着。垫上以后是干干净净的一条，画面从它下边开始。 */
+   字号跟着屏幕的宽窄缩一点（平板和电脑上是 14px）：最长的一句 22 个字，360px 宽的手机上也放得下。
+   底色是不透明的绢色——和沙盘栏的底是同一种颜色，看不出一条带子，只在下边有一道细线——并且往上一直垫到沙盘栏的顶边
+   （::before，垫在那一排按钮底下）：画面是照“这一行话的下边以下”那一块摆的，比没有这一行话时低半行，
+   图片的上边就够不着栏顶；不垫的话，按钮后面露一截图片，这一行话又压在图片上。垫上以后，画面从那道细线下面开始。 */
 .stage-notice {
   --notice-top: calc(var(--gap-2) + var(--tap) + 2px);
   position: absolute;
@@ -119,9 +132,10 @@
   gap: var(--gap-2);
   height: 1.875rem;
   padding: 0 var(--gap-2);
-  background: var(--color-paper);
+  background: var(--color-paper-sunk);
+  box-shadow: inset 0 -1px 0 var(--color-line-on-silk);
   color: var(--color-ink);
-  font-size: clamp(0.75rem, 3.6vw, 0.875rem);
+  font-size: clamp(0.75rem, 3.6vw, var(--size-small));
   line-height: 1;
   white-space: nowrap;
 }
@@ -133,7 +147,7 @@
   right: 0;
   bottom: 100%;
   height: var(--notice-top);
-  background: var(--color-paper);
+  background: var(--color-paper-sunk);
 }
 
 .stage-notice p {
@@ -144,19 +158,24 @@
   line-height: 1.25rem;
 }
 
-/* 那一行话后面的小按钮（“换回图片”）：看着小（22px 高），能点的地方有 44px 高：::after 把它往下撑到沙盘上
-   （往上是那一排按钮，不往上撑）。 */
-.stage-notice-button {
+/* 两个小按钮：那一行话后面的“换回图片”，题记里的“说明”。都是小纸条：红字，一圈红的细线。
+   看着小（22px、20px 高），能点的地方有 44px 高，由各自的 ::after 撑出来。 */
+.stage-notice-button,
+.stage-note-button {
   position: relative;
   flex: none;
-  height: 1.375rem;
-  padding: 0 0.5rem;
   border: 1px solid var(--color-accent);
-  border-radius: var(--radius);
+  border-radius: 0;
   background: var(--color-paper-raised);
   color: var(--color-accent);
-  font-size: 0.8125rem;
+  font-size: var(--size-small);
   line-height: 1;
+}
+
+/* “换回图片”：::after 把它往下撑到沙盘上（往上是那一排按钮，不往上撑）。 */
+.stage-notice-button {
+  height: 1.375rem;
+  padding: 0 0.5rem;
 }
 
 .stage-notice-button::after {
@@ -169,16 +188,16 @@
   transform: translateX(-50%);
 }
 
-@media (min-width: 960px) {
+@media (min-width: 960px) and (orientation: landscape) {
   .stage-notice {
     --notice-top: calc(var(--gap-4) + var(--tap) + 2px);
     height: 2.125rem;
     padding: 0 var(--gap-4);
-    font-size: 0.875rem;
+    font-size: var(--size-small);
   }
 }
 
-/* 地址里带 ?debug=1 时印的一行读数（画质、快慢）：贴在题记那一条的上边，手指和鼠标穿过它。 */
+/* 地址里带 ?debug=1 时印的一行读数（画质、快慢）：贴在题记那一条的上边，手指和鼠标穿过它。不是给读者看的。 */
 .stage-debug {
   position: absolute;
   left: 0;
@@ -195,7 +214,13 @@
   pointer-events: none;
 }
 
-/* 程序把焦点放到沙盘栏上时，框画在栏里面（栏贴着屏幕的边，画在外面看不见）。 */
+/* 焦点框：绢上用墨色（红框在绢上太淡）。沙盘栏自己、它里面的每一样都是。
+   程序把焦点放到沙盘栏上时，框画在栏里面（栏贴着屏幕的边，画在外面看不见）。 */
+.stage-pane:focus-visible,
+.stage-pane :focus-visible {
+  outline-color: var(--color-focus-on-silk);
+}
+
 .stage-pane:focus-visible {
   outline-offset: -3px;
 }
@@ -219,12 +244,18 @@
   pointer-events: auto;
 }
 
+/* 按钮是摆在绢上的纸条。原来那一圈 1px 的边留着（它算在按钮那一排的高里，沙盘上面留的空靠它），漆成纸色，
+   就是纸条最外面的一道；深色的细线画在它里面一圈（画出来的影子，不占地方）。 */
+.names-switch,
+.stage-button {
+  border: 1px solid var(--color-paper-raised);
+  border-radius: 0;
+  background: var(--color-paper-raised);
+  box-shadow: inset 0 0 0 1px var(--color-line-on-silk), 2px 4px 8px -2px rgb(60 40 10 / 0.35);
+}
+
 .names-switch {
   display: inline-flex;
-  border: 1px solid var(--color-line);
-  border-radius: var(--radius);
-  background: var(--color-paper-raised);
-  box-shadow: 0 1px 3px var(--color-shadow);
 }
 
 .names-switch button,
@@ -232,31 +263,58 @@
   min-width: var(--tap);
   min-height: var(--tap);
   padding: 0 var(--gap-3);
-  border: 0;
-  border-radius: var(--radius);
-  background: transparent;
+  color: var(--color-ink);
   font-family: var(--font-kai);
   font-size: var(--size-label);
   line-height: 1;
+  letter-spacing: 0.1em;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.names-switch button {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--color-ink-soft);
+}
+
+/* 古名、今名：选中的那个是红字，前面一个实心的小红方块；没选中的是灰字，前面是空心的小方块。不铺红底。
+   两个方块一样大，选哪个，两个按钮都不会变宽变窄。 */
+.names-switch button::before {
+  content: '';
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-right: 0.4em;
+  vertical-align: 0.14em;
+  box-shadow: inset 0 0 0 1px var(--color-ink-faint);
 }
 
 .names-switch button[aria-pressed='true'] {
+  color: var(--color-accent);
+}
+
+.names-switch button[aria-pressed='true']::before {
   background: var(--color-accent);
-  color: var(--color-on-accent);
+  box-shadow: none;
 }
 
-.stage-button {
-  border: 1px solid var(--color-line);
-  background: var(--color-paper-raised);
-  box-shadow: 0 1px 3px var(--color-shadow);
-}
-
+/* 用不了的时候（刚摆好、还没转动过的“回到这一节”）：字淡下去，纸条贴在绢上，没有影子。 */
 .stage-button:disabled,
 .stage-button[aria-disabled='true'] {
-  color: var(--color-ink-soft);
-  opacity: 0.6;
-  box-shadow: none;
+  color: var(--color-ink-faint);
+  box-shadow: inset 0 0 0 1px rgb(60 46 32 / 0.22);
   cursor: default;
+}
+
+/* 手指按下去的那一下：字变红。 */
+.names-switch button:active,
+.stage-button:not([aria-disabled='true']):active,
+.stage-notice-button:active,
+.stage-note-button:active {
+  color: var(--color-accent);
+  background-color: var(--color-paper-note);
 }
 
 .stage-fold {
@@ -264,7 +322,7 @@
 }
 
 /* 宽屏上沙盘栏占满一边，不用收起。 */
-@media (min-width: 960px) {
+@media (min-width: 960px) and (orientation: landscape) {
   .stage-controls {
     top: var(--gap-4);
     left: var(--gap-4);
@@ -276,13 +334,28 @@
   }
 }
 
+/* 手机那么窄的窗口（不在要照顾的设备里，但网页在那里也打得开）：按钮上的字小一号、挨得紧一点，一排还放得下。 */
+@media (max-width: 420px) {
+  .names-switch button,
+  .stage-button {
+    padding: 0 0.625rem;
+    font-size: var(--size-fine);
+    letter-spacing: 0.04em;
+  }
+
+  .names-switch button::before {
+    margin-right: 0.25em;
+  }
+}
+
 /* ---------------------------------------------------------------- 题记、说明、指北和比例尺 */
 
-/* 沙盘栏底下的一条：这一小节的字。
+/* 沙盘栏底下的一条：这一小节的字，写在绢上。
    排法是定死的：一行小节和时间（右头是比例尺和指北），下面是题记、题签指到的远处、一句如实的说明。
    摆着沙盘时这一条盖在沙盘的下边，高度也是定死的（--caption-h），不管哪一小节都一样高：
    沙盘四边留的空不变，换小节以后画面不会再跳一下。字从上往下排，哪一节的字少，空就留在最下面。
-   栏窄（不到 560px）和栏宽各一种排法、各一个高度。这个 560 在 StagePane.tsx 里也有（WIDE_PANE_PX）。 */
+   栏窄和栏宽各一种排法、各一个高度。分界是栏宽 584px（横着拿的平板上沙盘栏正好这么宽）：页面量了栏宽，
+   够宽就在栏上挂 .is-wide（StagePane.tsx 的 WIDE_PANE_PX；题签的大小也照它分，tests/stage/support/stripSizes.ts）。 */
 .stage-foot {
   /* 窄：上边 5 + 抬头 22 + 题记和远处两行 38 + 说明一行 22 + 下边 7 = 94px */
   --caption-h: 5.875rem;
@@ -293,14 +366,14 @@
   display: none;
 }
 
-@container stage-pane (min-width: 560px) {
-  .stage-foot {
-    /* 宽：上边 8 + 抬头 26 + 题记一行 26 + 说明两行 40 + 远处一行 20 + 下边 10 = 130px */
-    --caption-h: 8.125rem;
-  }
+.stage-pane.is-wide .stage-foot {
+  /* 宽：上边 8 + 抬头 26 + 题记一行 26 + 说明两行 40 + 远处一行 20 + 下边 10 = 130px */
+  --caption-h: 8.125rem;
 }
 
-/* 摆着沙盘时，这一条盖在沙盘的下边；手指和鼠标穿过它，照样能转沙盘（“说明”按钮和展开的那一块除外）。 */
+/* 摆着沙盘时，这一条盖在沙盘的下边：底是差一点不透明的绢色，上边一道细线（画在这一条里面，不占地方）。
+   上面不做渐渐淡出去的一截：题签可能就立在这一条上边 4px 的地方，淡出去的一截会把题签脚上的印遮住。
+   手指和鼠标穿过这一条，照样能转沙盘（“说明”按钮和展开的那一块除外）。 */
 .stage-pane.is-pinned .stage-foot {
   position: absolute;
   left: 0;
@@ -308,6 +381,7 @@
   bottom: 0;
   z-index: 1;
   background: var(--color-stage-veil);
+  box-shadow: inset 0 1px 0 var(--color-line-on-silk);
   pointer-events: none;
 }
 
@@ -318,8 +392,9 @@
 
 /* 窄屏上收起以后只留一排按钮：沙盘（或者图片）、题记、“正在摆”那句话、按钮下面的那一行话和用不上的几个按钮都不显出来。
    （沙盘缩在这么矮的一条里，镜头要退得老远，题签也摆不开。）
-   只在窄屏上算数：收起以后把窗口拉宽、把平板横过来，沙盘栏是整栏的，要照常显出来。 */
-@media not all and (min-width: 960px) {
+   只在窄屏上算数：收起以后把窗口拉宽、把平板横过来，沙盘栏是整栏的，要照常显出来。
+   （这一条的条件是“不是宽屏”：把宽屏的条件整个反过来，not 管的是后面一整句。） */
+@media not all and (min-width: 960px) and (orientation: landscape) {
   .stage-pane.is-pinned.is-folded .stage-foot,
   .stage-pane.is-pinned.is-folded .stage-loading,
   .stage-pane.is-pinned.is-folded .stage-notice,
@@ -334,7 +409,7 @@
   }
 }
 
-/* ---- 栏窄时的排法 */
+/* ---- 栏窄时的排法（栏不到 584px 宽：手机那么窄的窗口，和 960 到 1023px 宽、横着的窗口上的沙盘栏） */
 
 .stage-caption {
   padding: 0.3125rem 0.625rem 0.4375rem;
@@ -351,6 +426,7 @@
   height: 1.375rem;
 }
 
+/* 小节的名字是楷体，时间是宋体：各是这一行里单独的一块，不挤在同一行字里（两种字体掺在一行，行会被撑高）。 */
 .stage-caption-title {
   flex: 1 1 auto;
   min-width: 0;
@@ -361,9 +437,12 @@
   white-space: nowrap;
 }
 
+/* 小节的名字：墨色的楷体，上面一道和名字一样宽的红线（画出来的，不占地方）。 */
 .stage-section-name {
   flex: none;
-  color: var(--color-accent);
+  padding-top: 2px;
+  background: linear-gradient(var(--color-accent), var(--color-accent)) left top / 100% 1px no-repeat;
+  color: var(--color-ink);
   font-family: var(--font-kai);
   font-size: var(--size-ui);
   font-weight: var(--weight-heading);
@@ -372,14 +451,14 @@
 .stage-date {
   min-width: 0;
   overflow: hidden;
-  color: var(--color-ink-soft);
+  color: var(--color-ink-on-silk);
   text-overflow: ellipsis;
 }
 
 /* 题记，和题签指到的远处。栏窄时远处接在题记后面，合起来最多两行：
    题记不超过 40 个字，带着远处的小节两样合起来也不超过两行放得下的数（校验的规则 14 管着）。 */
 /* 字体写在外面这一层上：里面的两样和它用同一种字（宋体），每一行才正好是一行高
-  （楷体和宋体掺在一行里，行会被撑高一两个像素，两行就放不下了）。栏宽时题记自己一行，那里才用楷体。 */
+  （楷体和宋体掺在一行里，行会被撑高一两个像素，两行就放不下了）。栏宽时题记自己一行，够大才用楷体。 */
 .stage-words {
   max-height: 2.375rem;
   overflow: hidden;
@@ -398,17 +477,19 @@
 /* 远处那句话和题记是同一种字（都跟着 .stage-words），接在题记后面。 */
 .stage-far li {
   margin-left: 0.5em;
-  color: var(--color-ink-soft);
+  color: var(--color-ink-on-silk);
   vertical-align: top;
 }
 
-/* 一句如实的说明和“说明”按钮。栏窄时用一行的短写法（brief）：字号跟着栏的宽窄缩一点，
-   让这一行在 360px 宽的手机上也放得下、不截断；再窄才会截掉，截掉的可以点“说明”看全。 */
+/* 一句如实的说明和“说明”按钮。栏窄时用一行的短写法（brief）：平板和电脑上是 14px；手机那么窄的栏上
+   字号跟着栏的宽窄缩一点（最小 11px），让这一行在 360px 宽的手机上也放得下、不截断；再窄才会截掉，截掉的可以点“说明”看全。
+   --pane-w 是页面写在栏上的栏宽；还没写上的那一下，这一条不算数，字就是 14px。 */
 .stage-note {
   display: flex;
   align-items: center;
   gap: 0.375rem;
   height: 1.375rem;
+  color: var(--color-ink-on-silk);
 }
 
 .stage-note-short {
@@ -419,24 +500,16 @@
   flex: 1 1 auto;
   min-width: 0;
   overflow: hidden;
-  font-size: clamp(0.6875rem, calc((100cqw - 4rem) / 27), var(--size-small));
+  font-size: clamp(0.6875rem, calc((var(--pane-w) - 4rem) / 27), var(--size-small));
   white-space: nowrap;
   text-overflow: ellipsis;
 }
 
-/* “说明”按钮：看着小（20px 高），能点的地方有 44px 高：::after 把它往上撑 16px、往下撑 8px。
+/* “说明”按钮（样子见上面“两个小按钮”）：看着 20px 高，能点的地方有 44px 高：::after 把它往上撑 16px、往下撑 8px。
    往下只撑 8px，是因为栏窄时它下面到沙盘栏的底边正好只有这么多。 */
 .stage-note-button {
-  position: relative;
-  flex: none;
   height: 1.25rem;
   padding: 0 0.375rem;
-  border: 1px solid var(--color-accent);
-  border-radius: var(--radius);
-  background: var(--color-paper-raised);
-  color: var(--color-accent);
-  font-size: 0.75rem;
-  line-height: 1;
   pointer-events: auto;
 }
 
@@ -450,101 +523,117 @@
   transform: translateX(-50%);
 }
 
+/* 说明展开着：按钮的纸色深一点，红线粗一道。 */
 .stage-note-button[aria-expanded='true'] {
-  background: var(--color-accent);
-  color: var(--color-on-accent);
+  background: var(--color-paper-note);
+  box-shadow: inset 0 0 0 1px var(--color-accent);
 }
 
-/* ---- 栏宽时的排法：题记一行（字大一些，栏不够宽时缩一点，40 个字总放得下），
-   说明是最多两行的 short，远处另起一行排在最后。 */
-@container stage-pane (min-width: 560px) {
-  .stage-caption {
-    display: flex;
-    flex-direction: column;
-    padding: 0.5rem 0.75rem 0.625rem;
-    line-height: 1.25rem;
-  }
-
-  .stage-caption-head {
-    flex: none;
-    height: 1.625rem;
-  }
-
-  /* 题记和远处在这里各占一行，中间隔着说明：这一层不算数，里面的两样直接排进题记这一块。 */
-  .stage-words {
-    display: contents;
-  }
-
-  .stage-line {
-    display: block;
-    flex: none;
-    order: 1;
-    max-width: 44rem;
-    height: 1.625rem;
-    overflow: hidden;
-    font-family: var(--font-kai);
-    font-size: clamp(var(--size-small), calc((100cqw - 1.5rem) / 40), var(--size-note));
-    line-height: 1.625rem;
-    white-space: nowrap;
-    text-overflow: ellipsis;
-  }
-
-  .stage-note {
-    flex: none;
-    order: 2;
-    align-items: flex-start;
-    max-width: 44rem;
-    height: auto;
-    max-height: 2.5rem;
-  }
-
-  .stage-note-brief {
-    display: none;
-  }
-
-  .stage-note-short {
-    display: -webkit-box;
-    flex: 1 1 auto;
-    min-width: 0;
-    overflow: hidden;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 2;
-    line-clamp: 2;
-  }
-
-  .stage-far {
-    display: flex;
-    flex: none;
-    order: 3;
-    gap: 1em;
-    max-width: 44rem;
-    height: 1.25rem;
-    overflow: hidden;
-  }
-
-  .stage-far li {
-    display: block;
-    min-width: 0;
-    margin-left: 0;
-    overflow: hidden;
-    color: inherit;
-    white-space: nowrap;
-    text-overflow: ellipsis;
-  }
+/* ---- 栏宽时的排法（.is-wide，栏宽 584px 起）：题记自己一行，说明是最多两行的 short，远处另起一行排在最后。
+   题记的字号照栏宽算：40 个字（题记最长这么多）正好放得下，最大 19px，最小 14px。
+   算法是（栏里面的宽度 − 21px）÷ 40：这一条的左右各垫 12px，题记可以往右多占 4px（右边还剩 8px），再留 1px 的余地。
+   横着拿的平板上栏里面宽 583px，算出来 14.05px；竖着拿的平板上 18.7px；电脑上 19px。
+   题记够 16px 才用楷体（.is-kai，栏里面宽 661px 起）；不到 16px 用宋体：楷体的笔画细，小了就发灰，比下面的说明还淡。 */
+.stage-pane.is-wide .stage-caption {
+  display: flex;
+  flex-direction: column;
+  padding: 0.5rem 0.75rem 0.625rem;
+  line-height: 1.25rem;
 }
 
-/* ---- 点“说明”展开的那一块：这一小节完整的几句说明。
+.stage-pane.is-wide .stage-caption-head {
+  flex: none;
+  height: 1.625rem;
+}
+
+.stage-pane.is-wide .stage-section-name {
+  /* 字距放开以后最后一个字后面多出一截空：红线不画到那一截上 */
+  background-size: calc(100% - 0.2em) 1px;
+  font-size: var(--size-label);
+  letter-spacing: 0.2em;
+}
+
+/* 题记和远处在这里各占一行，中间隔着说明：这一层不算数，里面的两样直接排进题记这一块。 */
+.stage-pane.is-wide .stage-words {
+  display: contents;
+}
+
+.stage-pane.is-wide .stage-line {
+  display: block;
+  flex: none;
+  order: 1;
+  height: 1.625rem;
+  margin-right: -0.25rem;
+  overflow: hidden;
+  font-family: var(--font-song);
+  font-size: clamp(var(--size-small), calc((var(--pane-w) - 1.3125rem) / 40), 1.1875rem);
+  line-height: 1.625rem;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.stage-pane.is-kai .stage-line {
+  font-family: var(--font-kai);
+}
+
+.stage-pane.is-wide .stage-note {
+  flex: none;
+  order: 2;
+  align-items: flex-start;
+  max-width: 44rem;
+  height: auto;
+  max-height: 2.5rem;
+}
+
+.stage-pane.is-wide .stage-note-brief {
+  display: none;
+}
+
+.stage-pane.is-wide .stage-note-short {
+  display: -webkit-box;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
+
+.stage-pane.is-wide .stage-far {
+  display: flex;
+  flex: none;
+  order: 3;
+  gap: 1em;
+  max-width: 44rem;
+  height: 1.25rem;
+  overflow: hidden;
+  font-family: var(--font-song);
+}
+
+.stage-pane.is-wide .stage-far li {
+  display: block;
+  min-width: 0;
+  margin-left: 0;
+  overflow: hidden;
+  color: inherit;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* ---- 点“说明”展开的那一块：这一小节完整的几句说明，一张大一点的纸条。
    摆着沙盘时它盖在沙盘的下边、题记的上面，不占题记的地方，沙盘四边留的空不变；放不下就在这一块里滚。
    没摆着沙盘时（起不来、画不了）它接在题记下面。 */
 .stage-note-panel {
   margin: 0 var(--gap-3) var(--gap-3);
   padding: var(--gap-2) var(--gap-3) var(--gap-3);
-  border: 1px solid var(--color-line);
-  border-radius: var(--radius);
-  background: var(--color-paper-raised);
+  border: 1px solid var(--color-paper-raised);
+  border-radius: 0;
+  background-color: var(--color-paper-raised);
+  background-image: var(--grain);
+  box-shadow: inset 0 0 0 1px var(--color-line-on-silk);
   color: var(--color-ink);
-  font-size: var(--size-small);
-  line-height: 1.6;
+  font-size: var(--size-fine);
+  line-height: 1.7;
 }
 
 .stage-pane.is-pinned .stage-note-panel {
@@ -558,7 +647,7 @@
   margin: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
-  box-shadow: 0 2px 10px var(--color-shadow);
+  box-shadow: inset 0 0 0 1px var(--color-line-on-silk), 2px 4px 12px -2px rgb(60 40 10 / 0.4);
   pointer-events: auto;
 }
 
@@ -568,7 +657,7 @@
   max-height: calc(var(--stage-pane-h) - var(--stage-controls-room) - var(--caption-h) - var(--gap-3) - 1.875rem);
 }
 
-@media (min-width: 960px) {
+@media (min-width: 960px) and (orientation: landscape) {
   .stage-pane.is-pinned .stage-foot.under-notice .stage-note-panel {
     max-height: calc(var(--stage-pane-h) - var(--stage-controls-room) - var(--caption-h) - var(--gap-3) - 2.125rem);
   }
@@ -581,14 +670,19 @@
   gap: var(--gap-3);
 }
 
+/* 标题是楷体，后面小节的名字是宋体：两样各是一块，底边对齐，不挤在同一行字里。放不下时小节的名字折到下一行。 */
 .stage-note-panel-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 var(--gap-2);
   font-family: var(--font-kai);
   font-size: var(--size-label);
   font-weight: var(--weight-heading);
+  line-height: 1.5rem;
 }
 
 .stage-note-panel-title span {
-  margin-left: var(--gap-2);
   color: var(--color-ink-soft);
   font-family: var(--font-song);
   font-size: var(--size-small);
@@ -603,22 +697,26 @@
   padding: 0 var(--gap-2);
   border: 0;
   background: transparent;
-  color: var(--color-accent);
+  color: var(--color-ink-soft);
   font-size: var(--size-small);
+}
+
+.stage-note-close:active {
+  color: var(--color-accent);
 }
 
 .stage-note-lines p + p {
   margin-top: var(--gap-1);
 }
 
-/* ---- 比例尺和指北：在题记第一行的右头，不压在沙盘上。 */
+/* ---- 比例尺和指北：在题记第一行的右头，不压在沙盘上。字是 14px：比例尺的数是宋体，“北”是楷体。 */
 .stage-legend {
   flex: none;
   display: flex;
   align-items: center;
   gap: var(--gap-2);
   color: var(--color-ink);
-  font-size: 0.6875rem;
+  font-size: var(--size-small);
   line-height: 1;
 }
 
@@ -644,6 +742,7 @@
   display: flex;
   align-items: center;
   gap: 2px;
+  font-family: var(--font-kai);
 }
 
 .stage-north svg {
@@ -657,20 +756,19 @@
   fill: var(--color-accent);
 }
 
-@container stage-pane (min-width: 560px) {
-  .stage-legend {
-    gap: var(--gap-3);
-    font-size: 0.75rem;
-  }
+.stage-pane.is-wide .stage-legend {
+  gap: var(--gap-3);
+}
 
-  .stage-north svg {
-    width: 1.5rem;
-    height: 1.5rem;
-  }
+.stage-pane.is-wide .stage-north svg {
+  width: 1.5rem;
+  height: 1.5rem;
 }
 
 /* ---------------------------------------------------------------- 定格图 */
 
+/* 人物页上的全程图片（还有“这一站的沙盘还没做好”时垫着的那一张）：摆在绢上，一圈细线的框。
+   题记是楷体，下面的说明和出处是绢上的墨色。 */
 .stage-still-box {
   padding: var(--gap-3) var(--page-pad) var(--gap-4);
 }
@@ -689,7 +787,7 @@
   display: block;
   width: 100%;
   height: auto;
-  border: 1px solid var(--color-line);
+  border: 1px solid var(--color-line-on-silk);
 }
 
 .stage-still figcaption {
@@ -698,22 +796,40 @@
 }
 
 .stage-still-caption {
+  color: var(--color-ink);
   font-family: var(--font-kai);
-  font-size: var(--size-note);
+  font-size: var(--size-reading);
 }
 
 .stage-still-note,
 .stage-still-credit {
   margin-top: var(--gap-1);
-  color: var(--color-ink-soft);
+  color: var(--color-ink-on-silk);
+}
+
+.stage-still-note {
+  font-size: var(--size-fine);
+}
+
+.stage-still-credit {
   font-size: var(--size-small);
 }
 
-@media (min-width: 960px) {
+@media (min-width: 960px) and (orientation: landscape) {
   .stage-still-box {
     max-width: 64rem;
     margin: 0 auto;
     padding: var(--gap-5);
+  }
+
+  /* 图片最高到“栏高减 16rem”：电脑上（1440 × 900）图片下面的题记、三行说明、两行出处就都在栏里，不用在栏里往下滚；
+     图片上面多一句“这一站的沙盘还没做好，先看全程。”的时候也放得下。
+     图片照原来的比例缩，窄了就摆在中间。栏窄的时候（横着拿的平板）图片本来就矮，这一条碰不到它。 */
+  .stage-still img {
+    width: auto;
+    max-width: 100%;
+    max-height: calc(var(--stage-pane-h) - 16rem);
+    margin: 0 auto;
   }
 
   .stage-message {
@@ -721,95 +837,75 @@
   }
 }
 
-/* ---------------------------------------------------------------- 凭据里“沙盘上的东西”一栏 */
-
-.scene-register {
-  margin-top: var(--gap-5);
-  padding-top: var(--gap-3);
-  border-top: 1px solid var(--color-line);
-}
-
-.scene-register h3 {
-  font-family: var(--font-kai);
-  font-size: var(--size-note);
-  font-weight: var(--weight-heading);
-}
-
-.scene-register-group h4 {
-  margin: var(--gap-4) 0 0;
-  font-family: var(--font-kai);
-  font-size: var(--size-label);
-  font-weight: var(--weight-heading);
-  color: var(--color-accent);
-}
-
-.scene-register-item {
-  margin-top: var(--gap-2);
-  padding-top: var(--gap-2);
-  border-top: 1px solid var(--color-line);
-}
-
-.scene-register-name {
-  font-weight: var(--weight-heading);
-}
-
-.scene-register-unsure {
-  color: var(--color-ink-soft);
-}
-
-/* 最后一行：用了谁的数据。 */
-.scene-credits {
-  margin-top: var(--gap-4);
-  padding-top: var(--gap-2);
-  border-top: 1px solid var(--color-line);
-  color: var(--color-ink-soft);
-  font-size: var(--size-small);
-}
-
 /* ---------------------------------------------------------------- 题签 */
 
 /* 题签是沙盘程序挂在自己容器里的（src/stage/overlay）：竖写的字，一条引线指着地方。
-   位置和竖写由程序写在元素上，这里只管样子。字是随站的楷体。
+   位置和竖写由程序写在元素上，这里只管样子：一张纸条，最外面一道纸色、里面一道深色的细线，右下有影子，
+   脚上一方小红印（画出来的，不是字）。字是随站的楷体，水的名字用靛青；沙盘外面的远处，里面那道线是虚线。
+   纸条多大是算好的，Node 里摆题签的测试照同样的数算（tests/stage/support/stripSizes.ts）：
+     大的（栏宽 584px 起）：字 17px，字距 0.12em，上垫 6、下垫 16（印在这里面）、左右各垫 6 → 宽 29，高 22 + 19.04 × 字数；
+     小的（栏不到 584px 宽）：字 14px，上垫 4、下垫 13、左右各垫 5 → 宽 24，高 17 + 15.68 × 字数。
    沙盘也可能摆在没有 tokens.css 的页面上（开发用的单独一页），所以颜色和字体都带一个备用的值
-  （那一页上没有随站的字体，用设备自带的楷体）。 */
+  （那一页上没有随站的字体，用设备自带的楷体），那一页上也没有 .stage-pane，用的是大的那一种。 */
 .strip {
-  padding: 8px 5px;
-  border: 1px solid var(--color-ink-soft, #5e5548);
-  background: var(--color-paper-raised, #fbf7ee);
-  box-shadow: 0 1px 3px var(--color-shadow, rgb(42 37 32 / 0.18));
-  color: var(--color-ink, #2a2520);
+  padding: 6px 6px 16px;
+  border: 0;
+  background-color: var(--color-paper-raised, #faf5e7);
+  box-shadow: inset 0 0 0 1px var(--color-paper-raised, #faf5e7), inset 0 0 0 2px rgb(60 46 32 / 0.55), 0 1px 1px rgb(60 40 10 / 0.3), 2px 4px 8px -2px rgb(60 40 10 / 0.4);
+  color: var(--color-ink, #28231f);
   font-family: var(--font-kai, 'Kaiti SC', 'STKaiti', 'KaiTi', serif);
   font-size: 17px;
   line-height: 1;
   letter-spacing: 0.12em;
 }
 
-/* 水名用靛青。 */
-.strip[data-tone='water'] {
-  color: #3e6072;
+/* 脚上的印。 */
+.strip::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: 5px;
+  width: 6px;
+  height: 6px;
+  margin-left: -3px;
+  border-radius: 1px;
+  background: var(--color-accent, #b03a2a);
+  opacity: 0.92;
 }
 
-/* 沙盘外面的远处：虚线的边。 */
+/* 水名用靛青。 */
+.strip[data-tone='water'] {
+  color: var(--color-water, #3e6072);
+}
+
+/* 沙盘外面的远处：里面那道线是虚线。 */
 .strip[data-tone='far'] {
-  border-style: dashed;
+  outline: 1px dashed rgb(60 46 32 / 0.7);
+  outline-offset: -2px;
+  box-shadow: inset 0 0 0 1px var(--color-paper-raised, #faf5e7), 0 1px 1px rgb(60 40 10 / 0.3), 2px 4px 8px -2px rgb(60 40 10 / 0.4);
 }
 
 .strip-leaders line {
-  stroke: var(--color-ink, #2a2520);
+  stroke: var(--color-ink, #28231f);
   stroke-width: 1;
   opacity: 0.72;
 }
 
 .strip-leaders circle {
-  fill: var(--color-ink, #2a2520);
-  stroke: var(--color-paper, #f5efe3);
+  fill: var(--color-ink, #28231f);
+  stroke: var(--color-paper, #f5eedd);
   stroke-width: 1.4;
 }
 
 /* 栏窄时题签小一号。 */
-@container stage-pane (max-width: 559.98px) {
-  .strip {
-    padding: 6px 4px;
-    font-size: 14px;
-  }
+.stage-pane:not(.is-wide) .strip {
+  padding: 4px 5px 13px;
+  font-size: 14px;
+}
+
+.stage-pane:not(.is-wide) .strip::after {
+  bottom: 4px;
+  width: 5px;
+  height: 5px;
+  margin-left: -2.5px;
 }

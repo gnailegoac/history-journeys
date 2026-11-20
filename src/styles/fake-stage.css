@@ -14,7 +14,7 @@
   gap: var(--gap-2);
   padding: var(--gap-2);
   background: var(--color-paper-sunk);
-  color: var(--color-ink-soft);
+  color: var(--color-ink);
   font-size: var(--size-small);
   text-align: center;
 }
@@ -31,10 +31,10 @@
 .fake-stage-slow {
   min-height: 1.75rem;
   padding: 0 var(--gap-2);
-  border: 1px dashed var(--color-ink-soft);
+  border: 1px dashed var(--color-ink);
   border-radius: var(--radius);
   background: transparent;
-  color: var(--color-ink-soft);
+  color: var(--color-ink);
 }
 
 /* 定格图的替身：底色和沙盘的替身不一样，照片上分得出现在放的是哪一个。它那一行字靠上摆，不和题签挤在一起。 */

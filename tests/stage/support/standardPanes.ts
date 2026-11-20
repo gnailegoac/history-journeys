@@ -1,4 +1,5 @@
-// 三种标准的画面：电脑、横着拿的平板、竖着拿的平板（docs/data-spec.md“题签摆在哪”）。
+// 四种标准的画面：电脑、横着拿的平板、竖着拿的平板、竖着拿的大平板（docs/data-spec.md“题签摆在哪”）。
+// 竖着拿的大平板（1024 × 1366，12.9 英寸的 iPad）有 960 像素以上宽，可它是竖着的，版面照竖着拿的平板排：沙盘在上，占屏幕高度的 56%。
 // 每一种写四样：浏览器的窗口多大；这时沙盘栏多大；页面让沙盘上、下各留出多少（上面是一排按钮，下面是题记）。
 // 后三个数是在浏览器里量出来的，只在这里写一次，两头都从这里取：
 //   tests/stage/scene-strips.test.ts   在 Node 里照这几个数摆题签，一条也不能少；
@@ -25,4 +26,5 @@ export const STANDARD_PANES: readonly StandardPane[] = [
   { name: '940 × 900', window: { width: 1440, height: 900 }, size: { width: 940, height: 900 }, insets: leave(62, 130) },
   { name: '584 × 768', window: { width: 1024, height: 768 }, size: { width: 584, height: 768 }, insets: leave(62, 130) },
   { name: '768 × 573', window: { width: 768, height: 1024 }, size: { width: 768, height: 573 }, insets: leave(54, 131) },
+  { name: '1024 × 765', window: { width: 1024, height: 1366 }, size: { width: 1024, height: 765 }, insets: leave(54, 131) },
 ];

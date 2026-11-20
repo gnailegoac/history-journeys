@@ -161,9 +161,10 @@ function NoteView({ note, cites, onClose }: { note: Note; cites: Map<string, str
   });
   return (
     <aside className="note" id={noteDomId(note.id)} data-note-id={note.id} aria-label={`小注：${note.title}`}>
+      {/* 标题是楷体，类别的小标签和“关闭”是宋体：并排的三块，不挤在同一行字里 */}
       <div className="note-head">
-        <span className="note-kind">{NOTE_KIND_LABEL[note.kind]}</span>
         <span className="note-title">{note.title}</span>
+        <span className="tag note-kind">{NOTE_KIND_LABEL[note.kind]}</span>
         <button type="button" className="note-close" onClick={() => onClose(note.id)}>
           关闭<span className="visually-hidden">小注</span>
         </button>
@@ -179,7 +180,7 @@ function NoteView({ note, cites, onClose }: { note: Note; cites: Map<string, str
 function OriginalView({ original }: { original: Original }) {
   return (
     <details className="original" data-original-id={original.id}>
-      <summary>读原文：{original.title}</summary>
+      <FoldSummary label="读原文" title={original.title} />
       <div className="original-body">
         <p className="original-date">{original.date}</p>
         <p className="original-text">{original.text}</p>
@@ -209,6 +210,24 @@ function ImageView({ image, url }: { image: StopImage; url: string | undefined }
         </span>
       </figcaption>
     </figure>
+  );
+}
+
+/**
+ * “读原文”“凭据”折着的那一行：前面的记号、楷体的名字、后面宋体的标题（凭据没有），并排的三块。
+ * 记号是页面上真的字（折着显加号，点开显减号，由样式表挑一个显出来），不是样式表画的：这样它们在随站的字体里，
+ * 查字体的测试也看得到。读屏不念它：这一行是折着还是开着，浏览器自己会说。
+ */
+export function FoldSummary({ label, title }: { label: string; title?: string }) {
+  return (
+    <summary>
+      <span className="fold-mark" aria-hidden="true">
+        <span>+</span>
+        <span>−</span>
+      </span>
+      <span className="fold-label">{label}</span>
+      {title && <span>{title}</span>}
+    </summary>
   );
 }
 

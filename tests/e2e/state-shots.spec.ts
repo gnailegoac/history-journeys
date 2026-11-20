@@ -9,7 +9,8 @@
 //   state-no-table-…                写好了正文、还没有沙盘的一站
 //   state-not-written-…             还没写的一站
 //   state-no-stop-…、state-no-figure-…  两种“没找到”
-// 平时不跑：设环境变量 REAL_SHOTS=1 才跑。拍三种标准的窗口；只拍一种，命令后面加 -g "1440"、-g "横着" 或 -g "竖着"。
+// 平时不跑：设环境变量 REAL_SHOTS=1 才跑。拍四种标准的窗口；只拍一种，命令后面加 -g "1440"、-g "横着"、-g "竖着"
+// 或 -g "1366"（竖放的大平板，1024 × 1366）。
 // SHOTS_DIR 是存到哪个文件夹（不设是 tests/shots/real）；TIER 是哪一档画质（不设是完整的一档；reduced 是减配的一档；
 // still 是只放图片的样子）。拍之前都等字体到齐（helpers.ts 的 shoot）。
 // 例：REAL_SHOTS=1 SHOTS_DIR=tests/shots/c-a-fonts npx playwright test tests/e2e/state-shots.spec.ts -g "1440"
@@ -147,4 +148,10 @@ test('横着拿的平板 1024×768：页面的几种状态', async ({ page }) =>
 test('竖着拿的平板 768×1024：页面的几种状态', async ({ page }) => {
   test.setTimeout(900_000);
   await shootStates(page, { width: 768, height: 1024 });
+});
+
+// 名字里不写“竖着”两个字：-g "竖着" 只挑上面那一种。
+test('大平板竖放 1024×1366：页面的几种状态', async ({ page }) => {
+  test.setTimeout(900_000);
+  await shootStates(page, { width: 1024, height: 1366 });
 });

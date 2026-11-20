@@ -3,6 +3,7 @@
 
 import type { StopContent, StopScene } from '../domain';
 import { SceneRegister } from './SceneRegister';
+import { FoldSummary } from './StopText';
 import { BASIS_LABEL } from './text';
 
 interface Props {
@@ -17,7 +18,7 @@ export function Provenance({ content, scene }: Props) {
 
   return (
     <details className="provenance">
-      <summary>凭据</summary>
+      <FoldSummary label="凭据" />
       <div className="provenance-body">
         {content.provenance.length > 0 && <p className="provenance-line">正文里的事和话，各自依据什么。</p>}
         {content.provenance.map((group, g) => (

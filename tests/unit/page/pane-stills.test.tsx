@@ -183,7 +183,7 @@ describe('沙盘栏 + 每一小节的图片（状态 1、2、2b）', () => {
     // 三个按钮都在；“回到这一节”点不了。
     expect(page.controls()).toEqual(['古名', '今名', SAYS.reset, '收起沙盘']);
     expect(attr(page.q('.stage-reset'), 'aria-disabled')).toBe('true');
-    expect(page.pane().className).toBe('stage-pane is-pinned');
+    expect(page.pane().className).toBe('stage-pane is-pinned is-wide is-kai');
 
     // 今名：图片上的题签换了字；正在摆的沙盘也知道了。
     await act(async () => page.all('.names-switch button')[1].click());
@@ -306,7 +306,7 @@ describe('立体的沙盘摆不了，放的是图片（状态 3 到 6）', () =>
     expect(page.q('.stage-notice-button')).toBeNull();
     // “回到这一节”没有用处，不摆；别的两个照旧。
     expect(page.controls()).toEqual(['古名', '今名', '收起沙盘']);
-    expect(page.pane().className).toBe('stage-pane is-pinned');
+    expect(page.pane().className).toBe('stage-pane is-pinned is-wide is-kai');
     expect(page.fakeTable()).toBeNull();
     expect(page.pane().textContent.toLowerCase()).not.toContain('webgl');
     expect(warned('画不出立体的沙盘', 'no-webgl2')).toBe(true);
@@ -334,7 +334,7 @@ describe('立体的沙盘摆不了，放的是图片（状态 3 到 6）', () =>
     expect(page.all('.stage-note-panel .stage-note-lines p')).toHaveLength(2);
     // 收起（假的页面算窄屏）：读到别的小节不叫图片白换；展开时直接换过去。
     await page.click('.stage-fold');
-    expect(page.pane().className).toBe('stage-pane is-pinned is-folded');
+    expect(page.pane().className).toBe('stage-pane is-pinned is-folded is-wide is-kai');
     await page.read(FIRST);
     await settle(100);
     expect(attr(page.fakeStill(), 'data-fake-still-requests')).toBe(SECOND);
@@ -368,7 +368,7 @@ describe('立体的沙盘摆不了，放的是图片（状态 3 到 6）', () =>
     expect(page.controls()).toEqual(['古名', '今名', SAYS.tryTable, '收起沙盘']);
     expect(page.q('.stage-controls .stage-retry')?.textContent).toBe(SAYS.tryTable);
     expect(page.q('.stage-notice-button')).toBeNull();
-    expect(page.pane().className).toBe('stage-pane is-pinned');
+    expect(page.pane().className).toBe('stage-pane is-pinned is-wide is-kai');
     expect(warned('太慢')).toBe(true);
     expect(page.shows()).toBe(FIRST);
     // 图片从头到尾是同一层，没有跟着沙盘重摆。
@@ -431,7 +431,7 @@ describe('立体的沙盘摆不了，放的是图片（状态 3 到 6）', () =>
     expect(page.q('.stage-notice')).toBeNull();
     expect(page.q('.stage-controls')).toBeNull();
     expect(page.q('.stage-host')).toBeNull();
-    expect(page.pane().className).toBe('stage-pane');
+    expect(page.pane().className).toBe('stage-pane is-wide is-kai');
     expect(page.caption()).toBe(FIRST);
     await page.read(SECOND);
     expect(page.caption()).toBe(SECOND);
@@ -504,7 +504,7 @@ describe('立体的沙盘摆不了，放的是图片（状态 3 到 6）', () =>
     expect(page.controls()).toEqual(['古名', '今名', SAYS.rebuild, '收起沙盘']);
     expect(doc.activeElement).toBe(page.q('.stage-controls .stage-retry'));
     // 这一栏、古名今名、题记都是原来的那几个元素，没有整个重来。
-    expect(page.pane().className).toBe('stage-pane is-pinned');
+    expect(page.pane().className).toBe('stage-pane is-pinned is-wide is-kai');
     expect(page.q('.names-switch')).toBe(namesSwitch);
     expect(page.q('.stage-caption')).toBe(caption);
     expect(warned('画面断了')).toBe(true);
@@ -544,7 +544,7 @@ describe('立体的沙盘摆不了，放的是图片（状态 3 到 6）', () =>
     expect(page.notice()).toBe(SAYS.failed);
     expect(page.q('.stage-message')).toBeNull();
     expect(page.controls()).toEqual(['古名', '今名', SAYS.retry, '收起沙盘']);
-    expect(page.pane().className).toBe('stage-pane is-pinned');
+    expect(page.pane().className).toBe('stage-pane is-pinned is-wide is-kai');
     // 一打开就没起来，读者没碰过这一栏：不抢焦点。
     expect(doc.activeElement).toBeNull();
     const told = () => warn.mock.calls.filter((call: unknown[]) => String(call[0]).includes('没能摆出来') && String(call[1]).includes('按要求起不来')).length;
@@ -577,7 +577,7 @@ describe('图片取不到（状态 9）', () => {
     expect(page.q('.stage-notice')).toBeNull();
     expect(page.q('.stage-controls')).toBeNull();
     expect(page.q('.stage-canvas')).toBeNull();
-    expect(page.pane().className).toBe('stage-pane');
+    expect(page.pane().className).toBe('stage-pane is-wide is-kai');
     expect(warned('图片取不到')).toBe(true);
     await page.unmount();
 
@@ -611,7 +611,7 @@ describe('图片取不到（状态 9）', () => {
     expect(page.fakeStill()).toBeNull();
     expect(page.all('.strip')).toHaveLength(0);
     expect(page.q('.stage-controls')).toBeNull();
-    expect(page.pane().className).toBe('stage-pane');
+    expect(page.pane().className).toBe('stage-pane is-wide is-kai');
     expect(page.caption()).toBe(SECOND);
     expect(warned('图片取不到')).toBe(true);
     // 焦点原来在“古名”上，它没了：落到那句话的按钮上。

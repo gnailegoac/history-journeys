@@ -245,7 +245,8 @@ export function buildTable(coords: FrameCoords, palette: Record<string, string>)
     group.add(m);
   }
 
-  // 座子落在案上的影子：一块柔和的暗影
+  // 座子落在案上的影子：一块柔和的暗影。案面就是沙盘栏的底（绢色，#c5b189），影子是半透明地盖在它上面的：
+  // 颜色取深一些的绢色（不是原来近乎黑的深褐），最浓的地方也只有三成多，落在绢上是一圈淡淡的暗，不是一块褐色的斑。
   const [c, g2] = canvas(256, 256);
   const sw = hx + STAND_OUT;
   const sd = hz + STAND_OUT;
@@ -260,11 +261,11 @@ export function buildTable(coords: FrameCoords, palette: Record<string, string>)
       const dx = Math.max(Math.abs(x) - sw, 0);
       const dz = Math.max(Math.abs(z) - sd, 0);
       const d = Math.hypot(dx, dz);
-      const a = Math.pow(Math.max(0, 1 - d / pad), 2.4) * 0.62;
+      const a = Math.pow(Math.max(0, 1 - d / pad), 2.4) * 0.34;
       const k = (j * 256 + i) * 4;
-      img.data[k] = 46;
-      img.data[k + 1] = 30;
-      img.data[k + 2] = 16;
+      img.data[k] = 64;
+      img.data[k + 1] = 46;
+      img.data[k + 2] = 24;
       img.data[k + 3] = Math.round(a * 255);
     }
   }

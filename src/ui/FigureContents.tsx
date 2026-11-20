@@ -30,12 +30,14 @@ export function FigureContents({ figure }: { figure: Figure }) {
           {figure.stops.map((stop, i) => (
             <li key={stop.id}>
               <a className="stop-item" href={stopHref(figure.id, stop.id)} data-stop-id={stop.id} data-stop-status={stop.status}>
+                {/* 数字印：一到十用汉字（和全程图上的印一样），再多就用数字。读屏不念它：这是个有序的列表，第几项它自己会说。 */}
                 <span className="stop-number" aria-hidden="true">
-                  {i + 1}
+                  {'一二三四五六七八九十'[i] ?? i + 1}
                 </span>
                 <span className="stop-body">
-                  <span className="stop-title">
-                    {stop.title}
+                  {/* 站名是楷体，“还没写”的小标签是宋体：并排的两块，不挤在同一行字里 */}
+                  <span className="stop-head">
+                    <span className="stop-title">{stop.title}</span>
                     {stop.status !== 'complete' && <span className="tag">{NOT_WRITTEN}</span>}
                   </span>
                   <span className="stop-meta">

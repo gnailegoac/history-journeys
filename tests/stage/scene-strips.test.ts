@@ -4,14 +4,14 @@
 // content/ 里有几座沙盘就查几座。规矩写在 docs/data-spec.md 的“题签摆在哪”。
 //
 // 查三样：
-//   1 三种标准的画面（电脑、横着拿的平板、竖着拿的平板，四边留的是在浏览器里量出来的空；手机不在标准里，不查）：
+//   1 四种标准的画面（电脑、横着拿的平板、竖着拿的平板、竖着拿的大平板，四边留的是在浏览器里量出来的空；手机不在标准里，不查）：
 //     每一节的题签一条也不能少；摆出来的不压任何一条题签指的那一点，不压自己指的那样东西，引线不穿过别的题签。
 //     不过的话三种改法：少立一条题签；挪镜头；改这条题签的 side。
-//   2 两种只报告的画面（沙盘栏上面多了一行说明的电脑和竖着拿的平板）：结果打印出来；
+//   2 三种只报告的画面（沙盘栏上面多了一行说明的电脑、竖着拿的平板和竖着拿的大平板）：结果打印出来；
 //     一节里摆不下的超过一条，或者更要紧的一条给排在它后面的让了地方，才算不过。
 //     题签比留出来的地方还高（或者还宽）、怎么也放不进去的，单独列出来，不算在“摆不下的”里面。
 //   3 宽屏上把沙盘左右各转 40 度，一度一步，每一步都照上一步的结果接着摆：没有一条摆不下；
-//     另外两种标准的画面只把数打印出来（读者自己转动以后，摆不下是许可的）。
+//     另外三种标准的画面只把数打印出来（读者自己转动以后，摆不下是许可的）。
 
 import { PerspectiveCamera } from 'three';
 import { describe, expect, it } from 'vitest';
@@ -36,7 +36,7 @@ interface Pane {
 const leave = (top: number, bottom: number): StageInsets => ({ top, right: 0, bottom, left: 0 });
 
 /**
- * 三种标准的画面：每一节的题签在这上面必须都摆得下（docs/data-spec.md）。
+ * 四种标准的画面：每一节的题签在这上面必须都摆得下（docs/data-spec.md）。
  * 数写在 ./support/standardPanes.ts：浏览器测试 tests/e2e/pane-boxes.spec.ts 拿同一份到真的页面上去量。
  */
 const STANDARD: Pane[] = STANDARD_PANES.map(({ name, size, insets }) => ({ name, size, insets }));
@@ -45,6 +45,7 @@ const STANDARD: Pane[] = STANDARD_PANES.map(({ name, size, insets }) => ({ name,
 const REPORTED: Pane[] = [
   { name: '940 × 900，上面多一行说明', size: { width: 940, height: 900 }, insets: leave(96, 130) },
   { name: '768 × 573，上面多一行说明', size: { width: 768, height: 573 }, insets: leave(84, 131) },
+  { name: '1024 × 765，上面多一行说明', size: { width: 1024, height: 765 }, insets: leave(84, 131) },
 ];
 
 /** 这几个数和 placeStrips.ts 里的一样：题签离留出来的边至少 4；每一点周围半边长 6 的方块不压；那一点出了留出来的那一块 8 像素以内还算看得见。 */
@@ -204,7 +205,7 @@ describe.each(realSceneKeys())('%s 的题签', (key) => {
     });
   });
 
-  it('三种标准的画面上各摆下几条（打印出来）', () => {
+  it('四种标准的画面上各摆下几条（打印出来）', () => {
     const R = realScene(key);
     const lines: string[] = [];
     for (const pane of STANDARD) {
@@ -277,7 +278,7 @@ describe.each(realSceneKeys())('%s 的题签', (key) => {
     expect(problems).toEqual([]);
   });
 
-  it('另外两种标准的画面：转 ±40 度时有几步摆不下（只打印；转动以后摆不下是许可的），不压点、不压自己指的东西', () => {
+  it('另外三种标准的画面：转 ±40 度时有几步摆不下（只打印；转动以后摆不下是许可的），不压点、不压自己指的东西', () => {
     const R = realScene(key);
     const problems: string[] = [];
     const lines: string[] = [];
@@ -292,10 +293,10 @@ describe.each(realSceneKeys())('%s 的题签', (key) => {
     expect(problems).toEqual([]);
   });
 
-  it('940 × 900 和 768 × 573：手按着从左 40 度转到右 40 度，题签一条也不换位置；每转 10 度放一次手，放手以后都摆得出来', () => {
+  it('940 × 900、768 × 573 和 1024 × 765：手按着从左 40 度转到右 40 度，题签一条也不换位置；每转 10 度放一次手，放手以后都摆得出来', () => {
     const R = realScene(key);
     const problems: string[] = [];
-    for (const pane of [STANDARD[0], STANDARD[2]]) {
+    for (const pane of [STANDARD[0], STANDARD[2], STANDARD[3]]) {
       for (const section of R.scene.sections) {
         let prev = placeStrips(arranged(R, section, pane, -40).input);
         for (let turn = -39; turn <= 40; turn++) {

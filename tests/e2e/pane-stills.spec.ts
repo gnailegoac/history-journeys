@@ -272,7 +272,7 @@ test.describe('竖着拿的平板（768×1024）', () => {
     await page.getByRole('button', { name: '今名' }).click();
     await expect.poll(() => stripsOnStill(page)).toEqual(wantedStrips(scene, headings[0], 'modern'));
     await expect(fakeStill(page)).toHaveAttribute('data-fake-still-names', 'modern');
-    // 图片上的题签和沙盘上的一样大：这一栏有 560 像素以上宽，用的是大的那一种。
+    // 图片上的题签和沙盘上的一样大：这一栏有 584 像素以上宽，用的是大的那一种。
     const strip = pane.locator('.stage-still-host .strip').first();
     await expect(strip).toBeVisible();
     expect(await strip.evaluate((el) => getComputedStyle(el).fontSize)).toBe('17px');
@@ -330,8 +330,8 @@ test.describe('竖着拿的平板（768×1024）', () => {
 });
 
 // 题签有多大，Node 里的测试是照样式表算的（tests/stage/support/stripSizes.ts）。这里量真的题签来对：
-// 样式改了（第 2 步要换字体）而那边的数没跟着改，这一项就红。
-// 题签有两种大小：沙盘栏 560 像素以上宽用大的，不到的用小的。1440×900 和 768×1024 量的是大的；
+// 样式改了而那边的数没跟着改，这一项就红。量的是整条纸条，连脚上画着印的那一截。
+// 题签有两种大小：沙盘栏 584 像素以上宽用大的，不到的用小的。1440×900 和 768×1024 量的是大的；
 // 小的那一种只有很窄的栏才用，拿 390×844 的窗口量（这一项不是为手机调什么，只是要一个够窄的栏）。
 for (const size of [
   { width: 1440, height: 900 },

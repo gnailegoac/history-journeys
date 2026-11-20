@@ -1,31 +1,49 @@
-/* 文字栏里的东西：抬头、目录、正文、小注、原文、图片、凭据、上一站和下一站。 */
+/* 文字栏（那一页纸）里的东西：位置那一行、抬头、目录、正文、小注、原文、图片、凭据、上一站和下一站。
+   纸本身（纸色、纹理、界栏、影子）在 layout.css。这里的规矩：
+   · 字是宋体（从 body 传下来的），只有点了名的几样是楷体：标题、小节名、几个小标签、目录上的数字印和站名。
+     楷体的字和宋体的字不排在同一行里：一行里两样都有的地方（时间地点、小注的抬头、“读原文”那一行、目录里的一站），
+     各是并排的一块，各有自己的行高。
+   · 没有粗体。要显眼，靠楷体和宋体的分别、字的大小、墨色的深浅，和红色的记号。
+   · 红色只做记号：小标签的字、一道线、一个小方块、词下面的虚线。
+   · 鼠标移上去才有的样子都写在 @media (hover: hover) 里；手指按下去的样子用 :active。 */
 
+/* ---------------------------------------------------------------- 位置那一行 */
+
+/* “沿着他走过的路 — 苏轼”：小字，字距放开，不画下划线；中间是一小段细线（画出来的，不是字）。跟着正文滚走。 */
 .crumbs {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--gap-1);
-  margin-bottom: var(--gap-4);
-  font-family: var(--font-song);
-  font-size: var(--size-ui);
+  gap: 0 0.625rem;
+  margin-bottom: var(--gap-2);
   color: var(--color-ink-soft);
+  font-size: var(--size-fine);
+  letter-spacing: 0.08em;
 }
 
 .crumbs a {
   display: inline-flex;
   align-items: center;
+  min-width: var(--tap);
   min-height: var(--tap);
+  color: inherit;
+  text-decoration: none;
 }
+
+.crumbs-sep {
+  width: 14px;
+  height: 1px;
+  background: var(--color-ink-faint);
+}
+
+/* ---------------------------------------------------------------- 抬头 */
 
 .page-head {
   position: relative;
-  margin-bottom: var(--gap-5);
-  padding-bottom: var(--gap-4);
-  border-bottom: 1px solid var(--color-line);
 }
 
 /* “到沙盘”：给用键盘的人从标题直接到沙盘栏的一步。平时看不见，走到它上面才显出来，
-   浮在抬头的右上角，不挤别的东西。 */
+   浮在抬头的右上角，不挤别的东西。显出来是一张纸条：一圈纸色的边，里面一道深色的细线。 */
 .skip-to-stage {
   position: absolute;
   top: 0;
@@ -34,9 +52,9 @@
   height: 1px;
   padding: 0;
   overflow: hidden;
-  border: 1px solid var(--color-line);
-  border-radius: var(--radius);
+  border: 1px solid var(--color-paper-raised);
   background: var(--color-paper-raised);
+  box-shadow: inset 0 0 0 1px rgb(60 46 32 / 0.45), 2px 4px 8px -2px rgb(60 40 10 / 0.35);
   font-size: var(--size-ui);
   white-space: nowrap;
   clip-path: inset(50%);
@@ -51,67 +69,111 @@
   clip-path: none;
 }
 
+/* “第 4 站 · 共 8 站”，和人物页上的“北宋 · 1037–1101”：字距放开的小字。 */
 .eyebrow,
 .meta {
-  font-family: var(--font-song);
-  font-size: var(--size-ui);
   color: var(--color-ink-soft);
+  font-size: var(--size-fine);
+  letter-spacing: 0.12em;
 }
 
 .eyebrow {
-  margin-bottom: var(--gap-1);
+  display: flex;
+  align-items: center;
+  gap: var(--gap-3);
+  margin-bottom: 0.375rem;
+}
+
+/* 第几站后面的一排小方块：一站一个，这一站的是红的，别的都只有一圈线。它只说这一站排在路上的第几个，
+   不记读者读过哪几站（所以前面的不涂实）。读屏不念它：前面那句话已经说了。 */
+.ticks {
+  display: flex;
+  gap: 5px;
+}
+
+.ticks span {
+  width: 9px;
+  height: 9px;
+  border: 1px solid var(--color-ink-faint);
+}
+
+.ticks .is-here {
+  border-color: var(--color-accent);
+  background: var(--color-accent);
 }
 
 .meta {
-  margin-top: var(--gap-1);
+  margin-top: var(--gap-2);
 }
 
 .figure-tagline {
   margin-top: var(--gap-3);
-  font-family: var(--font-song);
-  line-height: 1.7;
+  line-height: 1.8;
 }
 
-/* 抬头里的时间、地点、年纪。 */
+/* 人物页：抬头下面一道细线，再往下是介绍。 */
+.figure-page .page-head {
+  margin-bottom: var(--gap-5);
+  padding-bottom: 1.25rem;
+  border-bottom: 1px solid var(--color-line);
+}
+
+/* 抬头里的时间、地点、年纪：夹在上下两道细线中间。 */
 .facts {
-  margin-top: var(--gap-3);
-  font-family: var(--font-song);
+  margin-top: var(--gap-5);
+  padding: 14px 0 13px;
+  border-top: 1px solid var(--color-line);
+  border-bottom: 1px solid var(--color-line);
   font-size: var(--size-ui);
-  line-height: 1.8;
+  line-height: 1.75;
 }
 
 .facts > div {
   display: flex;
-  gap: var(--gap-3);
+  align-items: baseline;
 }
 
-/* “时间”“地点”“年纪”是楷体的小标签。它和后面宋体的字各是一块（.facts > div 里横着排的两块），不挤在同一行字里。 */
+/* “时间”“地点”“年纪”是楷体的红色小标签。它和后面宋体的字各是一块（.facts > div 里横着排的两块），不挤在同一行字里。 */
 .facts dt {
   flex: none;
-  color: var(--color-ink-soft);
+  width: 3.4em;
+  color: var(--color-accent);
   font-family: var(--font-kai);
   font-size: var(--size-label);
+  letter-spacing: 0.1em;
 }
 
 /* 抬头下面的两句说明：正文是改写的，带虚线的词可以点开。 */
 .text-about {
-  margin-bottom: var(--gap-5);
-  font-family: var(--font-song);
+  margin-top: 0.875rem;
+  color: var(--color-ink-soft);
   font-size: var(--size-small);
   line-height: 1.7;
-  color: var(--color-ink-soft);
+}
+
+/* 行尾的标点可以探出去半个字（句号的墨迹只占它那一格的左半边，看着还在行里）：
+   竖着拿的平板上头一句正好比一行多半个字，不这样，最后两个字“话。”会单独掉到下一行。 */
+.text-about p {
+  margin-right: -0.5em;
 }
 
 /* ---------------------------------------------------------------- 正文 */
 
 .prose {
-  font-family: var(--font-song);
   font-size: var(--size-reading);
   line-height: var(--leading-reading);
 }
 
+/* 段和段之间只隔一小点；两端对齐（最后一行靠左）。 */
 .prose p {
-  margin-top: 1em;
+  margin: 0 0 0.62em;
+  text-align: justify;
+}
+
+/* 正文的段落开头空两个字。小注、原文、引用的句子里不空。 */
+.text-section > p,
+.figure-intro > p {
+  text-indent: 2em;
 }
 
 .figure-intro {
@@ -119,22 +181,19 @@
 }
 
 .text-section {
-  margin-top: var(--gap-6);
+  margin-top: 3rem;
 }
 
 .text-section:first-child {
-  margin-top: 0;
+  margin-top: 2.25rem;
 }
 
-.text-section > .section-heading + p {
-  margin-top: 0.6em;
-}
-
-/* 可以点开小注的词：下面一道虚线。线的种类、样子、颜色分开写：合成一句的写法（text-decoration 后面跟着样子和颜色）
-   iPad 上的 Safari 到 26.2 版才认，早些的版本里这道线会整个没有。构建出来的样式表里也不许合回去（tests/build/dist-size.test.ts 查）。 */
+/* 可以点开小注的词：下面一道红色的虚线，这是它唯一的记号（没有底色）。点开着、鼠标移上去、手指按着的时候，字也变红。
+   线的种类、样子、颜色分开写：合成一句的写法（text-decoration 后面跟着样子和颜色）
+   iPad 上的 Safari 到 26.2 版才认，早些的版本里这道线会整个没有。构建出来的样式表里也不许合回去（tests/build/dist-size.test.ts 查）。
+   上下的 padding 不占行高，只让能点的地方有一行那么高。 */
 .note-term {
   padding: 0.25em 0;
-  border-radius: 2px;
   text-decoration-line: underline;
   text-decoration-style: dotted;
   text-decoration-color: var(--color-accent);
@@ -143,92 +202,92 @@
   cursor: pointer;
 }
 
-.note-term:hover,
-.note-term[aria-expanded='true'] {
-  background: var(--color-accent-wash);
-}
-
+/* 点开的小注：夹在正文里的一张纸条。比纸深一点，左边一道红边，下边一点影子。 */
 .note {
-  margin-top: var(--gap-3);
-  padding: var(--gap-3) var(--gap-4) var(--gap-4);
+  margin: 0.875rem 0 1.25rem;
+  padding: 0.9375rem 1.25rem 0.9375rem 1.375rem;
   border-left: 3px solid var(--color-accent);
-  border-radius: 0 var(--radius) var(--radius) 0;
-  background: var(--color-paper-raised);
-  font-family: var(--font-song);
+  background-color: var(--color-paper-note);
+  background-image: var(--grain);
+  box-shadow: 0 1px 0 var(--color-paper-edge), 0 6px 14px -8px rgb(60 40 10 / 0.35);
   font-size: var(--size-note);
   line-height: var(--leading-note);
 }
 
+/* 小注的抬头：标题（楷体）、类别的小标签（宋体）、“关闭”（宋体），并排的三块，各有各的行高。 */
 .note-head {
   display: flex;
   align-items: center;
-  gap: var(--gap-2);
+  gap: var(--gap-3);
+  min-height: 2rem;
 }
 
+.note-title {
+  font-family: var(--font-kai);
+  font-size: var(--size-note-title);
+  font-weight: var(--weight-heading);
+  line-height: 2rem;
+  letter-spacing: 0.06em;
+}
+
+/* 类别（历史、地理、人文、科学）：红字、红线的小标签。 */
 .note-kind {
   flex: none;
-  padding: 0 var(--gap-2);
-  border-radius: var(--radius);
-  background: var(--color-accent);
-  color: var(--color-on-accent);
-  font-size: var(--size-small);
-  line-height: 1.7;
+  margin-left: 0;
+  padding-left: 0.5em;
+  color: var(--color-accent);
+  letter-spacing: 0.2em;
 }
 
-/* 小注的标题是楷体；它和前面的小标签、后面的“关闭”各是一块。 */
-.note-title {
-  flex: 1;
-  font-family: var(--font-kai);
-  font-weight: var(--weight-heading);
-}
-
+/* “关闭”：字小，能点的地方有 44px 见方（往外撑出去的部分用负的 margin 收回来，不把这一行撑高）。 */
 .note-close {
   flex: none;
   min-width: var(--tap);
   min-height: var(--tap);
-  margin: calc(-1 * var(--gap-2)) calc(-1 * var(--gap-3)) calc(-1 * var(--gap-2)) 0;
+  margin: -0.375rem calc(-1 * var(--gap-3)) -0.375rem auto;
   padding: 0 var(--gap-3);
   border: 0;
   background: transparent;
-  color: var(--color-accent);
-  font-size: var(--size-ui);
+  color: var(--color-ink-soft);
+  font-size: var(--size-small);
+  letter-spacing: 0.1em;
 }
 
 .prose .note p {
-  margin-top: var(--gap-2);
+  margin: 0.375rem 0 0;
 }
 
-/* 引用的原文句子。 */
+/* 引用的原文句子：左边一道细线，往里缩一个半字。 */
 .quote {
-  margin-top: 1em;
+  margin: 0.25em 0 0.9em;
   padding-left: 1.5em;
-  border-left: 2px solid var(--color-line);
+  border-left: 1px solid var(--color-line);
 }
 
 .prose .quote p {
-  margin-top: 0;
+  margin: 0;
 }
 
 /* ---------------------------------------------------------------- 原文、图片、凭据 */
 
+/* “读原文”和“凭据”：折着的时候是一张纸条那样的一行，点开在下面展开。 */
 .original,
 .provenance {
   margin-top: var(--gap-4);
   border: 1px solid var(--color-line);
-  border-radius: var(--radius);
   background: var(--color-paper-raised);
 }
 
+/* 那一行里并排的三块：加号或者减号（宋体）、“读原文”或者“凭据”（楷体）、原文的标题（宋体）。至少 48px 高；标题长了自己折行。 */
 .original summary,
 .provenance summary {
   display: flex;
   align-items: center;
-  gap: var(--gap-2);
-  min-height: var(--tap);
-  padding: var(--gap-1) var(--gap-4);
-  font-family: var(--font-song);
+  gap: 0.625rem;
+  min-height: 3rem;
+  padding: 0.375rem var(--gap-4);
   font-size: var(--size-ui);
-  color: var(--color-accent);
+  line-height: 1.5rem;
   cursor: pointer;
   list-style: none;
 }
@@ -238,18 +297,27 @@
   display: none;
 }
 
-/* 折起时是加号，打开后是减号。 */
-.original summary::before,
-.provenance summary::before {
-  content: '+';
+.fold-mark,
+.fold-label {
   flex: none;
+  color: var(--color-accent);
+}
+
+/* 折着是加号，点开是减号：两个都是页面上真的字，这里只管显哪一个。 */
+.fold-mark {
   width: 1em;
   text-align: center;
 }
 
-.original[open] summary::before,
-.provenance[open] summary::before {
-  content: '−';
+details:not([open]) > summary .fold-mark :last-child,
+details[open] > summary .fold-mark :first-child {
+  display: none;
+}
+
+.fold-label {
+  font-family: var(--font-kai);
+  font-size: var(--size-label);
+  letter-spacing: 0.1em;
 }
 
 .original-body,
@@ -257,28 +325,29 @@
   padding: 0 var(--gap-4) var(--gap-4);
 }
 
+/* 原文的时间，和“白话”这个小标签：小字，淡墨。 */
 .prose .original-date,
 .prose .original-plain-label {
-  margin-top: 0;
-  font-family: var(--font-song);
-  font-size: var(--size-small);
+  margin: 0;
   color: var(--color-ink-soft);
+  font-size: var(--size-small);
 }
 
 .prose .original-text {
-  margin-top: var(--gap-2);
+  margin: var(--gap-2) 0 0;
   white-space: pre-line;
 }
 
+/* “白话”上面一道细线，把它和原文隔开；字距放开，看得出是个标签。 */
 .prose .original-plain-label {
   margin-top: var(--gap-4);
   padding-top: var(--gap-3);
   border-top: 1px solid var(--color-line);
+  letter-spacing: 0.2em;
 }
 
 .prose .original-plain {
-  margin-top: var(--gap-2);
-  font-family: var(--font-song);
+  margin: var(--gap-2) 0 0;
   font-size: var(--size-note);
   line-height: var(--leading-note);
   white-space: pre-line;
@@ -297,7 +366,6 @@
 
 .stop-image figcaption {
   margin-top: var(--gap-2);
-  font-family: var(--font-song);
   font-size: var(--size-ui);
   line-height: 1.6;
 }
@@ -308,92 +376,158 @@
 }
 
 .stop-image-credit {
-  font-size: var(--size-small);
+  margin-top: var(--gap-1);
   color: var(--color-ink-soft);
+  font-size: var(--size-small);
+}
+
+/* “图片出处”夹在一行小字里，看着只有一行高；能点的地方上下各撑出去一截，有 44px 高。四个字不从中间折行。 */
+.stop-image-credit a {
+  position: relative;
+  white-space: nowrap;
+}
+
+.stop-image-credit a::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: var(--tap);
+  transform: translateY(-50%);
 }
 
 .provenance {
   margin-top: var(--gap-6);
-  font-family: var(--font-song);
-  font-size: var(--size-note);
-  line-height: var(--leading-note);
-}
-
-.provenance-line {
-  color: var(--color-ink-soft);
   font-size: var(--size-ui);
+  line-height: 1.75;
 }
 
-/* 凭据里每一小节的名字：楷体。 */
-.provenance-group h3 {
+.provenance-line,
+.scene-register-basis,
+.scene-register-unsure {
+  color: var(--color-ink-soft);
+}
+
+/* 凭据里每一小节的名字，和“沙盘上的东西”：楷体。 */
+.provenance-group h3,
+.scene-register h3 {
   margin-top: var(--gap-4);
   font-family: var(--font-kai);
-  font-size: var(--size-note);
+  font-size: var(--size-label);
   font-weight: var(--weight-heading);
+  letter-spacing: 0.06em;
 }
 
-.provenance-item {
+.provenance-item,
+.scene-register-item {
   margin-top: var(--gap-2);
   padding-top: var(--gap-2);
   border-top: 1px solid var(--color-line);
 }
 
-/* 出处的小字：凭据里的，和点开的小注末尾的。 */
+/* 出处的小字（凭据里的，和点开的小注末尾的），和最后一行“用了谁的数据”。 */
 .provenance-cite,
-.note-sources {
-  font-size: var(--size-small);
+.note-sources,
+.scene-credits {
   color: var(--color-ink-soft);
+  font-size: var(--size-small);
+}
+
+/* ---- 凭据里“沙盘上的东西”一栏 */
+
+.scene-register,
+.scene-credits {
+  margin-top: var(--gap-5);
+  padding-top: var(--gap-3);
+  border-top: 1px solid var(--color-line);
+}
+
+.scene-register h3 {
+  margin-top: 0;
+}
+
+/* 五个类别的名字（真的、今天的位置……）和“没有画的”：楷体，红字。 */
+.scene-register-group h4 {
+  margin: var(--gap-4) 0 0;
+  color: var(--color-accent);
+  font-family: var(--font-kai);
+  font-size: var(--size-label);
+  font-weight: var(--weight-heading);
+  letter-spacing: 0.1em;
+}
+
+/* 每样东西的名字：宋体，墨色，比下面淡墨的依据大一号（不用楷体：这些名字有八十来个字，会都进楷体的文件）。 */
+.scene-register-name {
+  font-size: var(--size-note);
 }
 
 /* ---------------------------------------------------------------- 各站目录 */
 
 .stops {
-  margin-top: var(--gap-3);
   border-top: 1px solid var(--color-line);
 }
 
 .stop-item {
   display: flex;
-  gap: var(--gap-3);
-  min-height: var(--tap);
+  gap: 0.875rem;
+  min-height: 4rem;
   padding: var(--gap-3) 0;
   border-bottom: 1px solid var(--color-line);
   color: var(--color-ink);
   text-decoration: none;
 }
 
+/* 这一站的数字印：一方红印，里面是纸色的楷体数字（一、二、三……，和全程图上的印一样）。 */
 .stop-number {
   flex: none;
-  width: 1.75em;
-  font-family: var(--font-song);
-  font-size: var(--size-heading);
-  line-height: 1.5;
-  color: var(--color-accent);
+  width: 1.5rem;
+  height: 1.5rem;
+  margin-top: 0.1875rem;
+  border: 1px solid var(--color-accent);
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+  font-family: var(--font-kai);
+  font-size: 1rem;
+  line-height: 1.375rem;
   text-align: center;
 }
 
 .stop-body {
+  flex: 1;
   display: flex;
   flex-direction: column;
-  gap: var(--gap-1);
+  gap: 2px;
   min-width: 0;
 }
 
-.stop-title {
-  font-family: var(--font-kai);
-  font-size: var(--size-reading);
-  font-weight: var(--weight-heading);
-  line-height: 1.5;
+/* 站名（楷体）和“还没写”的小标签（宋体）是并排的两块，标签靠右。 */
+.stop-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--gap-2);
 }
 
-.stop-item:hover .stop-title {
-  color: var(--color-accent);
+/* 站名放不下的时候和一页的大标题一样，在标点后面折行。 */
+.stop-title {
+  font-family: var(--font-kai);
+  font-size: var(--size-stop-title);
+  font-weight: var(--weight-heading);
+  line-height: 1.4;
+  letter-spacing: 0.04em;
+  word-break: keep-all;
+  overflow-wrap: break-word;
+}
+
+.stop-head .tag {
+  flex: none;
+  margin-left: 0;
 }
 
 .stop-meta {
-  font-family: var(--font-song);
-  font-size: var(--size-small);
   color: var(--color-ink-soft);
+  font-size: var(--size-small);
 }
 
 /* 年份、地点、年纪各自成块：一行放不下时整块换行，不从中间断开。 */
@@ -403,19 +537,37 @@
 }
 
 .stop-summary {
-  font-family: var(--font-song);
-  font-size: var(--size-note);
+  font-size: var(--size-ui);
   line-height: 1.7;
 }
 
-/* ---------------------------------------------------------------- 上一站、下一站 */
+/* 还没写的一站：整行都是淡墨，数字印只有一圈线、不涂红。 */
+.stop-item:not([data-stop-status='complete']) {
+  color: var(--color-ink-soft);
+}
 
+.stop-item:not([data-stop-status='complete']) .stop-number {
+  border-color: var(--color-ink-faint);
+  background: transparent;
+  color: inherit;
+}
+
+/* ---------------------------------------------------------------- 一站的末尾：上一站、下一站、回到目录 */
+
+/* 正文完了：正中一个小菱形，下面是换站的两张纸条和“回到各站目录”。 */
 .stop-nav {
-  margin-top: var(--gap-6);
-  padding-top: var(--gap-4);
-  border-top: 1px solid var(--color-line);
-  font-family: var(--font-song);
+  margin-top: 3rem;
   font-size: var(--size-ui);
+}
+
+.stop-nav::before {
+  content: '';
+  display: block;
+  width: 9px;
+  height: 9px;
+  margin: 0 auto 2rem;
+  background: var(--color-line);
+  transform: rotate(45deg);
 }
 
 .stop-nav-row {
@@ -431,14 +583,9 @@
   min-height: var(--tap);
   padding: var(--gap-2) var(--gap-3);
   border: 1px solid var(--color-line);
-  border-radius: var(--radius);
   background: var(--color-paper-raised);
   color: var(--color-ink);
   text-decoration: none;
-}
-
-.stop-nav-link:hover {
-  border-color: var(--color-accent);
 }
 
 .stop-nav-link.is-next {
@@ -446,8 +593,9 @@
 }
 
 .stop-nav-label {
+  color: var(--color-ink-soft);
   font-size: var(--size-small);
-  color: var(--color-accent);
+  letter-spacing: 0.16em;
 }
 
 .stop-nav-name {
@@ -462,4 +610,34 @@
   justify-content: center;
   min-height: var(--tap);
   margin-top: var(--gap-3);
+}
+
+/* ---------------------------------------------------------------- 点着、按着的时候 */
+
+.note-term[aria-expanded='true'],
+.note-term:active,
+.crumbs a:active,
+.note-close:active,
+.stop-item:active .stop-title,
+.stop-nav-link:active .stop-nav-name {
+  color: var(--color-accent);
+}
+
+.original summary:active,
+.provenance summary:active {
+  background: var(--color-paper-note);
+}
+
+@media (hover: hover) {
+  .note-term:hover,
+  .crumbs a:hover,
+  .note-close:hover,
+  .stop-item:hover .stop-title,
+  .stop-nav-link:hover .stop-nav-name {
+    color: var(--color-accent);
+  }
+
+  .stop-nav-link:hover {
+    border-color: var(--color-accent);
+  }
 }

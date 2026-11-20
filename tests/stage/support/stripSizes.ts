@@ -1,10 +1,11 @@
 // 题签有多大（CSS 像素）。Node 里的测试量不了页面，就照 src/styles/stage.css 里 .strip 的数算：
-//   宽的栏：字 17 像素，字距 0.12em，上下各垫 8、左右各垫 5，边 1 → 宽 29，高 18 + 19.04 × 字数；
-//   窄的栏（不到 560 像素宽）：字 14 像素，上下各垫 6、左右各垫 4 → 宽 24，高 14 + 15.68 × 字数。
+//   宽的栏：字 17 像素，字距 0.12em，上垫 6、下垫 16（脚上的那方小红印画在这 16 像素里）、左右各垫 6 → 宽 29，高 22 + 19.04 × 字数；
+//   窄的栏（不到 584 像素宽）：字 14 像素，上垫 4、下垫 13、左右各垫 5 → 宽 24，高 17 + 15.68 × 字数。
+// 重做顺序第 2 步给题签添了那方印以前，两种各矮 4 像素和 3 像素（18 + … 和 14 + …）。
 // 题签是竖写的，所以窄而高。页面上量出来的是整数（offsetWidth、offsetHeight），这里也四舍五入。
 //
 // 题签的测试（scene-strips）、定格图的测试都从这里取，只有这一处写着这几个数。
-// 样式改了（第 2 步要换字体），浏览器测试里有一项会量一条真的题签来和这里比（tests/e2e/pane-stills.spec.ts），
+// 样式改了，浏览器测试里有一项会量一条真的题签来和这里比（tests/e2e/pane-stills.spec.ts），
 // 比不上就得回来改这里，再把用到它的测试重跑一遍。
 
 import type { NamesMode, StopScene } from '../../../src/domain/scene';
@@ -14,13 +15,16 @@ import type { StripInput } from '../../../src/stage/overlay/types';
 /** 题签的两种大小：宽的栏用大一号的，窄的栏用小一号的。 */
 export type StripSizeKind = 'wide' | 'narrow';
 
-/** 沙盘栏不到这么宽（像素）时题签小一号：stage.css 里那一条 @container 的线。 */
-export const STRIP_NARROW_BELOW_PX = 560;
+/**
+ * 沙盘栏（连它的一像素边线）不到这么宽（像素）时题签小一号、题记用窄的排法：页面量了栏宽，够宽才在栏上挂 .is-wide
+ *（src/ui/StagePane.tsx 的 WIDE_PANE_PX，是同一个数；样子在 stage.css）。584 是横着拿的平板上沙盘栏的宽。
+ */
+export const STRIP_NARROW_BELOW_PX = 584;
 
 /** 两种大小各自的数：宽；高 = base + perChar × 字数。 */
 export const STRIP_SIZE: Record<StripSizeKind, { w: number; base: number; perChar: number }> = {
-  wide: { w: 29, base: 18, perChar: 19.04 },
-  narrow: { w: 24, base: 14, perChar: 15.68 },
+  wide: { w: 29, base: 22, perChar: 19.04 },
+  narrow: { w: 24, base: 17, perChar: 15.68 },
 };
 
 /** 这么宽的沙盘栏上，题签是哪一种大小。 */

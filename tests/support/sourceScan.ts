@@ -159,6 +159,42 @@ export function scanStyle(file: string, css: string): Finding[] {
   return found;
 }
 
+/** 样式表里每一句 @media 的条件，按先后（注释里的不算；压缩过的样式表也认）。 */
+export function mediaQueries(css: string): string[] {
+  return Array.from(stripCssComments(css).matchAll(/@media\b([^{]*)\{/g), (match) => tidy(match[1]));
+}
+
+/** 左右排的版面从多宽的窗口起（像素）：layout.css 的那条线。 */
+const SIDE_BY_SIDE_FROM_PX = 960;
+
+/**
+ * 一句 @media 的条件哪里不对，一处一个词；空的就是都对。
+ *   wide-layout  照窗口的宽窄分版面的一句（min-width 到了 960px）没有带“横着”——(orientation: landscape)。
+ *                左右排的版面要窗口够宽、而且横着：竖着拿的大平板有 1024 像素宽，少了这半句，这条规则在它上面就照左右排算了，
+ *                可它的版面是上下排的。
+ *   max-width    拿“窗口不到多宽”（max-width 到了 900px）来说上下排的版面：上下排的不只是窄的窗口，竖着的宽窗口也是。
+ *                要说“不是左右排”，把左右排的那一句整个反过来：not all and (min-width: 960px) and (orientation: landscape)。
+ *   media-range  比大小的新写法（width >= 960px）、not 后面直接跟括号、or：iPadOS 15 的 Safari 不认（16.4 才有），整句不算数。
+ */
+export function mediaProblems(query: string): string[] {
+  const problems: string[] = [];
+  const px = (value: string, unit: string): number => Number(value) * (unit === 'px' ? 1 : 16);
+  const landscape = /\(\s*orientation\s*:\s*landscape\s*\)/.test(query);
+  for (const [, value, unit] of query.matchAll(/min-width\s*:\s*([\d.]+)(px|rem|em)/g)) {
+    if (px(value, unit) >= SIDE_BY_SIDE_FROM_PX && !landscape && !problems.includes('wide-layout')) problems.push('wide-layout');
+  }
+  for (const [, value, unit] of query.matchAll(/max-width\s*:\s*([\d.]+)(px|rem|em)/g)) {
+    if (px(value, unit) >= 900 && !problems.includes('max-width')) problems.push('max-width');
+  }
+  if (/[<>]/.test(query) || /\bnot\s*\(/.test(query) || /\)\s*or\s*\(/.test(query)) problems.push('media-range');
+  return problems;
+}
+
+/** 一份样式表里每一句有毛病的 @media（见 mediaProblems）。 */
+export function scanMedia(file: string, css: string): Finding[] {
+  return mediaQueries(css).flatMap((query) => mediaProblems(query).map((rule) => ({ file, rule, what: query })));
+}
+
 /** 一段字里 needle 出现了几次。 */
 export function countIn(text: string, needle: string): number {
   return text.split(needle).length - 1;

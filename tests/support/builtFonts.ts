@@ -7,10 +7,10 @@
 //       要是成了两个文件，同一个字体会下载两遍。
 //   二、预先声明少了 crossorigin，浏览器取来的那一份样式表用不上，也会再取一遍。
 //   三、构建的工具会改写样式表：把分开写的 text-decoration-line、-style、-color 合回一句，Safari 26.2 以前就不认了
-//      （带虚线的词会没有线）；@container 和 cqw 老平板（iPadOS 15）不认，不许比现在多。
+//      （带虚线的词会没有线）；@container 和 cqw 老平板（iPadOS 15）不认，一处也不许有。
 // Safari 在这台机器上跑不了，这几条靠“写成什么样”来守。
 
-import { countIn, readCss } from './sourceScan';
+import { countIn, mediaProblems, mediaQueries, readCss } from './sourceScan';
 
 /** index.html 里预先声明的一个字体文件。 */
 export interface FontPreload {
@@ -97,9 +97,13 @@ export interface BuiltFonts {
   files: { file: string; built: string; bytes: number; first: boolean }[];
 }
 
-/** @container 至多几处、cqw 至多几处：就是现在的数。老平板不认这两样，不许再添。 */
-export const CONTAINER_MAX = 4;
-export const CQW_MAX = 2;
+/**
+ * @container 至多几处、cqw 至多几处：一处也不许有。老平板（iPadOS 15）不认这两样，写在里面的东西在它上面等于没有。
+ * 沙盘栏里宽窄两种排法原来靠它们分，重做顺序第 2 步改成页面量了栏宽以后挂类名、写 --pane-w（src/ui/StagePane.tsx），
+ * 从那以后样式表里就没有它们了。
+ */
+export const CONTAINER_MAX = 0;
+export const CQW_MAX = 0;
 
 /**
  * 构建出来的网站里的字体对着放进仓库的查一遍：
@@ -163,8 +167,11 @@ export function builtFonts(site: BuiltSite, committed: CommittedFont[]): BuiltFo
 /**
  * 构建出来的样式表里不该有的写法（sheets：路径 → 原文）：
  *   text-decoration、-webkit-text-decoration 的值里带着 var(（合成一句、又带着颜色的写法，Safari 26.2 以前线会没有）；
- *   @container 超过四处、cqw 超过两处（几份样式表合起来数）；
- *   url( 指着别的网站。
+ *   有 @container、有 cqw（几份样式表合起来数，一处也不许有）；
+ *   url( 指着别的网站；
+ *   @media 的条件里有老平板不认的写法，或者照窗口的宽窄分版面的一句少了“横着”（构建会改写样式表：源文件里写对了，这里再看一遍改写以后的）。
+ *   这一条只查网站自己的样式表：samples/ 里是早先给负责人看风格的几张样张（public/samples/，另外构建好了原样放进来的），
+ *   不是给读者读的页面，版面也不是这一套；其中一张用了比大小的新写法（@media (width<=760px)），老平板上那一句不算数。
  */
 export function builtStyleProblems(sheets: Record<string, string>): string[] {
   const problems: string[] = [];
@@ -179,6 +186,12 @@ export function builtStyleProblems(sheets: Record<string, string>): string[] {
         const address = quoted ?? bare ?? '';
         if (!address.startsWith('data:') && inDist(address, sheet) === null) problems.push(`${sheet} 里 ${selector} 的 ${property} 指着别的网站：${address}`);
       }
+    }
+    for (const query of sheet.startsWith('samples/') ? [] : mediaQueries(css)) {
+      const wrong = mediaProblems(query);
+      if (wrong.includes('wide-layout')) problems.push(`${sheet} 里 @media ${query} —— 照窗口的宽窄分版面的一句少了 (orientation: landscape)：竖着拿的大平板上它会照左右排的版面算`);
+      if (wrong.includes('max-width')) problems.push(`${sheet} 里 @media ${query} —— 上下排的版面不只是窄的窗口：用 not all and (min-width: 960px) and (orientation: landscape)`);
+      if (wrong.includes('media-range')) problems.push(`${sheet} 里 @media ${query} —— 这种写法 iPadOS 15 的 Safari 不认，整句在它上面不算数`);
     }
     containers += countIn(css, '@container');
     cqws += countIn(css, 'cqw');

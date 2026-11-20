@@ -1,9 +1,14 @@
-/* 首页：标题、一句话、人物卡片。 */
+/* 首页：标题、一句话、人物卡片。
+   页面的底是绢；首页换样子之前，它先是一页纸立在绢上，和屏幕一样高（和“没有找到这位人物”的那一页一个做法）。 */
 
 .home {
   max-width: var(--home-width);
+  min-height: 100vh;
   margin: 0 auto;
   padding: var(--gap-6) var(--page-pad) calc(var(--gap-6) * 2);
+  background-color: var(--color-paper);
+  background-image: var(--grain);
+  box-shadow: 0 0 34px -8px var(--color-shadow);
 }
 
 .home-head {

@@ -15,9 +15,11 @@
 //         有一个字掉到了设备自带的字体上，这里就通不过，说出是哪一段字、掉到了哪个字体上；
 //       · 样式里写着用楷体的，只用了楷体那一个文件（楷体文件里没有的字不能排成楷体）；别的只用了宋体的文件；
 //       · 没有加粗、没有斜体（两套字体都只带了一种粗细）。
-//     另有一处问的是整个元素：横着拿的平板上，故意把题记写长、让它被截掉，行尾那个浏览器自己添的省略号也得是楷体画的。
+//     另有两处问的是整个元素：故意把题记写长、让它被截掉，行尾那个浏览器自己添的省略号也得是那一行的字体画的——
+//     竖着拿的平板上题记是楷体（够 16px 才用楷体），横着拿的平板上是宋体（只有 14px）。
 //     沙盘的替身和定格图的替身（.fake-stage、.fake-still）上面的字是给测试看的，不查。
-//     查不到的：样式表用 content 画出来的记号（现在还有“读原文”“凭据”前面的加号、减号，见 font-files.test.ts 的 PENDING）。
+//     查不到的：样式表用 content 画出来的字。样式表里不许这样写（tests/fonts/font-files.test.ts 守着）：“读原文”“凭据”前面的
+//     加号、减号是页面上真的字，折着显加号，点开显减号，两样这里都看得到。
 // 二、两个全角的标点挨着，占满两个字宽（不被浏览器挤紧）：宋体量句号和后引号，楷体量逗号和句号。
 //     这里量出来的 200 像素，靠的是随站的字体里没有把标点挤窄的排版功能（halt、chws 这些；由 tests/fonts/font-files.test.ts 守着）：
 //     在这个浏览器里，样式表里那一句 text-spacing-trim: space-all 写不写，量出来都是 200（两个数都印出来）。
@@ -38,6 +40,7 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { expect, test } from '@playwright/test';
 import type { CDPSession, Page, Route } from '@playwright/test';
 import { expectRealTable, expectStageAt, expectStill, fakeUrl, firstStopWithScene, firstWrittenStop, fontsReady, headingsOf, openFigureWithTable, realUrl, scrollToBottom, scrollToSection, stagePane, stripsOf } from './helpers';
+import { readBytes } from '../support/readBytes';
 import { PANE_QUERIES, PANE_SAYS, expectPane, notice, stopUrl } from './paneHelpers';
 
 /** 页面的主程序（构建以后的，或者开发服务上的）。 */
@@ -398,27 +401,33 @@ test('走一遍网站：每一个字都是随站的字体画的，楷体的只�
     await look(`${found.stopId}，768 × 1024，沙盘收起来了`, 40);
     await fold.click();
     await expect(fold).toHaveText('收起沙盘');
+    // 题记放不下、被截掉的时候，行尾的省略号是浏览器自己添的，不是页面上的字（上面一段一段地问，问不到它）。
+    // 这里故意把题记写长三倍让它被截掉，再问整个元素：连那个省略号在内，都得是那一行的字体画的。
+    // 竖着拿的平板上题记够大（18px 多），是楷体：省略号也得是随站的楷体
+    //（楷体文件里没有省略号的话，Chromium 改画三个半角的句点，用的是设备自带的字体）。
+    // 横着拿的平板上题记只有 14px，是宋体（楷体小了发灰）：那里再查一遍，省略号得是随站的宋体。
+    const line = pane.locator('.stage-line');
+    const cutLineFonts = async (family: string, where: string): Promise<void> => {
+      expect(await line.evaluate((el) => getComputedStyle(el).fontFamily), `${where}题记的字体`).toMatch(new RegExp(`^"?${family}`));
+      await line.evaluate((el) => {
+        el.textContent = (el.textContent ?? '').repeat(3);
+      });
+      await fontsReady(page);
+      expect(await line.evaluate((el) => el.scrollWidth > el.clientWidth), `${where}题记写长了三倍还没有被截掉：这一项没查到东西`).toBe(true);
+      const cutLine = await fontsOfElement(client, '.stage-pane .stage-line');
+      expect(cutLine.length).toBeGreaterThan(0);
+      expect(
+        cutLine.filter((font) => !isShipped(font, family)).map((font) => `${font.familyName}（${font.glyphCount} 个字形${font.isCustomFont ? '' : '，设备自带的'}）`),
+        `${where}题记被截掉时，行尾的省略号不是随站的${family === KAI ? '楷体' : '宋体'}画的`,
+      ).toEqual([]);
+    };
+    await cutLineFonts(KAI, '768 × 1024：');
 
     await page.setViewportSize({ width: 1024, height: 768 });
     await openPane('stage=fake');
     await expectStageAt(page, headings[0]);
     await look(`${found.stopId}，1024 × 768`, 40);
-    // 题记放不下、被截掉的时候，行尾的省略号是浏览器自己添的，不是页面上的字（上面一段一段地问，问不到它）。
-    // 这里故意把题记写长三倍让它被截掉，再问整个元素：连那个省略号在内，都得是随站的楷体画的
-    //（楷体文件里没有省略号的话，Chromium 改画三个半角的句点，用的是设备自带的字体）。
-    const line = pane.locator('.stage-line');
-    expect(await line.evaluate((el) => getComputedStyle(el).fontFamily)).toMatch(/^"?Yanlu Kai/);
-    await line.evaluate((el) => {
-      el.textContent = (el.textContent ?? '').repeat(3);
-    });
-    await fontsReady(page);
-    expect(await line.evaluate((el) => el.scrollWidth > el.clientWidth), '题记写长了三倍还没有被截掉：这一项没查到东西').toBe(true);
-    const cutLine = await fontsOfElement(client, '.stage-pane .stage-line');
-    expect(cutLine.length).toBeGreaterThan(0);
-    expect(
-      cutLine.filter((font) => !isShipped(font, KAI)).map((font) => `${font.familyName}（${font.glyphCount} 个字形${font.isCustomFont ? '' : '，设备自带的'}）`),
-      '题记被截掉时，行尾的省略号不是随站的楷体画的',
-    ).toEqual([]);
+    await cutLineFonts(SONG, '1024 × 768：');
 
     await page.setViewportSize({ width: 390, height: 844 });
     await openPane('stage=fake');
@@ -479,6 +488,54 @@ test('走一遍网站：每一个字都是随站的字体画的，楷体的只�
   console.log(`一共 ${requests.length} 个请求，都是网站自己的地址（${new URL(base).origin}）`);
 });
 
+/**
+ * 第三个字体文件被要的那一刻，页面上是什么样：给“不该这么早取”那一条通不过时印出来，好知道是谁把它引来的。
+ * 它是页面上画出了那个文件里的字才取的。平常这些字都折着：小注没点开，原文和凭据折着（折着的东西浏览器不排版），
+ * 图片的 alt 不显出来。见过的三种会把它提前引来的情形：一张带 alt 的图片没取到（浏览器把 alt 当字画出来）；
+ * 有程序去量折着的东西里面的字（一量，浏览器就得把它排出来）；测试工具用“看得见了没有”等正文出来
+ *（十几遍里有一遍，见下面那一项里的说明）。所以记这几样：在哪一页，沙盘栏什么状态，
+ * 点开了几条小注、几处折着的，哪张图片没取到，页面上显出来的字里哪几段带着那个文件里的字
+ *（这一项是空的、又没有坏的图片：要么是页面的程序自己叫浏览器去取的，要么是折着的东西被排了一遍）。
+ * 只在请求发出以后才去看页面（看的时候不会再引来什么：该取的已经取了）。
+ * 试过问浏览器的调试接口“这个请求是谁发的”：不管是程序叫取的还是排字引来的，它都只说是样式表（parser），分不出来，所以没有用它。
+ */
+function sceneWhenAsked(page: Page): () => Promise<string> {
+  const record = JSON.parse(new TextDecoder().decode(readBytes('src/fonts/fonts.json'))) as { files: { group: string; characters: string }[] };
+  const more = record.files.find((file) => file.group === 'song-more')?.characters ?? '';
+  let scene: Promise<string> | null = null;
+  page.on('request', (request) => {
+    if (scene !== null || fontFileOf(request.url()) !== 'yanlu-song-more') return;
+    scene = page
+      .evaluate((more) => {
+        const inFile = new Set(more);
+        const shown: string[] = [];
+        const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+        for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+          const el = node.parentElement;
+          const text = node.textContent ?? '';
+          if (!el || el.closest('script, style') || !Array.from(text).some((ch) => inFile.has(ch))) continue;
+          // 折着的东西里面的字不算显出来（checkVisibility 认得出，也不会叫浏览器去排它）
+          if (el.checkVisibility()) shown.push(`${el.tagName.toLowerCase()}.${el.className}“${text.trim().slice(0, 12)}”`);
+        }
+        const pane = document.querySelector('.stage-pane');
+        return JSON.stringify({
+          at: location.hash,
+          stop: document.querySelector('.stop-page')?.getAttribute('data-stop-text') ?? null,
+          pane: pane ? `${pane.getAttribute('data-stage-state')} / ${pane.getAttribute('data-stage-picture')}` : null,
+          notesOpen: document.querySelectorAll('.note').length,
+          foldsOpen: document.querySelectorAll('details[open]').length,
+          // 没取到、又带着 alt 的图片（alt 是空的不算：没有字可画，放每一小节图片的地方就有一张这样空着的）
+          brokenImages: Array.from(document.images)
+            .filter((img) => img.complete && img.naturalWidth === 0 && (img.getAttribute('alt') ?? '') !== '')
+            .map((img) => (img.getAttribute('alt') ?? '').slice(0, 12)),
+          shown: shown.slice(0, 8),
+        });
+      }, more)
+      .catch((error: unknown) => `没看成：${String(error)}`);
+  });
+  return async () => (scene === null ? '（没有记到）' : scene);
+}
+
 /** 记下每一个字体文件被请求的时刻（从记录开始算起的毫秒）。now() 是这时候的同一种读数。 */
 function watchFonts(page: Page): { of: (file: string) => number[]; all: () => string[]; now: () => number } {
   const started = Date.now();
@@ -494,6 +551,7 @@ test('第三个字体文件：首页、人物页、还没写的站上不取；�
   test.setTimeout(120_000);
   await page.setViewportSize({ width: 1440, height: 900 });
   const fonts = watchFonts(page);
+  const whenAsked = sceneWhenAsked(page);
   // 不用沙盘的替身（它上面给测试看的字会把第三个文件引来）；只放图片，不摆立体的沙盘
   const url = (hash: string): string => realUrl(hash, null, '&tier=still');
 
@@ -533,14 +591,22 @@ test('第三个字体文件：首页、人物页、还没写的站上不取；�
   // 上限：字体到齐以后五秒之内自己取来。
   const found = await firstStopWithScene(page, figureId);
   const stopId = found ? found.stopId : await firstWrittenStop(page);
+  //
+  // 等正文出来，这里不用测试工具的“看得见了没有”（toBeVisible）：那一种等法每隔几十毫秒问一遍浏览器这个元素的样式和框。
+  // 用它等的时候，十几遍里有一遍，第三个文件在点开以后 100 到 116 毫秒就被要了；那一刻页面上显出来的字里没有那个文件里的字，
+  // 也没有坏的图片（见 sceneWhenAsked），页面自己的那一步也还没有走到（那一步要等两秒）。为什么会这样没有查到底；
+  // 量到的是（同样的走法，每种 80 遍，数第三个文件在点开以后两秒之内就被要的有几遍）：
+  // 用 toBeVisible 等，这一版页面 6 遍、换样子以前的页面 1 遍；只问“页面上有没有这个元素”，0 遍；后面再照常等字体到齐，也是 0 遍。
+  // 所以是这种等法自己把文件引来的，不是页面取的：这里只问有没有，不问看不看得见。
+  // 下面那条“不到两秒不该取”一点没有放松；它通不过时会印出取的那一刻页面上是什么样。
   const clicked = fonts.now();
   await page.locator(`.stop-item[data-stop-id="${stopId}"]`).click();
-  await expect(page.locator('.text-section').first()).toBeVisible();
+  await page.waitForFunction(() => document.querySelector('.text-section') !== null);
   await fontsReady(page);
   const ready = fonts.now();
   await expect.poll(() => fonts.of('yanlu-song-more').length, { timeout: 5_000, message: '站点页的字体到齐五秒了，第三个字体文件还没有自己取来' }).toBe(1);
   const asked = fonts.of('yanlu-song-more')[0];
-  expect(asked - clicked, `从点开这一站到取第三个字体文件，不该不到两秒（${fonts.all().join(' ')}；点开是在 ${clicked}）`).toBeGreaterThanOrEqual(2_000);
+  expect(asked - clicked, `从点开这一站到取第三个字体文件，不该不到两秒（${fonts.all().join(' ')}；点开是在 ${clicked}）。取的那一刻页面上：${await whenAsked()}`).toBeGreaterThanOrEqual(2_000);
   const took = asked - ready;
   await fontsReady(page);
 

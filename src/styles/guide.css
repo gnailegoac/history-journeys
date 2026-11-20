@@ -133,16 +133,17 @@
   font-size: var(--size-ask);
 }
 
+/* 还用不了的输入框和按钮：比纸深一点的纸色（和点开的小注一个颜色）。不用沙盘栏的底色：那是绢的颜色，不是纸。 */
 .guide-form textarea:disabled {
-  background: var(--color-paper-sunk);
+  background: var(--color-paper-note);
 }
 
 .guide-form button:disabled {
-  background: var(--color-paper-sunk);
+  background: var(--color-paper-note);
   color: var(--color-ink-soft);
 }
 
-@media (min-width: 960px) {
+@media (min-width: 960px) and (orientation: landscape) {
   .guide-dock {
     right: auto;
     width: var(--column-width);

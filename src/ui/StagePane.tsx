@@ -52,12 +52,18 @@ type Picture = 'table' | 'still' | 'none';
  */
 type TableChoice = 'auto' | 'pictures' | 'asked';
 
-/** 沙盘栏不到这么宽（像素）时用窄的排法。和 stage.css 里 @container stage-pane (min-width: 560px) 是同一个数。 */
-const WIDE_PANE_PX = 560;
+/**
+ * 沙盘栏（连它的一像素边线）不到这么宽（像素）时用窄的排法、小一号的题签；够宽就在栏上挂 .is-wide（样子在 stage.css）。
+ * 584 是横着拿的平板上沙盘栏的宽：从这里起，题记最长的 40 个字用 14px 的字一行放得下。
+ * 题签的测试照同一个数分大小（tests/stage/support/stripSizes.ts）。
+ */
+const WIDE_PANE_PX = 584;
+/** 栏里面的宽度（不连边线）到了这么多像素，题记那一行才用楷体（.is-kai）：照 stage.css 的算法，(661 − 21) ÷ 40，这时它正好 16px。 */
+const KAI_PANE_PX = 661;
 /** 窄的排法里，比例尺的那一段最长多少像素：它和小节、时间挤在一行里。 */
 const NARROW_SCALE_PX = 56;
-/** 宽屏的分界，和 layout.css 的媒体查询是同一个数。只有窄屏上能收起沙盘。 */
-const WIDE_SCREEN = '(min-width: 960px)';
+/** 宽屏的条件，和 layout.css 的媒体查询是同一句（够宽，而且横着）。只有窄屏上能收起沙盘。 */
+const WIDE_SCREEN = '(min-width: 960px) and (orientation: landscape)';
 
 /** 立体的沙盘盖着图片显出来用多久（毫秒）。和 stage.css 里 .is-handing-over 的那一条是同一个数。用定时器数，不等浏览器的通知。 */
 const HANDOVER_FADE_MS = 240;
@@ -416,11 +422,24 @@ function TableStage({ table, section, namesMode, onNamesMode, folded, onFolded, 
     }
   }, [readInsets]);
 
+  // 栏有多宽，记在栏上：够宽挂 .is-wide，题记够大挂 .is-kai，栏里面的宽度写成 --pane-w（题记的字号照它算）。
+  // 这三样直接写在元素上，不经过重画（和指北、比例尺一样）。每次重画以后（类名会被重画冲掉）、窗口的大小变了以后都重写一遍，
+  // 都赶在量留边、告诉画面之前：题记有多高、题签有多大，都跟着它变。
+  const wide = useRef(false);
+  const fitPane = useCallback(() => {
+    const el = pane.current;
+    if (!el) return;
+    const inner = el.clientWidth;
+    wide.current = el.offsetWidth >= WIDE_PANE_PX;
+    el.classList.toggle('is-wide', wide.current);
+    el.classList.toggle('is-kai', inner >= KAI_PANE_PX);
+    el.style.setProperty('--pane-w', `${inner}px`);
+  }, []);
+
   // 指北和比例尺：直接改元素。栏窄的时候比例尺换一段短的。
   const showViewInfo = useCallback((info: StageViewInfo) => {
     needle.current?.setAttribute('transform', `rotate(${info.northDeg.toFixed(1)})`);
-    const narrow = (pane.current?.clientWidth ?? WIDE_PANE_PX) < WIDE_PANE_PX;
-    const scale = narrow ? fitScale(info.scale, NARROW_SCALE_PX) : info.scale;
+    const scale = wide.current ? info.scale : fitScale(info.scale, NARROW_SCALE_PX);
     if (scaleBar.current) scaleBar.current.style.width = `${Math.round(scale.px)}px`;
     if (scaleLabel.current) scaleLabel.current.textContent = scale.label;
   }, []);
@@ -775,6 +794,7 @@ function TableStage({ table, section, namesMode, onNamesMode, folded, onFolded, 
     const onResize = () => {
       cancelAnimationFrame(frame);
       frame = requestAnimationFrame(() => {
+        fitPane();
         tableSlot.current.view?.resize();
         stillSlot.current.view?.resize();
         syncInsets();
@@ -789,7 +809,10 @@ function TableStage({ table, section, namesMode, onNamesMode, folded, onFolded, 
       cancelAnimationFrame(frame);
       window.removeEventListener('resize', onResize);
     };
-  }, [syncInsets, showTopInfo, catchUp]);
+  }, [fitPane, syncInsets, showTopInfo, catchUp]);
+
+  // 每次重画以后把栏的宽窄重写一遍（要排在量留边的前面）。
+  useLayoutEffect(fitPane);
 
   // 每次重画以后量一遍留边：沙盘栏收起或展开了、按钮下面多了或少了一行话，上下留出来的地方都会变。
   // （题记那一块的高度是定死的，换小节不会让它变。）

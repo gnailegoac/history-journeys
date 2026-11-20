@@ -26,6 +26,7 @@ import { createHash } from 'node:crypto';
 import { ENGINE_ENTRY, ENGINE_GZIP_MAX, FILE_URLS_ENTRY, PAGE_ENTRY, fontReport, programReport, programSizes, staticClosure, withCommas } from '../content/budgetRules';
 import type { BuildManifest, SizeReport } from '../content/budgetRules';
 import { CONTAINER_MAX, CQW_MAX, builtFonts, builtStyleProblems } from '../support/builtFonts';
+import { oldIpadSheet } from '../support/oldIpadSheet';
 import type { BuiltSite, CommittedFont } from '../support/builtFonts';
 
 /** 项目的根目录下的 dist/：这个文件在 tests/build/ 里，往上两层。 */
@@ -155,10 +156,12 @@ describe('随站的字体在构建出来的网站里', () => {
     expect(report.fails).toEqual([]);
   });
 
-  it(`构建出来的样式表里：带虚线的词那道线没有被合回一句的写法；@container 至多 ${CONTAINER_MAX} 处、cqw 至多 ${CQW_MAX} 处；没有指着别的网站的地址`, () => {
+  it(`构建出来的样式表里：带虚线的词那道线没有被合回一句的写法；@container 至多 ${CONTAINER_MAX} 处、cqw 至多 ${CQW_MAX} 处；没有指着别的网站的地址；@media 的条件里分版面的都带着“横着”，没有老平板不认的写法`, () => {
     const site = readBuiltSite();
     expect(Object.keys(site.sheets).length).toBeGreaterThan(0);
     expect(builtStyleProblems(site.sheets)).toEqual([]);
+    // 照老平板的读法改一遍（@container 的块去掉、用了 cqw 的声明作废），一个字都不差：老平板读到的和别的浏览器读到的是同一份
+    for (const [sheet, css] of Object.entries(site.sheets)) expect(oldIpadSheet(css), sheet).toEqual({ css, containers: 0, cqw: 0 });
     // index.html 里的样式表和程序也都是网站自己的
     const addresses = [...site.html.replace(/<!--[\s\S]*?-->/g, '').matchAll(/\s(?:href|src)\s*=\s*["']([^"']*)["']/g)].map((match) => match[1]);
     expect(addresses.length).toBeGreaterThan(3);
@@ -213,7 +216,7 @@ describe('字体带得不对的时候这里通不过（用编出来的网页和�
     expect(builtFonts(site(sheet(SHEET.replace('url(./kai-1.woff2)', 'url(https://fonts.example/kai.woff2)'))), COMMITTED).problems.some((line) => line.includes('指着别的网站'))).toBe(true);
   });
 
-  it('构建出来的样式表里，带虚线的词那道线合成了一句、@container 和 cqw 多了、地址指着别的网站：通不过；分开写的不算', () => {
+  it('构建出来的样式表里，带虚线的词那道线合成了一句、@container 和 cqw 多了、地址指着别的网站、分版面的 @media 少了“横着”或者用了比大小的新写法：通不过；分开写的不算', () => {
     const apart = '.note-term{text-decoration-line:underline;text-decoration-style:dotted;-webkit-text-decoration-color:var(--color-accent);text-decoration-color:var(--color-accent)}a{text-decoration:none}';
     expect(builtStyleProblems({ 'a.css': apart })).toEqual([]);
     const folded = builtStyleProblems({ 'a.css': '.note-term{-webkit-text-decoration:underline dotted var(--color-accent);text-decoration:underline dotted var(--color-accent)}' });
@@ -226,6 +229,36 @@ describe('字体带得不对的时候这里通不过（用编出来的网页和�
     ]);
     const addresses = '.a{background:url(https://example.com/a.png)}.b{background:url("data:image/svg+xml;utf8,<svg/>")}.c{background:url(./c.png)}';
     expect(builtStyleProblems({ 'a.css': addresses })).toEqual(['a.css 里 .a 的 background 指着别的网站：https://example.com/a.png']);
+    const media =
+      '@media (min-width:960px){.a{color:red}}@media (min-width:960px) and (orientation:landscape){.b{color:red}}@media not all and (min-width:960px) and (orientation:landscape){.c{color:red}}@media (width>=960px) and (orientation:landscape){.d{color:red}}@media (max-width:959px){.e{color:red}}@media (hover:hover){.f{color:red}}';
+    const wrong = builtStyleProblems({ 'a.css': media });
+    expect(wrong).toHaveLength(3);
+    expect(wrong[0]).toContain('@media (min-width:960px) —— 照窗口的宽窄分版面的一句少了 (orientation: landscape)');
+    expect(wrong[1]).toContain('@media (width>=960px) and (orientation:landscape) —— 这种写法 iPadOS 15 的 Safari 不认');
+    expect(wrong[2]).toContain('@media (max-width:959px) —— 上下排的版面不只是窄的窗口');
+    // 样张（samples/）不是给读者读的页面，这一条不查它们
+    expect(builtStyleProblems({ 'samples/x/assets/a.css': media })).toEqual([]);
+  });
+
+  it('照老平板的读法改样式表：@container 的块整块去掉（套在 @media 里的也是），用了 cqw 的声明改成 unset，别的一个字不动', () => {
+    const before = [
+      ':root{--grain:url("data:image/svg+xml;utf8,<svg>{;}</svg>")}',
+      '.foot{--caption-h:5.875rem;position:relative}',
+      '@container stage-pane (min-width:560px){.foot{--caption-h:8.125rem}.line{font-size:clamp(14px,calc((100cqw - 1.5rem)/40),17px)}}',
+      '.brief{flex:1 1 auto;font-size:clamp(.6875rem,calc((100cqw - 4rem)/27),var(--size-small));white-space:nowrap}',
+      '@media (min-width:960px){.a{color:red}@container stage-pane (width<560px){.strip{font-size:14px}}.b{width:50cqw}}',
+      '.c{content:"@container {"}',
+    ].join('');
+    const after = [
+      ':root{--grain:url("data:image/svg+xml;utf8,<svg>{;}</svg>")}',
+      '.foot{--caption-h:5.875rem;position:relative}',
+      '.brief{flex:1 1 auto;font-size:unset;white-space:nowrap}',
+      '@media (min-width:960px){.a{color:red}.b{width:unset}}',
+      '.c{content:"@container {"}',
+    ].join('');
+    expect(oldIpadSheet(before)).toEqual({ css: after, containers: 2, cqw: 2 });
+    // 没有这两样的样式表，一个字不动
+    expect(oldIpadSheet(after)).toEqual({ css: after, containers: 0, cqw: 0 });
   });
 });
 

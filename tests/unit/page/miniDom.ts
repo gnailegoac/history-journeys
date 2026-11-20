@@ -174,6 +174,18 @@ export class MiniElement extends MiniNode {
   set className(v: string) {
     this.setAttribute('class', v);
   }
+  /** 只有页面用到的两样：有没有这个类名；挂上或者拿掉一个类名。 */
+  get classList() {
+    const names = () => this.className.split(' ').filter((name) => name !== '');
+    return {
+      contains: (name: string) => names().includes(name),
+      toggle: (name: string, on: boolean) => {
+        const rest = names().filter((item) => item !== name);
+        this.className = (on ? [...rest, name] : rest).join(' ');
+        return on;
+      },
+    };
+  }
   get type() {
     return this.getAttribute('type') ?? '';
   }

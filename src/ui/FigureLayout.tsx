@@ -92,7 +92,7 @@ function Loaded({ figure, stopId }: { figure: Figure; stopId: string | null }) {
             <a href={homeHref}>{SITE_TITLE}</a>
             {stopId && (
               <>
-                <span aria-hidden="true"> / </span>
+                <span className="crumbs-sep" aria-hidden="true" />
                 <a href={figureHref(figure.id)}>{figure.name}</a>
               </>
             )}
@@ -111,14 +111,14 @@ function Loaded({ figure, stopId }: { figure: Figure; stopId: string | null }) {
 
 function MissingStop({ figure }: { figure: Figure }) {
   return (
-    <>
+    <div className="missing">
       <PageTitle documentTitle={pageTitle(figure.name)}>没有这一站</PageTitle>
       <p className="quiet">
         <a className="text-link" href={figureHref(figure.id)}>
           回到{figure.name}的各站目录
         </a>
       </p>
-    </>
+    </div>
   );
 }
 

@@ -1,7 +1,8 @@
 // 整个版面（FigureLayout：人物页、站点页）的行为：用假 DOM（miniDom.ts）在 Node 里连同 content/ 里真的内容和沙盘的替身跑一遍。
 // 不看版面和样式（那是 tests/e2e 的事）。
 import { describe, expect, it, vi } from 'vitest';
-import type { StopScene } from '../../../src/domain';
+import type { Figure, StopScene } from '../../../src/domain';
+import { SITE_TITLE } from '../../../src/ui/text';
 import { readBytes } from '../../support/readBytes';
 import { installMiniDom, MiniElement } from './miniDom';
 
@@ -12,9 +13,12 @@ const g = globalThis as any;
 const { act } = await import('react');
 const { createRoot } = await import('react-dom/client');
 const { FigureLayout } = await import('../../../src/ui/FigureLayout');
+const { FigureContents } = await import('../../../src/ui/FigureContents');
 
 const scene = JSON.parse(new TextDecoder().decode(readBytes('content/figures/su-shi/scenes/xuzhou.json'))) as StopScene;
 const headings = scene.sections.map((s) => s.heading);
+/** 人物的资料，照 content/ 里真的文件：有几站、各叫什么、写没写好，下面都从它读，不另写一遍。 */
+const figure = JSON.parse(new TextDecoder().decode(readBytes('content/figures/su-shi/figure.json'))) as Figure;
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 const settle = (ms = 60) => act(async () => void (await sleep(ms)));
 const attr = (el: MiniElement | null, name: string) => el?.getAttribute(name) ?? null;
@@ -159,6 +163,79 @@ describe('整个版面 + 真的内容 + 沙盘的替身', () => {
     await waitFor(() => attr(page.pane(), 'data-stage-state') === 'still' && page.q('.stage-still-line') === null);
     expect(attr(page.pane(), 'data-stage-state')).toBe('still');
     expect(page.q('.stage-still-line')).toBeNull();
+    await page.unmount();
+  });
+
+  it('站点页的抬头：一站一个小方块，只有这一站的做了记号，读屏不念；位置那一行中间是画出来的一小段线', { timeout: 60_000 }, async () => {
+    const count = figure.stops.length;
+    const at = figure.stops.findIndex((stop) => stop.id === 'xuzhou');
+    expect(at).toBeGreaterThanOrEqual(0);
+    const page = await mount('?stage=fake', 'xuzhou');
+    // 前面那句话照旧说第几站、共几站
+    expect(page.q('.page-head .eyebrow')?.textContent).toBe(`第 ${at + 1} 站 · 共 ${count} 站`);
+    // 小方块：有几站就有几个，里面没有字；读屏不念（那句话已经说了）
+    const ticks = page.q('.page-head .eyebrow .ticks')!;
+    expect(ticks).not.toBeNull();
+    expect(attr(ticks, 'aria-hidden')).toBe('true');
+    expect(ticks.textContent).toBe('');
+    const marked = () => page.all('.ticks span').map((square) => square.className === 'is-here');
+    expect(marked()).toEqual(figure.stops.map((_, i) => i === at));
+    // 换到头一站、最后一站：记号跟着走，还是只有一个
+    for (const i of [0, count - 1]) {
+      await page.show(figure.stops[i].id);
+      await waitFor(() => attr(page.q('.stop-page'), 'data-stop-id') === figure.stops[i].id);
+      expect(marked()).toEqual(figure.stops.map((_, j) => j === i));
+      expect(page.q('.page-head .eyebrow')?.textContent).toBe(`第 ${i + 1} 站 · 共 ${count} 站`);
+    }
+    // 位置那一行：网站的名字和人物的名字中间不是一个斜杠，是一小段画出来的线，读屏不念
+    const sep = page.q('.crumbs .crumbs-sep')!;
+    expect(attr(sep, 'aria-hidden')).toBe('true');
+    expect(page.q('.crumbs')?.textContent).toBe(`${SITE_TITLE}${figure.name}`);
+    await page.unmount();
+  });
+
+  it('人物页的目录：数字印是汉字的一、二、三……，读屏不念；站名里不夹着“还没写”的小标签', { timeout: 30_000 }, async () => {
+    const page = await mount('?stage=fake', null);
+    const numerals = '一二三四五六七八九十';
+    expect(figure.stops.length).toBeLessThanOrEqual(numerals.length);
+    const seals = page.all('.stop-item .stop-number');
+    expect(seals.map((seal) => seal.textContent)).toEqual(figure.stops.map((_, i) => numerals[i]));
+    for (const seal of seals) expect(attr(seal, 'aria-hidden')).toBe('true');
+    // 站名（楷体）自己一块，里面只有站名；小标签（宋体）是旁边的另一块
+    expect(page.all('.stop-item .stop-head .stop-title').map((title) => title.textContent)).toEqual(figure.stops.map((stop) => stop.title));
+    expect(page.all('.stop-item .stop-title .tag')).toHaveLength(0);
+    const unwritten = figure.stops.filter((stop) => stop.status !== 'complete').map((stop) => stop.id);
+    expect(unwritten.length).toBeGreaterThan(0);
+    expect(page.all('.stop-item .stop-head .tag').map((tag) => attr(tag.closest('.stop-item'), 'data-stop-id'))).toEqual(unwritten);
+    await page.unmount();
+  });
+
+  it('目录超过十站：第十一站起数字印用数字', async () => {
+    const many: Figure = { ...figure, stops: Array.from({ length: 12 }, (_, i) => ({ ...figure.stops[i % figure.stops.length], id: `s${i + 1}` })) };
+    const container = doc.createElement('div');
+    doc.body.appendChild(container);
+    const root = createRoot(container as any);
+    await act(async () => root.render(<FigureContents figure={many} />));
+    expect(container.querySelectorAll('.stop-number').map((seal) => seal.textContent)).toEqual(['一', '二', '三', '四', '五', '六', '七', '八', '九', '十', '11', '12']);
+    await act(async () => root.unmount());
+  });
+
+  it('“读原文”“凭据”那一行：加号、减号是页面上真的字，读屏不念；名字和原文的标题各是一块', { timeout: 30_000 }, async () => {
+    const page = await mount('?stage=fake', 'xuzhou');
+    const rows = [...page.all('details.original summary'), ...page.all('details.provenance summary')];
+    expect(page.all('details.original summary').length).toBeGreaterThan(0);
+    expect(page.all('details.provenance summary')).toHaveLength(1);
+    for (const row of rows) {
+      const mark = row.querySelector('.fold-mark')!;
+      expect(attr(mark, 'aria-hidden')).toBe('true');
+      // 两个字都在页面上：折着显头一个，点开显后一个（哪个显出来是样式表的事，在浏览器里查）
+      expect(mark.querySelectorAll('span').map((sign) => sign.textContent)).toEqual(['+', '−']);
+    }
+    expect(page.all('details.original summary .fold-label').map((label) => label.textContent)).toEqual(page.all('details.original').map(() => '读原文'));
+    expect(page.q('details.provenance summary .fold-label')?.textContent).toBe('凭据');
+    // 原文的那一行还带着标题，是名字后面的另一块；凭据那一行没有
+    for (const row of page.all('details.original summary')) expect(row.textContent.length).toBeGreaterThan('+−读原文'.length);
+    expect(page.q('details.provenance summary')?.textContent).toBe('+−凭据');
     await page.unmount();
   });
 

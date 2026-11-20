@@ -8,6 +8,7 @@ import { expect, test } from '@playwright/test';
 import type { Locator, Page } from '@playwright/test';
 import type { StopScene } from '../../src/domain/scene';
 import { TRIAL_MIN_AREA } from '../../src/stage/three/tier';
+import { STRIP_NARROW_BELOW_PX } from '../stage/support/stripSizes';
 import {
   expectStageAt,
   expectStill,
@@ -262,7 +263,9 @@ test('首页 → 人物页 → 一站：小注、原文、凭据、下一站和�
   const originals = page.locator('details.original');
   if ((await originals.count()) > 0) {
     const original = originals.first();
-    await expect(original.locator('summary')).toContainText('读原文：');
+    // 那一行是并排的三块：加号（点开是减号）、“读原文”、原文的标题
+    await expect(original.locator('summary .fold-label')).toHaveText('读原文');
+    await expect(original.locator('summary')).toContainText('读原文');
     await expect(original.locator('.original-text')).toBeHidden();
     await original.locator('summary').click();
     await expect(original.locator('.original-date')).toBeVisible();
@@ -945,7 +948,8 @@ test('从目录进一站再回目录：沙盘摆出来，离开时拿走', async
   await expect(page.locator('.strip')).toHaveCount(0);
 });
 
-// 窗口不到 960 像素宽时沙盘在上、文字在下。标准的画面里这样排的是竖着拿的平板（768×1024）；手机不在考虑之内，不查。
+// 窗口不到 960 像素宽、或者是竖着的（高不小于宽）时，沙盘在上、文字在下。标准的画面里这样排的是竖着拿的平板（768×1024），
+// 和竖着拿的大平板（1024×1366，在 large-upright.spec.ts 里查）；手机不在考虑之内，不查。
 test.describe('竖着拿的平板（768×1024）', () => {
   test.use({ viewport: { width: 768, height: 1024 } });
 
@@ -972,7 +976,7 @@ test.describe('竖着拿的平板（768×1024）', () => {
     await expect(line).not.toBeEmpty();
     expect(await shownInFull(line)).toBe(true);
     expect(await rowsOf(line)).toBe(1);
-    // 说明：这一栏有 560 像素以上宽，用的是最多两行的那一种写法（不是很窄的栏上一行的短写法），整句看得见，没有被截掉。
+    // 说明：这一栏有 584 像素以上宽，用的是最多两行的那一种写法（不是很窄的栏上一行的短写法），整句看得见，没有被截掉。
     const note = caption.locator('.stage-note-short');
     await expect(note).toBeVisible();
     await expect(caption.locator('.stage-note-brief')).toBeHidden();
@@ -1205,7 +1209,7 @@ test.describe('系统设置了“减少动态效果”', () => {
   //   1024×768  平板横放：沙盘栏 584 宽，栏宽的排法里最窄的一档
   //   1180×820  大一些的平板横放
   //   768×1024  平板竖放：沙盘在上，栏和屏幕一样宽
-  //   360×740   很窄的栏（不到 560 像素宽）：题记和说明用短写法的那一种。不是为手机调什么，只是短写法要有一处查
+  //   360×740   很窄的栏（不到 584 像素宽）：题记和说明用短写法的那一种。不是为手机调什么，只是短写法要有一处查
   for (const size of [
     { width: 1024, height: 768 },
     { width: 1180, height: 820 },
@@ -1219,7 +1223,7 @@ test.describe('系统设置了“减少动态效果”', () => {
       const pane = stagePane(page);
       const caption = pane.locator('.stage-caption');
       const paneBox = (await pane.boundingBox())!;
-      const wide = paneBox.width >= 560;
+      const wide = paneBox.width >= STRIP_NARROW_BELOW_PX;
       const start = await captionHeightAndInsets(page);
       // 题记这一块不到沙盘栏的三分之一高。
       expect(start.height).toBeLessThan(paneBox.height / 3);

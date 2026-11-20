@@ -275,7 +275,7 @@ describe('沙盘栏 + 替身 + 题签层', () => {
     expect(attr(page.pane(), 'data-stage-state')).toBe('lost');
     expect(attr(page.pane(), 'data-stage-picture')).toBe('none');
     expect(attr(page.pane(), 'data-stage-section')).toBeNull();
-    expect(page.pane().className).toBe('stage-pane is-pinned');
+    expect(page.pane().className).toBe('stage-pane is-pinned is-wide is-kai');
     expect(page.q('.stage-says')).toBe(says);
     expect(page.q('.stage-says .stage-message p')?.textContent).toBe('沙盘的画面断了。');
     expect(page.q('.fake-stage')).toBeNull();
@@ -301,6 +301,39 @@ describe('沙盘栏 + 替身 + 题签层', () => {
     expect(page.container.childNodes).toHaveLength(0);
     expect(warn.mock.calls.some((call) => String(call[0]).includes('画面断了'))).toBe(true);
     warn.mockRestore();
+  });
+
+  it('栏的宽窄记在栏上：连边线 584 像素起挂 is-wide，栏里面 661 像素起再挂 is-kai，栏里面的宽度写成 --pane-w；窗口的大小变了就重写，重画也冲不掉；栏窄了比例尺换一段短的', { timeout: 30_000 }, async () => {
+    const page = await mount('?stage=fake');
+    const fake = () => page.q('.fake-stage')!;
+    await page.until(() => attr(page.pane(), 'data-stage-state') === 'ready');
+    const shape = () => ({ cls: page.pane().className, w: page.pane().style.getPropertyValue('--pane-w'), scale: page.q('.stage-scale-label')?.textContent, bar: page.q('.stage-scale-bar')?.style.width });
+    // 假的页面上这一栏 800 像素宽：宽的排法，题记用楷体；比例尺是沙盘报来的那一段。
+    expect(shape()).toEqual({ cls: 'stage-pane is-pinned is-wide is-kai', w: '800px', scale: '2 公里', bar: '96px' });
+    // 把栏改成这么宽，再告诉页面窗口的大小变了。
+    const resizeTo = async (width: number) => {
+      page.pane().box.width = width;
+      const before = Number(attr(fake(), 'data-fake-resizes'));
+      win.fire('resize');
+      await page.until(() => Number(attr(fake(), 'data-fake-resizes')) > before);
+    };
+    // 660：还是宽的排法，题记不到 16px，不用楷体。
+    await resizeTo(660);
+    expect(shape()).toEqual({ cls: 'stage-pane is-pinned is-wide', w: '660px', scale: '2 公里', bar: '96px' });
+    await resizeTo(661);
+    expect(shape().cls).toBe('stage-pane is-pinned is-wide is-kai');
+    // 584：宽的排法的下限（横着拿的平板）。583：窄的排法，比例尺换成不超过 56 像素的一段。
+    await resizeTo(584);
+    expect(shape()).toEqual({ cls: 'stage-pane is-pinned is-wide', w: '584px', scale: '2 公里', bar: '96px' });
+    await resizeTo(583);
+    expect(shape()).toEqual({ cls: 'stage-pane is-pinned', w: '583px', scale: '1 公里', bar: '48px' });
+    // 重画会把类名整个重写（收起、展开）：重画完，栏的宽窄还记在上面。
+    await resizeTo(700);
+    await act(async () => page.q('.stage-fold')!.click());
+    expect(page.pane().className).toBe('stage-pane is-pinned is-folded is-wide is-kai');
+    await act(async () => page.q('.stage-fold')!.click());
+    expect(shape()).toEqual({ cls: 'stage-pane is-pinned is-wide is-kai', w: '700px', scale: '2 公里', bar: '96px' });
+    await page.unmount();
   });
 
   it('第一个画面摆好了、还没报告“摆好了”的空当里读到了第二节：报告摆好的时候，沙盘栏说的还是第一节，到了才换', { timeout: 30_000 }, async () => {
@@ -333,7 +366,7 @@ describe('沙盘栏 + 替身 + 题签层', () => {
     await page.until(() => attr(page.pane(), 'data-stage-state') === 'failed');
     expect(attr(page.pane(), 'data-stage-state')).toBe('failed');
     expect(attr(page.pane(), 'data-stage-section')).toBeNull();
-    expect(page.pane().className).toBe('stage-pane');
+    expect(page.pane().className).toBe('stage-pane is-wide is-kai');
     expect(page.q('.stage-says .stage-message p')?.textContent).toBe('沙盘没能摆出来，正文可以照常读。');
     expect(page.q('.stage-retry')?.textContent).toBe('再试一次');
     expect(page.q('.stage-controls')).toBeNull();

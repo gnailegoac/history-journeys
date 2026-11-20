@@ -10,12 +10,15 @@
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "validate": "vitest run tests/content",
-    "test": "vitest run tests/unit tests/stage tests/fonts tests/tools/bake-ground.test.ts tests/tools/make-fonts.test.ts",
+    "test": "vitest run tests/unit tests/stage tests/fonts tests/tools/bake-ground.test.ts tests/tools/make-fonts.test.ts tests/tools/route-tools.test.ts",
     "test:e2e": "playwright test",
     "check:size": "vitest run tests/build --silent=false",
     "check": "npm run typecheck && npm run validate && npm run test && npm run build && npm run check:size",
     "bake": "vitest run tests/tools/bake-ground.test.ts --mode bake --reporter=verbose",
     "fonts": "vitest run tests/tools/make-fonts.test.ts --mode fonts --reporter=verbose",
+    "route:terrain": "vitest run tests/tools/route-tools.test.ts --mode terrain --reporter=verbose",
+    "route:today": "vitest run tests/tools/route-tools.test.ts --mode today --reporter=verbose",
+    "route:map": "vitest run tests/tools/route-tools.test.ts --mode map --reporter=verbose",
     "stills": "playwright test -c playwright.stills.config.ts"
   },
   "dependencies": {

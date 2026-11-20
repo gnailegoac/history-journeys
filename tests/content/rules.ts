@@ -1,12 +1,16 @@
-// 内容校验规则：docs/data-spec.md 的十八条，加上“格式”（文件读得出来、字段齐全、id 对得上）。
+// 内容校验规则：docs/data-spec.md 的那几条，加上“格式”（文件读得出来、字段齐全、id 对得上）。
 // 规则 1 到 9 和总的入口在这里；“格式”怎么查在 shape.ts；场景数据的规则 10 到 18 在 sceneRules.ts；
+// 全程沙盘的场景文件（写着 "level": "route" 的）走 routeRules.ts，规则的号码和站点沙盘一样，另有规则 20；
 // 大小的上限在 budgetRules.ts。
 // 全是纯函数：输入是读进内存的内容文件，输出是不合规格的地方。不读磁盘，也不依赖测试框架。
 
 import { annotate, BodyFormatError, bodyLength, parseBody } from '../../src/domain/body';
 import type { RawSection } from '../../src/domain/body';
-import type { StopScene } from '../../src/domain/scene';
+import { ROUTE_SCENE_ID } from '../../src/domain/scene';
+import type { RouteScene, StopScene, TableScene } from '../../src/domain/scene';
 import type { Figure, FigureCard, StopExtras, StopMeta } from '../../src/domain/types';
+import { MADE_FILES_PENDING } from '../support/pendingTables';
+import { checkRouteScene, checkRouteShape, checkStopPlaces, isRouteLevel } from './routeRules';
 import { checkBakedGround, checkRouteStill, checkScene, checkSceneShape, checkSectionStills, MADE_FILES_REQUIRED } from './sceneRules';
 import type { FileKeys, Measured, MeasuredPictures, SceneStop } from './sceneRules';
 import { anything, bool, checkShape, has, list, lngLatProblem, number, object, oneOf, optional, readJson, text, violation } from './shape';
@@ -35,7 +39,15 @@ export const RULE_NAMES = [
   '人物页的定格图',
   '先画好的地面',
   '每一小节的定格图',
+  '随站的字体',
+  '站的位置',
 ] as const;
+
+/**
+ * 号码在上面那张表里、却不归内容校验查的规则：规则 19（随站的字体）由 npm test 里的 tests/fonts/font-files.test.ts 查。
+ * npm run validate 逐条报告的时候跳过它们。
+ */
+export const RULES_CHECKED_ELSEWHERE: readonly number[] = [19];
 
 /** 正文字数的上下限（规则 4）。 */
 export const BODY_MIN = 800;
@@ -66,6 +78,7 @@ export function formatReport(violations: Violation[]): string {
  * keys 是工具做出来的图片各自的记号，都由调用的人从磁盘量好给进来；没有给的文件不查。
  * madeFilesRequired：是不是每座沙盘都必须有先画好的地面和每一小节的定格图（规则 17、18 的第一句）；
  * 不写就照 sceneRules.ts 的开关 MADE_FILES_REQUIRED。
+ * pending：这两样还没有做出来、暂时不要求有的沙盘（“人物/场景文件的名字”）；不写就照 tests/support/pendingTables.ts 的那张表。
  */
 export function validateContent(
   files: ContentFiles,
@@ -73,13 +86,14 @@ export function validateContent(
   pictures: MeasuredPictures = {},
   keys: FileKeys = {},
   madeFilesRequired: boolean = MADE_FILES_REQUIRED,
+  pending: readonly string[] = MADE_FILES_PENDING,
 ): Violation[] {
   const figureIds = new Set<string>();
   for (const path of Object.keys(files)) {
     const match = /^figures\/([^/]+)\//.exec(path);
     if (match) figureIds.add(match[1]);
   }
-  return [...checkIndex(files), ...[...figureIds].sort().flatMap((id) => validateFigure(files, id, sizes, pictures, keys, madeFilesRequired))];
+  return [...checkIndex(files), ...[...figureIds].sort().flatMap((id) => validateFigure(files, id, sizes, pictures, keys, madeFilesRequired, pending))];
 }
 
 // ---------------------------------------------------------------- 首页卡片
@@ -105,6 +119,9 @@ export function checkIndex(files: ContentFiles): Violation[] {
     }
     if (card.available && !has(files, `figures/${card.id}/figure.json`)) {
       out.push(violation(0, file, `[${i}].available`, `“${card.name}”标了可以点进去，但没有 figures/${card.id}/figure.json`));
+    } else if (card.available && !has(files, `figures/${card.id}/scenes/${ROUTE_SCENE_ID}.json`)) {
+      // 规则 16 的后半句：可以点进去的人物要有全程沙盘（人物页上摆的就是它）
+      out.push(violation(16, file, `[${i}].available`, `“${card.name}”标了可以点进去，但没有全程沙盘的场景文件 figures/${card.id}/scenes/${ROUTE_SCENE_ID}.json`));
     }
   });
   out.push(...findPlaceholders(cards, file, ''));
@@ -120,6 +137,7 @@ export function validateFigure(
   pictures: MeasuredPictures = {},
   keys: FileKeys = {},
   madeFilesRequired: boolean = MADE_FILES_REQUIRED,
+  pending: readonly string[] = MADE_FILES_PENDING,
 ): Violation[] {
   const dir = `figures/${figureId}`;
   const file = `${dir}/figure.json`;
@@ -143,16 +161,19 @@ export function validateFigure(
   for (const stop of figure.stops) {
     if (stop.status === 'complete') out.push(...validateStop(files, dir, stop));
   }
-  out.push(...validateScenes(files, sizes, dir, figure, { sizes, pictures, keys }, madeFilesRequired));
+  out.push(...validateScenes(files, sizes, dir, figure, { sizes, pictures, keys }, madeFilesRequired, pending));
   return out;
 }
 
 /**
  * 一位人物 scenes/ 里的每个场景文件：格式，规则 10 到 15，规则 9 在场景文件里的部分，
  * 再加上工具照着它做出来的两样（规则 17 先画好的地面，规则 18 每一小节的定格图）。
+ * 写着 "level": "route" 的是全程沙盘，格式和规则 10 到 15 走 routeRules.ts 的那一套，另查规则 20（站的位置）；
+ * 别的都当站点沙盘查。
  * 格式有问题的文件，其余规则先不查。规则 10 到 15 有问题的场景文件，规则 17、18 先不查：
  * 那两样是照着一份合格的场景做的，场景自己还不对的时候去对它们，同一处毛病会报成好几处。
- * measured 是从磁盘量好的三样（见 Measured）；madeFilesRequired 见 validateContent。
+ * measured 是从磁盘量好的三样（见 Measured）；madeFilesRequired、pending 见 validateContent：
+ * pending 里的沙盘不要求有那两样，已经有的照规则查。
  */
 export function validateScenes(
   files: ContentFiles,
@@ -161,8 +182,10 @@ export function validateScenes(
   figure: Figure,
   measured: Measured = { sizes },
   madeFilesRequired: boolean = MADE_FILES_REQUIRED,
+  pending: readonly string[] = MADE_FILES_PENDING,
 ): Violation[] {
   const out: Violation[] = [];
+  const figureId = dir.slice(dir.lastIndexOf('/') + 1);
   for (const file of Object.keys(files).sort()) {
     if (!file.startsWith(`${dir}/scenes/`)) continue;
     const match = /^([^/]+)\.json$/.exec(file.slice(`${dir}/scenes/`.length));
@@ -172,18 +195,34 @@ export function validateScenes(
       out.push(...read.violations);
       continue;
     }
-    const shape = checkSceneShape(read.data, file);
-    if (shape.length > 0) {
-      out.push(...shape);
-      continue;
+    let scene: TableScene;
+    let found: Violation[];
+    if (isRouteLevel(read.data)) {
+      const shape = checkRouteShape(read.data, file);
+      if (shape.length > 0) {
+        out.push(...shape);
+        continue;
+      }
+      const route = read.data as RouteScene;
+      scene = route;
+      found = checkRouteScene(route, file, { stops: figure.stops.map((stop) => stop.id) }, files, sizes);
+      out.push(...found, ...findPlaceholders(route, file, ''), ...checkStopPlaces(figure, `${dir}/figure.json`, route));
+    } else {
+      const shape = checkSceneShape(read.data, file);
+      if (shape.length > 0) {
+        out.push(...shape);
+        continue;
+      }
+      const stop = read.data as StopScene;
+      scene = stop;
+      found = checkScene(stop, file, sceneStop(files, dir, figure, match[1]), files, sizes);
+      out.push(...found);
+      out.push(...findPlaceholders(stop, file, ''));
     }
-    const scene = read.data as StopScene;
-    const found = checkScene(scene, file, sceneStop(files, dir, figure, match[1]), files, sizes);
-    out.push(...found);
-    out.push(...findPlaceholders(scene, file, ''));
     if (found.length > 0) continue;
-    out.push(...checkBakedGround(scene, dir, files, measured, madeFilesRequired));
-    out.push(...checkSectionStills(scene, dir, files, measured, madeFilesRequired));
+    const required = madeFilesRequired && !pending.includes(`${figureId}/${match[1]}`);
+    out.push(...checkBakedGround(scene, dir, files, measured, required));
+    out.push(...checkSectionStills(scene, dir, files, measured, required));
   }
   return out;
 }
@@ -215,13 +254,19 @@ export function checkCoordinates(figure: Figure, file: string): Violation[] {
   return out;
 }
 
-/** 规则 2 站点与轨迹：站的 id 不重复；legs 比 stops 少一个，并且依次首尾相连。 */
+/**
+ * 规则 2 站点与轨迹：站的 id 不重复，也不能叫 route（scenes/route.json、baked/route.*、stills/route-* 是全程沙盘的文件）；
+ * legs 比 stops 少一个，并且依次首尾相连。
+ */
 export function checkRoute(figure: Figure, file: string): Violation[] {
   const out: Violation[] = [];
   const { stops, legs } = figure;
   stops.forEach((stop, i) => {
     const first = stops.findIndex((s) => s.id === stop.id);
     if (first < i) out.push(violation(2, file, `stops[${i}].id`, `站的 id“${stop.id}”和第 ${first + 1} 站重复了`));
+    if (stop.id === ROUTE_SCENE_ID) {
+      out.push(violation(2, file, `stops[${i}].id`, `“${ROUTE_SCENE_ID}”不能做站的 id：scenes/${ROUTE_SCENE_ID}.json 是全程沙盘的场景文件，先画好的地面和定格图也用这个名字；换一个`));
+    }
   });
   const expected = Math.max(0, stops.length - 1);
   if (legs.length !== expected) {

@@ -1,5 +1,5 @@
 // 写、读 PNG 图片，只用 Node 自带的 zlib，不装别的库。
-// 写：只写 8 位灰度的（先画好的地面里“田的标记”那张图，npm run bake 用）。同样的像素每次写出同样的字节。
+// 写：8 位灰度的（先画好的地面里“田的标记”那张图，npm run bake 用）和 8 位彩色的（检查用的图）。同样的像素每次写出同样的字节。
 // 读：8 位、不隔行的灰度、灰度带透明、彩色、彩色带透明四种都读得了（测试里把写出来的图读回来对一对；浏览器截的图也是这几种）。
 // 只给 tests/ 里的程序用（在 Node 里跑）；src/ 里的程序不要用。
 
@@ -122,6 +122,41 @@ export function encodeGreyPng(pixels: Uint8Array, width: number, height: number)
 
   const parts = [Uint8Array.from(SIGNATURE), chunk('IHDR', header), chunk('IDAT', deflateSync(raw, { level: 9 })), chunk('IEND', new Uint8Array(0))];
   const file = new Uint8Array(parts.reduce((n, p) => n + p.length, 0));
+  let at = 0;
+  for (const part of parts) {
+    file.set(part, at);
+    at += part.length;
+  }
+  return file;
+}
+
+/**
+ * 把一张彩色图写成 PNG 文件的字节。pixels 是 width × height × 3 个字节（红、绿、蓝），逐行存，第 0 行在最上面。
+ * 给检查用的图用（全程沙盘从正上方看的检查图）：每一行都用“和左边的点比”这一种滤法，压缩力度 6，写得快。
+ * 读回来和写进去的一个字节不差。大小不对时抛出错误。
+ */
+export function encodeRgbPng(pixels: Uint8Array, width: number, height: number): Uint8Array {
+  if (!Number.isInteger(width) || !Number.isInteger(height) || width < 1 || height < 1) {
+    throw new Error(`图片的宽高不对：${width} × ${height}`);
+  }
+  if (pixels.length !== width * height * 3) {
+    throw new Error(`像素的个数不对：${width} × ${height} 的彩色图应该是 ${width * height * 3} 个字节，实际是 ${pixels.length} 个`);
+  }
+  const stride = width * 3 + 1;
+  const raw = new Uint8Array(stride * height);
+  for (let y = 0; y < height; y++) {
+    const row = pixels.subarray(y * width * 3, (y + 1) * width * 3);
+    raw[y * stride] = 1;
+    for (let x = 0; x < row.length; x++) raw[y * stride + 1 + x] = (row[x] - (x >= 3 ? row[x - 3] : 0)) & 0xff;
+  }
+  const header = new Uint8Array(13);
+  const view = new DataView(header.buffer);
+  view.setUint32(0, width);
+  view.setUint32(4, height);
+  header[8] = 8; // 每个点每种颜色 8 位
+  header[9] = 2; // 彩色
+  const parts = [Uint8Array.from(SIGNATURE), chunk('IHDR', header), chunk('IDAT', deflateSync(raw, { level: 6 })), chunk('IEND', new Uint8Array(0))];
+  const file = new Uint8Array(parts.reduce((n, part) => n + part.length, 0));
   let at = 0;
   for (const part of parts) {
     file.set(part, at);

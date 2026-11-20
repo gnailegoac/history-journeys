@@ -23,6 +23,12 @@ export const PICTURE_EDGE_MAX = 2048;
 
 /** 先画好的颜色压成 JPEG 以后，和原来比的清晰度（psnr，分贝）最低多少。 */
 export const COLOUR_PSNR_MIN = 40;
+/**
+ * 全程沙盘的那一张另有一个数。它有三百多万个点，山上是两个点宽的细纹：要到 40 分贝，文件得有 1.5 MB 上下，一座沙盘的文件就放不下了。
+ * 所以定在“浏览器照定下的质量压出来的清晰度，再低一分贝”：质量 0.90 时量到 37.05 分贝
+ *（实测的数写在 tests/tools/bake-ground.test.ts 的 JPEG_QUALITY_ROUTE 上面）。
+ */
+export const COLOUR_PSNR_MIN_ROUTE = 36;
 
 // ---------------------------------------------------------------- 随站的字体
 
@@ -56,6 +62,11 @@ export const DIST_WARN_BYTES = 500 * 1024 * 1024;
 /** 构建清单里，页面的入口和沙盘程序各叫什么（清单的键是源文件的路径）。 */
 export const PAGE_ENTRY = 'index.html';
 export const ENGINE_ENTRY = 'src/stage/three/engine.ts';
+/**
+ * 全程沙盘才用的那一块程序在清单里叫什么。摆全程沙盘时才用动态 import 取它（src/stage/index.ts），所以它不在沙盘程序静态引入的东西里；
+ * 不另算的话，全程沙盘的程序就挪到了哪一条上限都看不见的地方。
+ */
+export const ROUTE_ENTRY = 'src/stage/three/routeLevel.ts';
 /** 沙盘用到的文件（地形文件、先画好的地面、定格图）的网址那一块在清单里叫什么。它要用到时才下载，不能进页面那一块。 */
 export const FILE_URLS_ENTRY = 'src/domain/sceneFileUrls.ts';
 
@@ -97,9 +108,9 @@ export function edgeTooLong(width: number, height: number): boolean {
   return width > PICTURE_EDGE_MAX || height > PICTURE_EDGE_MAX;
 }
 
-/** 颜色那张图压得是不是太狠了（清晰度不到 40 分贝）。 */
-export function psnrTooLow(psnr: number): boolean {
-  return psnr < COLOUR_PSNR_MIN;
+/** 颜色那张图压得是不是太狠了（清晰度不到最低的数；不写是站点沙盘的 40 分贝，全程沙盘写 COLOUR_PSNR_MIN_ROUTE）。 */
+export function psnrTooLow(psnr: number, min: number = COLOUR_PSNR_MIN): boolean {
+  return psnr < min;
 }
 
 /** 一座沙盘的三个文件加起来多大，超没超 1.5 MB（过了八成是 warn）。 */
@@ -200,6 +211,15 @@ export interface ProgramSizes {
    * 清单里没有沙盘程序这一项时是 null。
    */
   engine: FileGroup | null;
+  /**
+   * 全程沙盘另外要下载的程序：全程沙盘那一块和它静态引入的各块，页面和沙盘程序已经带着的不重复算。
+   * 清单里没有这一项时是 null（还没有全程沙盘的程序，或者它被打进了别的块）。
+   */
+  route: FileGroup | null;
+  /** 全程沙盘那一块在清单里是不是标着“用到时才下载”。 */
+  routeIsDynamic: boolean;
+  /** 全程沙盘那一块是不是成了沙盘程序一来就带着的东西（沙盘程序静态引入了它）：站点沙盘的页面就白下载了它。 */
+  routeInEngine: boolean;
   /** 沙盘程序是不是成了页面一打开就下载的东西（页面静态引入了它）。 */
   engineInPage: boolean;
   /** 沙盘程序在清单里是不是标着“用到时才下载”。 */
@@ -219,11 +239,16 @@ export function programSizes(manifest: BuildManifest, gzipOf: (file: string) => 
   const pageFiles = unique(pageKeys.map((key) => manifest[key].file));
   const styleFiles = unique(pageKeys.flatMap((key) => manifest[key].css ?? []));
   const engineFiles = unique(engineKeys.filter((key) => !pageKeys.includes(key)).map((key) => manifest[key].file));
+  const routeKeys = staticClosure(manifest, ROUTE_ENTRY);
+  const routeFiles = unique(routeKeys.filter((key) => !pageKeys.includes(key) && !engineKeys.includes(key)).map((key) => manifest[key].file)).filter((file) => !pageFiles.includes(file) && !engineFiles.includes(file));
 
   return {
     page: pageKeys.length > 0 ? group(pageFiles) : null,
     style: group(styleFiles),
     engine: engineKeys.length > 0 ? group(engineFiles) : null,
+    route: routeKeys.length > 0 ? group(routeFiles) : null,
+    routeIsDynamic: manifest[ROUTE_ENTRY]?.isDynamicEntry === true,
+    routeInEngine: engineKeys.includes(ROUTE_ENTRY) || pageKeys.includes(ROUTE_ENTRY),
     engineInPage: pageKeys.includes(ENGINE_ENTRY),
     engineIsDynamic: manifest[ENGINE_ENTRY]?.isDynamicEntry === true,
   };
@@ -260,6 +285,15 @@ export function programReport(sizes: ProgramSizes, distBytes: number): SizeRepor
   } else {
     if (!sizes.engineIsDynamic) report.fails.push(`沙盘程序（${ENGINE_ENTRY}）在构建清单里没有标成“用到时才下载”`);
     row('沙盘程序（压缩以后）', sizes.engine.gzip, ENGINE_GZIP_MAX, ENGINE_GZIP_WARN, '字节', sizes.engine.files);
+    // 全程沙盘另外的程序：单印一行（它自己没有上限），再和沙盘程序加在一起查——上限说的是“摆一座沙盘，读者要下载多少程序”：
+    // 站点沙盘是沙盘程序，全程沙盘是沙盘程序加上这一块，两样都不能超过同一个数
+    if (sizes.routeInEngine) {
+      report.fails.push(`全程沙盘那一块程序（${ROUTE_ENTRY}）成了沙盘程序一来就带着的东西：只能用动态 import 取它（src/stage/index.ts 的 loadStageEngine）`);
+    } else if (sizes.route) {
+      if (!sizes.routeIsDynamic) report.fails.push(`全程沙盘那一块程序（${ROUTE_ENTRY}）在构建清单里没有标成“用到时才下载”`);
+      report.lines.push(`全程沙盘另外的程序（压缩以后）：${withCommas(sizes.route.gzip)} 字节（没有单独的上限，和沙盘程序加在一起查）　${sizes.route.files.join('、')}`);
+      row('摆全程沙盘要下载的程序：沙盘程序加上全程沙盘另外的（压缩以后）', sizes.engine.gzip + sizes.route.gzip, ENGINE_GZIP_MAX, ENGINE_GZIP_WARN, '字节');
+    }
   }
 
   row('整个 dist/', distBytes, DIST_MAX_BYTES, DIST_WARN_BYTES, '字节');

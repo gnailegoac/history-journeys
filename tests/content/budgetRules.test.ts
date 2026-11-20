@@ -4,9 +4,11 @@
 import { describe, expect, it } from 'vitest';
 import {
   COLOUR_PSNR_MIN,
+  COLOUR_PSNR_MIN_ROUTE,
   DIST_MAX_BYTES,
   DIST_WARN_BYTES,
   ENGINE_ENTRY,
+  ROUTE_ENTRY,
   ENGINE_GZIP_MAX,
   ENGINE_GZIP_WARN,
   FONT_FILE_MAX_BYTES,
@@ -100,6 +102,13 @@ describe('定格图、图片的边、颜色的清晰度', () => {
     expect(psnrTooLow(40)).toBe(false);
     expect(psnrTooLow(39.99)).toBe(true);
     expect(psnrTooLow(41.4)).toBe(false);
+    // 全程沙盘的那一张另有一个数：浏览器照 0.90 压出来是 37.05 分贝，定在低一分贝
+    expect(COLOUR_PSNR_MIN_ROUTE).toBe(36);
+    expect(psnrTooLow(37.05, COLOUR_PSNR_MIN_ROUTE)).toBe(false);
+    expect(psnrTooLow(36, COLOUR_PSNR_MIN_ROUTE)).toBe(false);
+    expect(psnrTooLow(35.99, COLOUR_PSNR_MIN_ROUTE)).toBe(true);
+    // 站点沙盘的数没有跟着松：37 分贝在站点沙盘上还是太狠
+    expect(psnrTooLow(37.05)).toBe(true);
   });
 });
 
@@ -263,6 +272,55 @@ describe('程序的下载量对着上限查', () => {
     const noPage = manifestLikeToday();
     delete noPage[PAGE_ENTRY];
     expect(report(noPage).fails).toEqual(['构建清单里没有页面的入口（index.html）']);
+  });
+});
+
+describe('全程沙盘另外的那一块程序', () => {
+  /** 和现在的构建一个样子，再添上全程沙盘那一块：沙盘程序用到时才取它；它静态引入沙盘程序（共用的东西在那边）和自己的一小块。 */
+  function withRoute(): BuildManifest {
+    const manifest = manifestLikeToday();
+    manifest[ENGINE_ENTRY].dynamicImports = [ROUTE_ENTRY];
+    manifest[ROUTE_ENTRY] = { file: 'assets/routeLevel-g.js', isDynamicEntry: true, imports: [ENGINE_ENTRY, '_lines-h.js'] };
+    manifest['_lines-h.js'] = { file: 'assets/lines-h.js' };
+    return manifest;
+  }
+  const WITH_ROUTE = { ...TODAY, 'assets/routeLevel-g.js': 2_100, 'assets/lines-h.js': 6_500 };
+  const report = (manifest: BuildManifest, table: Record<string, number> = WITH_ROUTE) => programReport(programSizes(manifest, sizesOf(table)), DIST_TODAY);
+
+  it('它自己和它另外带的小块算一组，页面和沙盘程序已经带着的不重复算；沙盘程序那一组不因为它变大', () => {
+    const sizes = programSizes(withRoute(), sizesOf(WITH_ROUTE));
+    expect(sizes.route).toEqual({ files: ['assets/routeLevel-g.js', 'assets/lines-h.js'], gzip: 8_600 });
+    expect(sizes.engine).toEqual({ files: ['assets/engine-b.js', 'assets/strips-c.js'], gzip: 198_600 });
+    expect(sizes.routeIsDynamic).toBe(true);
+    expect(sizes.routeInEngine).toBe(false);
+    // 清单里没有这一块：null，不算出错（查真的构建时另有一项管它在不在）
+    expect(programSizes(manifestLikeToday(), sizesOf(TODAY)).route).toBeNull();
+  });
+
+  it('表里多两行：它自己多大，和沙盘程序加在一起多大；加在一起对着沙盘程序的上限查', () => {
+    const found = report(withRoute());
+    expect(found.fails).toEqual([]);
+    expect(found.lines).toContain('全程沙盘另外的程序（压缩以后）：8,600 字节（没有单独的上限，和沙盘程序加在一起查）　assets/routeLevel-g.js、assets/lines-h.js');
+    expect(found.lines).toContain('摆全程沙盘要下载的程序：沙盘程序加上全程沙盘另外的（压缩以后）：207,200 字节，上限 230,000（用了 90%）');
+  });
+
+  it('沙盘程序自己没有超，加上全程沙盘那一块超了：不合格；正好 230,000 合格', () => {
+    const over = report(withRoute(), { ...WITH_ROUTE, 'assets/lines-h.js': 6_500 + (ENGINE_GZIP_MAX - 207_200) + 1 });
+    expect(over.fails).toEqual(['摆全程沙盘要下载的程序：沙盘程序加上全程沙盘另外的（压缩以后）有 230,001 字节，超过了上限 230,000']);
+    const exact = report(withRoute(), { ...WITH_ROUTE, 'assets/lines-h.js': 6_500 + (ENGINE_GZIP_MAX - 207_200) });
+    expect(exact.fails).toEqual([]);
+  });
+
+  it('沙盘程序静态引入了它（站点沙盘的页面也得下载它）、它没有标成“用到时才下载”：都不合格', () => {
+    const inEngine = withRoute();
+    inEngine[ENGINE_ENTRY].imports = [PAGE_ENTRY, '_strips-c.js', ROUTE_ENTRY];
+    inEngine[ROUTE_ENTRY].imports = ['_lines-h.js'];
+    const found = report(inEngine);
+    expect(found.fails).toHaveLength(1);
+    expect(found.fails[0]).toContain('成了沙盘程序一来就带着的东西');
+    const notDynamic = withRoute();
+    delete notDynamic[ROUTE_ENTRY].isDynamicEntry;
+    expect(report(notDynamic).fails).toEqual(['全程沙盘那一块程序（src/stage/three/routeLevel.ts）在构建清单里没有标成“用到时才下载”']);
   });
 });
 

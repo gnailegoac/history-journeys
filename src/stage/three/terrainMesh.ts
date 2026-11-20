@@ -5,11 +5,17 @@
 // 和样张不一样的一处：“这里有没有田”不再跟着颜色走（颜色那张图的第四个字节），单独是一张贴图（uFields）。
 // 制作时先画好的地面是两张图片（颜色是 JPEG，带不了第四个字节）；沙盘打开时现画的，也拆成两张贴图。
 // 所以着色器只有一种读法，两条路画出来的是同一种东西。
+//
+// 全程沙盘也用这一块板，三处不一样，都是传进来的（不传就是站点沙盘原来的样子）：
+//   marks 写 ripples：第二张图标的不是田，是“这里画不画水纹、画多重”（海和湖是画在地面上的，水纹由着色器现画）；
+//   underWater 写 false：顶点不取附近的最低值（那是为了不顶破水面；全程沙盘没有水面，取了反倒把每条山脊削掉一格）；
+//   segmentM：网格多少米一格。
 
 import {
   BufferAttribute,
   BufferGeometry,
   CanvasTexture,
+  Color,
   DataTexture,
   DoubleSide,
   Float32BufferAttribute,
@@ -25,6 +31,8 @@ import {
   SRGBColorSpace,
   Texture,
   UnsignedByteType,
+  Vector2,
+  type IUniform,
 } from 'three';
 import type { FrameCoords } from '../../domain/sceneGeo';
 import type { GroundPaint, GroundSamplers, Vec2 } from '../ground/types';
@@ -32,6 +40,7 @@ import { fieldBytes } from './groundPaint';
 import type { GroundPaintSource } from './groundPaint';
 import { disposeTree } from './host';
 import type { StageStyle } from './internal';
+import { rippleGlsl } from './water';
 
 /** 地形板的底面在沙盘里的高度。 */
 export const BLOCK_BASE_Y = -170;
@@ -39,11 +48,11 @@ export const BLOCK_BASE_Y = -170;
 /** 地形板的网格大约多少米一格（样张是 58.5 × 59.1）。比高程的格子粗。 */
 const SEGMENT_M = 59;
 
-/** 地形板的网格横竖各分多少格。三角形数：上表面 sx × sz × 2，四边的切面 (sx + sz) × 4。 */
-export function terrainGrid(coords: FrameCoords): { sx: number; sz: number } {
+/** 地形板的网格横竖各分多少格。三角形数：上表面 sx × sz × 2，四边的切面 (sx + sz) × 4。segmentM 不写是站点沙盘的 59。 */
+export function terrainGrid(coords: FrameCoords, segmentM: number = SEGMENT_M): { sx: number; sz: number } {
   return {
-    sx: Math.max(2, Math.round((coords.x1 - coords.x0) / SEGMENT_M)),
-    sz: Math.max(2, Math.round((coords.z1 - coords.z0) / SEGMENT_M)),
+    sx: Math.max(2, Math.round((coords.x1 - coords.x0) / segmentM)),
+    sz: Math.max(2, Math.round((coords.z1 - coords.z0) / segmentM)),
   };
 }
 
@@ -97,6 +106,25 @@ vec3 fieldPaint(vec3 base, vec2 w, float mask){
 }
 `;
 
+/**
+ * 全程沙盘的地面用的那一段着色器：第二张图（还叫 uFields）标的是“这里画不画水纹、画多重”，
+ * 水纹用水面的那几个函数现画，盖在画好的颜色上。spacingPx 是相邻两道水纹隔多少个页面像素。
+ */
+function rippleMarkGlsl(spacingPx: number): string {
+  return /* glsl */ `
+varying vec3 vWPos;
+uniform sampler2D uFields;
+uniform vec3 uFoam;
+uniform float uTime;
+uniform float uDense;
+uniform vec2 uRipRot;
+uniform float uPx;
+${rippleGlsl(spacingPx)}`;
+}
+
+/** 水纹最重的地方盖上去几成（定稿的样张是 0.66）。 */
+const RIPPLE_STRENGTH = '0.66';
+
 export interface TerrainMeshInput {
   /** 取地面高度用。 */
   samplers: GroundSamplers;
@@ -112,12 +140,22 @@ export interface TerrainMeshInput {
   style: StageStyle;
   /** 显卡最多支持几倍的各向异性过滤（renderer.capabilities.getMaxAnisotropy()）。 */
   maxAnisotropy: number;
+  /** 第二张图标的是什么：fields 是田（不写就是它），ripples 是水纹（全程沙盘）。 */
+  marks?: 'fields' | 'ripples';
+  /** 顶点要不要取附近的最低值，好不顶破水面。不写是要；全程沙盘没有水面，写 false。 */
+  underWater?: boolean;
+  /** 网格大约多少米一格。不写是 59。 */
+  segmentM?: number;
+  /** marks 是 ripples 时：相邻两道水纹隔多少个页面像素。不写是 8。 */
+  ripplePx?: number;
 }
 
 export interface TerrainMesh {
   group: Group;
   top: Mesh;
   sides: Mesh;
+  /** 上表面的材质另挂的 uniform。marks 是 ripples 时里面有水纹的四样（uDense、uRipRot、uPx、uTime）。 */
+  uniforms: Record<string, IUniform>;
   /** 把形状、材质和贴图都放掉。 */
   dispose(): void;
 }
@@ -155,7 +193,8 @@ export function groundTextures(paint: GroundPaint | GroundPaintSource, maxAnisot
 export function buildTerrainMesh(input: TerrainMeshInput): TerrainMesh {
   const { samplers, paint, coords, style } = input;
   const group = new Group();
-  const { sx: SX, sz: SZ } = terrainGrid(coords);
+  const { sx: SX, sz: SZ } = terrainGrid(coords, input.segmentM);
+  const ripples = input.marks === 'ripples';
   const W = coords.x1 - coords.x0;
   const D = coords.z1 - coords.z0;
 
@@ -163,6 +202,7 @@ export function buildTerrainMesh(input: TerrainMeshInput): TerrainMesh {
   const around: Vec2[] = [[22, 0], [-22, 0], [0, 22], [0, -22], [22, 22], [-22, 22], [22, -22], [-22, -22]];
   const heightAtVertex = (x: number, z: number): number => {
     let m = samplers.height(x, z);
+    if (input.underWater === false) return m;
     for (const [dx, dz] of around) m = Math.min(m, samplers.height(x + dx, z + dz));
     return m;
   };
@@ -218,19 +258,30 @@ export function buildTerrainMesh(input: TerrainMeshInput): TerrainMesh {
 
   // 田的标记不是这种材质自己认得的贴图，另挂在材质的 uniforms 上：
   // 放掉材质时（host.ts 的 disposeMaterial）、数贴图有多大时，都从这里找得到它。
-  const mat = Object.assign(new MeshLambertMaterial({ map, normalMap: nrm, normalMapType: ObjectSpaceNormalMap }), {
-    uniforms: { uFields: { value: fields } },
-  });
+  const uniforms: Record<string, IUniform> = { uFields: { value: fields } };
+  if (ripples) {
+    uniforms.uFoam = { value: new Color(style.palette.ripple) };
+    uniforms.uTime = { value: 0 };
+    uniforms.uDense = { value: 0.5 };
+    uniforms.uRipRot = { value: new Vector2(1, 0) };
+    uniforms.uPx = { value: 1 };
+  }
+  const mat = Object.assign(new MeshLambertMaterial({ map, normalMap: nrm, normalMapType: ObjectSpaceNormalMap }), { uniforms });
   mat.onBeforeCompile = (sh) => {
-    sh.uniforms.uFields = mat.uniforms.uFields;
+    Object.assign(sh.uniforms, uniforms);
     sh.vertexShader = sh.vertexShader
       .replace('#include <common>', '#include <common>\nvarying vec3 vWPos;')
       .replace('#include <begin_vertex>', '#include <begin_vertex>\nvWPos = (modelMatrix * vec4(transformed, 1.0)).xyz;');
     sh.fragmentShader = sh.fragmentShader
-      .replace('#include <common>', '#include <common>\n' + FIELD_GLSL)
+      .replace('#include <common>', '#include <common>\n' + (ripples ? rippleMarkGlsl(input.ripplePx ?? 8) : FIELD_GLSL))
       .replace(
         '#include <map_fragment>',
-        /* glsl */ `
+        ripples
+          ? /* glsl */ `
+        vec4 texel = texture2D(map, vMapUv);
+        diffuseColor.rgb *= mix(texel.rgb, uFoam, ripples(vWPos.xz) * texture2D(uFields, vMapUv).r * ${RIPPLE_STRENGTH});
+        `
+          : /* glsl */ `
         vec4 texel = texture2D(map, vMapUv);
         diffuseColor.rgb *= fieldPaint(texel.rgb, vWPos.xz, texture2D(uFields, vMapUv).r);
         `,
@@ -291,7 +342,7 @@ export function buildTerrainMesh(input: TerrainMeshInput): TerrainMesh {
   sides.castShadow = true;
   group.add(sides);
 
-  return { group, top, sides, dispose: () => disposeTree(group) };
+  return { group, top, sides, uniforms, dispose: () => disposeTree(group) };
 }
 
 function layerTexture(): CanvasTexture {

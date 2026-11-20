@@ -26,6 +26,7 @@ import type { StopScene } from '../../src/domain/scene';
 import { stripTexts } from '../../src/domain/sceneText';
 import type { StillManifest, StillShape, StillShapeSpec, StillShot } from '../../src/domain/stills';
 import type { StageReadout, StageShot } from '../../src/stage/types';
+import { includePendingFrom, tablesToMake } from '../support/pendingTables';
 import { decodePng } from '../support/png';
 import {
   SHAPE_PLANS,
@@ -455,10 +456,17 @@ function reviewSrc(path: string): string {
 
 // ---------------------------------------------------------------- 入口
 
-const found = tables();
+// 正在做、沙盘程序还画不出来的沙盘（tests/support/pendingTables.ts 的那张表）跳过；带着 INCLUDE_PENDING=1 跑才拍它们
+const every = tables();
+const wanted = tablesToMake(
+  every.map((table) => `${table.figureId}/${table.stopId}`),
+  includePendingFrom(env),
+);
+const found = every.filter((table) => wanted.make.includes(`${table.figureId}/${table.stopId}`));
 
 test('content/ 里找得到要拍的沙盘', () => {
-  expect(found.length).toBeGreaterThan(0);
+  expect(every.length).toBeGreaterThan(0);
+  for (const key of wanted.skipped) console.log(`[${key}] 在“还没做出来”的表里，这一次不拍（要拍它，带着 INCLUDE_PENDING=1 跑）。`);
 });
 
 for (const { figureId, stopId } of found) {

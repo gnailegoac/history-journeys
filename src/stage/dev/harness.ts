@@ -2,7 +2,8 @@
 // 不属于正式构建。按钮只用 StopStageView 接口里的东西，和正式页面的用法一样。
 // 拍定格图的工具（npm run stills）也是在这一页上拍的。
 //
-// 网址上可以带：?figure=su-shi&stop=xuzhou 看哪一站（不写就是这两个）；&section=水退以后 一开始摆哪一节；
+// 网址上可以带：?figure=su-shi&stop=xuzhou 看哪一站（不写就是这两个）；&stop=route 看这位人物的全程沙盘
+//（只有立体的沙盘程序摆得了它；题签和路还没有接上）；&section=水退以后 一开始摆哪一节；
 // &names=modern 题签用今天的名字；&reduced 不滑，直接换；
 // &tier=full 或 &tier=reduced 指定画质（不写由沙盘程序自己挑）；
 // &insets=62,130,130,130 四边各留出多少像素（上、右、下、左；不写是上 44、下 28）；
@@ -10,11 +11,11 @@
 // &bg=%23ebe3d3 页面的底色（沙盘的画布是透明的，四周露出来的就是它）；
 // &engine=still 不摆立体的沙盘，摆定格图（这一站要已经有定格图），用来在各种窗口大小上看定格图摆得对不对。
 
-import type { StopScene } from '../../domain/scene';
+import type { TableScene } from '../../domain/scene';
 import { loadStopTable } from '../../domain/sceneContent';
 import { sectionInfo } from '../../domain/sceneText';
 import { loadStageEngine, stillEngine } from '../index';
-import type { NamesMode, StageInsets, StageTier, StageViewInfo, StopStageView } from '../types';
+import type { NamesMode, StageInsets, StageTier, StageViewInfo, StopStageView, StopTable } from '../types';
 
 const params = new URLSearchParams(location.search);
 const figureId = params.get('figure') ?? 'su-shi';
@@ -96,7 +97,12 @@ function count(): void {
 }
 
 /** 沙盘旁边要印的字：这一节的时间和题记。生成不出来时只写小节的名字。 */
-function describe(heading: string, scene: StopScene): string {
+function describe(heading: string, scene: TableScene): string {
+  // 全程沙盘的说明下一步才从场景里生成：这里先照小节里写的印
+  if (scene.level === 'route') {
+    const section = scene.sections.find((s) => s.heading === heading);
+    return section ? `${section.heading}（${section.date}）${section.line}` : heading;
+  }
   try {
     const info = sectionInfo(scene, heading);
     return `${info.section}（${info.date}）${info.line}`;
@@ -118,7 +124,7 @@ function render(): void {
   );
 }
 
-let describeScene: StopScene | null = null;
+let describeScene: TableScene | null = null;
 /** 记着哪一次指令是最新的：被顶掉的那一次完成时不改页面上的字。 */
 let latest = 0;
 
@@ -151,16 +157,24 @@ async function mount(): Promise<void> {
     status.textContent = `这个浏览器画不出立体的沙盘（${support.reason}）`;
     return;
   }
-  describeScene = table.scene;
-  headings = table.scene.sections.map((s) => s.heading);
+  // 读内容的程序还只认站点沙盘（它给的类型写的是站点沙盘的场景）：route.json 读出来其实是全程沙盘，在这里认出来
+  const scene = table.scene as TableScene;
+  if (scene.level === 'route' && useStill) {
+    status.textContent = '全程沙盘还没有定格图';
+    return;
+  }
+  describeScene = scene;
+  headings = scene.sections.map((s) => s.heading);
   if (!headings.includes(current)) current = headings[0] ?? '';
   render();
   status.textContent = `${engineLine} · 沙盘正在摆出来，要等一会儿…`;
 
   const created = engine.create(
     container,
-    // 读到什么就交给沙盘什么：这一站有先画好的地面、有定格图的，一起带上，和正式页面摆出来的是同一座
-    { kind: 'stop', key: `${figureId}/${stopId}`, ...table },
+    // 读到什么就交给沙盘什么：这一站有先画好的地面、有定格图的，一起带上，和正式页面摆出来的是同一座。
+    // 全程沙盘交进去时 kind 写 route。StageEngine.create 的参数现在还写着站点沙盘（页面、定格图和替身都还只认它），
+    // 立体的沙盘程序自己两种都认（view.ts 的 createStopView）：所以这里转一下类型，等页面接上全程沙盘时一起放宽。
+    (scene.level === 'route' ? { ...table, kind: 'route', key: `${figureId}/${stopId}`, scene } : { kind: 'stop', key: `${figureId}/${stopId}`, ...table }) as StopTable,
     {
       namesMode,
       reducedMotion: params.has('reduced') || window.matchMedia('(prefers-reduced-motion: reduce)').matches,
@@ -190,7 +204,7 @@ async function mount(): Promise<void> {
     status.textContent = `沙盘没能摆出来：${error instanceof Error ? error.message : String(error)}`;
     throw error;
   }
-  sectionLine = describe(current, table.scene);
+  sectionLine = describe(current, scene);
   count();
 }
 

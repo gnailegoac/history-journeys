@@ -96,7 +96,7 @@ vi.mock('../../src/stage/three/terrainMesh', async (original) => {
     buildTerrainMesh: (input: TerrainMeshInput): TerrainMesh => {
       terrainInputs.push(input);
       if (realGround) return actual.buildTerrainMesh(input);
-      return { group: new Group(), top: new Mesh(), sides: new Mesh(), dispose() {} };
+      return { group: new Group(), top: new Mesh(), sides: new Mesh(), uniforms: {}, dispose() {} };
     },
   };
 });

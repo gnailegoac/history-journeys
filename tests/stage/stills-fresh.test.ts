@@ -14,6 +14,7 @@ import { describe, expect, it } from 'vitest';
 import { contentKey } from '../../src/domain/contentKey';
 import type { StillManifest } from '../../src/domain/stills';
 import type { Figure } from '../../src/domain/types';
+import { isPending } from '../support/pendingTables';
 import { pictureKey } from '../support/pictureKey';
 import { programKey } from '../support/programKey';
 import { fixtureStills } from '../support/stills-fixture';
@@ -25,10 +26,14 @@ const figures = import.meta.glob<Figure>('/content/figures/*/figure.json', { imp
 
 const COMMAND = '运行 STILLS_OUT=content/figures npm run stills（见 README），再提交。';
 
-/** content/ 里每一座站点沙盘：“人物/站”。 */
+/**
+ * content/ 里每一座沙盘：“人物/场景文件的名字”。定格图还没有做出来的那几座（tests/support/pendingTables.ts 的表）不在里面：
+ * 没有图，就没有旧不旧；从表里拿掉的那一天起这里就查它。
+ */
 const tables = Object.keys(sceneFiles)
   .map((path) => /^\/content\/figures\/([^/]+)\/scenes\/([^/]+)\.json$/.exec(path))
   .filter((m): m is RegExpExecArray => m !== null)
+  .filter((m) => !isPending(`${m[1]}/${m[2]}`))
   .map((m) => ({ figureId: m[1], stopId: m[2] }))
   .sort((a, b) => `${a.figureId}/${a.stopId}`.localeCompare(`${b.figureId}/${b.stopId}`));
 

@@ -1,13 +1,14 @@
 // 内容校验（npm run validate）：把 content/ 目录从磁盘读进来，
-// 按 docs/data-spec.md 的十八条规则检查每位人物、每一站、每一站的沙盘和工具照着沙盘做出来的文件，把不合规格的地方逐条列出来。
+// 按 docs/data-spec.md 的校验规则检查每位人物、每一站、每一站的沙盘和工具照着沙盘做出来的文件，把不合规格的地方逐条列出来。
 
 import { describe, expect, it } from 'vitest';
 import { fileSize, readBytes } from '../support/readBytes';
 import { TABLE_FILES_MAX_BYTES, megabytes, tableFiles } from './budgetRules';
 import { toContentFiles, toFileKeys, toFileSizes, toPictureSizes } from './files';
-import { formatReport, RULE_NAMES, validateContent } from './rules';
+import { formatReport, RULE_NAMES, RULES_CHECKED_ELSEWHERE, validateContent } from './rules';
 
-const texts = import.meta.glob<string>('/content/**/*.{json,md}', { query: '?raw', import: 'default', eager: true });
+// .geojson 是全程沙盘的“今天的海岸、湖、河”（scenes/route.today.geojson）：规则 10、15 要读它里面的名字和线。
+const texts = import.meta.glob<string>('/content/**/*.{json,md,geojson}', { query: '?raw', import: 'default', eager: true });
 const paths = Object.keys(import.meta.glob('/content/**/*'));
 // 地形文件、先画好的地面和定格图的大小从磁盘量（规则自己不读磁盘）。paths 里的路径以“/content/”开头，量的时候去掉开头的“/”。
 const sizes = toFileSizes('/content/', paths, (path) => fileSize(path.slice(1)));
@@ -23,6 +24,8 @@ const inContent = (pattern: RegExp): string[] => paths.filter((path) => pattern.
 
 describe('内容校验：content/ 目录', () => {
   RULE_NAMES.forEach((name, rule) => {
+    // 号码在表里、却不归这里查的（规则 19 随站的字体，由 npm test 查）不列出来，免得看着像是在这里查过了
+    if (RULES_CHECKED_ELSEWHERE.includes(rule)) return;
     it(rule === 0 ? name : `规则 ${rule} ${name}`, () => {
       const found = violations.filter((v) => v.rule === rule);
       if (found.length > 0) expect.fail(formatReport(found));

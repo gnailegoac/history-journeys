@@ -5,7 +5,16 @@ import { REVISION, type WebGLRenderer } from 'three';
 import { probeWebgl } from '../support';
 import type { StageEngine } from '../types';
 import { browserParts, createHost, type HostParts } from './host';
-import { createStopView, type BrowserHost } from './view';
+import { createStopView, type BrowserHost, type RouteLevelLoader } from './view';
+
+/**
+ * 全程沙盘那一块程序怎么取。沙盘程序自己不写那一句动态 import（缘故见 view.ts 的 RouteLevelLoader），
+ * 由取沙盘程序的那一边在取到以后交进来（src/stage/index.ts 的 loadStageEngine）。没有交的时候，摆全程沙盘会说摆不出来。
+ */
+let routeLevel: RouteLevelLoader | undefined;
+export function provideRouteLevel(load: RouteLevelLoader): void {
+  routeLevel = load;
+}
 
 /**
  * 造一个沙盘程序。里面只有一个画布主人：所有沙盘轮流用同一块画布、同一个渲染器；
@@ -44,7 +53,7 @@ export function createEngine(
     create(container, table, options) {
       // 页面没有先问 support 就来摆的，也要先知道浏览器是不是只能用软件画
       ask();
-      return createStopView(container, table, options, host);
+      return createStopView(container, table, options, host, undefined, routeLevel);
     },
   };
   return { engine, host };

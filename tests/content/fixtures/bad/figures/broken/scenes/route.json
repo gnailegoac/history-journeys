@@ -1,0 +1,482 @@
+{
+  "level": "route",
+  "stopId": "whole",
+  "style": "song-qinglv",
+  "credits": [
+    "地形：校验器用的假数据。"
+  ],
+  "sources": [
+    {
+      "id": "r1",
+      "basis": "own-words",
+      "cite": "示例先生《行记》"
+    },
+    {
+      "id": "r2",
+      "basis": "later",
+      "cite": "校验器编的今天的地图"
+    }
+  ],
+  "frame": {
+    "center": [
+      112,
+      29
+    ],
+    "projection": {
+      "kind": "lambert-conic",
+      "lat1": 27,
+      "lat2": 31
+    },
+    "scale": 20,
+    "westM": 300000,
+    "eastM": 300000,
+    "northM": 200000,
+    "southM": 200000,
+    "datumM": 0,
+    "relief": {
+      "kind": "low-hills-more",
+      "lowBelowM": 300,
+      "lowTimes": 25,
+      "power": 0.6,
+      "highTimes": 30
+    }
+  },
+  "terrain": {
+    "class": "real",
+    "basis": "山的位置和形状照高程网格。",
+    "sourceIds": [
+      "r2"
+    ],
+    "file": "route.terrain.bin",
+    "cols": 12,
+    "rows": 12,
+    "west": 108.5,
+    "east": 115.5,
+    "south": 26.9,
+    "north": 31.1,
+    "heightUnit": "dm",
+    "recipe": {
+      "class": "schematic",
+      "basis": "平原抹成缓坡；这几个数是设计上定的。",
+      "sourceIds": [],
+      "kind": "plain-smoothed",
+      "plainBelowM": 100,
+      "hillAboveM": 200,
+      "smoothM": 45000,
+      "plainKeep": 0.1,
+      "rippleM": [
+        15,
+        40
+      ],
+      "edgeTaperM": 20000,
+      "blank": []
+    },
+    "edits": [],
+    "note": "山的位置和形状是今天的。"
+  },
+  "water": {
+    "levels": {
+      "class": "today",
+      "basis": "海面画在海拔 0 米。",
+      "sourceIds": [
+        "r2"
+      ],
+      "note": "海面是一个平面。海岸、湖和河是照线画上去的。",
+      "values": {
+        "normal": 0
+      }
+    },
+    "todayFile": "today.json",
+    "coast": {
+      "name": "海岸",
+      "class": "today",
+      "basis": "照今天的数据画。",
+      "sourceIds": [
+        "r2"
+      ],
+      "note": "海岸是照今天画的，当时差多少没有查。"
+    },
+    "rivers": [
+      {
+        "id": "p-a",
+        "name": "重名的河",
+        "kind": "river",
+        "weight": "river",
+        "line": [
+          [
+            111.8,
+            29
+          ],
+          [
+            112.6,
+            29
+          ]
+        ],
+        "today": [
+          {
+            "names": [
+              "Long"
+            ]
+          }
+        ],
+        "class": "schematic",
+        "basis": "示意。",
+        "sourceIds": []
+      },
+      {
+        "id": "cut",
+        "name": "新渠",
+        "kind": "canal",
+        "weight": "minor",
+        "line": [
+          [
+            111.9,
+            29.2
+          ],
+          [
+            112.4,
+            28.9
+          ]
+        ],
+        "class": "schematic",
+        "basis": "示意。",
+        "sourceIds": []
+      }
+    ],
+    "lakes": [],
+    "washes": [
+      {
+        "id": "marsh",
+        "name": "大泽",
+        "areas": [
+          [
+            [
+              112.3,
+              29.3
+            ],
+            [
+              112.5,
+              29.3
+            ],
+            [
+              112.5,
+              29.2
+            ]
+          ]
+        ],
+        "class": "today",
+        "basis": "记里说有这片大水；多大、岸在哪没有依据。",
+        "sourceIds": [
+          "r2"
+        ]
+      }
+    ]
+  },
+  "places": [
+    {
+      "id": "p-a",
+      "name": "甲城",
+      "at": [
+        112.2,
+        29.1
+      ],
+      "stops": [
+        "a"
+      ],
+      "class": "today",
+      "basis": "按今天甲市的位置。",
+      "sourceIds": [
+        "r2"
+      ]
+    },
+    {
+      "id": "p-b",
+      "name": "乙城",
+      "at": [
+        111.5,
+        31
+      ],
+      "stops": [
+        "b"
+      ],
+      "class": "today",
+      "basis": "按今天乙市的位置。",
+      "sourceIds": [
+        "r2"
+      ]
+    },
+    {
+      "id": "p-c",
+      "name": "丙城",
+      "at": [
+        112.5,
+        28.8
+      ],
+      "stops": [
+        "c",
+        "d"
+      ],
+      "class": "today",
+      "basis": "按今天丙市的位置。",
+      "sourceIds": [
+        "r9"
+      ]
+    }
+  ],
+  "strips": [
+    {
+      "id": "s-a",
+      "text": "甲城",
+      "of": "p-a"
+    },
+    {
+      "id": "s-b",
+      "text": "乙城二",
+      "of": "p-b"
+    },
+    {
+      "id": "s-c",
+      "text": "丙城",
+      "of": "p-c"
+    },
+    {
+      "id": "s-none",
+      "text": "没有",
+      "of": "nothing"
+    },
+    {
+      "id": "s-far",
+      "text": "近处",
+      "of": "far-in",
+      "at": [
+        112,
+        29
+      ]
+    },
+    {
+      "id": "s-wash",
+      "text": "大泽",
+      "of": "marsh",
+      "at": [
+        112,
+        29.4
+      ]
+    },
+    {
+      "id": "s-river",
+      "text": "新渠",
+      "of": "cut",
+      "at": [
+        112.5,
+        29.4
+      ]
+    },
+    {
+      "id": "s-digit",
+      "text": "甲城1",
+      "of": "p-a"
+    }
+  ],
+  "far": [
+    {
+      "id": "far-in",
+      "name": "近处",
+      "at": [
+        112.1,
+        29
+      ],
+      "class": "today",
+      "basis": "",
+      "sourceIds": [
+        "r2"
+      ]
+    }
+  ],
+  "roads": {
+    "ways": [
+      {
+        "id": "w-1",
+        "by": "land",
+        "along": "nowhere",
+        "line": [
+          [
+            112.2,
+            29.1
+          ],
+          [
+            112.5,
+            28.8
+          ]
+        ]
+      },
+      {
+        "id": "w-2",
+        "by": "land",
+        "line": [
+          [
+            111.9,
+            29.3
+          ],
+          [
+            112,
+            29.2
+          ]
+        ]
+      },
+      {
+        "id": "w-unused",
+        "by": "sea",
+        "line": [
+          [
+            112,
+            28.7
+          ],
+          [
+            112.3,
+            28.7
+          ]
+        ]
+      }
+    ],
+    "journeys": [
+      {
+        "id": "j-a",
+        "name": "到甲城",
+        "stop": "a",
+        "date": "示例三年",
+        "parts": [
+          {
+            "name": "到甲城的路",
+            "ways": [
+              "w-2",
+              "w-1"
+            ],
+            "class": "real",
+            "basis": "示意。",
+            "sourceIds": [
+              "r2"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "j-x",
+        "name": "到不知道哪",
+        "stop": "x",
+        "date": "",
+        "parts": [
+          {
+            "name": "",
+            "ways": [
+              "w-9"
+            ],
+            "class": "schematic",
+            "basis": "示意。",
+            "sourceIds": []
+          }
+        ]
+      }
+    ]
+  },
+  "sections": [
+    {
+      "heading": "全程",
+      "date": "示例三年到五年",
+      "line": "三站。",
+      "camera": {
+        "target": [
+          112,
+          29
+        ],
+        "distanceM": 40000,
+        "pitch": 40,
+        "bearing": 0,
+        "mustShow": [
+          "frame",
+          "w-1"
+        ]
+      },
+      "strips": [
+        "s-a",
+        "s-c",
+        "s-a",
+        "s-gone"
+      ],
+      "explain": [
+        "recipe",
+        "nothing"
+      ],
+      "stop": "a"
+    },
+    {
+      "heading": "到甲城的那一段长路",
+      "date": "",
+      "line": "这一句题记写得不短，后面还要接上远处的那一句话，栏窄的时候两行就放不下了，要改。",
+      "camera": {
+        "target": [
+          116,
+          29
+        ],
+        "distanceM": 16000,
+        "pitch": 46,
+        "bearing": 0
+      },
+      "strips": [
+        "s-far",
+        "s-a"
+      ],
+      "explain": [
+        "j-x"
+      ],
+      "stop": "a"
+    },
+    {
+      "heading": "到乙城",
+      "date": "示例四年",
+      "line": "到乙城。",
+      "camera": {
+        "target": [
+          112,
+          29
+        ],
+        "distanceM": 16000,
+        "pitch": 46,
+        "bearing": 0
+      },
+      "strips": [],
+      "explain": [],
+      "stop": "b"
+    },
+    {
+      "heading": "到乙城",
+      "date": "示例四年",
+      "line": "",
+      "camera": {
+        "target": [
+          112,
+          29
+        ],
+        "distanceM": 16000,
+        "pitch": 46,
+        "bearing": 0
+      },
+      "strips": [
+        "s-b"
+      ],
+      "explain": [
+        "coast"
+      ],
+      "stop": "z"
+    }
+  ],
+  "notDrawn": [
+    {
+      "id": "gone",
+      "name": "",
+      "why": "",
+      "sourceIds": [
+        "r9"
+      ]
+    }
+  ]
+}

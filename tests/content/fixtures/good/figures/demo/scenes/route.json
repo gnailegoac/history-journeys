@@ -1,0 +1,729 @@
+{
+  "level": "route",
+  "stopId": "route",
+  "style": "song-qinglv",
+  "credits": [
+    "地形：校验器用的假数据，不是真的高程。",
+    "海岸、河、湖：校验器用的假数据，不是今天的地图。"
+  ],
+  "sources": [
+    {
+      "id": "r1",
+      "basis": "own-words",
+      "cite": "示例先生《行记》"
+    },
+    {
+      "id": "r2",
+      "basis": "later",
+      "cite": "校验器编的今天的地图"
+    }
+  ],
+  "frame": {
+    "center": [
+      112,
+      29
+    ],
+    "projection": {
+      "kind": "lambert-conic",
+      "lat1": 27,
+      "lat2": 31
+    },
+    "scale": 60,
+    "westM": 300000,
+    "eastM": 300000,
+    "northM": 200000,
+    "southM": 200000,
+    "datumM": 0,
+    "relief": {
+      "kind": "low-hills-more",
+      "lowBelowM": 300,
+      "lowTimes": 25,
+      "power": 0.6,
+      "highTimes": 12
+    }
+  },
+  "terrain": {
+    "class": "real",
+    "basis": "山的位置和形状照高程网格。",
+    "sourceIds": [
+      "r2"
+    ],
+    "file": "route.terrain.bin",
+    "cols": 12,
+    "rows": 12,
+    "west": 108.5,
+    "east": 115.5,
+    "south": 26.9,
+    "north": 31.1,
+    "heightUnit": "m",
+    "recipe": {
+      "class": "schematic",
+      "basis": "平原抹成缓坡；这几个数是设计上定的。",
+      "sourceIds": [],
+      "note": "平地抹平了，山的位置和形状是今天的。路没到的西南角留白。",
+      "kind": "plain-smoothed",
+      "plainBelowM": 100,
+      "hillAboveM": 200,
+      "smoothM": 45000,
+      "plainKeep": 0.1,
+      "rippleM": [
+        15,
+        40
+      ],
+      "edgeTaperM": 20000,
+      "blank": [
+        [
+          [
+            108.9,
+            27.2
+          ],
+          [
+            109.5,
+            27.2
+          ],
+          [
+            108.9,
+            27.7
+          ]
+        ]
+      ]
+    },
+    "edits": [
+      {
+        "id": "sea-east",
+        "name": "东边的海岸",
+        "op": "sea",
+        "area": [
+          [
+            114.3,
+            28.6
+          ],
+          [
+            114.5,
+            28.6
+          ],
+          [
+            114.5,
+            28.1
+          ],
+          [
+            114.3,
+            28.1
+          ]
+        ],
+        "class": "schematic",
+        "basis": "当时的岸比今天靠西一点；线在哪没有依据。",
+        "sourceIds": [],
+        "note": "东边的一小块陆地是后来才有的，抹成了海。"
+      }
+    ],
+    "note": "山的位置和形状是今天的。"
+  },
+  "water": {
+    "levels": {
+      "class": "today",
+      "basis": "海面画在海拔 0 米。",
+      "sourceIds": [
+        "r2"
+      ],
+      "note": "海面是一个平面。海岸、湖和河是照线画上去的。",
+      "values": {
+        "normal": 0
+      }
+    },
+    "todayFile": "route.today.geojson",
+    "coast": {
+      "name": "海岸",
+      "class": "today",
+      "basis": "照今天的数据画。",
+      "sourceIds": [
+        "r2"
+      ],
+      "note": "海岸是照今天画的，当时差多少没有查。"
+    },
+    "rivers": [
+      {
+        "id": "long",
+        "name": "长河",
+        "kind": "river",
+        "weight": "trunk",
+        "today": [
+          {
+            "names": [
+              "Long"
+            ],
+            "east": 114.4
+          }
+        ],
+        "class": "today",
+        "basis": "照今天的数据画。",
+        "sourceIds": [
+          "r2"
+        ]
+      },
+      {
+        "id": "south-stream",
+        "name": "南溪",
+        "kind": "river",
+        "weight": "river",
+        "line": [
+          [
+            112,
+            28.3
+          ],
+          [
+            112.9,
+            28
+          ],
+          [
+            114.2,
+            27.9
+          ],
+          [
+            114.6,
+            27.85
+          ]
+        ],
+        "class": "schematic",
+        "basis": "照沿河的城连的；两处之间怎么走是连出来的。",
+        "sourceIds": [
+          "r1"
+        ],
+        "note": "南溪的河道是示意。"
+      },
+      {
+        "id": "cut",
+        "name": "新渠",
+        "kind": "canal",
+        "line": [
+          [
+            110,
+            30
+          ],
+          [
+            110.6,
+            29.3
+          ],
+          [
+            111.5,
+            28.4
+          ]
+        ],
+        "class": "schematic",
+        "basis": "记里说有这条渠；线是连出来的。",
+        "sourceIds": [
+          "r1"
+        ]
+      }
+    ],
+    "lakes": [
+      {
+        "id": "mirror",
+        "name": "镜湖",
+        "today": [
+          {
+            "names": [
+              "Mirror Hu"
+            ]
+          }
+        ],
+        "except": {
+          "id": "mirror-sw",
+          "name": "镜湖的西南角",
+          "area": [
+            [
+              112.2,
+              28.5
+            ],
+            [
+              112.45,
+              28.5
+            ],
+            [
+              112.2,
+              28.7
+            ]
+          ],
+          "class": "schematic",
+          "basis": "有研究说这一角当时还是陆地；裁在哪是示意。",
+          "sourceIds": [
+            "r2"
+          ],
+          "note": "镜湖的西南角当时还是陆地，裁掉了。"
+        },
+        "class": "today",
+        "basis": "照今天的湖画，当时的大小没有查。",
+        "sourceIds": [
+          "r2"
+        ]
+      }
+    ],
+    "washes": [
+      {
+        "id": "marsh",
+        "name": "大泽",
+        "areas": [
+          [
+            [
+              113.2,
+              29.9
+            ],
+            [
+              113.6,
+              29.9
+            ],
+            [
+              113.6,
+              29.6
+            ],
+            [
+              113.2,
+              29.6
+            ]
+          ]
+        ],
+        "class": "schematic",
+        "basis": "记里说有这片大水；多大、岸在哪没有依据。",
+        "sourceIds": [
+          "r1"
+        ]
+      }
+    ]
+  },
+  "places": [
+    {
+      "id": "p-river",
+      "name": "示例城",
+      "at": [
+        110,
+        30
+      ],
+      "stops": [
+        "river"
+      ],
+      "class": "today",
+      "basis": "按今天示例市的位置。",
+      "sourceIds": [
+        "r2"
+      ]
+    },
+    {
+      "id": "p-pass",
+      "name": "南山口",
+      "at": [
+        111.5,
+        28.4
+      ],
+      "stops": [
+        "pass"
+      ],
+      "class": "today",
+      "basis": "按今天南山垭口的位置。",
+      "sourceIds": [
+        "r2"
+      ]
+    },
+    {
+      "id": "p-port",
+      "name": "东港",
+      "at": [
+        114.2,
+        27.9
+      ],
+      "stops": [
+        "port"
+      ],
+      "class": "today",
+      "basis": "按今天东港市的位置。",
+      "sourceIds": [
+        "r2"
+      ]
+    },
+    {
+      "id": "p-ridge",
+      "name": "南岭",
+      "at": [
+        112.9,
+        27.6
+      ],
+      "class": "real",
+      "basis": "山的位置照高程网格。",
+      "sourceIds": [
+        "r2"
+      ]
+    }
+  ],
+  "strips": [
+    {
+      "id": "s-river",
+      "text": "示例城",
+      "modern": "示例市",
+      "of": "p-river"
+    },
+    {
+      "id": "s-pass",
+      "text": "南山口",
+      "of": "p-pass"
+    },
+    {
+      "id": "s-port",
+      "text": "东港",
+      "modern": "东港市",
+      "of": "p-port",
+      "side": "left"
+    },
+    {
+      "id": "s-long",
+      "text": "长河",
+      "of": "long",
+      "at": [
+        111.2,
+        30.2
+      ]
+    },
+    {
+      "id": "s-stream",
+      "text": "南溪",
+      "of": "south-stream",
+      "at": [
+        112.9,
+        28
+      ]
+    },
+    {
+      "id": "s-lake",
+      "text": "镜湖",
+      "of": "mirror",
+      "at": [
+        112.6,
+        28.75
+      ]
+    },
+    {
+      "id": "s-marsh",
+      "text": "大泽",
+      "of": "marsh",
+      "at": [
+        113.4,
+        29.75
+      ]
+    },
+    {
+      "id": "s-sea",
+      "text": "海",
+      "of": "coast",
+      "at": [
+        114.8,
+        28.5
+      ]
+    },
+    {
+      "id": "s-ridge",
+      "text": "南岭",
+      "of": "p-ridge"
+    },
+    {
+      "id": "s-far",
+      "text": "北都",
+      "modern": "北都市",
+      "of": "far-north",
+      "at": [
+        112,
+        30.78
+      ]
+    }
+  ],
+  "far": [
+    {
+      "id": "far-north",
+      "name": "北都",
+      "at": [
+        112,
+        31.5
+      ],
+      "gloss": "今北都市",
+      "class": "today",
+      "basis": "按今天北都市的位置算方向和距离。",
+      "sourceIds": [
+        "r2"
+      ],
+      "note": "北都在这块沙盘的北边外面。"
+    }
+  ],
+  "roads": {
+    "ways": [
+      {
+        "id": "w-north",
+        "by": "land",
+        "line": [
+          [
+            112,
+            30.78
+          ],
+          [
+            111,
+            30.5
+          ],
+          [
+            110,
+            30
+          ]
+        ]
+      },
+      {
+        "id": "w-cut",
+        "by": "water",
+        "along": "cut",
+        "line": [
+          [
+            110,
+            30
+          ],
+          [
+            110.6,
+            29.3
+          ],
+          [
+            111.5,
+            28.4
+          ]
+        ]
+      },
+      {
+        "id": "w-lake-pass",
+        "by": "land",
+        "line": [
+          [
+            112,
+            28.3
+          ],
+          [
+            111.5,
+            28.4
+          ]
+        ]
+      },
+      {
+        "id": "w-stream",
+        "by": "water",
+        "along": "south-stream",
+        "line": [
+          [
+            112,
+            28.3
+          ],
+          [
+            112.9,
+            28
+          ],
+          [
+            114.2,
+            27.9
+          ]
+        ]
+      }
+    ],
+    "journeys": [
+      {
+        "id": "j-river",
+        "name": "到示例城",
+        "stop": "river",
+        "date": "示例三年春",
+        "parts": [
+          {
+            "name": "示例三年从北都到示例城的路",
+            "ways": [
+              "w-north"
+            ],
+            "class": "text",
+            "basis": "《行记》里写了途中的地方。",
+            "sourceIds": [
+              "r1"
+            ],
+            "note": "从北都来的路是照《行记》画的。"
+          }
+        ]
+      },
+      {
+        "id": "j-pass",
+        "name": "到南山口",
+        "stop": "pass",
+        "date": "示例四年",
+        "parts": [
+          {
+            "name": "示例四年示例城到南山口的水路",
+            "ways": [
+              "w-cut"
+            ],
+            "class": "schematic",
+            "basis": "只知道两头，沿新渠画。",
+            "sourceIds": [],
+            "note": "到南山口的路只知道两头，画成虚线。"
+          }
+        ]
+      },
+      {
+        "id": "j-port",
+        "name": "到东港",
+        "stop": "port",
+        "date": "示例五年",
+        "parts": [
+          {
+            "name": "示例五年南山口到溪口的路",
+            "ways": [
+              "-w-lake-pass"
+            ],
+            "class": "text",
+            "basis": "《行记》里写了翻山到溪口。",
+            "sourceIds": [
+              "r1"
+            ]
+          },
+          {
+            "name": "示例五年溪口到东港的水路",
+            "ways": [
+              "w-stream"
+            ],
+            "class": "schematic",
+            "basis": "只知道两头，沿南溪画。",
+            "sourceIds": [],
+            "unsure": "路线",
+            "note": "溪口到东港的路只知道两头，画成虚线。"
+          }
+        ]
+      }
+    ]
+  },
+  "sections": [
+    {
+      "heading": "全程",
+      "date": "示例三年到五年",
+      "line": "示例先生走过的三站。实线是他写到过的路，虚线只知道两头。",
+      "camera": {
+        "target": [
+          112,
+          29
+        ],
+        "distanceM": 40000,
+        "pitch": 40,
+        "bearing": 0,
+        "fov": 18,
+        "closest": 0.75,
+        "mustShow": [
+          "frame"
+        ]
+      },
+      "strips": [
+        "s-river",
+        "s-pass",
+        "s-port",
+        "s-long",
+        "s-sea"
+      ],
+      "explain": [
+        "recipe",
+        "coast"
+      ]
+    },
+    {
+      "heading": "到示例城",
+      "date": "示例三年春",
+      "line": "从北都往西南，到示例城。",
+      "camera": {
+        "target": [
+          110.9,
+          30.3
+        ],
+        "distanceM": 16000,
+        "pitch": 46,
+        "bearing": 0,
+        "mustShow": [
+          "j-river",
+          "far-north",
+          "p-river"
+        ]
+      },
+      "strips": [
+        "s-far",
+        "s-river",
+        "s-long"
+      ],
+      "explain": [
+        "j-river",
+        "far-north"
+      ],
+      "stop": "river"
+    },
+    {
+      "heading": "到南山口",
+      "date": "示例四年",
+      "line": "从示例城沿新渠往东南，到南山口。",
+      "camera": {
+        "target": [
+          110.8,
+          29.2
+        ],
+        "distanceM": 16000,
+        "pitch": 46,
+        "bearing": 0
+      },
+      "strips": [
+        "s-river",
+        "s-pass"
+      ],
+      "explain": [
+        "j-pass",
+        "levels"
+      ],
+      "stop": "pass"
+    },
+    {
+      "heading": "到东港",
+      "date": "示例五年",
+      "line": "从南山口翻山到溪口，再沿南溪到东港。",
+      "camera": {
+        "target": [
+          113,
+          28.3
+        ],
+        "distanceM": 18000,
+        "pitch": 46,
+        "bearing": 0,
+        "mustShow": [
+          "j-port",
+          "mirror",
+          "marsh",
+          "south-stream",
+          "p-ridge"
+        ]
+      },
+      "strips": [
+        "s-pass",
+        "s-port",
+        "s-stream",
+        "s-lake",
+        "s-marsh",
+        "s-ridge",
+        "s-sea"
+      ],
+      "explain": [
+        "j-port",
+        "mirror-sw",
+        "sea-east",
+        "old-reservoir",
+        "terrain"
+      ],
+      "stop": "port"
+    }
+  ],
+  "notDrawn": [
+    {
+      "id": "old-reservoir",
+      "name": "水库",
+      "why": "今天的水库当时没有，沙盘上没有画。",
+      "sourceIds": [
+        "r2"
+      ]
+    }
+  ]
+}

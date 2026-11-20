@@ -5,7 +5,7 @@
 
 import type { ThingKind } from '../../../domain/scene';
 import type { GroundColour, Vec2 } from '../../ground/types';
-import type { FigureClass, LightSpec, StageStyle } from '../internal';
+import type { FigureClass, LightSpec, RouteStyle, StageStyle } from '../internal';
 import { SONG_QINGLV_FIGURE } from './songQinglvFigure';
 
 // ---------------------------------------------------------------- 颜色
@@ -155,6 +155,43 @@ function mistFor(distanceM: number): number {
   return 1 - 0.6 * t;
 }
 
+// ---------------------------------------------------------------- 全程沙盘
+
+/**
+ * 全程沙盘自己的那一份。数都是定稿的样张的（spikes/art-direction/route/scene/ 里 palette.js、fields.js 的 PAINT 和河宽）。
+ * 网格 59 米一格，合地上约 10 公里。2026-11-20 对着图片和 48 米一格的比过（从低处看四川一带）：山脊和山的轮廓看不出差别，所以用粗的。
+ */
+const ROUTE: RouteStyle = {
+  segmentM: 59,
+  reducedSegmentTimes: 1.07,
+  ripplePx: 8,
+  riverKm: { trunk: 8, major: 4.6, river: 3.6, minor: 2.8, canal: 1.8 },
+  colours: {
+    loess: '#dcc592',
+    sand: '#ebe1c2',
+    shoreInk: '#a8936a',
+    sea: '#b3ccd0',
+    seaDeep: '#93b6c1',
+    river: '#6f9db2',
+    riverSong: '#93b3bd',
+  },
+  bands: {
+    relK: 1.0,
+    hK: 0.2,
+    noise: 70,
+    foot: [110, 240],
+    footK: 0.6,
+    green: [240, 540],
+    blue: [520, 900],
+    blueK: 0.92,
+    rank: [0.62, 0.92],
+    rankCurv: 1 / 500,
+    deep: [1500, 2600],
+    steep: [0.22, 0.6],
+    patch: 0.24,
+  },
+};
+
 // ---------------------------------------------------------------- 合起来
 
 export const songQinglv: StageStyle = {
@@ -170,4 +207,5 @@ export const songQinglv: StageStyle = {
   light: () => LIGHT,
   fogFor,
   mistFor,
+  route: ROUTE,
 };

@@ -1,6 +1,6 @@
-// 做“先画好的地面”的工具：npm run bake。给 content/ 里每座站点沙盘的地面上色，存成两张图和一份清单：
+// 做“先画好的地面”的工具：npm run bake。给 content/ 里每座沙盘（站点沙盘，和全程沙盘）的地面上色，存成两张图和一份清单：
 //   content/figures/<人物>/baked/<站>.colour.jpg   颜色（JPEG）
-//   content/figures/<人物>/baked/<站>.fields.png   哪里是田（8 位灰度的 PNG）
+//   content/figures/<人物>/baked/<站>.fields.png   哪里是田（8 位灰度的 PNG）；全程沙盘的这一张标的是哪里画水纹，名字不变
 //   content/figures/<人物>/baked/<站>.json         清单（src/domain/bakedGround.ts 的 BakedGroundManifest）
 // 这三样做好以后放进仓库，随网站一起发；发布的流程不重新做。清单和图片都不手改。说明见 docs/data-spec.md“制作时做好的两样”。
 //
@@ -14,12 +14,14 @@
 // npm run test:e2e、npm run stills 同时跑），做完关掉。不连任何外面的服务。
 //
 // 每座沙盘的步骤：
-//   1 读高程、整理地面、上色（和页面打开时现画是同一段程序），拆成颜色和田的标记两份，各算一个记号；
+//   1 读高程、整理地面、上色（站点沙盘：和页面打开时现画是同一段程序；全程沙盘：tests/tools/route/paint.ts，页面上不现画），
+//     拆成颜色和田的标记两份，各算一个记号；
 //     再算“照什么画的”两个记号：场景里管地面的那一部分，地形文件。
 //   2 清单里这四个记号都没变、压缩的质量也没变、两张图都在而且是清单记的那两份：说一声“已经是新的”，什么也不写。
 //     只是“照什么画的”记号变了、画出来的像素没变（比如只改了摆件什么时候有）：图不动，只重写清单。
 //   3 田的标记写成 PNG（tests/support/png.ts），读回来对一遍。
-//   4 颜色交给浏览器压成 JPEG；浏览器把压好的图再解开，和原来的比，算出清晰度（psnr）。不到 40 分贝就不通过，不写。
+//   4 颜色交给浏览器压成 JPEG；浏览器把压好的图再解开，和原来的比，算出清晰度（psnr）。不到 40 分贝就不通过，不写
+//     （全程沙盘的质量和最低的清晰度另有两个数，见 JPEG_QUALITY_ROUTE）。
 //   5 地形文件、颜色、田的标记三个文件合计超过 1.5 MB 也不通过，不写。
 //   6 写两张图和清单（字段的先后固定，缩进两格，行尾是 LF，最后有一个换行）。印出各个文件多大、合计用了上限的几成。
 
@@ -33,11 +35,13 @@ import { buildFields, paintColour, readDem } from '../../src/stage/ground';
 import type { Ground } from '../../src/stage/ground/types';
 import { colourBytes, fieldBytes, groundInputs, groundPictureSize } from '../../src/stage/three/groundPaint';
 import { styleFor } from '../../src/stage/three/style';
-import { COLOUR_PSNR_MIN, TABLE_FILES_MAX_BYTES, edgeTooLong, psnrTooLow, tableFiles, withCommas } from '../content/budgetRules';
+import { COLOUR_PSNR_MIN, COLOUR_PSNR_MIN_ROUTE, TABLE_FILES_MAX_BYTES, edgeTooLong, psnrTooLow, tableFiles, withCommas } from '../content/budgetRules';
 import { realScene, realSceneFile, realSceneKeys } from '../stage/support/realScenes';
 import { fixtureScene, fixtureTerrainBytes } from '../support/fixtureScene';
+import { includePendingFrom, tablesToMake } from '../support/pendingTables';
 import { decodePng, encodeGreyPng } from '../support/png';
 import { readBytes } from '../support/readBytes';
+import { routeBakeParts } from './route/bakeRoute';
 
 const env = (globalThis as { process?: { env: Record<string, string | undefined> } }).process?.env ?? {};
 
@@ -50,6 +54,15 @@ const BAKING = import.meta.env.MODE === 'bake' || env.BAKE === '1';
  * 改了以后再跑一遍 npm run bake。
  */
 const JPEG_QUALITY = 0.95;
+
+/**
+ * 全程沙盘的颜色压成 JPEG 的质量。它的图有 1756 × 1984 个点，是徐州那一张的三倍。2026-11-20 用浏览器量的：
+ *   0.90　570,510 字节，清晰度 37.05 分贝；连地形文件和水纹的标记一共 1,224,144 字节，是上限的 78%；
+ *   0.95　839,584 字节，清晰度 38.67 分贝；一共 1,493,218 字节，是上限的 95%（过了八成的提醒线）。
+ * 所以是 0.90。山上那些两个点宽的细纹压过以后淡一些，哪一档质量都一样（JPEG 的颜色只存一半的密度），和徐州的情形相同。
+ * 最低的清晰度是 tests/content/budgetRules.ts 的 COLOUR_PSNR_MIN_ROUTE：浏览器在这个质量上压出来的数，再低一分贝。
+ */
+const JPEG_QUALITY_ROUTE = 0.9;
 
 /** 项目的根目录：这个文件在 tests/tools/ 里，往上两层。 */
 const ROOT = new URL('../../', import.meta.url);
@@ -184,14 +197,50 @@ interface Encoded {
 /** 把颜色（一个点三个字节）压成 JPEG。真的做时是浏览器压的；查这个工具时换成假的。 */
 type EncodeJpeg = (rgb: Uint8Array, width: number, height: number, quality: number) => Promise<Encoded>;
 
+/** 一座沙盘的地面：照什么画的，图多大，怎么画，颜色最低要多清晰。站点沙盘和全程沙盘各有各的（stopSubject、routeSubject）。 */
+interface BakeSubject {
+  /** 地形文件叫什么、它的字节。 */
+  terrainFile: string;
+  terrainBytes: ArrayBuffer;
+  /** 照什么画的两个记号：场景里管地面的那一部分，地形文件。 */
+  inputs: { ground: string; terrain: string };
+  /** 两张图多大（照沙盘的范围算的）。 */
+  size: { w: number; h: number };
+  /** 画一遍：颜色（一个点三个字节）和第二张图（一个点一个字节）。 */
+  paint(): { w: number; h: number; rgb: Uint8Array; mask: Uint8Array };
+  /** 第二张图标的是什么，印出来的话里用：站点沙盘是“田的标记”，全程沙盘是“水纹的标记”。 */
+  markName: string;
+  /** 颜色压成 JPEG 以后最低多少分贝。 */
+  psnrMin: number;
+}
+
+/** 站点沙盘：上色和页面打开时现画是同一段程序。 */
+function stopSubject(scene: StopScene, terrainBytes: ArrayBuffer, ground: Ground): BakeSubject {
+  return {
+    terrainFile: scene.terrain.file,
+    terrainBytes,
+    inputs: groundInputs(scene, terrainBytes),
+    size: groundPictureSize(ground),
+    paint: () => {
+      const painted = paintColour(ground, styleFor(scene.style).ground);
+      return { w: painted.w, h: painted.h, rgb: colourBytes(painted.colour), mask: fieldBytes(painted.colour) };
+    },
+    markName: '田的标记',
+    psnrMin: COLOUR_PSNR_MIN,
+  };
+}
+
+/** 全程沙盘：上色的是工具自己（tests/tools/route/paint.ts）。key 是“人物/route”。 */
+function routeSubject(key: string): BakeSubject {
+  return { ...routeBakeParts(key), markName: '水纹的标记', psnrMin: COLOUR_PSNR_MIN_ROUTE };
+}
+
 interface BakeJob {
   /** 印出来给人看的名字，如 su-shi/xuzhou。 */
   label: string;
   /** 文件名开头的站名，如 xuzhou。 */
   stop: string;
-  scene: StopScene;
-  terrainBytes: ArrayBuffer;
-  ground: Ground;
+  subject: BakeSubject;
   /** 写到哪个文件夹（以“/”结尾）。 */
   dir: URL;
   quality: number;
@@ -203,17 +252,16 @@ interface BakeJob {
 type BakeOutcome = 'fresh' | 'manifest' | 'written';
 
 async function bakeGround(job: BakeJob): Promise<BakeOutcome> {
-  const { label, stop, scene, terrainBytes, ground, dir, quality } = job;
+  const { label, stop, subject, dir, quality } = job;
+  const { terrainBytes, inputs, markName, psnrMin } = subject;
   const tag = `[先画好的地面] ${label}`;
 
   // 1 上色，拆成两份，算记号
-  const painted = paintColour(ground, styleFor(scene.style).ground);
-  const { w, h } = groundPictureSize(ground);
+  const painted = subject.paint();
+  const { w, h } = subject.size;
   if (painted.w !== w || painted.h !== h) throw new Error(`${tag}：画出来是 ${painted.w} × ${painted.h}，照沙盘的范围应该是 ${w} × ${h}`);
   if (edgeTooLong(w, h)) throw new Error(`${tag}：颜色图是 ${w} × ${h}，宽或高超过了上限`);
-  const rgb = colourBytes(painted.colour);
-  const mask = fieldBytes(painted.colour);
-  const inputs = groundInputs(scene, terrainBytes);
+  const { rgb, mask } = painted;
   const pixels = { colour: contentKey(rgb), fields: contentKey(mask) };
 
   const colourFile = `${stop}.colour.jpg`;
@@ -221,9 +269,9 @@ async function bakeGround(job: BakeJob): Promise<BakeOutcome> {
   const manifestFile = new URL(`${stop}.json`, dir);
   const report = (m: BakedGroundManifest): void => {
     const total = tableFiles({ terrain: terrainBytes.byteLength, colour: m.colour.bytes, fields: m.fields.bytes });
-    job.say(`  颜色　　　${colourFile}　${m.colour.width} × ${m.colour.height}　${withCommas(m.colour.bytes)} 字节　质量 ${m.colour.quality}　清晰度 ${m.colour.psnr} 分贝（最低 ${COLOUR_PSNR_MIN}）`);
-    job.say(`  田的标记　${fieldsFile}　${m.fields.width} × ${m.fields.height}　${withCommas(m.fields.bytes)} 字节`);
-    job.say(`  地形文件　${scene.terrain.file}　${withCommas(terrainBytes.byteLength)} 字节`);
+    job.say(`  颜色　　　${colourFile}　${m.colour.width} × ${m.colour.height}　${withCommas(m.colour.bytes)} 字节　质量 ${m.colour.quality}　清晰度 ${m.colour.psnr} 分贝（最低 ${psnrMin}）`);
+    job.say(`  ${markName}　${fieldsFile}　${m.fields.width} × ${m.fields.height}　${withCommas(m.fields.bytes)} 字节`);
+    job.say(`  地形文件　${subject.terrainFile}　${withCommas(terrainBytes.byteLength)} 字节`);
     job.say(`  三个文件合计 ${withCommas(total.total)} 字节，上限 ${withCommas(TABLE_FILES_MAX_BYTES)}（用了 ${Math.round((total.total / TABLE_FILES_MAX_BYTES) * 100)}%）${total.verdict === 'warn' ? '　快到上限了' : ''}`);
   };
 
@@ -256,7 +304,7 @@ async function bakeGround(job: BakeJob): Promise<BakeOutcome> {
   const png = encodeGreyPng(mask, w, h);
   const back = decodePng(png);
   if (back.width !== w || back.height !== h || back.channels !== 1 || contentKey(back.pixels) !== pixels.fields) {
-    throw new Error(`${tag}：田的标记写成 PNG 以后读回来不一样，没有写任何文件`);
+    throw new Error(`${tag}：${markName}写成 PNG 以后读回来不一样，没有写任何文件`);
   }
 
   // 4 颜色：压成 JPEG，看清晰度
@@ -265,15 +313,15 @@ async function bakeGround(job: BakeJob): Promise<BakeOutcome> {
   if (jpeg.width !== w || jpeg.height !== h) throw new Error(`${tag}：压出来的图是 ${jpeg.width} × ${jpeg.height}，应该是 ${w} × ${h}，没有写任何文件`);
   // 清单里记两位小数，往小里记：记下来的数不会比真的好
   const psnr = Math.floor(jpeg.psnr * 100) / 100;
-  if (!Number.isFinite(psnr) || psnrTooLow(psnr)) {
-    throw new Error(`${tag}：颜色压成 JPEG（质量 ${quality}）以后清晰度只有 ${psnr} 分贝，不到 ${COLOUR_PSNR_MIN}，没有写任何文件。把 tests/tools/bake-ground.test.ts 里的 JPEG_QUALITY 调高再跑`);
+  if (!Number.isFinite(psnr) || psnrTooLow(psnr, psnrMin)) {
+    throw new Error(`${tag}：颜色压成 JPEG（质量 ${quality}）以后清晰度只有 ${psnr} 分贝，不到 ${psnrMin}，没有写任何文件。把 tests/tools/bake-ground.test.ts 里的 JPEG_QUALITY（全程沙盘是 JPEG_QUALITY_ROUTE）调高再跑`);
   }
 
   // 5 三个文件合计
   const total = tableFiles({ terrain: terrainBytes.byteLength, colour: jpeg.bytes.length, fields: png.length });
   if (total.verdict === 'fail') {
     throw new Error(
-      `${tag}：地形文件 ${withCommas(terrainBytes.byteLength)}、颜色 ${withCommas(jpeg.bytes.length)}、田的标记 ${withCommas(png.length)} 字节，合计 ${withCommas(total.total)}，超过了上限 ${withCommas(TABLE_FILES_MAX_BYTES)}，没有写任何文件`,
+      `${tag}：地形文件 ${withCommas(terrainBytes.byteLength)}、颜色 ${withCommas(jpeg.bytes.length)}、${markName} ${withCommas(png.length)} 字节，合计 ${withCommas(total.total)}，超过了上限 ${withCommas(TABLE_FILES_MAX_BYTES)}，没有写任何文件`,
     );
   }
 
@@ -318,23 +366,26 @@ describe.skipIf(!BAKING)('给每座沙盘的地面上色，存成图（npm run b
     }
   };
 
-  const keys = realSceneKeys();
+  // 正在做、沙盘程序还画不出来的沙盘（tests/support/pendingTables.ts 的那张表）跳过；带着 INCLUDE_PENDING=1 跑才做它们
+  const routes = realSceneKeys('route');
+  const every = [...realSceneKeys(), ...routes];
+  const { make: keys, skipped } = tablesToMake(every, includePendingFrom(env));
 
   it('content/ 里至少有一座站点沙盘', () => {
-    expect(keys.length).toBeGreaterThan(0);
+    expect(every.length).toBeGreaterThan(0);
+    for (const key of skipped) console.log(`[先画好的地面] ${key}：在“还没做出来”的表里，这一次跳过（要做它，带着 INCLUDE_PENDING=1 跑）。`);
   });
 
   it.each(keys)('%s', { timeout: 300_000 }, async (key) => {
     const [figureId, stopId] = key.split('/');
-    const { scene, terrainPath } = realSceneFile(key);
+    const isRoute = routes.includes(key);
+    const subject = isRoute ? routeSubject(key) : stopSubject(realSceneFile(key).scene, readBytes(realSceneFile(key).terrainPath), realScene(key).ground);
     const outcome = await bakeGround({
       label: key,
       stop: stopId,
-      scene,
-      terrainBytes: readBytes(terrainPath),
-      ground: realScene(key).ground,
+      subject,
       dir: new URL(`content/figures/${figureId}/baked/`, ROOT),
-      quality: JPEG_QUALITY,
+      quality: isRoute ? JPEG_QUALITY_ROUTE : JPEG_QUALITY,
       encodeJpeg,
       say: (line) => console.log(line),
     });
@@ -384,7 +435,7 @@ describe('做图的工具自己（不开浏览器，不动 content/）', () => {
   const job = (dirName: string, parts: ReturnType<typeof sample>, encodeJpeg: EncodeJpeg, quality = 0.95): BakeJob => ({
     label: 'demo/sample-town',
     stop: 'sample-town',
-    ...parts,
+    subject: stopSubject(parts.scene, parts.terrainBytes, parts.ground),
     dir: new URL(`${dirName}/`, SCRATCH),
     quality,
     encodeJpeg,

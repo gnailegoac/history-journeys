@@ -51,7 +51,7 @@ vi.mock('../../src/stage/three/groundPaint', async (original) => ({
 }));
 vi.mock('../../src/stage/three/terrainMesh', async (original) => ({
   ...(await original<typeof import('../../src/stage/three/terrainMesh')>()),
-  buildTerrainMesh: (): TerrainMesh => ({ group: new Group(), top: new Mesh(), sides: new Mesh(), dispose() {} }),
+  buildTerrainMesh: (): TerrainMesh => ({ group: new Group(), top: new Mesh(), sides: new Mesh(), uniforms: {}, dispose() {} }),
 }));
 // 环境贴图要真的三维画面才烤得出来，这里换成一张空的。
 // （fakeThree 在这里面现取，不用文件开头引入的：vi.mock 会被挪到所有引入的前面，这里一运行，开头的引入可能还没到。）

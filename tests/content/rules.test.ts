@@ -5,11 +5,18 @@
 import { describe, expect, it } from 'vitest';
 import type { Figure, FigureCard, StopExtras } from '../../src/domain/types';
 import { toContentFiles } from './files';
-import { RESERVED_FIGURE_IDS, checkBody, checkRoute, formatReport, formatViolation, lngLatProblem, validateContent } from './rules';
-import type { ContentFiles } from './rules';
+import { RESERVED_FIGURE_IDS, checkBody, checkRoute, formatReport, formatViolation, lngLatProblem, validateContent as validateAll } from './rules';
+import type { ContentFiles, Violation } from './rules';
 
 const texts = import.meta.glob<string>('./fixtures/**/*.{json,md}', { query: '?raw', import: 'default', eager: true });
-const paths = Object.keys(import.meta.glob('./fixtures/**/*'));
+// 两份样本里另有全程沙盘的文件（scenes/route.*）：它们在 routeRules.test.ts 里查。这里不带它们，下面各条数的还是站点沙盘和别的文件。
+const paths = Object.keys(import.meta.glob('./fixtures/**/*')).filter((path) => !path.includes('/scenes/route.'));
+/**
+ * 样本里既然不带全程沙盘，“卡片标了可以点进去的人物要有 scenes/route.json”（规则 16 的后半句）在这里一定报：
+ * 这一句在 routeRules.test.ts 里用带着全程沙盘的样本查，这里把它滤掉，别的照旧。
+ */
+const validateContent = (...args: Parameters<typeof validateAll>): Violation[] =>
+  validateAll(...args).filter((v) => !(v.rule === 16 && v.file === 'figures/index.json'));
 const fixture = (name: string): ContentFiles => toContentFiles(`./fixtures/${name}/`, paths, texts);
 
 const GOOD = fixture('good');

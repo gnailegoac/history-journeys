@@ -217,6 +217,9 @@ describe('“来源”页', () => {
     for (const figure of figures) {
       if (figure.routeStill) lines.push(figure.routeStill.credit);
       for (const path of jsonIn(`content/figures/${figure.id}/scenes`)) {
+        // 全程沙盘的场景文件先不算：人物页上现在摆的还是那张全程图片（它的来源就是上面那一行）；
+        // 沙盘接进人物页的那一步，“来源”页改成读它的 credits，这一行跟着拿掉
+        if (path.endsWith('/route.json')) continue;
         sceneFiles++;
         lines.push(...readJson<StopScene>(path).credits);
       }

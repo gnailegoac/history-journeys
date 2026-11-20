@@ -57,8 +57,8 @@ export function colourBytes(rgba: Uint8Array): Uint8Array {
 
 // ---------------------------------------------------------------- 取图
 
-/** 在浏览器里取一张图。signal 中止了就不取了。 */
-function loadPicture(url: string, signal: AbortSignal): Promise<TexImageSource> {
+/** 在浏览器里取一张图。signal 中止了就不取了。全程沙盘取先画好的地面也用它（routeLevel.ts）。 */
+export function loadPicture(url: string, signal: AbortSignal): Promise<TexImageSource> {
   return new Promise((resolve, reject) => {
     if (signal.aborted) {
       reject(new Error('这座沙盘不要了'));
@@ -94,7 +94,7 @@ function loadPicture(url: string, signal: AbortSignal): Promise<TexImageSource> 
 }
 
 /** 一张图多大（像素）。 */
-function pictureSize(image: TexImageSource): [number, number] {
+export function pictureSize(image: TexImageSource): [number, number] {
   if ('naturalWidth' in image) return [image.naturalWidth, image.naturalHeight];
   if ('videoWidth' in image) return [image.videoWidth, image.videoHeight];
   if ('displayWidth' in image) return [image.displayWidth, image.displayHeight];

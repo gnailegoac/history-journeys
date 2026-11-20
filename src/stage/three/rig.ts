@@ -7,7 +7,7 @@
 // 同一个镜头，画面矮了东西就小，D 就大。
 
 import { MathUtils, Vector3, type Camera, type PerspectiveCamera } from 'three';
-import type { SceneCamera, SceneRapids, SceneSection, SceneStrip, SceneThing, StopScene, ThingKind } from '../../domain/scene';
+import type { RouteScene, RouteSection, SceneCamera, SceneRapids, SceneSection, SceneStrip, SceneThing, StopScene, TableScene, ThingKind } from '../../domain/scene';
 import { farEdgePoint, type FrameCoords } from '../../domain/sceneGeo';
 import { stripPoint } from '../../domain/sceneStripPoint';
 import type { LngLat } from '../../domain/types';
@@ -158,7 +158,7 @@ export function fitDistance(
 }
 
 /** 这一节是不是看整块沙盘（mustShow 里写了 'frame'）。 */
-export function wholeTable(section: SceneSection): boolean {
+export function wholeTable(section: { camera: SceneCamera }): boolean {
   return section.camera.mustShow?.includes('frame') ?? false;
 }
 
@@ -254,8 +254,8 @@ export interface PlacedCamera {
  * 页面上的沙盘（view.ts）、镜头和题签的测试、定格图的测试都用这一个函数，几边才对得上。
  */
 export function placeCamera(
-  section: SceneSection,
-  scene: StopScene,
+  section: SceneSection | RouteSection,
+  scene: TableScene,
   ground: GroundSamplers,
   coords: FrameCoords,
   style: StageStyle,
@@ -411,7 +411,8 @@ function spotOf(strip: SceneStrip, scene: StopScene, ground: GroundSamplers, coo
  * 这几条题签各指着沙盘里的哪一点。D 是折算过的远近：模型跟着 D 放大，题签指着的那一点也跟着抬高、跟着挪。
  * 只跟 D 有关，跟镜头朝哪边没有关系：镜头转的时候不用重算，再投一遍（projectSpots）就行。
  */
-export function stripSpots(strips: SceneStrip[], scene: StopScene, ground: GroundSamplers, coords: FrameCoords, style: StageStyle, D: number): StripSpot[] {
+export function stripSpots(strips: SceneStrip[], scene: TableScene, ground: GroundSamplers, coords: FrameCoords, style: StageStyle, D: number): StripSpot[] {
+  if (scene.level === 'route') return strips.map((strip) => routeSpot(strip, scene, ground, coords));
   const groups = figureGroups(scene, style);
   return strips.map((strip) => spotOf(strip, scene, ground, coords, style, D, groups));
 }
@@ -425,6 +426,68 @@ export function stripSpots(strips: SceneStrip[], scene: StopScene, ground: Groun
 export function anchorOf(strip: SceneStrip, scene: StopScene, ground: GroundSamplers, coords: FrameCoords, style: StageStyle, D: number): Vec3 {
   return spotOf(strip, scene, ground, coords, style, D, figureGroups(scene, style)).at;
 }
+
+// ---------------------------------------------------------------- 全程沙盘
+
+/** 沙盘里 [x, z] 这一点在全程沙盘上多高：地面和海面里高的那个。 */
+function routeFootY([x, z]: Vec2, scene: RouteScene, ground: GroundSamplers, coords: FrameCoords): number {
+  return coords.y(Math.max(ground.height(x, z), scene.water.levels.values.normal ?? -Infinity));
+}
+
+/** 全程沙盘上一条题签指着的那一点：没有摆件，贴着地面，不抬高。 */
+function routeSpot(strip: SceneStrip, scene: RouteScene, ground: GroundSamplers, coords: FrameCoords): StripSpot {
+  const at = coords.toLocal(stripPoint(scene, strip));
+  return { id: strip.id, at: [at[0], routeFootY(at, scene, ground, coords), at[1]], footY: null, far: scene.far.some((f) => f.id === strip.of) };
+}
+
+/**
+ * 全程沙盘上 mustShow 里的一个 id 指的是哪几个点（经纬度）。找不到就是空的（校验规则 14 管这个）。
+ * 地名点是它自己；自己写了线的河是沙盘里面的那几点；只染水色的水是它的圈；一趟路是它走的每一截路上的每个点；
+ * 远处是头一条指着它的题签的 at（路出沙盘的那一点）。照今天的数据画的河和湖这里没有线可取，给不出点：要看它，写它旁边的地名点。
+ */
+function routePointsOfItem(id: string, scene: RouteScene, coords: FrameCoords): LngLat[] {
+  const place = scene.places.find((p) => p.id === id);
+  if (place) return [place.at];
+  const river = scene.water.rivers.find((r) => r.id === id);
+  if (river) return (river.line ?? []).filter((p) => coords.inside(p));
+  const wash = scene.water.washes.find((w) => w.id === id);
+  if (wash) return wash.areas.flat();
+  const journey = scene.roads.journeys.find((j) => j.id === id);
+  if (journey) {
+    return journey.parts.flatMap((part) => part.ways.flatMap((written) => scene.roads.ways.find((w) => w.id === (written.startsWith('-') ? written.slice(1) : written))?.line ?? []));
+  }
+  if (scene.far.some((f) => f.id === id)) {
+    const at = scene.strips.find((s) => s.of === id && s.at)?.at;
+    return at ? [at] : [];
+  }
+  return [];
+}
+
+/**
+ * 全程沙盘上这一小节画面再窄也要看得见的点。和站点沙盘一样：写了 mustShow 就是那几样东西的点（'frame' 是整块沙盘），
+ * 没写就是这一节各条题签指着的点。有一处不同：写了 mustShow、又不是看整块沙盘的一节，这一节各条题签指着的点也算进去——
+ * 全程沙盘上河的题签指在河上的一点，mustShow 里写不了“这一点”，写河又会把整条河都算进来。
+ */
+function routeShowPoints(section: RouteSection, scene: RouteScene, ground: GroundSamplers, coords: FrameCoords): Vec3[] {
+  const strips = section.strips.map((id) => scene.strips.find((s) => s.id === id)).filter((s): s is SceneStrip => s !== undefined);
+  const spots = strips.map((strip) => routeSpot(strip, scene, ground, coords).at);
+  const mustShow = section.camera.mustShow;
+  if (!mustShow) return spots;
+  const points: Vec3[] = [];
+  for (const id of mustShow) {
+    if (id === 'frame') {
+      points.push(...framePoints(coords));
+      continue;
+    }
+    for (const p of routePointsOfItem(id, scene, coords)) {
+      const at = coords.toLocal(p);
+      points.push([at[0], routeFootY(at, scene, ground, coords), at[1]]);
+    }
+  }
+  return mustShow.includes('frame') ? points : [...points, ...spots];
+}
+
+// ---------------------------------------------------------------- 一定要看得见的点
 
 /** mustShow 里的一个 id 指的是哪几个点（经纬度）。找不到就是空的（校验规则 14 管这个）。 */
 function pointsOfItem(id: string, scene: StopScene, coords: FrameCoords): LngLat[] {
@@ -508,13 +571,14 @@ export function framePoints(coords: FrameCoords): Vec3[] {
  * 镜头退远以后模型还会再大一点；各种画面上题签指着的点是不是还在留出来的那一块里，由 tests/stage/scene-cameras.test.ts 查。
  */
 export function showPoints(
-  section: SceneSection,
-  scene: StopScene,
+  section: SceneSection | RouteSection,
+  scene: TableScene,
   ground: GroundSamplers,
   coords: FrameCoords,
   style: StageStyle,
   viewHeightPx: number = REFERENCE_VIEW_HEIGHT_PX,
 ): Vec3[] {
+  if (scene.level === 'route') return routeShowPoints(section as RouteSection, scene, ground, coords);
   const D = equivalentDistance(section.camera.distanceM, section.camera.fov ?? DEFAULT_FOV, viewHeightPx);
   const mustShow = section.camera.mustShow;
   if (!mustShow) {
@@ -608,7 +672,7 @@ export function projectSpots(spots: StripSpot[], coords: FrameCoords, camera: Ca
  */
 export function screenAnchors(
   strips: SceneStrip[],
-  scene: StopScene,
+  scene: TableScene,
   ground: GroundSamplers,
   coords: FrameCoords,
   style: StageStyle,

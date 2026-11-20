@@ -2,6 +2,10 @@
 // 说明见 docs/data-spec.md 的“场景数据”一节；两处不一致时先改文档，再改这里。
 // 文件：content/figures/<人物>/scenes/<站>.json，旁边是它的地形文件。由 `npm run validate` 校验。
 //
+// 沙盘有两层：每一站一座站点沙盘（StopScene），每位人物一座全程沙盘（RouteScene，scenes/route.json，
+// 说明见 docs/data-spec.md 的“全程沙盘的场景数据”一节）。两层共用的几样（类别和依据、地名点、题签、远处、镜头、没有画的）
+// 只有一份；全程沙盘自己的类型在这个文件的后半截，站点沙盘的类型没有哪个字段因为它改过。
+//
 // 三条通用的写法：
 //   坐标都是 [经度, 纬度]。
 //   高度都写真实的米（海拔），夸大由程序去乘。平地整理以后在 terrain.recipe.plainBaseM 上下，
@@ -11,7 +15,7 @@
 // 这里不写像素、灯光和远近两套模型：题签摆在画面的哪里、光从哪来、远看时模型放大多少，都由程序按样式定。
 
 import type { DressingKind, Params, ThingKind } from './sceneKinds';
-import type { LngLat } from './types';
+import type { LngLat, Source } from './types';
 
 // 摆件、点缀有哪几种，各认哪些参数、位置怎么写、能摆在什么上面：那几张表在 ./sceneKinds.ts（只有沙盘程序和校验用，
 // 页面不用，所以单放一个文件，不跟着页面的程序下载）。它们的类型从这里也拿得到。
@@ -68,6 +72,12 @@ export type When = { from?: string; until?: string } | { only: string[] };
 /** 这几个词在 explain、mustShow 里有专门的意思，不能拿来当 id。 */
 export const SCENE_RESERVED_IDS = ['frame', 'terrain', 'recipe', 'levels', 'banks'] as const;
 
+/** 全程沙盘里留用的词：没有 banks（它没有河岸的规矩），多一个 coast（照今天画的海岸）。 */
+export const ROUTE_RESERVED_IDS = ['frame', 'terrain', 'recipe', 'levels', 'coast'] as const;
+
+/** 全程沙盘的场景文件叫 route.json，它的 stopId 也写这个词：所以这个词不能当站的 id。 */
+export const ROUTE_SCENE_ID = 'route';
+
 // ---------------------------------------------------------------- 一座站点沙盘
 
 /** 时代样式。添一种样式要改程序，先添在这里。 */
@@ -76,6 +86,8 @@ export type SceneStyleId = (typeof SCENE_STYLES)[number];
 
 /** scenes/<站>.json。所有带 id 的东西，id 在整个文件里不重复。 */
 export interface StopScene {
+  /** 哪一层的沙盘。站点沙盘可以不写；全程沙盘（RouteScene）必须写 'route'。 */
+  level?: 'stop';
   stopId: string;
   style: SceneStyleId;
   /** 用了谁的数据，页面上要写出来。如“地形：Mapzen 地形瓦片（Terrarium），其中的 SRTM、GMTED2010 高程数据由美国地质调查局（USGS）提供”。至少一条。 */
@@ -369,6 +381,217 @@ export interface SceneOmission {
   /** 为什么不画，给读者看的一句话。 */
   why: string;
   sourceIds: string[];
+}
+
+// ---------------------------------------------------------------- 全程沙盘
+// 一位人物一座：各站和站与站之间的路。和站点沙盘是同一种文件，小节是一个一个的画面：头一节看全程，
+// 后面每一站一节，看到这一站去的那段来路。说明见 docs/data-spec.md 的“全程沙盘的场景数据”一节。
+//
+// 和站点沙盘不一样的几处：
+//   范围是一个投影（兰勃特等角圆锥）加一个比例（沙盘上的 1 米是地上的多少米）；山高照一条曲线夸大（矮山多夸）。
+//   地形文件里一个数是 1 米（不是 1 分米）；0 是海。
+//   没有水面，也不挖河：海、湖、河都是画在地面上的。今天的海岸、湖、河放在另一个文件里（water.todayFile），
+//   场景照名字去取。
+//   没有摆件、点缀、急滩、河岸的规矩、水漫不进去的地方、什么时候有（when）、天色：这些字段不写，写了通不过校验。
+//   多一样：路（roads）。
+//
+// 文件里的高度、长度都是真实的米，只有一样例外：镜头的 distanceM 两层都是沙盘里的米
+// （站点沙盘上两样是一回事）。它是摆镜头用的数，不是地理上的数。
+
+/** scenes/route.json：一位人物的全程沙盘。所有带 id 的东西，id 在整个文件里不重复。 */
+export interface RouteScene {
+  level: 'route';
+  /** 写 'route'。这个词不能当站的 id。 */
+  stopId: 'route';
+  style: SceneStyleId;
+  /** 用了谁的数据，至少两条：地形一条，今天的海岸、河、湖一条。 */
+  credits: string[];
+  /** 依据里的 sourceIds 指的出处（站点沙盘的出处在那一站的 stops/<站>.json 里，全程沙盘没有那个文件）。 */
+  sources: Source[];
+  frame: RouteFrame;
+  terrain: RouteTerrain;
+  water: RouteWater;
+  places: RoutePlace[];
+  /** 题签。of 还可以写 'coast'：指着海。 */
+  strips: SceneStrip[];
+  far: SceneFarPlace[];
+  roads: SceneRoads;
+  /** 头一节是全程；后面每一站一节，先后和 figure.json 里的站一样。 */
+  sections: RouteSection[];
+  notDrawn: SceneOmission[];
+}
+
+/** 一座沙盘的场景：站点沙盘或者全程沙盘。看 level 分。 */
+export type TableScene = StopScene | RouteScene;
+
+export interface RouteFrame {
+  /** 投影的原点，也是沙盘的原点。 */
+  center: LngLat;
+  /** 兰勃特等角圆锥，原点是 center；lat1、lat2 是两条标准纬线。 */
+  projection: { kind: 'lambert-conic'; lat1: number; lat2: number };
+  /** 沙盘上的 1 米是地上的多少米。 */
+  scale: number;
+  /** 从原点到西、东、北、南四条边各多少米（真实的米，在投影出来的平面上量）。 */
+  westM: number;
+  eastM: number;
+  northM: number;
+  southM: number;
+  /** 这个海拔（米）是沙盘上平的桌面。全程沙盘写 0（海面）。 */
+  datumM: number;
+  relief: RouteRelief;
+}
+
+/**
+ * 矮山多夸：海拔 lowBelowM 以下夸大 lowTimes 倍；再往上，夸大以后的高度 = lowTimes × lowBelowM ×（海拔 ÷ lowBelowM）的 power 次方。
+ * highTimes 是做出来的地面上最高的山夸大了大约几倍（整数），说明里印“约 highTimes 到 lowTimes 倍”；对不对由测试照做出来的地面核。
+ */
+export interface RouteRelief {
+  kind: 'low-hills-more';
+  lowBelowM: number;
+  lowTimes: number;
+  power: number;
+  highTimes: number;
+}
+
+export interface RouteTerrain extends Grounds {
+  /** 同一个文件夹里的地形文件名。16 位整数（低位在前）；第 0 行最北，第 0 列最西；逐行存；经纬度的网格。 */
+  file: string;
+  cols: number;
+  rows: number;
+  /** 地形文件盖住的经纬度范围（度）。要盖得住整块沙盘（圆锥投影的边是弯的，四条边都要算）。 */
+  west: number;
+  east: number;
+  south: number;
+  north: number;
+  /** 地形文件里一个数是多少米。全程沙盘写 'm'；0 是海，陆地最小是 1。 */
+  heightUnit: 'm';
+  recipe: PlainSmoothed;
+  edits: SeaEdit[];
+}
+
+/** 全程沙盘整理地形的办法：平原抹成缓坡，山照原样。它的 note 必须写。 */
+export interface PlainSmoothed extends Grounds {
+  kind: 'plain-smoothed';
+  /** 四周（约 20 公里）的平均海拔低于这个数的是平原，高于 hillAboveM 的是山地，中间慢慢过渡。 */
+  plainBelowM: number;
+  hillAboveM: number;
+  /** 平原抹成的缓坡：把平原自己的高度抹开这么多米。 */
+  smoothM: number;
+  /** 平原上比缓坡高出或低下不到 rippleM[0] 米的起伏只留 plainKeep；超过 rippleM[1] 米的算山，照原样；中间匀着过渡。 */
+  plainKeep: number;
+  rippleM: [number, number];
+  /** 离沙盘边这么多米以内，地面收低到海面，切面才齐整。 */
+  edgeTaperM: number;
+  /** 路没到的地方：这几圈里面留白（夸大以后的地势压到 3%，上空绢的颜色，海岸只留一道细线）。圈可以伸到沙盘外面。 */
+  blank: LngLat[][];
+}
+
+/** 这一圈里面今天的陆地不画，抹成海。圈可以伸到沙盘外面。 */
+export interface SeaEdit extends Grounds {
+  id: string;
+  name: string;
+  op: 'sea';
+  /** 一圈闭合的线（最后一点不用重复第一点）。 */
+  area: LngLat[];
+}
+
+export interface RouteWater {
+  /** 海面。values 只有 normal，写 0。它的 note 必须写。 */
+  levels: WaterLevels;
+  /** 今天的海岸、湖、河放在哪个文件里（同一个文件夹）。 */
+  todayFile: string;
+  /** 海岸（照今天画的那一条）。explain、题签的 of 里用留用的词 coast 指它。 */
+  coast: Grounds & { name: string };
+  rivers: RouteRiver[];
+  lakes: RouteLake[];
+  washes: RouteWash[];
+}
+
+/** 照今天的数据画：取 todayFile 里叫这些名字的线；写了 west、east、south、north 的只取这个范围里的点。 */
+export interface TodayPick {
+  names: string[];
+  west?: number;
+  east?: number;
+  south?: number;
+  north?: number;
+}
+
+export interface RouteRiver extends Grounds {
+  id: string;
+  name: string;
+  /** river 是河；canal 是运河：细线，淡一点。 */
+  kind: 'river' | 'canal';
+  /** 画多粗（多少公里由样式定）。运河不写。 */
+  weight?: 'trunk' | 'major' | 'river' | 'minor';
+  /** 自己写的线，和 today 正好写一个。可以伸到沙盘外面。 */
+  line?: LngLat[];
+  /** 照今天的数据画：几条取法合起来。 */
+  today?: TodayPick[];
+}
+
+/** 有岸线的湖：照今天的湖画；except 那一圈里面的湖面不画（当时还是陆地），它自己带类别和依据。 */
+export interface RouteLake extends Grounds {
+  id: string;
+  name: string;
+  today: TodayPick[];
+  except?: Grounds & { id: string; name: string; area: LngLat[] };
+}
+
+/** 只染一片水色、不画岸线的水。areas 是一圈或几圈。 */
+export interface RouteWash extends Grounds {
+  id: string;
+  name: string;
+  areas: LngLat[][];
+}
+
+export interface RoutePlace extends ScenePlace {
+  /** 这个地方是哪几站（figure.json 里站的 id，按先后）。写了的，它的题签脚上有站号的印，点了进那一站。 */
+  stops?: string[];
+}
+
+export interface SceneRoads {
+  ways: RoadWay[];
+  journeys: RoadJourney[];
+}
+
+/** 一截路。几趟都走它的，只画一笔。 */
+export interface RoadWay {
+  id: string;
+  /** 水路、陆路还是海路。 */
+  by: 'water' | 'land' | 'sea';
+  /** 沿着哪条河、哪个湖走（它的 id）。只是交代，线还是 line 写的那条。 */
+  along?: string;
+  line: LngLat[];
+}
+
+/**
+ * 到一站去的那一趟。parts 按走的先后；每一截有自己的名字、类别和依据，在说明和凭据里的 id 是“<这一趟的 id>/<第几截>”（从 1 数起）。
+ * 一截的类别定它画成什么线：text（他自己的文字写到了途中的地方）画实线，schematic（只知道两头，或者照以前走过的路画）画虚线。
+ */
+export interface RoadJourney {
+  id: string;
+  name: string;
+  /** 到的是哪一站（figure.json 里站的 id）。 */
+  stop: string;
+  date: string;
+  /** ways 写一截路的 id；倒着走的在前面加一个减号，如 "-w-canal"。 */
+  parts: (Grounds & { name: string; ways: string[] })[];
+}
+
+export interface RouteSection {
+  /** 这一节叫什么（“全程”“到徐州”），最多七个字。全程沙盘的小节不对着哪一篇正文。 */
+  heading: string;
+  date: string;
+  /** 题记：一句话，说沙盘上这一节看什么。不超过 40 个字。 */
+  line: string;
+  /** 镜头。不许写 targetUpM；distanceM 是沙盘里的米。mustShow 还可以写一趟路的 id。 */
+  camera: SceneCamera;
+  /** 这一节摆哪几条题签，一到十二条，要紧的在前。 */
+  strips: string[];
+  /** 旁边的说明先讲哪几样，至少一样。还可以写一趟路的 id（它各截的 note 照先后印）、从湖面里裁掉的那一角的 id，或者 'coast'。 */
+  explain: string[];
+  /** 这一节看的是到哪一站的来路。第一节（全程）不写。 */
+  stop?: string;
 }
 
 // ---------------------------------------------------------------- 从场景生成的文字

@@ -8,6 +8,8 @@
 // 后来对着图片又改了一处：急滩的白浪画得宽一点、白一点（原来的在一节的画面上看不出来）。
 // 再后来改了一处：水纹和白浪照页面上的像素算，不照画布的像素算（uPx，见 setPixelRatio）。
 //   原来像素比不同的屏幕上水纹落在不同的地方，立体的沙盘接替定格图（宽的照 1.5 拍、窄的照 2 拍）的那一下，白线会跳。
+// 又后来：水纹的那几个函数单拿出来（rippleGlsl），全程沙盘的地面也用它（那里的海和湖是画在地面上的，见 terrainMesh.ts）。
+//   水面自己拼出来的着色器一个字也没有变（tests/stage/water-shader.test.ts 拿存着的一份原文对）。
 // 水是一整片平面，哪里有水由“水位 − 地面高”决定，所以水位一抬，河就漫成一片。
 // 颜色是淡花青，上面有细的白色水纹；岸边留一道白。
 
@@ -38,7 +40,7 @@ import { clamp, distSeg } from './kit/util';
 export const WATER_TRIANGLES = 10;
 export const DRY_WATER_TRIANGLES = 2;
 
-const WATER_GLSL = /* glsl */ `
+const WATER_HEAD_GLSL = /* glsl */ `
 varying vec3 vWPos;
 uniform sampler2D uH;
 uniform float uLevel;
@@ -58,7 +60,15 @@ uniform float uFlood;
 uniform float uDense;
 uniform vec2 uRipRot;
 uniform float uPx;
-float whash(vec2 p){ p = fract(p * vec2(127.1, 311.7)); p += dot(p, p + 34.5); return fract(p.x * p.y); }
+`;
+
+/**
+ * 水纹的那几个函数（whash、wnoise、rippleOct、ripples）。用它的着色器要自己声明四个 uniform：
+ * uTime、uDense、uRipRot（见 rippleFor）、uPx（画布的像素比）。spacingPx 是相邻两道水纹隔多少个页面像素；
+ * 不写是 8，水面用的就是不写的这一份。
+ */
+export function rippleGlsl(spacingPx = 8): string {
+  return /* glsl */ `float whash(vec2 p){ p = fract(p * vec2(127.1, 311.7)); p += dot(p, p + 34.5); return fract(p.x * p.y); }
 float wnoise(vec2 p){
   vec2 i = floor(p); vec2 f = fract(p); vec2 u = f * f * (3.0 - 2.0 * f);
   return mix(mix(whash(i), whash(i + vec2(1.0, 0.0)), u.x), mix(whash(i + vec2(0.0, 1.0)), whash(i + vec2(1.0, 1.0)), u.x), u.y);
@@ -79,7 +89,7 @@ float ripples(vec2 p0){
   vec2 p = vec2(uRipRot.x * p0.x - uRipRot.y * p0.y, uRipRot.y * p0.x + uRipRot.x * p0.y);
   // 一个页面像素（不是画布像素）合地上多少米：同一个画面在像素比 1、1.5、2 的屏幕上，水纹落在同样的地方
   float px = max(fwidth(p.x), fwidth(p.y)) * uPx;
-  float target = max(px * 8.0, 4.0);
+  float target = max(px * ${spacingPx.toFixed(1)}, 4.0);
   float l = log2(target / 4.0);
   float l0 = floor(l);
   float fr = l - l0;
@@ -90,8 +100,13 @@ float ripples(vec2 p0){
   return mix(a, b, smoothstep(0.0, 1.0, fr)) * clump;
 }
 `;
+}
 
-const WATER_FRAGMENT = /* glsl */ `
+/** 水面的着色器添在 three 的 common 后面的那一段：声明，加上水纹的函数。 */
+export const WATER_GLSL = WATER_HEAD_GLSL + rippleGlsl();
+
+/** 水面的着色器换掉 map_fragment 的那一段正文。 */
+export const WATER_FRAGMENT = /* glsl */ `
         vec2 huv = clamp((vWPos.xz - uCrop.xy) * uCrop.zw, 0.0, 1.0);
         vec4 hTex = texture2D(uH, huv);
         float ground = hTex.r + uDatum;

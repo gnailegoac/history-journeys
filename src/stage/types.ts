@@ -8,7 +8,7 @@
 //   页面自己用 src/domain/sceneText.ts 的 sectionInfo() 从场景数据生成；沙盘起不来的时候也照样有。
 //   指北和比例尺跟着镜头变，由沙盘通过 onViewChange 告诉页面，页面来画。
 
-import type { NamesMode, StopScene } from '../domain/scene';
+import type { NamesMode, RouteScene, StopScene } from '../domain/scene';
 import type { StillManifest } from '../domain/stills';
 
 export type { NamesMode };
@@ -17,10 +17,18 @@ export type { NamesMode };
 export type StageTier = 'full' | 'reduced';
 
 /**
- * 要摆出来的一座沙盘。现在只有站点沙盘。
- * 全程沙盘接进来时（重做顺序第 4 步）在这里加一种 kind，再配一种它自己的 StageView；下面已有的不用改。
+ * 要摆出来的一座沙盘：站点沙盘，或者全程沙盘。两种的样子一样，只差 kind 和场景是哪一层的。
+ * 现在只有立体的沙盘程序（src/stage/three）摆得了全程沙盘，从沙盘测试页上看；定格图、页面和替身还只认站点沙盘。
  */
-export type StageTable = StopTable;
+export type StageTable = StopTable | RouteTable;
+
+/** 一位人物的全程沙盘。别的字段的意思和 StopTable 的一样。 */
+export interface RouteTable extends Omit<StopTable, 'kind' | 'scene'> {
+  kind: 'route';
+  /** 认这座沙盘用的名字，如 "su-shi/route"。 */
+  key: string;
+  scene: RouteScene;
+}
 
 export interface StopTable {
   kind: 'stop';

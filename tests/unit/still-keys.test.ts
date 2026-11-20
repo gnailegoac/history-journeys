@@ -147,7 +147,8 @@ describe('场景里决定画面的那一部分的记号（pictureKey）', () => 
   });
 
   it('content/ 里真的场景文件：算得出记号，改一个镜头的数就变，改一句依据不变', () => {
-    const paths = Object.keys(realScenes);
+    // 全程沙盘不在这里：它的定格图还没有做，“场景里决定画面的部分”的记号怎么算，等拍它的那一步定
+    const paths = Object.keys(realScenes).filter((path) => (realScenes[path] as { level?: string }).level !== 'route');
     expect(paths.length).toBeGreaterThan(0);
     for (const path of paths) {
       const scene = realScenes[path];

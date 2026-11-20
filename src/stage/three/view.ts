@@ -15,15 +15,16 @@
 import { DirectionalLight, Fog, HemisphereLight, MathUtils, PMREMGenerator, PerspectiveCamera, Scene, Vector3, type WebGLRenderer } from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
-import type { SceneSection, SceneStrip, StopScene } from '../../domain/scene';
-import { frameCoords, type FrameCoords } from '../../domain/sceneGeo';
+import type { RouteSection, SceneSection, SceneStrip, TableScene } from '../../domain/scene';
+import type { FrameCoords } from '../../domain/sceneGeo';
+import { coordsOf } from '../../domain/sceneGeoRoute';
 import { stripTexts } from '../../domain/sceneText';
 import { buildFields, readDem, samplers as groundSamplers } from '../ground';
 import type { GroundSamplers, Vec2, Vec3 } from '../ground/types';
 import { mountStrips } from '../overlay';
 import type { StripLayer, StripSpec } from '../overlay/types';
-import type { NamesMode, StageInsets, StageOptions, StageReadout, StageShot, StageTier, StageViewInfo, StopStageView, StopTable } from '../types';
-import { beginGroundPaint } from './groundPaint';
+import type { NamesMode, RouteTable, StageInsets, StageOptions, StageReadout, StageShot, StageTable, StageTier, StageViewInfo, StopStageView, StopTable } from '../types';
+import { beginGroundPaint, type GroundPaintJob } from './groundPaint';
 import { nextFrame, nextPaint, type Lease, type StageHost } from './host';
 import type { LightSpec, ModelSet, StageStyle } from './internal';
 import { buildModels } from './kit';
@@ -32,8 +33,8 @@ import { pixelRatioFor, qualityFor } from './quality';
 import { centreShift, chooseScale, equivalentDistance, northDeg, pixelsPerMetre, placeCamera, projectSpots, shadowBox, shadowTuning, stripSpots, type StripSpot } from './rig';
 import { Sequencer, mixState, type Glide, type TableState } from './sequencer';
 import { styleFor } from './style';
-import { buildTable } from './table';
-import { buildTerrainMesh } from './terrainMesh';
+import { buildTable, type Stand } from './table';
+import { buildTerrainMesh, type TerrainMesh } from './terrainMesh';
 import { TRIAL_FRAMES, bigEnoughToTry, chooseTier, createGlideMeter, middle, type GlideMeter, type TierMode } from './tier';
 import { buildWater, rippleFor, type Water } from './water';
 
@@ -74,13 +75,45 @@ const SHADOW_STALE_LN = 0.05;
 const MIN_DISTANCE = 900;
 const MAX_DISTANCE = 90000;
 const MAX_TILT = 80;
+/**
+ * 全程沙盘上读者最近能凑到多近。先画好的地面一个点合地上一公里多：凑到 6000，900 像素高的栏里一个点有三个多像素宽，
+ * 看到的是一格一格的；12000 时是一个半像素。
+ */
+const ROUTE_MIN_DISTANCE = 12000;
+
+/** 全程沙盘那一块程序（用到时才下载）。 */
+export type RouteLevel = typeof import('./routeLevel');
+/**
+ * 全程沙盘那一块程序怎么取。取它的那一句动态 import 不写在沙盘程序里面，由页面那一边交进来（src/stage/index.ts）：
+ * 写在这里的话，打包的工具会把“预先下载”用的一小段程序从页面的程序里单拆成一个文件，页面一打开就多下载三百多字节、多一次请求。
+ */
+export type RouteLevelLoader = () => Promise<RouteLevel>;
+
+/** 全程沙盘那一块程序到了以后的两样：程序自己，和它一到就开始取的先画好的地面。 */
+interface RouteBegun {
+  level: RouteLevel;
+  paint: ReturnType<RouteLevel['routeGroundPaint']>;
+}
+
+/** 造沙盘一开头就动手取的东西：站点沙盘是先画好的地面；全程沙盘是它那一块程序（连同先画好的地面）。 */
+type Starting = { kind: 'route'; table: RouteTable; begun: Promise<RouteBegun> } | { kind: 'stop'; table: StopTable; paint: GroundPaintJob };
+
+/** 地面往上的那几样，站点沙盘和全程沙盘各有各的造法，造出来是同一种东西。 */
+interface TableParts {
+  samplers: GroundSamplers;
+  terrain: TerrainMesh;
+  water: Water;
+  mist: Mist;
+  stand: Stand;
+  models: ModelSet;
+}
 
 const NO_INSETS: StageInsets = { top: 0, right: 0, bottom: 0, left: 0 };
 
 /** 一小节摆好以后的样子：镜头、水、云气、灯、影子罩哪一块。跟画面的大小有关，用的时候现算。 */
 interface Look {
   heading: string;
-  section: SceneSection;
+  section: SceneSection | RouteSection;
   /** 镜头离对准的那一点多远（画面窄了已经退过）。 */
   distanceM: number;
   /** 这个距离是场景里写的距离的几倍。 */
@@ -114,20 +147,32 @@ function whenIdle(run: () => void): void {
   else setTimeout(run, 200);
 }
 
-/** env 不写就是浏览器里的钟点和“页面在不在前台”（沙盘程序就是这么叫的）；测试交假的进来。 */
-export function createStopView(container: HTMLElement, table: StopTable, options: StageOptions, host: BrowserHost, env: ViewEnv = browserEnv): StopStageView {
-  return new ThreeStopView(container, table, options, host, env);
+/**
+ * env 不写就是浏览器里的钟点和“页面在不在前台”（沙盘程序就是这么叫的）；测试交假的进来。
+ * table 可以是站点沙盘，也可以是全程沙盘：同一个 ThreeStopView，碰到全程沙盘的几处各分一次（看 scene.level）。
+ * loadRoute 是全程沙盘那一块程序怎么取；只摆站点沙盘的可以不交，摆全程沙盘而没有交的，ready 拒绝。
+ */
+export function createStopView(
+  container: HTMLElement,
+  table: StageTable,
+  options: StageOptions,
+  host: BrowserHost,
+  env: ViewEnv = browserEnv,
+  loadRoute?: RouteLevelLoader,
+): StopStageView {
+  return new ThreeStopView(container, table, options, host, env, loadRoute);
 }
 
 class ThreeStopView implements StopStageView {
   readonly ready: Promise<void>;
 
   private readonly container: HTMLElement;
-  private readonly table: StopTable;
+  private readonly table: StageTable;
   private readonly options: StageOptions;
   private readonly host: BrowserHost;
   private readonly env: ViewEnv;
-  private readonly scene: StopScene;
+  private readonly loadRoute: RouteLevelLoader;
+  private readonly scene: TableScene;
   private readonly coords: FrameCoords;
   private readonly style: StageStyle;
   private readonly sequencer: Sequencer;
@@ -210,14 +255,15 @@ class ThreeStopView implements StopStageView {
   private readonly lostListeners = new Set<() => void>();
   private readonly slowListeners = new Set<() => void>();
 
-  constructor(container: HTMLElement, table: StopTable, options: StageOptions, host: BrowserHost, env: ViewEnv) {
+  constructor(container: HTMLElement, table: StageTable, options: StageOptions, host: BrowserHost, env: ViewEnv, loadRoute?: RouteLevelLoader) {
     this.container = container;
     this.table = table;
     this.options = options;
     this.host = host;
     this.env = env;
+    this.loadRoute = loadRoute ?? (() => Promise.reject(new Error('全程沙盘的程序没有取到，沙盘没能摆出来')));
     this.scene = table.scene;
-    this.coords = frameCoords(this.scene.frame);
+    this.coords = coordsOf(this.scene);
     this.style = styleFor(this.scene.style);
     this.namesMode = options.namesMode;
     this.insets = options.insets ?? NO_INSETS;
@@ -379,7 +425,7 @@ class ThreeStopView implements StopStageView {
       await nextPaint();
       if (this.destroyed) return;
 
-      const { scene, coords, style, host } = this;
+      const { scene, style, host } = this;
       if (scene.sections.length === 0) throw new Error('场景里一个小节也没有');
 
       // 照哪一档画质摆：页面指定了就照指定的，没指定就用这一次访问到现在还撑得住的最高一档。
@@ -410,55 +456,32 @@ class ThreeStopView implements StopStageView {
       this.applySize(renderer, null);
       renderer.clear();
 
-      // 地面的颜色：有制作时先画好的图，这里就开始取，和地形文件一起下载
-      const groundPaint = beginGroundPaint(this.table, lease.signal);
+      // 地面的颜色：有制作时先画好的图，这里就开始取，和地形文件一起下载。
+      // 全程沙盘另有一块程序（用到时才下载，怎么取是交进来的）：也在这里开始取，它一到就去取那两张图
+      const table = this.table;
+      const starting: Starting =
+        table.kind === 'route'
+          ? { kind: 'route', table, begun: this.loadRoute().then((level) => ({ level, paint: level.routeGroundPaint(table, lease.signal) })) }
+          : { kind: 'stop', table, paint: beginGroundPaint(table, lease.signal) };
+      // 那一块程序要是没取到，缘故留到下面等它的时候再说；这里先接住，免得成了没人管的错误
+      if (starting.kind === 'route') starting.begun.catch(() => {});
       const response = await fetch(this.table.terrainUrl, { signal: lease.signal });
       if (!response.ok) throw new Error(`地形文件读不出来（${response.status}）`);
       const bytes = await response.arrayBuffer();
       if (gone()) return;
 
-      // 地面：读高程，整理和挖河，上色。先画好的图对不上、取不到时要现画，那是最慢的一步，前后各让一次
-      const dem = readDem(scene.terrain, bytes);
-      const ground = buildFields(scene, dem);
-      await nextPaint();
-      if (gone()) return;
-      const paint = await groundPaint.finish(scene, ground, bytes, style.ground);
-      const samplers = groundSamplers(ground);
-      await nextPaint();
-      if (gone()) return;
-
-      const terrain = buildTerrainMesh({
-        samplers,
-        paint,
-        nx: ground.nx,
-        nz: ground.nz,
-        coords,
-        style,
-        maxAnisotropy: renderer.capabilities.getMaxAnisotropy(),
-      });
-      this.keep(terrain.dispose);
-      const water = buildWater({ ground, coords, scene, style });
-      this.keep(water.dispose);
-      await nextPaint();
-      if (gone()) return;
-
-      const mist = buildMist({ ground, samplers, coords, scene, style, layers: quality.mistLayers });
-      this.keep(mist.dispose);
-      const stand = buildTable(coords, style.palette);
-      this.keep(stand.dispose);
-      await nextPaint();
-      if (gone()) return;
-
-      // 小模型：先造第一个画面要用的，别的等摆出来以后再造
-      const models = buildModels({ scene, ground, samplers, coords, style, quality });
-      this.keep(() => models.dispose());
+      // 地面往上的几样：站点沙盘和全程沙盘各有各的造法
+      const parts = starting.kind === 'route' ? await this.buildRouteParts(starting.table, await starting.begun, bytes, lease) : await this.buildStopParts(starting.table, starting.paint, bytes, lease);
+      if (!parts) return;
+      const { samplers, terrain, water, mist, stand, models } = parts;
       const first = this.sequencer.section;
       await models.prepare([first]);
       if (gone()) return;
 
       const world = new Scene();
       const fog = new Fog(style.palette.fog, 40000, 140000);
-      world.fog = fog;
+      // 全程沙盘不起雾（两千公里的沙盘，雾一罩，远处的山就没有了）。雾还是造一份：每一帧照样给它算远近，不另分一次
+      world.fog = scene.level === 'route' ? null : fog;
       world.add(terrain.group, water.group, mist.group, models.group, stand.group);
 
       // 紫檀要一点环境反光；别的材质都是不反光的
@@ -484,7 +507,7 @@ class ThreeStopView implements StopStageView {
       const controls = new OrbitControls(camera, lease.canvas);
       controls.enableDamping = false;
       controls.maxPolarAngle = MathUtils.degToRad(MAX_TILT);
-      controls.minDistance = MIN_DISTANCE;
+      controls.minDistance = this.minDistance();
       controls.maxDistance = MAX_DISTANCE;
       controls.addEventListener('start', this.onControlStart);
       controls.addEventListener('change', this.onControlChange);
@@ -525,6 +548,117 @@ class ThreeStopView implements StopStageView {
       if (this.destroyed || this.lost) return;
       this.fail(error instanceof Error ? error : new Error(String(error)));
     }
+  }
+
+  /**
+   * 站点沙盘地面往上的几样：读高程，整理和挖河，上色，地形板，水面，云气，座子，小模型。
+   * 和接进全程沙盘以前是同样的几步、同样的先后，每一段之间让浏览器喘口气。半路这座沙盘不要了，返回 null。
+   */
+  private async buildStopParts(table: StopTable, groundPaint: GroundPaintJob, bytes: ArrayBuffer, lease: Lease<HTMLCanvasElement, WebGLRenderer>): Promise<TableParts | null> {
+    const { coords, style } = this;
+    const scene = table.scene;
+    const { renderer, quality } = lease;
+    const gone = (): boolean => lease.signal.aborted;
+
+    // 地面：读高程，整理和挖河，上色。先画好的图对不上、取不到时要现画，那是最慢的一步，前后各让一次
+    const dem = readDem(scene.terrain, bytes);
+    const ground = buildFields(scene, dem);
+    await nextPaint();
+    if (gone()) return null;
+    const paint = await groundPaint.finish(scene, ground, bytes, style.ground);
+    const samplers = groundSamplers(ground);
+    await nextPaint();
+    if (gone()) return null;
+
+    const terrain = buildTerrainMesh({
+      samplers,
+      paint,
+      nx: ground.nx,
+      nz: ground.nz,
+      coords,
+      style,
+      maxAnisotropy: renderer.capabilities.getMaxAnisotropy(),
+    });
+    this.keep(terrain.dispose);
+    const water = buildWater({ ground, coords, scene, style });
+    this.keep(water.dispose);
+    await nextPaint();
+    if (gone()) return null;
+
+    const mist = buildMist({ ground, samplers, coords, scene, style, layers: quality.mistLayers });
+    this.keep(mist.dispose);
+    const stand = buildTable(coords, style.palette);
+    this.keep(stand.dispose);
+    await nextPaint();
+    if (gone()) return null;
+
+    // 小模型：先造第一个画面要用的，别的等摆出来以后再造
+    const models = buildModels({ scene, ground, samplers, coords, style, quality });
+    this.keep(() => models.dispose());
+    return { samplers, terrain, water, mist, stand, models };
+  }
+
+  /**
+   * 全程沙盘地面往上的几样。和站点沙盘不一样的：地面是另一种算法，海、湖、河都画在先画好的地面上（不现画，也没有水面），
+   * 没有云气，小模型换成路；地形板不取“附近的最低值”，网格的疏密从样式读（减配的一档再粗一点）。
+   * level 是用到时才下载的那一块程序，和它一到就开始取的两张图。半路这座沙盘不要了，返回 null。
+   */
+  private async buildRouteParts(
+    table: RouteTable,
+    begun: RouteBegun,
+    bytes: ArrayBuffer,
+    lease: Lease<HTMLCanvasElement, WebGLRenderer>,
+  ): Promise<TableParts | null> {
+    const { coords, style } = this;
+    const scene = table.scene;
+    const { renderer, quality } = lease;
+    const { level } = begun;
+    const gone = (): boolean => lease.signal.aborted;
+    const routeStyle = style.route;
+    if (!routeStyle) throw new Error(`样式“${scene.style}”还摆不了全程沙盘`);
+
+    const ground = level.buildRouteGround(scene, level.readRouteDem(scene.terrain, bytes), coords);
+    await nextPaint();
+    if (gone()) return null;
+    const paint = await begun.paint.finish(scene, ground, bytes);
+    const samplers = level.routeSamplers(ground);
+    await nextPaint();
+    if (gone()) return null;
+
+    const terrain = buildTerrainMesh({
+      samplers,
+      paint,
+      nx: ground.nx,
+      nz: ground.nz,
+      coords,
+      style,
+      maxAnisotropy: renderer.capabilities.getMaxAnisotropy(),
+      marks: 'ripples',
+      underWater: false,
+      segmentM: routeStyle.segmentM * (quality.tier === 'reduced' ? routeStyle.reducedSegmentTimes : 1),
+      ripplePx: routeStyle.ripplePx,
+    });
+    this.keep(terrain.dispose);
+    const water = level.routeWater(terrain.uniforms);
+    const mist = level.routeMist();
+    const stand = buildTable(coords, style.palette);
+    this.keep(stand.dispose);
+    await nextPaint();
+    if (gone()) return null;
+
+    const models = level.buildRouteModels();
+    this.keep(() => models.dispose());
+    return { samplers, terrain, water, mist, stand, models };
+  }
+
+  /** 读者最近能凑到多近：站点沙盘 900，全程沙盘 12000。 */
+  private minDistance(): number {
+    return this.scene.level === 'route' ? ROUTE_MIN_DISTANCE : MIN_DISTANCE;
+  }
+
+  /** 沙盘上的 1 米是地上的多少米：站点沙盘是 1，全程沙盘是场景里写的比例。比例尺、“一米多少像素”都按地上的米说。 */
+  private realPerTable(): number {
+    return this.scene.level === 'route' ? this.scene.frame.scale : 1;
   }
 
   /** 沙盘没能摆出来（或者摆出来以后画布被借走了）：把造了一半的放掉，ready 拒绝。 */
@@ -593,8 +727,9 @@ class ThreeStopView implements StopStageView {
     return { ...this.size(), ratio: this.pixelRatio() };
   }
 
-  private sectionOf(heading: string): SceneSection {
-    const section = this.scene.sections.find((s) => s.heading === heading);
+  private sectionOf(heading: string): SceneSection | RouteSection {
+    const sections: (SceneSection | RouteSection)[] = this.scene.sections;
+    const section = sections.find((s) => s.heading === heading);
     if (!section) throw new RangeError(`场景里没有这个小节：${heading}`);
     return section;
   }
@@ -608,11 +743,11 @@ class ThreeStopView implements StopStageView {
     const placed = placeCamera(section, scene, b.samplers, coords, style, this.size(), this.insets);
     const { pose, distanceM } = placed;
 
-    // 水位，和水的颜色偏向大水多少：（这一节的水位 − 平时）÷（最高的水位 − 平时）
+    // 水位，和水的颜色偏向大水多少：（这一节的水位 − 平时）÷（最高的水位 − 平时）。全程沙盘的小节不写水位，总是平时（海面）
     const levels = scene.water.levels.values;
     const normal = levels.normal;
     const top = Math.max(...Object.values(levels));
-    const levelM = levels[section.water] ?? normal;
+    const levelM = 'water' in section ? (levels[section.water] ?? normal) : normal;
     const flood = top > normal ? MathUtils.clamp((levelM - normal) / (top - normal), 0, 1) : 0;
 
     return {
@@ -623,7 +758,7 @@ class ThreeStopView implements StopStageView {
       reach: placed.reach,
       state: { position: pose.position, target: pose.target, fov: pose.fov, levelM, flood, mist: style.mistFor(distanceM) },
       // 一种样式只有一盏灯：只看天色，不看镜头朝哪边、离多远
-      light: style.light(section.sky ?? 'day'),
+      light: style.light(('sky' in section ? section.sky : undefined) ?? 'day'),
       shadow: shadowBox([pose.target[0], pose.target[2]], distanceM, coords),
     };
   }
@@ -697,11 +832,14 @@ class ThreeStopView implements StopStageView {
 
   /** 换一批题签：这一小节的，按现在的古今名字。 */
   private showStrips(heading: string, b: Built): void {
-    const specs: StripSpec[] = stripTexts(this.scene, heading, this.namesMode).map((t) => ({
+    const scene = this.scene;
+    // 全程沙盘的题签（带站号的印）下一步才接上：现在一条也不摆
+    const texts = scene.level === 'route' ? [] : stripTexts(scene, heading, this.namesMode);
+    const specs: StripSpec[] = texts.map((t) => ({
       id: t.id,
       text: t.text,
       tone: t.tone,
-      side: this.scene.strips.find((s) => s.id === t.id)?.side,
+      side: scene.strips.find((s) => s.id === t.id)?.side,
     }));
     this.stripsFor = heading;
     this.shownStrips = this.stripsOf(specs.map((s) => s.id));
@@ -745,7 +883,8 @@ class ThreeStopView implements StopStageView {
       pose: { target, position: [camera.position.x, camera.position.y, camera.position.z], fov: camera.fov },
       fit: look.fit,
       reach: [look.reach[0], look.reach[1]],
-      pxPerMetre: pixelsPerMetre(camera, target, size.height),
+      // 记的是“地上的一米多少像素”：全程沙盘上除以它的比例
+      pxPerMetre: pixelsPerMetre(camera, target, size.height) / this.realPerTable(),
       northDeg: northDeg(camera),
       anchors: projectSpots(spots, this.coords, camera, size),
     };
@@ -767,7 +906,7 @@ class ThreeStopView implements StopStageView {
     b.water.setRipple(ripple.dense, ripple.turnDeg);
     this.applyState(look.state, b);
 
-    b.controls.minDistance = MIN_DISTANCE;
+    b.controls.minDistance = this.minDistance();
     b.controls.maxDistance = MAX_DISTANCE;
     b.controls.maxPolarAngle = MathUtils.degToRad(MAX_TILT);
     this.widenControls(look, b);
@@ -1076,7 +1215,7 @@ class ThreeStopView implements StopStageView {
     }
 
     const target: Vec3 = [controls.target.x, controls.target.y, controls.target.z];
-    const info: StageViewInfo = { northDeg: northDeg(camera), scale: chooseScale(pixelsPerMetre(camera, target, size.height)) };
+    const info: StageViewInfo = { northDeg: northDeg(camera), scale: chooseScale(pixelsPerMetre(camera, target, size.height) / this.realPerTable()) };
     const last = this.lastInfo;
     if (!last || Math.abs(last.northDeg - info.northDeg) > 0.05 || last.scale.px !== info.scale.px || last.scale.label !== info.scale.label) {
       this.lastInfo = info;

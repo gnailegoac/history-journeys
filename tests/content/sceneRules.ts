@@ -8,15 +8,16 @@
 
 import type { BakedGroundManifest } from '../../src/domain/bakedGround';
 import { SCENE_CLASSES, SCENE_CLASS_LABEL, SCENE_RESERVED_IDS, SCENE_SKIES, SCENE_STYLES } from '../../src/domain/scene';
-import type { DressingKind, DressingWhere, Grounds, ParamType, Params, SceneClass, SceneDressing, SceneThing, StopScene, ThingKind, When } from '../../src/domain/scene';
+import type { DressingKind, DressingWhere, Grounds, ParamType, Params, SceneClass, SceneDressing, SceneThing, StopScene, TableScene, ThingKind, When } from '../../src/domain/scene';
 import { farEdgePoint, frameCoords } from '../../src/domain/sceneGeo';
+import { coordsOf } from '../../src/domain/sceneGeoRoute';
 import { DRESSING_KINDS, DRESSING_PARAMS, DRESSING_WHERE, THING_HOSTS, THING_KINDS, THING_PARAMS, THING_PLACING } from '../../src/domain/sceneKinds';
 import type { FrameCoords } from '../../src/domain/sceneGeo';
 import { existsAt, sectionInfo } from '../../src/domain/sceneText';
 import type { StillManifest, StillShape } from '../../src/domain/stills';
 import type { Figure, LngLat } from '../../src/domain/types';
 import { gridOf } from '../../src/stage/ground/grid';
-import { COLOUR_PSNR_MIN, PICTURE_EDGE_MAX, STILL_MAX_BYTES, TABLE_FILES_MAX_BYTES, edgeTooLong, kilobytes, megabytes, psnrTooLow, stillTooBig, tableFiles } from './budgetRules';
+import { COLOUR_PSNR_MIN, COLOUR_PSNR_MIN_ROUTE, PICTURE_EDGE_MAX, STILL_MAX_BYTES, TABLE_FILES_MAX_BYTES, edgeTooLong, kilobytes, megabytes, psnrTooLow, stillTooBig, tableFiles } from './budgetRules';
 import { anything, bool, checkShape, has, list, lngLat, number, numberIn, object, oneOf, optional, readJson, record, strict, tagged, text, union, violation } from './shape';
 import type { ContentFiles, FileSizes, PictureSizes, Shape, Violation } from './shape';
 
@@ -59,7 +60,7 @@ const degrees = numberIn({ min: 0, max: 360 });
 const count = numberIn({ above: 0, whole: true });
 
 /** 类别和依据的那一组字段。class 是不是五类之一、basis 是不是空的，归规则 12 查。 */
-const GROUNDS = { class: text, basis: text, sourceIds: list(text), unsure: optional(text), note: optional(text) };
+export const GROUNDS = { class: text, basis: text, sourceIds: list(text), unsure: optional(text), note: optional(text) };
 
 /** 山高怎么夸大。别的 kind 这里放过去，由规则 10 说“站点沙盘只有统一夸大一种”。 */
 const RELIEF = union((fields) => (fields.kind === 'uniform' ? strict({ kind: text, times: positive }) : object({ kind: text })));
@@ -89,6 +90,8 @@ const CAMERA = strict({
 
 /** 场景文件的样子。零件和点缀的 kind、参数另由规则 13 对着表查，这里只看是不是文字、是不是一组字段。 */
 const SCENE: Shape = strict({
+  // 站点沙盘可以不写 level；写了只能是 stop（写 route 的是全程沙盘，rules.ts 把它交给 routeRules.ts，到不了这里）
+  level: optional(oneOf(['stop'])),
   stopId: text,
   style: text,
   credits: list(text),
@@ -285,8 +288,8 @@ export function checkSceneExtent(scene: StopScene, file: string): Violation[] {
 
 // ---------------------------------------------------------------- 规则 12 类别和依据
 
-const CLASS_LIST = SCENE_CLASSES.map((cls) => `${cls}（${SCENE_CLASS_LABEL[cls]}）`).join('、');
-const NEEDS_SOURCE: readonly string[] = ['real', 'today', 'text'] satisfies SceneClass[];
+export const CLASS_LIST = SCENE_CLASSES.map((cls) => `${cls}（${SCENE_CLASS_LABEL[cls]}）`).join('、');
+export const NEEDS_SOURCE: readonly string[] = ['real', 'today', 'text'] satisfies SceneClass[];
 const DRESSING_CLASSES: readonly string[] = ['dressing', 'text'] satisfies SceneClass[];
 
 /** 场景里带类别和依据的全部东西：在文件的哪里，是什么。 */
@@ -575,7 +578,7 @@ function isDressingKind(kind: string): kind is DressingKind {
   return (DRESSING_KINDS as readonly string[]).includes(kind);
 }
 
-function samePoint(a: LngLat, b: LngLat): boolean {
+export function samePoint(a: LngLat, b: LngLat): boolean {
   return a[0] === b[0] && a[1] === b[1];
 }
 
@@ -717,7 +720,7 @@ export function checkSceneSections(scene: StopScene, file: string, textHeadings:
 // ---------------------------------------------------------------- 规则 15 题签
 
 /** 只能是汉字，一到七个。 */
-const HAN = /^\p{Script=Han}{1,7}$/u;
+export const HAN = /^\p{Script=Han}{1,7}$/u;
 
 /** 题签指的那样东西在沙盘上占的地方：一个点，一条线（closed 是首尾相接的一圈），一片地方，或者哪里都行。 */
 type Place = { is: 'point'; at: LngLat } | { is: 'line'; line: LngLat[]; closed: boolean } | { is: 'area'; ring: LngLat[] } | { is: 'anywhere' };
@@ -814,7 +817,7 @@ function placeOf(scene: StopScene, entry: IdEntry): Place | null {
   }
 }
 
-type XZ = [number, number];
+export type XZ = [number, number];
 
 /** 沙盘里的一点 p 离一样东西多远（米）。在一片地方里面算 0。 */
 function distance(p: XZ, place: Place, coords: FrameCoords): number {
@@ -834,7 +837,7 @@ function distance(p: XZ, place: Place, coords: FrameCoords): number {
 
 const minus = (a: XZ, b: XZ): XZ => [a[0] - b[0], a[1] - b[1]];
 
-function toLine(p: XZ, line: XZ[], closed: boolean): number {
+export function toLine(p: XZ, line: XZ[], closed: boolean): number {
   let best = Infinity;
   const last = closed ? line.length : line.length - 1;
   for (let i = 0; i < last; i += 1) best = Math.min(best, toSegment(p, line[i], line[(i + 1) % line.length]));
@@ -848,7 +851,7 @@ function toSegment(p: XZ, a: XZ, b: XZ): number {
   return Math.hypot(p[0] - (a[0] + t * dx), p[1] - (a[1] + t * dz));
 }
 
-function insideRing(p: XZ, ring: XZ[]): boolean {
+export function insideRing(p: XZ, ring: XZ[]): boolean {
   let inside = false;
   for (let i = 0, j = ring.length - 1; i < ring.length; j = i, i += 1) {
     const [xi, zi] = ring[i];
@@ -993,13 +996,18 @@ const BAKED: Shape = strict({
   fields: strict(BAKED_PICTURE),
 });
 
+/** 先画好的图，地面的一格画几个点：站点沙盘两个，全程沙盘三个。 */
+export const BAKED_POINTS_PER_CELL = { stop: 2, route: 3 } as const;
+
 /**
- * 先画好的两张图该多宽、多高：沙盘的范围每 10 米一个点。
- * 地面的网格每 20 米一格（src/stage/ground/grid.ts），上色时一格画两个点（src/stage/ground/paint.ts）。
+ * 先画好的两张图该多宽、多高。地面的网格每 20 米（沙盘里的米）一格（src/stage/ground/grid.ts）。
+ * 站点沙盘上色时一格画两个点（src/stage/ground/paint.ts），就是每 10 米一个点；
+ * 全程沙盘一格画三个点：它的一格是地上的三公里多，两个点画不出海岸和河。
  */
-export function bakedPictureSize(scene: StopScene): { width: number; height: number } {
-  const grid = gridOf(frameCoords(scene.frame));
-  return { width: (grid.nx - 1) * 2 + 1, height: (grid.nz - 1) * 2 + 1 };
+export function bakedPictureSize(scene: TableScene): { width: number; height: number } {
+  const grid = gridOf(coordsOf(scene));
+  const points = BAKED_POINTS_PER_CELL[scene.level === 'route' ? 'route' : 'stop'];
+  return { width: (grid.nx - 1) * points + 1, height: (grid.nz - 1) * points + 1 };
 }
 
 /**
@@ -1011,7 +1019,7 @@ export function bakedPictureSize(scene: StopScene): { width: number; height: num
  * dir 是这位人物的文件夹，如 figures/su-shi。required 是 false 时，没有清单的沙盘算合格（见 MADE_FILES_REQUIRED）。
  * 只查文件齐不齐、对不对得上清单；图是不是比做它的东西旧，由 npm test 里的 baked-fresh 查。
  */
-export function checkBakedGround(scene: StopScene, dir: string, files: ContentFiles, measured: Measured = {}, required: boolean = MADE_FILES_REQUIRED): Violation[] {
+export function checkBakedGround(scene: TableScene, dir: string, files: ContentFiles, measured: Measured = {}, required: boolean = MADE_FILES_REQUIRED): Violation[] {
   const stop = scene.stopId;
   const folder = `${dir}/baked/`;
   const file = `${folder}${stop}.json`;
@@ -1052,7 +1060,7 @@ export function checkBakedGround(scene: StopScene, dir: string, files: ContentFi
     if (entry.width !== expected.width || entry.height !== expected.height) {
       bad(
         `${field}.${entry.width !== expected.width ? 'width' : 'height'}`,
-        `${what}写的是 ${entry.width} × ${entry.height} 像素；照沙盘的范围每 10 米一个点算，应该是 ${expected.width} × ${expected.height}`,
+        `${what}写的是 ${entry.width} × ${entry.height} 像素；照沙盘的范围${scene.level === 'route' ? '一格三个点' : '每 10 米一个点'}算，应该是 ${expected.width} × ${expected.height}`,
       );
     }
     if (edgeTooLong(entry.width, entry.height)) {
@@ -1069,8 +1077,10 @@ export function checkBakedGround(scene: StopScene, dir: string, files: ContentFi
   });
   if (sum.verdict === 'fail') bad('', `地形文件、颜色、田的标记三个文件合计 ${megabytes(sum.total)}，不能超过 1.5 MB`);
 
-  if (psnrTooLow(manifest.colour.psnr)) {
-    bad('colour.psnr', `颜色那张图压得太狠：清晰度（psnr）是 ${manifest.colour.psnr}，不能低于 ${COLOUR_PSNR_MIN}；用高一点的质量重新做`);
+  // 全程沙盘的那一张另有一个数（见 budgetRules.ts）
+  const psnrMin = scene.level === 'route' ? COLOUR_PSNR_MIN_ROUTE : COLOUR_PSNR_MIN;
+  if (psnrTooLow(manifest.colour.psnr, psnrMin)) {
+    bad('colour.psnr', `颜色那张图压得太狠：清晰度（psnr）是 ${manifest.colour.psnr}，不能低于 ${psnrMin}；用高一点的质量重新做`);
   }
 
   for (const path of own) {
@@ -1129,7 +1139,7 @@ const HOW_MANY = ['', '一', '两', '三', '四'];
  * dir 是这位人物的文件夹。required 是 false 时，没有清单的沙盘算合格（见 MADE_FILES_REQUIRED）。
  * 只查文件齐不齐、对不对得上清单；图是不是比做它的东西旧，由 npm test 里的 stills-fresh 查。
  */
-export function checkSectionStills(scene: StopScene, dir: string, files: ContentFiles, measured: Measured = {}, required: boolean = MADE_FILES_REQUIRED): Violation[] {
+export function checkSectionStills(scene: TableScene, dir: string, files: ContentFiles, measured: Measured = {}, required: boolean = MADE_FILES_REQUIRED): Violation[] {
   const stop = scene.stopId;
   const folder = `${dir}/stills/`;
   const file = `${folder}${stop}.json`;

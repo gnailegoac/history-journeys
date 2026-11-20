@@ -5,7 +5,7 @@ import type { FileKeys, MeasuredPictures, PictureKind } from './sceneRules';
 import type { ContentFiles, FileSizes } from './shape';
 
 /**
- * paths：目录下所有文件的路径（含图片）；texts：其中 .json 和 .md 文件的文字。
+ * paths：目录下所有文件的路径（含图片）；texts：其中 .json、.md 和 .geojson 文件的文字。
  * prefix 是内容目录的路径，结果里的路径去掉这一截。
  */
 export function toContentFiles(prefix: string, paths: string[], texts: Record<string, string>): ContentFiles {
@@ -58,8 +58,11 @@ export function toPictureSizes(prefix: string, paths: string[], read: (path: str
   return pictures;
 }
 
-/** 大小有规定的几种文件：scenes/ 里的地形文件（.bin），stills/ 里的定格图，baked/ 里先画好的地面。 */
-const SIZED = /\/scenes\/[^/]+\.bin$|\/(stills|baked)\/[^/]+$/;
+/**
+ * 大小有规定的几种文件：scenes/ 里的地形文件（.bin）和全程沙盘的“今天的海岸、湖、河”（.geojson），
+ * stills/ 里的定格图，baked/ 里先画好的地面。
+ */
+const SIZED = /\/scenes\/[^/]+\.(bin|geojson)$|\/(stills|baked)\/[^/]+$/;
 
 /**
  * 这几种文件各有多大。sizeOf 给出一个文件的字节数（路径是 paths 里的原样），由调用的人从磁盘量。

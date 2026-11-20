@@ -18,14 +18,21 @@ import { FIXTURE_HEADINGS, fixtureScene, fixtureSources } from '../support/fixtu
 import { fileSize, readBytes } from '../support/readBytes';
 import { PICTURE_EDGE_MAX, TABLE_FILES_MAX_BYTES } from './budgetRules';
 import { pictureSize, toContentFiles, toFileKeys, toFileSizes, toPictureSizes } from './files';
-import { formatViolation, RULE_NAMES, validateContent } from './rules';
+import { formatViolation, RULE_NAMES, validateContent as validateAll } from './rules';
 import type { ContentFiles } from './rules';
 import { bakedPictureSize, checkBakedGround, checkScene, checkSceneShape, checkSectionStills, MADE_FILES_REQUIRED, STILL_MAX_BYTES, TERRAIN_MAX_BYTES, textWidth, unsureProblem, WORDS_MAX } from './sceneRules';
 import type { Measured } from './sceneRules';
 import type { FileSizes, PictureSizes, Violation } from './shape';
 
 const texts = import.meta.glob<string>('./fixtures/**/*.{json,md}', { query: '?raw', import: 'default', eager: true });
-const paths = Object.keys(import.meta.glob('./fixtures/**/*'));
+// 两份样本里另有全程沙盘的文件（scenes/route.*）：它们在 routeRules.test.ts 里查。这里不带它们，下面各条数的还是站点沙盘和别的文件。
+const paths = Object.keys(import.meta.glob('./fixtures/**/*')).filter((path) => !path.includes('/scenes/route.'));
+/**
+ * 样本里既然不带全程沙盘，“卡片标了可以点进去的人物要有 scenes/route.json”（规则 16 的后半句）在这里一定报：
+ * 这一句在 routeRules.test.ts 里用带着全程沙盘的样本查，这里把它滤掉，别的照旧。
+ */
+const validateContent = (...args: Parameters<typeof validateAll>): Violation[] =>
+  validateAll(...args).filter((v) => !(v.rule === 16 && v.file === 'figures/index.json'));
 const fixture = (name: string): ContentFiles => toContentFiles(`./fixtures/${name}/`, paths, texts);
 
 const GOOD = fixture('good');
@@ -1612,9 +1619,9 @@ describe('规则 9 没有占位：场景文件里的文字也查', () => {
 });
 
 describe('报告的写法', () => {
-  it('规则的名字有十九个：格式，加上十八条', () => {
-    expect(RULE_NAMES).toHaveLength(19);
-    expect(RULE_NAMES.slice(10)).toEqual(['场景文件', '范围', '类别和依据', '零件', '小节', '题签', '人物页的定格图', '先画好的地面', '每一小节的定格图']);
+  it('规则的名字有二十一个：格式，加上二十条（19 是随站的字体，不归内容校验查；20 是站的位置）', () => {
+    expect(RULE_NAMES).toHaveLength(21);
+    expect(RULE_NAMES.slice(10)).toEqual(['场景文件', '范围', '类别和依据', '零件', '小节', '题签', '人物页的定格图', '先画好的地面', '每一小节的定格图', '随站的字体', '站的位置']);
   });
 
   it('场景的问题也写成一句话：哪条规则、哪个文件、哪个字段、哪里不对', () => {

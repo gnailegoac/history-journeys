@@ -495,7 +495,11 @@ describe('sceneRegister', () => {
 
 const sceneTexts = import.meta.glob<string>('/content/figures/*/scenes/*.json', { query: '?raw', import: 'default', eager: true });
 const stopTexts = import.meta.glob<string>('/content/figures/*/stops/*.json', { query: '?raw', import: 'default', eager: true });
-const realScenes = Object.entries(sceneTexts).map(([path, raw]) => ({ path, scene: JSON.parse(raw.replace(/^\uFEFF/, '')) as StopScene }));
+// 全程沙盘（写着 "level": "route" 的）不在这里：沙盘旁边那几句话的生成还没有接上它（接上的那一步把这个筛子拿掉）；
+// 它的镜头、题签和说明现在由 tests/stage/route-views.test.ts 查。
+const realScenes = Object.entries(sceneTexts)
+  .map(([path, raw]) => ({ path, scene: JSON.parse(raw.replace(/^\uFEFF/, '')) as StopScene }))
+  .filter(({ scene }) => (scene as { level?: string }).level !== 'route');
 
 describe('content/ 里真实的场景', () => {
   it('至少有一个场景文件', () => {

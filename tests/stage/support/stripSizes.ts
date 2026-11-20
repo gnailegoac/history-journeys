@@ -8,7 +8,7 @@
 // 样式改了，浏览器测试里有一项会量一条真的题签来和这里比（tests/e2e/pane-stills.spec.ts），
 // 比不上就得回来改这里，再把用到它的测试重跑一遍。
 
-import type { NamesMode, StopScene } from '../../../src/domain/scene';
+import type { NamesMode, RouteScene, StopScene } from '../../../src/domain/scene';
 import { stripTexts } from '../../../src/domain/sceneText';
 import type { StripInput } from '../../../src/stage/overlay/types';
 
@@ -32,9 +32,21 @@ export function stripSizeKind(paneWidth: number): StripSizeKind {
   return paneWidth < STRIP_NARROW_BELOW_PX ? 'narrow' : 'wide';
 }
 
-/** 写着 text 的一条题签多宽多高。字数按一个一个的字算（不按编码的长度）。 */
-export function stripSize(text: string, kind: StripSizeKind): { w: number; h: number } {
+/**
+ * 全程沙盘上是站的地名，题签脚上不是那方小红印，是一方一方写着第几站的红印（一站一方，杭州两方）。
+ * 这样的题签的高 = base + perChar × 字数 + perSeal × 印的方数：宽的栏上下各垫 6，一方印 19 像素、上面空 3；
+ * 窄的栏上垫 4、下垫 5，一方印 16 像素、上面空 2。这几个数是设计稿定的；印的样式做出来以后，
+ * 浏览器测试要量一条带印的真题签来和这里比（现在还没有那一项）。
+ */
+export const SEALED_STRIP_SIZE: Record<StripSizeKind, { base: number; perSeal: number }> = {
+  wide: { base: 12, perSeal: 22 },
+  narrow: { base: 9, perSeal: 18 },
+};
+
+/** 写着 text 的一条题签多宽多高。字数按一个一个的字算（不按编码的长度）。seals 是脚上有几方站号的印（全程沙盘上才有）。 */
+export function stripSize(text: string, kind: StripSizeKind, seals = 0): { w: number; h: number } {
   const { w, base, perChar } = STRIP_SIZE[kind];
+  if (seals > 0) return { w, h: Math.round(SEALED_STRIP_SIZE[kind].base + [...text].length * perChar + seals * SEALED_STRIP_SIZE[kind].perSeal) };
   return { w, h: Math.round(base + [...text].length * perChar) };
 }
 
@@ -50,4 +62,22 @@ export function sectionStrips(scene: StopScene, heading: string, paneWidth: numb
     rank,
     side: scene.strips.find((s) => s.id === t.id)?.side,
   }));
+}
+
+/**
+ * 全程沙盘一小节要摆的题签，照这么宽的沙盘栏算好大小。字是当时的名字，或者今天的名字（写了 modern 的才换）；
+ * 指着“是站的地名点”的题签带着站号的印，一站一方。页面上拼这些字的程序（src/domain/sceneText.ts）接上全程沙盘以后，
+ * 这里改成用它。
+ */
+export function routeSectionStrips(scene: RouteScene, heading: string, paneWidth: number, names: NamesMode = 'ancient'): StripInput['strips'] {
+  const kind = stripSizeKind(paneWidth);
+  const section = scene.sections.find((item) => item.heading === heading);
+  if (!section) throw new Error(`全程沙盘里没有“${heading}”这一节`);
+  return section.strips.map((id, rank) => {
+    const strip = scene.strips.find((item) => item.id === id);
+    if (!strip) throw new Error(`${heading} 写的题签 ${id}，场景里没有`);
+    const text = names === 'modern' && strip.modern ? strip.modern : strip.text;
+    const seals = scene.places.find((place) => place.id === strip.of)?.stops?.length ?? 0;
+    return { id, ...stripSize(text, kind, seals), rank, side: strip.side };
+  });
 }

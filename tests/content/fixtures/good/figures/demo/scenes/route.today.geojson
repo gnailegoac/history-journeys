@@ -1,0 +1,109 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "kind": "land",
+        "name": "mainland"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              108,
+              26.5
+            ],
+            [
+              114.45,
+              26.5
+            ],
+            [
+              114.45,
+              31.5
+            ],
+            [
+              108,
+              31.5
+            ],
+            [
+              108,
+              26.5
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "kind": "river",
+        "name": "Long"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            109.2,
+            30.4
+          ],
+          [
+            110,
+            30
+          ],
+          [
+            111.2,
+            30.2
+          ],
+          [
+            112.5,
+            29.6
+          ],
+          [
+            114.45,
+            29.5
+          ],
+          [
+            114.9,
+            29.5
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "kind": "lake",
+        "name": "Mirror Hu"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              112.2,
+              28.9
+            ],
+            [
+              112.8,
+              28.9
+            ],
+            [
+              112.8,
+              28.5
+            ],
+            [
+              112.2,
+              28.5
+            ],
+            [
+              112.2,
+              28.9
+            ]
+          ]
+        ]
+      }
+    }
+  ]
+}

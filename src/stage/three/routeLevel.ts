@@ -1,0 +1,109 @@
+// 全程沙盘才用得着的那一块程序。摆全程沙盘时才下载（取它的那一句动态 import 在 src/stage/index.ts），站点沙盘的页面不下载。
+// 里面有四样：
+//   地面的算法（../ground/route.ts 的几个函数，从这里转出去）；
+//   先画好的地面怎么取（routeGroundPaint）——全程沙盘的地面不在页面上现画，只用制作时画好的两张图；
+//   两个替身：全程沙盘没有水面，也没有云气，可 view.ts 每一帧都要对水面和云气说话，这里给它两个什么也不画的；
+//   路（buildRouteModels）：现在是空的一组，下一步接上。
+// 查构建结果的测试把这一块连同它静态引入的东西单算一组（tests/content/budgetRules.ts 的 ROUTE_ENTRY）。
+
+import { Group, type IUniform, type Vector2 } from 'three';
+import { contentKey } from '../../domain/contentKey';
+import type { RouteScene } from '../../domain/scene';
+import { routeGroundKey, routeNormals, routePictureSize } from '../ground/route';
+import type { RouteGround } from '../ground/route';
+import type { RouteTable } from '../types';
+import { loadPicture, pictureSize } from './groundPaint';
+import type { GroundPaintSource } from './groundPaint';
+import type { ModelSet } from './internal';
+import type { Mist } from './mist';
+import type { Water } from './water';
+// 这一句只为打包：这一块程序只在沙盘程序已经下载了以后才取。写了这一句，打包的工具就知道沙盘程序那一块一定在，
+// 两边共用的东西（three 的核心、取图片的函数、抹平的函数）留在那一块里直接用；不写的话，它们会被另拆成一块，
+// 摆站点沙盘也要多下载一个文件、多两千来字节（量过）。
+import './engine';
+
+export { buildRouteGround, readRouteDem, routeSamplers } from '../ground/route';
+
+// ---------------------------------------------------------------- 先画好的地面
+
+/**
+ * 全程沙盘先画好的地面是照什么画的，两个记号：场景里管地面的那一部分，地形文件的字节。
+ * 做图的工具、查“旧不旧”的测试和这里的核对用的都是这一个函数。
+ */
+export function routeGroundInputs(scene: RouteScene, terrainBytes: ArrayBuffer): { ground: string; terrain: string } {
+  return { ground: routeGroundKey(scene), terrain: contentKey(new Uint8Array(terrainBytes)) };
+}
+
+export interface RouteGroundPaintJob {
+  /**
+   * 地面算好以后叫：等两张图，查大小，算法线。图没有、取不到、大小不对就拒绝（全程沙盘不现画，页面这时候放图片或者一句话）。
+   * 图是照旧的场景或者旧的地形文件画的：照样用，在控制台里说一句（这是给改场景的人留的；发布出去的网站走不到，测试先不通过）。
+   */
+  finish(scene: RouteScene, ground: RouteGround, terrainBytes: ArrayBuffer): Promise<GroundPaintSource>;
+}
+
+/** 一开始就叫（地形文件还没取到）：两张图一起开始取。loadImage 可以换成假的（测试用）。 */
+export function routeGroundPaint(table: RouteTable, signal: AbortSignal, loadImage?: (url: string) => Promise<TexImageSource>): RouteGroundPaintJob {
+  const baked = table.ground;
+  const load = (url: string): Promise<TexImageSource> => {
+    try {
+      return loadImage ? loadImage(url) : loadPicture(url, signal);
+    } catch (error) {
+      return Promise.reject(error);
+    }
+  };
+  const pictures = baked ? Promise.all([load(baked.colourUrl), load(baked.fieldsUrl)]) : null;
+  // 取不到的缘故留到 finish 里再说；这里先接住，免得成了没人管的错误
+  pictures?.catch(() => {});
+
+  return {
+    async finish(scene, ground, terrainBytes) {
+      if (!baked || !pictures) throw new Error('全程沙盘还没有先画好的地面。运行 npm run bake');
+      const { w, h } = routePictureSize(ground);
+      if (baked.width !== w || baked.height !== h) throw new Error(`全程沙盘先画好的地面，清单里写的图是 ${baked.width} × ${baked.height}，照沙盘的范围应该是 ${w} × ${h}。运行 npm run bake`);
+      const now = routeGroundInputs(scene, terrainBytes);
+      if (baked.inputs.ground !== now.ground || baked.inputs.terrain !== now.terrain) {
+        console.warn('[沙盘] 全程沙盘先画好的地面是旧的，颜色不是照现在的场景画的。运行 npm run bake');
+      }
+      const [colour, fields] = await pictures;
+      for (const image of [colour, fields]) {
+        const [pw, ph] = pictureSize(image);
+        if (pw !== w || ph !== h) throw new Error(`全程沙盘先画好的地面，图是 ${pw} × ${ph}，应该是 ${w} × ${h}。运行 npm run bake`);
+      }
+      return { kind: 'baked', colour, fields, w, h, normals: routeNormals(ground) };
+    },
+  };
+}
+
+// ---------------------------------------------------------------- 两个替身，和路
+
+/**
+ * 水面的替身：全程沙盘的海和湖是画在地面上的，没有水面。水纹由地面的着色器画，
+ * 所以“水纹怎么摆”“画布的像素比”这两句话转给地面的材质（terrainMesh.ts 给出来的 uniforms）；水位和水色不用管。
+ */
+export function routeWater(uniforms: Record<string, IUniform>): Water {
+  return {
+    group: new Group(),
+    setLevel() {},
+    setFlood() {},
+    setRipple(dense, turnDeg) {
+      const turn = (turnDeg * Math.PI) / 180;
+      uniforms.uDense.value = dense;
+      (uniforms.uRipRot.value as Vector2).set(Math.cos(turn), Math.sin(turn));
+    },
+    setPixelRatio(ratio) {
+      uniforms.uPx.value = ratio > 0 ? ratio : 1;
+    },
+    dispose() {},
+  };
+}
+
+/** 云气的替身：全程沙盘不画云气。 */
+export function routeMist(): Mist {
+  return { group: new Group(), setFlood() {}, setStrength() {}, dispose() {} };
+}
+
+/** 全程沙盘上的路。现在是空的一组：什么也不画，一个三角形也没有。 */
+export function buildRouteModels(): ModelSet {
+  return { group: new Group(), apply: () => false, prepare: () => Promise.resolve(), triangles: () => 0, dispose() {} };
+}

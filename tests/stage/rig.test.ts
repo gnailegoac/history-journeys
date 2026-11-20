@@ -957,7 +957,14 @@ describe('画面上的位置、指北、比例尺', () => {
     expect(chooseScale(0.15)).toEqual({ px: 75, label: '500 米' });
     expect(chooseScale(0.0125)).toEqual({ px: 125, label: '10 公里' });
     expect(chooseScale(1)).toEqual({ px: 100, label: '100 米' });
-    for (let pxPerMetre = 0.002; pxPerMetre < 5; pxPerMetre *= 1.07) {
+    // 全程沙盘的画面：一像素是地上的几公里
+    expect(chooseScale(0.0005)).toEqual({ px: 100, label: '200 公里' });
+    expect(chooseScale(0.00025)).toEqual({ px: 125, label: '500 公里' });
+    expect(chooseScale(0.0001)).toEqual({ px: 100, label: '1000 公里' });
+    // 100 公里正好 140 像素时还是 100 公里；再远一点才换成 200 公里
+    expect(chooseScale(0.0014)).toEqual({ px: 140, label: '100 公里' });
+    expect(chooseScale(0.0007)).toEqual({ px: 140, label: '200 公里' });
+    for (let pxPerMetre = 0.00006; pxPerMetre < 5; pxPerMetre *= 1.07) {
       const { px } = chooseScale(pxPerMetre);
       expect(px).toBeLessThanOrEqual(140);
       expect(px).toBeGreaterThanOrEqual(56);

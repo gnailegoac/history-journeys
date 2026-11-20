@@ -82,6 +82,52 @@ export interface FigureStyle {
   closeTreesM: [number, number];
 }
 
+/** 全程沙盘画河用的粗细分几等：干流、大河、河、小河，和运河。 */
+export type RouteRiverWidth = 'trunk' | 'major' | 'river' | 'minor' | 'canal';
+
+/**
+ * 一种时代样式里，全程沙盘自己的那一份（站点沙盘不看）。
+ * 前三样是沙盘程序用的；后面是给地面上色的工具（tests/tools/route/paint.ts）用的：全程沙盘的地面不在页面上现画，
+ * 可颜色和分带还是样式的事，所以放在这里，工具从这里读。数都是定稿的样张（spikes/art-direction/route/）的。
+ */
+export interface RouteStyle {
+  /** 地形板的网格多少米一格（沙盘里的米）。 */
+  segmentM: number;
+  /** 减配的一档，网格的格子放大几倍。 */
+  reducedSegmentTimes: number;
+  /** 海和湖上相邻两道水纹隔多少个页面像素。 */
+  ripplePx: number;
+  /** 河画多宽（地上的公里），按场景里写的 weight；canal 是运河。比实际宽得多，远看才是一条河。 */
+  riverKm: Record<RouteRiverWidth, number>;
+  /**
+   * 站点沙盘的地面颜色（ground.colours）里没有、或者这里不一样的几种：
+   * loess 北方的黄土地，sand 河岸留白，shoreInk 留白的地方的海岸线，sea 和 seaDeep 海和湖的浅处、深处，
+   * river 照今天画的河，riverSong 示意的河和运河。
+   */
+  colours: Record<'loess' | 'sand' | 'shoreInk' | 'sea' | 'seaDeep' | 'river' | 'riverSong', string>;
+  /**
+   * 山上的分带。比着的数是“比四周低处高出多少米 × relK + 海拔 × hK”，再加一点随机（noise）。
+   * foot、green、blue、deep：从多少到多少匀着过渡成赭石、石绿、石青、深石青；footK、blueK 是盖上去几成。
+   * rank：在自己这条山脉里排到多靠前（0 到 1）才上石青；rankCurv 是山脊凸出来的那一点加分。
+   * steep：坡度从多少到多少匀着出皴。patch：平地上那些淡淡的块盖上去几成。
+   */
+  bands: {
+    relK: number;
+    hK: number;
+    noise: number;
+    foot: [number, number];
+    footK: number;
+    green: [number, number];
+    blue: [number, number];
+    blueK: number;
+    rank: [number, number];
+    rankCurv: number;
+    deep: [number, number];
+    steep: [number, number];
+    patch: number;
+  };
+}
+
 /** 一种时代样式：颜色、地面怎么上色、模型跟着远近怎么变、题签抬多高、灯、雾。 */
 export interface StageStyle {
   id: SceneStyleId;
@@ -110,6 +156,8 @@ export interface StageStyle {
   fogFor(distanceM: number): [number, number];
   /** 山脚的云气浓淡：1 是平常，0 是没有。 */
   mistFor(distanceM: number): number;
+  /** 全程沙盘自己的那一份。这种样式还摆不了全程沙盘时不写。 */
+  route?: RouteStyle;
 }
 
 /** 零件库造模型时拿到的东西。 */

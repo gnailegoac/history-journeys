@@ -6,6 +6,8 @@
 //   页面      一打开就下载的程序（index.html 的入口和它静态引入的块），压缩以后
 //   样式表    页面一打开就下载的样式表，压缩以后
 //   dist/     整个文件夹，不压缩
+// 沙盘程序那一行查的是摆一座站点沙盘要下载的程序。全程沙盘另有一块用到时才下载的程序（src/stage/three/routeLevel.ts），
+// 表里单印一行，再和沙盘程序加在一起对着同一个上限查：上限说的是“摆一座沙盘，读者要下载多少程序”。
 // 另外查四件事：沙盘程序不能是页面一打开就下载的东西（页面只许用动态 import 取它）；
 // 沙盘用到的文件（地形文件、先画好的地面、定格图）的网址也不能在页面一打开就下载的那一块里
 //（一座沙盘十几二十个网址，沙盘越多越长：它们单独一块，打开人物页或者一站时才下载）；
@@ -25,7 +27,7 @@ import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { gzipSync } from 'node:zlib';
 import { describe, expect, it } from 'vitest';
 import { createHash } from 'node:crypto';
-import { ENGINE_ENTRY, ENGINE_GZIP_MAX, FILE_URLS_ENTRY, PAGE_ENTRY, fontReport, programReport, programSizes, staticClosure, withCommas } from '../content/budgetRules';
+import { ENGINE_ENTRY, ENGINE_GZIP_MAX, FILE_URLS_ENTRY, PAGE_ENTRY, ROUTE_ENTRY, fontReport, programReport, programSizes, staticClosure, withCommas } from '../content/budgetRules';
 import type { BuildManifest, SizeReport } from '../content/budgetRules';
 import { CONTAINER_MAX, CQW_MAX, builtFonts, builtStyleProblems } from '../support/builtFonts';
 import { oldIpadSheet } from '../support/oldIpadSheet';
@@ -82,6 +84,26 @@ describe('构建出来的文件', () => {
     console.log(['构建出来的程序有多大', ...report.lines.map((line) => `  ${line}`)].join('\n'));
     for (const warn of report.warns) console.warn(`[check:size] 快到上限了：${warn}`);
     expect(report.fails).toEqual([]);
+  });
+});
+
+describe('全程沙盘另外的那一块程序', () => {
+  it('单独一块，沙盘程序用到时才下载它；站点沙盘要下载的程序（沙盘程序静态带着的）里没有它', () => {
+    expect(existsSync(MANIFEST), '没有 dist/.vite/manifest.json：先运行 npm run build').toBe(true);
+    const manifest = readManifest(new TextDecoder().decode(readFileSync(MANIFEST)));
+    const route = manifest[ROUTE_ENTRY];
+    expect(route, `清单里没有 ${ROUTE_ENTRY} 这一项：它被打进了别的块（多半是沙盘程序那一块），或者挪了地方（挪了就改 tests/content/budgetRules.ts 的 ROUTE_ENTRY）`).toBeDefined();
+    expect(route.isDynamicEntry, '全程沙盘那一块在清单里没有标成“用到时才下载”').toBe(true);
+    expect(staticClosure(manifest, ENGINE_ENTRY), '全程沙盘那一块成了沙盘程序一来就带着的东西').not.toContain(ROUTE_ENTRY);
+    expect(staticClosure(manifest, PAGE_ENTRY), '全程沙盘那一块成了页面一打开就下载的东西').not.toContain(ROUTE_ENTRY);
+    // 量到的两个数另印一行，交接的时候抄这里的
+    const sizes = programSizes(manifest, gzipOnDisk);
+    expect(sizes.route, '量不出全程沙盘另外的程序').not.toBeNull();
+    expect(sizes.engine, '量不出沙盘程序').not.toBeNull();
+    const engine = sizes.engine?.gzip ?? 0;
+    const extra = sizes.route?.gzip ?? 0;
+    console.log(`  摆站点沙盘要下载的程序 ${withCommas(engine)} 字节；摆全程沙盘 ${withCommas(engine)} + ${withCommas(extra)} = ${withCommas(engine + extra)} 字节；上限都是 ${withCommas(ENGINE_GZIP_MAX)}`);
+    expect(engine + extra).toBeLessThanOrEqual(ENGINE_GZIP_MAX);
   });
 });
 

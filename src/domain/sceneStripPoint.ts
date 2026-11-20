@@ -1,13 +1,21 @@
 // 一条题签指着的那一点。只有沙盘程序用（摆镜头、摆模型时），页面不用，所以单放一个文件，
 // 不放在 ./sceneText.ts 里（页面要引那个文件），也不从 ./index.ts 转出去。只算数，不改传进来的场景。
 
-import type { SceneStrip, StopScene } from './scene';
+import type { SceneStrip, TableScene } from './scene';
 import { farEdgePoint } from './sceneGeo';
 import type { LngLat } from './types';
 
-/** 一条题签指着的那一点：写了 at 就是 at；没写，是它指的那样东西的位置；指着远处时，是沙盘边上朝着它的那一点。 */
-export function stripPoint(scene: StopScene, strip: SceneStrip): LngLat {
+/**
+ * 一条题签指着的那一点：写了 at 就是 at；没写，是它指的那样东西的位置；指着远处时，是沙盘边上朝着它的那一点。
+ * 全程沙盘上只有指着地名点的题签可以不写 at（指着河、湖、海、远处的都要写，规则 15）。
+ */
+export function stripPoint(scene: TableScene, strip: SceneStrip): LngLat {
   if (strip.at) return [strip.at[0], strip.at[1]];
+  if (scene.level === 'route') {
+    const place = scene.places.find((item) => item.id === strip.of);
+    if (!place) throw new Error(`题签“${strip.id}”没有写 at，它指的“${strip.of}”也不是地名点，不知道该指在哪`);
+    return [place.at[0], place.at[1]];
+  }
   const far = scene.far.find((f) => f.id === strip.of);
   if (far) return farEdgePoint(scene.frame, far.at).point;
   const isTarget = (item: { id: string }) => item.id === strip.of;

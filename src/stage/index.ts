@@ -8,8 +8,13 @@ import type { StageEngine } from './types';
 export { stillEngine } from './still';
 export { probeWebgl } from './support';
 
-/** 取得沙盘程序。第一次调用时才下载它的代码。 */
+/**
+ * 取得沙盘程序。第一次调用时才下载它的代码。
+ * 全程沙盘另有一小块程序，摆全程沙盘时才下载：怎么取在这里交给沙盘程序（这一句动态 import 要是写在沙盘程序里面，
+ * 打包的工具会把页面的程序拆成两个文件；tests/build/dist-size.test.ts 守着）。
+ */
 export async function loadStageEngine(): Promise<StageEngine> {
-  const { engine } = await import('./three/engine');
+  const { engine, provideRouteLevel } = await import('./three/engine');
+  provideRouteLevel(() => import('./three/routeLevel'));
   return engine;
 }

@@ -9,6 +9,10 @@
 // 田的标记那张图读回来，是不是清单里记的那份像素。（颜色那张是 JPEG，在 Node 里读不回来。）
 //
 // “旧在哪里”是一个只算数的函数（staleReasons），先在几份编出来的清单上查它，再拿它查 content/ 里真的。
+//
+// 全程沙盘也在这里查，三处不一样：重画用的是做图的工具自己的画法（tests/tools/route/paint.ts，页面上不现画）；
+// 做它的东西多一样——“今天的海岸、湖、河”那个文件，它没有记号，改了它只有重画才看得出来；
+// 重画一遍有三百多万个点，这台机器上要五六秒，发布流程的机器大约慢一倍：给足时限，并且印出来用了多久。
 
 import { describe, expect, it } from 'vitest';
 import type { BakedGroundManifest } from '../../src/domain/bakedGround';
@@ -22,6 +26,7 @@ import { styleFor } from '../../src/stage/three/style';
 import { fixtureScene, fixtureTerrainBytes } from '../support/fixtureScene';
 import { decodePng } from '../support/png';
 import { readBytes } from '../support/readBytes';
+import { routeBakeParts } from '../tools/route/bakeRoute';
 import { realScene, realSceneFile, realSceneKeys } from './support/realScenes';
 
 const manifests = import.meta.glob<BakedGroundManifest>('/content/figures/*/baked/*.json', { import: 'default', eager: true });
@@ -80,6 +85,22 @@ function stopName(key: string): string {
   const [figureId, stopId] = key.split('/');
   const figure = figures[`/content/figures/${figureId}/figure.json`];
   return figure?.stops.find((stop) => stop.id === stopId)?.shortTitle ?? key;
+}
+
+/** 全程沙盘：照现在的场景、地形文件、今天的海岸湖河和做图的工具算四个记号（和 npm run bake 是同一种算法）。 */
+function routeKeysNow(key: string, withPixels: boolean): KeysNow & { paintMs: number | null } {
+  const parts = routeBakeParts(key);
+  if (!withPixels) return { inputs: parts.inputs, pixels: null, paintMs: null };
+  const from = Date.now();
+  const painted = parts.paint();
+  return { inputs: parts.inputs, pixels: { colour: contentKey(painted.rgb), fields: contentKey(painted.mask) }, paintMs: Date.now() - from };
+}
+
+/** 全程沙盘给人看的名字：人物的名字加“全程沙盘”；找不到人物就用“人物/route”。 */
+function routeName(key: string): string {
+  const [figureId] = key.split('/');
+  const figure = figures[`/content/figures/${figureId}/figure.json`];
+  return figure ? `${figure.name}的全程沙盘` : key;
 }
 
 // ---------------------------------------------------------------- 在编出来的清单上查这个函数
@@ -235,5 +256,29 @@ describe.each(keys)('%s 先画好的地面', (key) => {
     const picture = decodePng(file);
     expect([picture.width, picture.height, picture.channels], `${name}田的标记那张图的大小、种类和清单里写的不一样。${COMMAND}`).toEqual([manifest.fields.width, manifest.fields.height, 1]);
     expect(contentKey(picture.pixels), `${name}田的标记那张图读回来，和清单里记的像素不一样（图被改过，或者不是这份清单的）。${COMMAND}`).toBe(manifest.pixels.fields);
+  });
+});
+
+// ---------------------------------------------------------------- content/ 里的全程沙盘
+
+describe.each(realSceneKeys('route'))('%s 先画好的地面（全程沙盘）', (key) => {
+  const [figureId, name] = key.split('/');
+  const dir = `content/figures/${figureId}/baked`;
+  const manifest = manifests[`/${dir}/${name}.json`] ?? null;
+
+  // 时限给得很宽：重画三百多万个点，这台机器上五六秒，发布流程的机器大约慢一倍，再留出余地
+  it('不比做它的东西旧（没有清单时算通过）', { timeout: 300_000 }, () => {
+    if (!manifest) return;
+    const now = routeKeysNow(key, repaint);
+    if (now.paintMs !== null) console.log(`[先画好的地面] ${key}：重画一遍用了 ${now.paintMs} 毫秒`);
+    const reasons = staleReasons(routeName(key), manifest, now);
+    expect(reasons, reasons.join('\n')).toEqual([]);
+  });
+
+  it('水纹的标记那张图读回来，就是清单里记的那份像素（没有清单时算通过）', { timeout: 30_000 }, () => {
+    if (!manifest?.fields || !manifest.pixels) return;
+    const picture = decodePng(new Uint8Array(readBytes(`${dir}/${manifest.fields.file}`)));
+    expect([picture.width, picture.height, picture.channels], `${routeName(key)}水纹的标记那张图的大小、种类和清单里写的不一样。${COMMAND}`).toEqual([manifest.fields.width, manifest.fields.height, 1]);
+    expect(contentKey(picture.pixels), `${routeName(key)}水纹的标记那张图读回来，和清单里记的像素不一样（图被改过，或者不是这份清单的）。${COMMAND}`).toBe(manifest.pixels.fields);
   });
 });

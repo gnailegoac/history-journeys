@@ -3,7 +3,7 @@
 
 import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
-import { expectStageAt, expectStill, fakeUrl, firstStopWithScene, firstWrittenStop, headingsOf, openFirstFigure, sceneOnDisk, scrollToSection, shoot, stagePane } from './helpers';
+import { expectStageAt, expectStill, fakeUrl, firstStopWithScene, firstWrittenStop, foldBodiesReady, headingsOf, openFirstFigure, sceneOnDisk, scrollToSection, shoot, stagePane } from './helpers';
 import { PANE_QUERIES, expectPane, stopUrl } from './paneHelpers';
 
 const env = (globalThis as { process?: { env: Record<string, string | undefined> } }).process?.env ?? {};
@@ -61,6 +61,8 @@ test('平板竖放：站点页、讲解员面板', async ({ page }) => {
 
   await page.getByRole('button', { name: '问讲解员' }).click();
   await expect(page.getByRole('dialog')).toBeVisible();
+  // 面板里面的东西是点开才取的：等它到了再拍
+  await foldBodiesReady(page);
   await shoot(page, { path: `${DIR}/guide-768x1024.png` });
 });
 

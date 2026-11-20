@@ -6,6 +6,8 @@
 //   这些地方里面要是有壕，大水时另用一片停在平时水位的水面画出来（dry 那一片）；
 //   壕这样窄的水道（几个像素宽）平时不画水纹，岸边的白也淡：细细一条上面再画白线，远看像一格一格的窗棂。
 // 后来对着图片又改了一处：急滩的白浪画得宽一点、白一点（原来的在一节的画面上看不出来）。
+// 再后来改了一处：水纹和白浪照页面上的像素算，不照画布的像素算（uPx，见 setPixelRatio）。
+//   原来像素比不同的屏幕上水纹落在不同的地方，立体的沙盘接替定格图（宽的照 1.5 拍、窄的照 2 拍）的那一下，白线会跳。
 // 水是一整片平面，哪里有水由“水位 − 地面高”决定，所以水位一抬，河就漫成一片。
 // 颜色是淡花青，上面有细的白色水纹；岸边留一道白。
 
@@ -55,6 +57,7 @@ uniform float uTime;
 uniform float uFlood;
 uniform float uDense;
 uniform vec2 uRipRot;
+uniform float uPx;
 float whash(vec2 p){ p = fract(p * vec2(127.1, 311.7)); p += dot(p, p + 34.5); return fract(p.x * p.y); }
 float wnoise(vec2 p){
   vec2 i = floor(p); vec2 f = fract(p); vec2 u = f * f * (3.0 - 2.0 * f);
@@ -64,7 +67,8 @@ float wnoise(vec2 p){
 float rippleOct(vec2 p, float s){
   float w = p.y / s + 0.26 * sin(p.x / (s * 2.6) + 1.1 * sin(p.y / (s * 5.1)) + uTime) + 0.07 * sin(p.x / (s * 0.95) + p.y / (s * 3.0));
   float f = abs(fract(w) - 0.5) * 2.0;
-  float fw = fwidth(w) * 2.0;
+  // 线的粗细也按页面上的像素算（uPx 是一个页面像素合几个画布像素）：像素比高的屏幕上线一样粗，只是更清楚
+  float fw = fwidth(w) * 2.0 * uPx;
   float line = 1.0 - smoothstep(0.04, 0.05 + fw, f);
   float seg = sin(p.x / (s * 2.1) + floor(w) * 2.4) + 0.5 * sin(p.x / (s * 0.83) + floor(w) * 5.1);
   return line * smoothstep(0.15, 0.7, seg);
@@ -73,7 +77,8 @@ float rippleOct(vec2 p, float s){
 float ripples(vec2 p0){
   // 水纹顺着画面横着走：镜头从东边看过来时把它转九十度
   vec2 p = vec2(uRipRot.x * p0.x - uRipRot.y * p0.y, uRipRot.y * p0.x + uRipRot.x * p0.y);
-  float px = max(fwidth(p.x), fwidth(p.y));
+  // 一个页面像素（不是画布像素）合地上多少米：同一个画面在像素比 1、1.5、2 的屏幕上，水纹落在同样的地方
+  float px = max(fwidth(p.x), fwidth(p.y)) * uPx;
   float target = max(px * 8.0, 4.0);
   float l = log2(target / 4.0);
   float l0 = floor(l);
@@ -113,7 +118,7 @@ const WATER_FRAGMENT = /* glsl */ `
         vec2 fdir = uRapidsDir;
         vec2 rd = vWPos.xz - uRapids.xy;
         float rap = uRapids.z > 0.0 ? 1.0 - smoothstep(0.45, 1.0, length(vec2(dot(rd, vec2(fdir.y, -fdir.x)) * 1.5, dot(rd, fdir))) / uRapids.z) : 0.0;
-        float px = max(fwidth(vWPos.x), fwidth(vWPos.z));
+        float px = max(fwidth(vWPos.x), fwidth(vWPos.z)) * uPx;
         vec2 rq = vec2(dot(vWPos.xz, vec2(fdir.y, -fdir.x)) / 11.0, dot(vWPos.xz, fdir) / 58.0);
         // 白浪比平常的水纹宽、白：乱石中间一道一道的，看得出水在这里是急的；镜头远了连成淡淡的一片白
         float blur = smoothstep(7.0, 18.0, px);
@@ -162,6 +167,12 @@ export interface Water {
   setFlood(flood: number): void;
   /** 水纹的疏密和转多少度（见 rippleFor）。 */
   setRipple(dense: number, turnDeg: number): void;
+  /**
+   * 画布的像素比（一个页面像素合几个画布像素）。水纹和白浪的疏密、粗细照页面像素算：
+   * 不说的话着色器里量出来的是画布像素，像素比 2 的屏幕上水纹就密一倍，落的地方也和定格图上的不一样。
+   * 像素比是 1 的时候画面和不说一样。
+   */
+  setPixelRatio(ratio: number): void;
   dispose(): void;
 }
 
@@ -234,6 +245,7 @@ export function buildWater(input: WaterInput): Water {
     uFlood: { value: 0 },
     uDense: { value: 0.5 },
     uRipRot: { value: new Vector2(1, 0) },
+    uPx: { value: 1 },
   });
   const uniforms = makeUniforms(false);
   const dryUniforms = makeUniforms(true);
@@ -316,6 +328,11 @@ export function buildWater(input: WaterInput): Water {
         u.uDense.value = dense;
         (u.uRipRot.value as Vector2).set(Math.cos(turn), Math.sin(turn));
       }
+    },
+    setPixelRatio(ratio) {
+      const px = ratio > 0 ? ratio : 1;
+      uniforms.uPx.value = px;
+      dryUniforms.uPx.value = px;
     },
     dispose() {
       geo.dispose();

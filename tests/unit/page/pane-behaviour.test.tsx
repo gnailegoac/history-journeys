@@ -303,13 +303,16 @@ describe('沙盘栏 + 替身 + 题签层', () => {
     warn.mockRestore();
   });
 
-  it('栏的宽窄记在栏上：连边线 584 像素起挂 is-wide，栏里面 661 像素起再挂 is-kai，栏里面的宽度写成 --pane-w；窗口的大小变了就重写，重画也冲不掉；栏窄了比例尺换一段短的', { timeout: 30_000 }, async () => {
+  it('栏的宽窄记在栏上：连边线 584 像素起挂 is-wide，栏里面 661 像素起再挂 is-kai，栏里面的宽度写成 --pane-w，题记的字号写成 --line-size（整数的像素）；窗口的大小变了就重写，重画也冲不掉；栏窄了比例尺换一段短的', { timeout: 30_000 }, async () => {
     const page = await mount('?stage=fake');
     const fake = () => page.q('.fake-stage')!;
     await page.until(() => attr(page.pane(), 'data-stage-state') === 'ready');
     const shape = () => ({ cls: page.pane().className, w: page.pane().style.getPropertyValue('--pane-w'), scale: page.q('.stage-scale-label')?.textContent, bar: page.q('.stage-scale-bar')?.style.width });
+    /** 页面写在栏上的题记字号：（栏里面的宽度 − 21）÷ 40 往下取整，最小 14、最大 19 像素。 */
+    const lineSize = () => page.pane().style.getPropertyValue('--line-size');
     // 假的页面上这一栏 800 像素宽：宽的排法，题记用楷体；比例尺是沙盘报来的那一段。
     expect(shape()).toEqual({ cls: 'stage-pane is-pinned is-wide is-kai', w: '800px', scale: '2 公里', bar: '96px' });
+    expect(lineSize()).toBe('19px');
     // 把栏改成这么宽，再告诉页面窗口的大小变了。
     const resizeTo = async (width: number) => {
       page.pane().box.width = width;
@@ -320,13 +323,25 @@ describe('沙盘栏 + 替身 + 题签层', () => {
     // 660：还是宽的排法，题记不到 16px，不用楷体。
     await resizeTo(660);
     expect(shape()).toEqual({ cls: 'stage-pane is-pinned is-wide', w: '660px', scale: '2 公里', bar: '96px' });
+    // (660 − 21) ÷ 40 = 15.975：往下取整是 15，不是四舍五入的 16（16 × 40 = 640，这一行只有 640 − 1）
+    expect(lineSize()).toBe('15px');
     await resizeTo(661);
     expect(shape().cls).toBe('stage-pane is-pinned is-wide is-kai');
+    expect(lineSize()).toBe('16px');
+    // 竖着拿的平板（768）：18.675 取成 18
+    await resizeTo(768);
+    expect(lineSize()).toBe('18px');
+    // 再宽也只到 19
+    await resizeTo(1024);
+    expect(lineSize()).toBe('19px');
     // 584：宽的排法的下限（横着拿的平板）。583：窄的排法，比例尺换成不超过 56 像素的一段。
     await resizeTo(584);
     expect(shape()).toEqual({ cls: 'stage-pane is-pinned is-wide', w: '584px', scale: '2 公里', bar: '96px' });
+    expect(lineSize()).toBe('14px');
     await resizeTo(583);
     expect(shape()).toEqual({ cls: 'stage-pane is-pinned', w: '583px', scale: '1 公里', bar: '48px' });
+    // 再窄也不小于 14（窄的排法里题记不用这个数）
+    expect(lineSize()).toBe('14px');
     // 重画会把类名整个重写（收起、展开）：重画完，栏的宽窄还记在上面。
     await resizeTo(700);
     await act(async () => page.q('.stage-fold')!.click());
@@ -334,6 +349,76 @@ describe('沙盘栏 + 替身 + 题签层', () => {
     await act(async () => page.q('.stage-fold')!.click());
     expect(shape()).toEqual({ cls: 'stage-pane is-pinned is-wide is-kai', w: '700px', scale: '2 公里', bar: '96px' });
     await page.unmount();
+  });
+
+  it('窗口没变、栏自己变宽变窄了（页面长出了滚动条）：也照新的宽度重排、告诉沙盘；只是高变了、宽没变，什么也不做；关掉以后不再看', { timeout: 30_000 }, async () => {
+    // 假的页面平常没有 ResizeObserver（别的测试都照没有的样子跑）；只在这一项里放一个替身：记下谁在看哪个元素，测试自己来叫它
+    const watchers: { run: () => void; watched: unknown[]; stopped: boolean }[] = [];
+    class FakeResizeObserver {
+      private readonly entry: { run: () => void; watched: unknown[]; stopped: boolean };
+      constructor(run: () => void) {
+        this.entry = { run, watched: [], stopped: false };
+        watchers.push(this.entry);
+      }
+      observe(el: unknown): void {
+        this.entry.watched.push(el);
+      }
+      disconnect(): void {
+        this.entry.stopped = true;
+      }
+    }
+    (globalThis as any).ResizeObserver = FakeResizeObserver;
+    try {
+      const page = await mount('?stage=fake');
+      const fake = () => page.q('.fake-stage')!;
+      await page.until(() => attr(page.pane(), 'data-stage-state') === 'ready');
+      const resizes = () => Number(attr(fake(), 'data-fake-resizes'));
+      const paneWidth = () => page.pane().style.getPropertyValue('--pane-w');
+      /** 还在看着的那一个（页面重画的时候可能换过一个）：看的就是沙盘栏。 */
+      const live = () => watchers.filter((w) => !w.stopped);
+      expect(live()).toHaveLength(1);
+      expect(live()[0].watched).toEqual([page.pane()]);
+      expect(paneWidth()).toBe('800px');
+
+      // 浏览器刚开始看的时候会先叫一次，宽度没有变：什么也不做
+      const before = resizes();
+      live()[0].run();
+      await settle(60);
+      expect(resizes()).toBe(before);
+
+      // 只是高变了（比如收起、展开，那另有人管）：也什么都不做
+      page.pane().box.height = 300;
+      live()[0].run();
+      await settle(60);
+      expect(resizes()).toBe(before);
+      page.pane().box.height = 600;
+
+      // 页面长出了滚动条：栏窄了 15 像素，窗口没有报“大小变了”。重排一遍，告诉沙盘
+      page.pane().box.width = 785;
+      live()[0].run();
+      await page.until(() => resizes() > before);
+      expect(resizes()).toBe(before + 1);
+      expect(paneWidth()).toBe('785px');
+      expect(page.pane().style.getPropertyValue('--line-size')).toBe('19px');
+      // 同一个宽度再叫一次：不重复
+      live()[0].run();
+      await settle(60);
+      expect(resizes()).toBe(before + 1);
+
+      // 窄到另一种排法：类名、比例尺也跟着换
+      page.pane().box.width = 583;
+      live()[0].run();
+      await page.until(() => resizes() > before + 1);
+      expect(page.pane().className).toBe('stage-pane is-pinned');
+      expect(paneWidth()).toBe('583px');
+      expect(page.q('.stage-scale-label')?.textContent).toBe('1 公里');
+
+      // 关掉：不再看了
+      await page.unmount();
+      expect(live()).toHaveLength(0);
+    } finally {
+      delete (globalThis as any).ResizeObserver;
+    }
   });
 
   it('第一个画面摆好了、还没报告“摆好了”的空当里读到了第二节：报告摆好的时候，沙盘栏说的还是第一节，到了才换', { timeout: 30_000 }, async () => {

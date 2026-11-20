@@ -29,7 +29,7 @@ import type { KitContext, ModelSet } from '../../src/stage/three/internal';
 import { MIST_TRIANGLES_PER_LAYER } from '../../src/stage/three/mist';
 import { FULL_QUALITY, REDUCED_QUALITY } from '../../src/stage/three/quality';
 import type { TerrainMesh } from '../../src/stage/three/terrainMesh';
-import { GLIDE_SLOW_MS, GLIDE_STALLED_MS, TRIAL_FRAMES, TRIAL_HOPELESS_MS, TRIAL_MIN_AREA, TRIAL_SLOW_MS } from '../../src/stage/three/tier';
+import { GLIDE_SLOW_MS, GLIDE_STALLED_MS, TRIAL_FRAMES, TRIAL_HOPELESS_MS, TRIAL_MIN_AREA, TRIAL_MIN_HEIGHT, TRIAL_SLOW_MS, bigEnoughToTry } from '../../src/stage/three/tier';
 import type { BrowserHost, ViewEnv } from '../../src/stage/three/view';
 import type { StageOptions, StopStageView, StopTable } from '../../src/stage/types';
 import { fakeCanvas, fakeDocument, fakeFetch, fakeHostParts, fakeKit, fakeRenderer, fakeStrips, trianglesUnder } from './support/fakeRenderer';
@@ -278,12 +278,25 @@ describe('照哪一档摆，画质的数从哪里读', () => {
     expect(askedSeen.slow).toBe(0);
   });
 
-  it('像素比：屏幕的像素比、这一档的上限、画布的像素总数，三样里最小的那个；perf 里的画布大小往下取整', { timeout: 60_000 }, async () => {
+  it('像素比：屏幕的像素比、这一档的上限、画布的像素总数，三样里最小的那个；perf 里的画布大小往下取整；水面每一帧都拿到同一个数', { timeout: 60_000 }, async () => {
     // 1920 × 1080 的大栏、两倍的屏幕：完整的一档最多画四百万个像素，像素比降到 1.39
     vi.stubGlobal('window', { devicePixelRatio: 2 });
     const s = stage(1920, 1080);
     const view = await openView(s);
     await until(view.ready);
+    // 水面的着色器拿到的像素比（水纹照页面上的像素算，见 src/stage/three/water.ts 的 setPixelRatio）：主水面和大水时的那一片，两片都有
+    const waterRatios = (): number[] => {
+      const found: number[] = [];
+      s.fake.lastWorld()?.traverse((object) => {
+        const material = (object as unknown as { material?: { onBeforeCompile?: (shader: unknown, renderer: unknown) => void } }).material;
+        if (!material?.onBeforeCompile) return;
+        const shader = { uniforms: {} as Record<string, { value: unknown }>, vertexShader: '', fragmentShader: '' };
+        material.onBeforeCompile(shader, null);
+        if (shader.uniforms.uPx) found.push(shader.uniforms.uPx.value as number);
+      });
+      return found;
+    };
+    expect(waterRatios()).toEqual([1.39, 1.39]);
     expect(s.fake.pixelRatios[s.fake.pixelRatios.length - 1]).toBe(1.39);
     expect(view.readout().perf).toMatchObject({ tier: 'full', pixelRatio: 1.39, buffer: { width: Math.floor(1920 * 1.39), height: Math.floor(1080 * 1.39) } });
 
@@ -296,6 +309,7 @@ describe('照哪一档摆，画质的数从哪里读', () => {
     expect(s.frames.length - before).toBe(1);
     expect(s.fake.pixelRatios[s.fake.pixelRatios.length - 1]).toBe(2);
     expect(view.readout().perf).toMatchObject({ pixelRatio: 2, buffer: { width: 1536, height: 1146 } });
+    expect(waterRatios()).toEqual([2, 2]);
 
     // 屏幕换成一倍的（窗口挪到另一块屏幕上）：大小没变也重画一次
     before = s.frames.length;
@@ -304,6 +318,7 @@ describe('照哪一档摆，画质的数从哪里读', () => {
     await wait(30);
     expect(s.frames.length - before).toBe(1);
     expect(view.readout().perf).toMatchObject({ pixelRatio: 1, buffer: { width: 768, height: 573 } });
+    expect(waterRatios()).toEqual([1, 1]);
   });
 
   it('perf.frames：造好以后一共画了几帧（试画的三帧也算）；读者不动、不换小节的时候一帧也不画', { timeout: 60_000 }, async () => {
@@ -448,7 +463,7 @@ describe('试画', () => {
     // 收起来的一条多大是从页面上量的（tests/e2e/main-flow.spec.ts 里收起沙盘的那一项也拿它和这条线比）：
     // 高 60 像素减去下边 1 像素的线，宽就是窗口的宽。横着的窗口最宽到 959 才是上下排；竖着的窗口再宽也是上下排：
     // 竖着拿的大平板是 1024 和 1032 宽（tests/e2e/large-upright.spec.ts 量到的是 1024 × 59）。
-    // 竖着的窗口宽到 1356 像素以上（竖起来的显示器），这一条就过线了：那时收着也会试画。平板没有这么宽的。
+    // 竖着的窗口宽到 1356 像素以上（竖起来的显示器），这一条的面积就过了八万：拦住它的是另一条线，不到 100 像素高不试（下一项）。
     const s = stage(768, 59);
     expect(768 * 59).toBeLessThan(TRIAL_MIN_AREA);
     expect(959 * 59).toBeLessThan(TRIAL_MIN_AREA);
@@ -484,6 +499,35 @@ describe('试画', () => {
     s.hostParts.loseContext();
     await wait(100);
     expect(seen).toEqual({ ready: 'done', slow: 1, lost: 0, moved: 0 });
+  });
+
+  it('收着的一条多宽都不试画：竖起来的显示器上是 1400 × 59，面积过了八万也不试，照样摆好；展开了才试', { timeout: 60_000 }, async () => {
+    const s = stage(1400, 59);
+    expect(1400 * 59).toBeGreaterThanOrEqual(TRIAL_MIN_AREA);
+    expect(59).toBeLessThan(TRIAL_MIN_HEIGHT);
+    expect(bigEnoughToTry(1400, 59)).toBe(false);
+    const reported = vi.spyOn(s.host.tiers, 'reportTrial');
+    s.cost.finishMs = TRIAL_SLOW_MS + 10;
+    const view = await openView(s);
+    const seen = watch(view);
+    await until(view.ready);
+    // 摆好了，没有试过：没有等过显卡，只画了两帧；这台“慢”的设备没有因为一窄条被降档
+    expect(seen).toEqual({ ready: 'done', slow: 0, lost: 0, moved: 0 });
+    expect(s.did).toEqual(['画', '画']);
+    expect(view.readout().perf).toMatchObject({ trialMs: null, frames: 2 });
+    await until(view.showSection(headings[2]));
+    expect(s.did).not.toContain('等');
+    expect(reported).not.toHaveBeenCalled();
+    expect(s.host.tiers.ceiling()).toBe('full');
+    // 展开（1400 宽的竖窗口，栏高是窗口的 56%）：重摆的那一帧够格了，这才试
+    const before = s.frames.length;
+    s.paneSize.clientHeight = 1045;
+    view.resize();
+    await wait(30);
+    expect(s.frames.length - before).toBe(1 + TRIAL_FRAMES);
+    expect(reported.mock.calls).toEqual([['full', 60, 'auto']]);
+    expect(seen).toEqual({ ready: 'done', slow: 1, lost: 0, moved: 0 });
+    view.destroy();
   });
 
   it('页面在后台：先不试画，照样摆好；回到前台以后，下一次摆好的画面才试。沙盘栏正好八万平方像素的，当场就试', { timeout: 60_000 }, async () => {

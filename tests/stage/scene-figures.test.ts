@@ -700,7 +700,8 @@ describe.runIf(realSceneKeys().includes(KEY))('徐州：船和石头不去掉，
     return null;
   };
 
-  it('场景容得下的倍数：货船、小船、石头各最多能放大到几倍（印出来，给调样式的人）', () => {
+  it('场景容得下的倍数：货船、小船、石头各最多能放大到几倍（印出来，给调样式的人）', { timeout: 30_000 }, () => {
+    // 这一项在发布流程的机器上要比默认的 5 秒久（这台机器上 2 秒左右）：给它自己的时限，不把要走的步数减少。
     const boat = largest((k) => cargo.every((d) => boatsWrong(d, k) === null), 8);
     const smallBoat = largest((k) => small.every((d) => boatsWrong(d, k) === null), 8);
     const lines = [

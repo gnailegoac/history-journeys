@@ -2,11 +2,13 @@
 //   #/                      首页
 //   #/<人物>                人物页
 //   #/<人物>/<站>           站点页
+//   #/sources               “来源”页（所以没有哪位人物的 id 可以叫 sources：内容校验守着，tests/content/rules.ts）
 
 import { useMemo, useSyncExternalStore } from 'react';
 
 export type Route =
   | { page: 'home' }
+  | { page: 'sources' }
   | { page: 'figure'; figureId: string }
   | { page: 'stop'; figureId: string; stopId: string };
 
@@ -17,7 +19,7 @@ export function parseHash(hash: string): Route {
     .filter((part) => part !== '')
     .map(safeDecode);
   if (parts.length === 0) return { page: 'home' };
-  if (parts.length === 1) return { page: 'figure', figureId: parts[0] };
+  if (parts.length === 1) return parts[0] === 'sources' ? { page: 'sources' } : { page: 'figure', figureId: parts[0] };
   return { page: 'stop', figureId: parts[0], stopId: parts[1] };
 }
 
@@ -30,6 +32,7 @@ function safeDecode(part: string): string {
 }
 
 export const homeHref = '#/';
+export const sourcesHref = '#/sources';
 
 export function figureHref(figureId: string): string {
   return `#/${encodeURIComponent(figureId)}`;

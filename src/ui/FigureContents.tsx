@@ -1,9 +1,9 @@
-// 人物页的文字栏：他是谁，加各站的目录。
+// 人物页的文字栏：他是谁，加各站的目录；末尾是通到“来源”页的链接。
 
-import { stopHref } from '../app/router';
+import { sourcesHref, stopHref } from '../app/router';
 import type { Figure } from '../domain';
 import { PageTitle } from './PageTitle';
-import { NOT_WRITTEN, pageTitle, placeLabel } from './text';
+import { NOT_WRITTEN, SOURCES_LABEL, pageTitle, placeLabel } from './text';
 
 export function FigureContents({ figure }: { figure: Figure }) {
   return (
@@ -52,6 +52,13 @@ export function FigureContents({ figure }: { figure: Figure }) {
           ))}
         </ol>
       </section>
+
+      {/* 目录完了：一个小菱形（样式表画的），下面是通到“来源”页的链接。 */}
+      <div className="stop-nav">
+        <a className="stop-nav-sources" href={sourcesHref}>
+          {SOURCES_LABEL}
+        </a>
+      </div>
     </article>
   );
 }

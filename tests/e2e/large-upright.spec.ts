@@ -11,7 +11,7 @@
 
 import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
-import { TRIAL_MIN_AREA } from '../../src/stage/three/tier';
+import { bigEnoughToTry } from '../../src/stage/three/tier';
 import { STANDARD_PANES } from '../stage/support/standardPanes';
 import { fileSize } from '../support/readBytes';
 import { expectStageAt, fakeRequests, fakeStage, fakeUrl, firstStopWithScene, headingsOf, openFirstFigure, scrollToSection, stagePane, stripText, stripsOf } from './helpers';
@@ -159,7 +159,7 @@ test.describe('竖着拿的大平板（1024×1366）', () => {
     expect(folded.pane.height).toBeLessThan(80);
     const foldedHost = await pane.locator('.stage-host').evaluate((el) => ({ w: el.clientWidth, h: el.clientHeight }));
     expect(foldedHost).toEqual({ w: UPRIGHT.width, h: 59 });
-    expect(foldedHost.w * foldedHost.h).toBeLessThan(TRIAL_MIN_AREA);
+    expect(bigEnoughToTry(foldedHost.w, foldedHost.h)).toBe(false);
     // 收着的时候读到后面的一节：沙盘看不见，不叫它白跑（页面的程序认得这是上下排的版面，才不叫它）；展开以后直接摆到读到的那一节
     if (headings.length > 2) {
       const requestsFolded = await fakeRequests(page);

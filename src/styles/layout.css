@@ -13,12 +13,22 @@ html:has(.figure-layout) {
   scroll-padding-bottom: calc(5rem + env(safe-area-inset-bottom, 0px));
 }
 
-html:has(.stage-pane.is-pinned) {
-  scroll-padding-top: calc(max(var(--stage-height-narrow), var(--stage-height-narrow-min)) + var(--gap-4));
-}
+/* 下面三条只在窄屏的排法上算数（条件是“不是宽屏”：把宽屏的条件整个反过来）；宽屏上沙盘栏在一边，不挡正文，见后面宽屏的那一条。 */
+@media not all and (min-width: 960px) and (orientation: landscape) {
+  html:has(.stage-pane.is-pinned) {
+    scroll-padding-top: calc(max(var(--stage-height-narrow), var(--stage-height-narrow-min)) + var(--gap-4));
+  }
 
-html:has(.stage-pane.is-pinned.is-folded) {
-  scroll-padding-top: calc(var(--stage-height-folded) + var(--gap-4));
+  html:has(.stage-pane.is-pinned.is-folded) {
+    scroll-padding-top: calc(var(--stage-height-folded) + var(--gap-4));
+  }
+
+  /* 焦点在钉着的沙盘栏里面（它的按钮上，或者它自己身上）的时候，上面那一截不算：栏就钉在顶上，里面的按钮本来就看得见。
+     算上的话，浏览器会以为那个按钮被挡住了，把页面往上滚一截——按钮钉着不动，于是焦点每落到栏里一次，页面就往上跳一次
+     （用键盘一个一个走是每走一步跳一次；用手点“说明”再点“关闭”也跳）。 */
+  html:has(.stage-pane.is-pinned:focus-within) {
+    scroll-padding-top: 0;
+  }
 }
 
 .figure-layout {
@@ -75,9 +85,7 @@ html:has(.stage-pane.is-pinned.is-folded) {
 /* ---------------------------------------------------------------- 宽屏 */
 
 @media (min-width: 960px) and (orientation: landscape) {
-  html:has(.figure-layout),
-  html:has(.stage-pane.is-pinned),
-  html:has(.stage-pane.is-pinned.is-folded) {
+  html:has(.figure-layout) {
     scroll-padding-top: var(--gap-4);
   }
 

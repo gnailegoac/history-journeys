@@ -14,6 +14,10 @@
 //     窗口从窄到宽换二十几种宽度，每一种都量。
 // 四、按钮、题记那一条、题签的样子：古名今名选中的是红字加一个实心的小红方块，不铺红底，换着选按钮不挪地方；
 //     题记那一条的底是绢色、上边一道细线，没有淡出去的一截；题签脚上有一方印，水名是靛青，远处是虚线；窄的栏上题签小一号。
+//     四种标准的窗口上，每一小节再量一遍题记那一条：底是不透明的绢色（沙盘不从字底下透上来），130 像素高；
+//     说明那一句占满这一条的宽，“说明”按钮立在右头、和说明的头一行对齐、在比例尺和指北的下面，说明的字到不了按钮底下；
+//     题记、说明、远处都没有截掉的字，远处那一行紧接在说明下面。“说明”和“换回图片”是纸条的打扮（纸色、里面一圈深色的细线、
+//     一道影子），不是一圈红线的小标签；能点的地方有 44 像素高。
 // 五、人物页上的全程图片：电脑和横着拿的平板上，图片、题记、说明、出处都在栏里，不用在栏里滚；图片没有被压扁。
 //     竖着拿的两种平板上图片在上面、跟着页面滚走，和放它的地方一样宽。
 // 六、“老平板”的替身：把构建出来的样式表照 iPadOS 15 的读法改一遍（@container 的块去掉，用了 cqw 的声明作废；
@@ -43,10 +47,37 @@ const ACCENT = 'rgb(176, 58, 42)';
 const INK_SOFT = 'rgb(90, 81, 70)';
 const SLIP = 'rgb(250, 245, 231)';
 const WATER = 'rgb(62, 96, 114)';
-const VEIL = 'rgba(197, 177, 137, 0.94)';
+/** 题记那一条的底：就是那块绢，不透明（沙盘不从字底下透上来）。 */
+const VEIL = SILK;
 
-/** 题记那一行的字号（像素）：照 stage.css 的算法，栏里面的宽度减 21，除以 40，最小 14，最大 19。 */
-const lineSize = (inner: number): number => Math.min(19, Math.max(14, (inner - 21) / 40));
+/** 一样东西是不是纸条的打扮：纸色的底，最外面一道纸色的边，方角，里面一圈深色的细线，外面一道影子。 */
+async function slipDress(page: Page, selector: string): Promise<{ ground: string; edge: string; radius: string; innerLine: boolean; dropShadow: boolean; height: number; tapHeight: number }> {
+  return stagePane(page)
+    .locator(selector)
+    .first()
+    .evaluate((el) => {
+      const style = getComputedStyle(el);
+      // 影子可以有几道，逗号隔开（颜色里的逗号在括号里，不算）
+      const shadows = style.boxShadow.split(/,(?![^(]*\))/).map((part) => part.trim());
+      return {
+        ground: style.backgroundColor,
+        edge: `${style.borderTopWidth} ${style.borderTopStyle} ${style.borderTopColor}`,
+        radius: style.borderTopLeftRadius,
+        innerLine: shadows.some((part) => part.includes('inset')),
+        dropShadow: shadows.some((part) => part !== 'none' && !part.includes('inset')),
+        height: el.getBoundingClientRect().height,
+        // 看着小，能点的地方由 ::after 撑出来
+        tapHeight: parseFloat(getComputedStyle(el, '::after').height),
+      };
+    });
+}
+
+/**
+ * 题记那一行的字号（像素）：栏里面的宽度减 21，除以 40，往下取成整数，最小 14，最大 19（页面算好写在栏上，StagePane.tsx 的 fitPane）。
+ * 取整是为了哪种系统上都放得下：有的系统上一个字只占整数个像素（Linux，平常的设置），14.95px 的字排成 15px 一个，
+ * 40 个字就比算好的宽出 2 像素，行尾被截掉——发布流程的机器上量到过。
+ */
+const lineSize = (inner: number): number => Math.min(19, Math.max(14, Math.floor((inner - 21) / 40)));
 /** 题记够这么大才用楷体。 */
 const KAI_FROM_PX = 16;
 
@@ -172,8 +203,15 @@ async function tap(page: Page, selector: string): Promise<void> {
 }
 
 /** 沙盘栏量到的宽：连边线的、不连边线的；挂着的类名；页面写在栏上的 --pane-w。 */
-async function paneWidth(page: Page): Promise<{ outer: number; inner: number; wide: boolean; kai: boolean; written: string }> {
-  return stagePane(page).evaluate((el: HTMLElement) => ({ outer: el.offsetWidth, inner: el.clientWidth, wide: el.classList.contains('is-wide'), kai: el.classList.contains('is-kai'), written: el.style.getPropertyValue('--pane-w') }));
+async function paneWidth(page: Page): Promise<{ outer: number; inner: number; wide: boolean; kai: boolean; written: string; lineSize: string }> {
+  return stagePane(page).evaluate((el: HTMLElement) => ({
+    outer: el.offsetWidth,
+    inner: el.clientWidth,
+    wide: el.classList.contains('is-wide'),
+    kai: el.classList.contains('is-kai'),
+    written: el.style.getPropertyValue('--pane-w'),
+    lineSize: el.style.getPropertyValue('--line-size'),
+  }));
 }
 
 test('绢上的字都是墨色，和绢比不低于 6 比 1；纸条上的字不低于 4.5 比 1；沙盘栏和它里面的焦点框是墨色', async ({ page }) => {
@@ -213,6 +251,17 @@ test('绢上的字都是墨色，和绢比不低于 6 比 1；纸条上的字不
     await tap(page, '.stage-controls .stage-retry');
     await expectPane(page, 'ready', 'table');
     await expect(pane.locator('.stage-notice-button')).toBeVisible();
+    // “换回图片”是一个按钮，不是一枚小标签：纸条的打扮（纸色、里面一圈深色的细线、一道影子），22 像素高，能点的地方有 44
+    const back = await slipDress(page, '.stage-notice-button');
+    expect({ ground: back.ground, edge: back.edge, radius: back.radius, innerLine: back.innerLine, dropShadow: back.dropShadow, height: back.height }, `${where}：“换回图片”`).toEqual({
+      ground: SLIP,
+      edge: `1px solid ${SLIP}`,
+      radius: '0px',
+      innerLine: true,
+      dropShadow: true,
+      height: 22,
+    });
+    expect(back.tapHeight, `${where}：“换回图片”能点的地方`).toBeGreaterThanOrEqual(44);
     await look(`${where}，读者要来的沙盘`, 8);
 
     // 画面断了、又没有图片：一句话和一个按钮
@@ -287,7 +336,8 @@ for (const size of WINDOWS) {
     // 题记那一行：字号照栏宽算；够 16px 才是楷体
     const line = await of('.stage-line');
     const wanted = lineSize(width.inner);
-    expect(line.size, `题记的字号（栏里面宽 ${width.inner}）`).toBeCloseTo(wanted, 1);
+    expect(line.size, `题记的字号（栏里面宽 ${width.inner}）`).toBe(wanted);
+    expect(width.lineSize, '页面写在栏上的 --line-size').toBe(`${wanted}px`);
     expect(line.family, `题记 ${line.size}px`).toBe(wanted >= KAI_FROM_PX ? 'Yanlu Kai' : 'Yanlu Song');
     expect(width.kai).toBe(wanted >= KAI_FROM_PX);
     expect(line.colour).toBe(INK);
@@ -402,6 +452,7 @@ test('题记写满 40 个字：从 560 像素宽的栏往上，哪一种栏宽�
         family: style.fontFamily.replace(/^["']/, '').split(/["',]/)[0],
         display: style.display,
         cut: el.scrollWidth > el.clientWidth,
+        room: el.clientWidth,
         rows: Math.round(el.getBoundingClientRect().height / parseFloat(style.lineHeight)),
         wordsCut: words.scrollHeight > words.clientHeight + 1,
         wordsDisplay: getComputedStyle(words).display,
@@ -413,7 +464,12 @@ test('题记写满 40 个字：从 560 像素宽的栏往上，哪一种栏宽�
       expect(got.rows, `${where}：题记占几行`).toBe(1);
       expect(got.cut, `${where}：40 个字的题记被截掉了（字号 ${got.size}px）`).toBe(false);
       expect(got.size, `${where}：题记的字号`).toBeGreaterThanOrEqual(14);
-      expect(got.size, `${where}：题记的字号`).toBeCloseTo(wanted, 1);
+      // 字号是整数的像素，就是算法往下取整的那个数；40 个这么大的字不比这一行宽。
+      // 这三句是算术，不靠这台机器怎么排字：一个字只占整数个像素的系统上（Linux），不是整数的字号会多排出一两个像素，行尾被截掉。
+      expect(Number.isInteger(got.size), `${where}：题记的字号是 ${got.size}px，不是整数的像素`).toBe(true);
+      expect(got.size, `${where}：题记的字号`).toBe(wanted);
+      expect(width.lineSize, `${where}：页面写在栏上的 --line-size`).toBe(`${wanted}px`);
+      expect(40 * got.size, `${where}：40 个 ${got.size}px 的字要 ${40 * got.size} 像素，这一行只有 ${got.room} 像素`).toBeLessThanOrEqual(got.room);
       expect(got.family, `${where}：题记 ${got.size}px 的字体`).toBe(got.size >= KAI_FROM_PX ? 'Yanlu Kai' : 'Yanlu Song');
       expect(width.kai, `${where}：栏上挂没挂 is-kai`).toBe(got.size >= KAI_FROM_PX);
       if (got.family === 'Yanlu Kai') kaiSeen++;
@@ -426,7 +482,7 @@ test('题记写满 40 个字：从 560 像素宽的栏往上，哪一种栏宽�
       expect(width.kai).toBe(false);
       narrowSeen++;
     }
-    rows.push(`  窗口 ${windowWidth}：栏 ${width.outer}（里面 ${width.inner}），${width.wide ? `宽的排法，题记 ${got.size.toFixed(2)}px ${got.family === 'Yanlu Kai' ? '楷体' : '宋体'}` : '窄的排法，题记 14px 宋体，两行'}`);
+    rows.push(`  窗口 ${windowWidth}：栏 ${width.outer}（里面 ${width.inner}），${width.wide ? `宽的排法，题记 ${got.size}px ${got.family === 'Yanlu Kai' ? '楷体' : '宋体'}，40 个字 ${40 * got.size} 像素，这一行 ${got.room} 像素` : '窄的排法，题记 14px 宋体，两行'}`);
   }
   console.log(['40 个字的题记，各种栏宽上：', ...rows].join('\n'));
   // 三种情形都量到了：不然这一项没查到东西
@@ -534,12 +590,117 @@ test('按钮是纸条，古名今名选中的是红字加小红方块、不铺�
   await page.setViewportSize({ width: 1000, height: 768 });
   await expect.poll(async () => (await paneWidth(page)).wide).toBe(false);
   await twoFrames(page);
-  const small = await pane.locator('.stage-host .strip').first().evaluate((item) => {
-    const style = getComputedStyle(item);
-    const seal = getComputedStyle(item, '::after');
-    return { size: style.fontSize, pad: `${style.paddingTop} ${style.paddingRight} ${style.paddingBottom} ${style.paddingLeft}`, seal: `${seal.width} × ${seal.height} ${seal.bottom}` };
-  });
-  expect(small).toEqual({ size: '14px', pad: '4px 5px 13px 5px', seal: '5px × 5px 4px' });
+  // 窗口的大小变了以后题签要重摆一遍：刚才那几个可能正好被换掉，读到的是已经不在页面上的一个，样样都是空的
+  //（发布流程的机器上碰到过）。所以读了再读，直到读出来的是摆在页面上的那一个的数。
+  const readSmall = (): Promise<{ size: string; pad: string; seal: string } | null> =>
+    pane.locator('.stage-host .strip').evaluateAll((items) => {
+      const item = items.find((one) => one.isConnected && (one as HTMLElement).style.visibility !== 'hidden');
+      if (!item) return null;
+      const style = getComputedStyle(item);
+      const seal = getComputedStyle(item, '::after');
+      return { size: style.fontSize, pad: `${style.paddingTop} ${style.paddingRight} ${style.paddingBottom} ${style.paddingLeft}`, seal: `${seal.width} × ${seal.height} ${seal.bottom}` };
+    });
+  await expect.poll(readSmall, { message: '窄的栏上的题签：小一号，印也小一号' }).toEqual({ size: '14px', pad: '4px 5px 13px 5px', seal: '5px × 5px 4px' });
+});
+
+test('四种标准的窗口上，每一小节：题记那一条是不透明的绢色；说明那一句占满这一条的宽，“说明”按钮在右头，是纸条的打扮；没有截掉的字', async ({ page }) => {
+  test.setTimeout(240_000);
+  const pane = stagePane(page);
+  const rows: string[] = [];
+  for (const size of WINDOWS) {
+    const where = nameOf(size);
+    const { headings } = await openStop(page, size);
+    await expectStageAt(page, headings[0]);
+    expect((await paneWidth(page)).wide, `${where}：是宽的排法`).toBe(true);
+    for (const [i, heading] of headings.entries()) {
+      if (i === headings.length - 1) await scrollToBottom(page);
+      else if (i > 0) await scrollToSection(page, heading);
+      await expectStageAt(page, heading);
+      await expect(pane.locator('.stage-caption')).toHaveAttribute('data-section', heading);
+      await fontsReady(page);
+      const got = await pane.locator('.stage-foot').evaluate((foot) => {
+        const need = (selector: string): HTMLElement => {
+          const el = foot.querySelector<HTMLElement>(selector);
+          if (!el) throw new Error(`题记那一条里没有 ${selector}`);
+          return el;
+        };
+        const caption = need('.stage-caption');
+        const style = getComputedStyle(caption);
+        const box = caption.getBoundingClientRect();
+        const contentLeft = box.left + parseFloat(style.paddingLeft);
+        const contentRight = box.right - parseFloat(style.paddingRight);
+        const short = need('.stage-note-short');
+        const shortBox = short.getBoundingClientRect();
+        const button = need('.stage-note-button').getBoundingClientRect();
+        const legend = need('.stage-caption-head').lastElementChild?.getBoundingClientRect();
+        const line = need('.stage-line');
+        const far = foot.querySelector<HTMLElement>('.stage-far');
+        // 说明那一句自己的字：占了几行，最右到哪
+        const range = document.createRange();
+        range.selectNodeContents(short);
+        const rects = Array.from(range.getClientRects());
+        const lineHeight = parseFloat(getComputedStyle(short).lineHeight);
+        const noteLines = new Set(rects.map((rect) => Math.round(rect.top))).size;
+        const last = far ?? short;
+        return {
+          band: foot.getBoundingClientRect().height,
+          ground: getComputedStyle(foot).backgroundColor,
+          noteLeft: shortBox.left - contentLeft,
+          noteRoom: shortBox.width,
+          noteLines,
+          lineHeight,
+          noteCut: short.scrollHeight > short.clientHeight + 1,
+          noteTextRight: Math.max(...rects.map((rect) => rect.right)),
+          buttonLeft: button.left,
+          buttonRightGap: contentRight - button.right,
+          buttonTop: button.top - shortBox.top,
+          buttonHeight: button.height,
+          buttonWidth: button.width,
+          legendRightGap: legend ? contentRight - legend.right : null,
+          legendBottom: legend ? legend.bottom : null,
+          buttonTopAt: button.top,
+          gap: button.left - shortBox.right,
+          lineCut: line.scrollWidth > line.clientWidth,
+          farCut: far !== null && (far.scrollWidth > far.clientWidth + 1 || Array.from(far.children).some((item) => item.scrollWidth > item.clientWidth)),
+          farTop: far ? far.getBoundingClientRect().top - box.top : null,
+          ends: last.getBoundingClientRect().bottom - box.top,
+          captionWidth: contentRight - contentLeft,
+        };
+      });
+      const at = `${where}，“${heading}”`;
+      // 题记那一条：130 像素高（宽的排法），底就是那块绢，不透明
+      expect({ band: got.band, ground: got.ground }, `${at}：题记那一条`).toEqual({ band: 130, ground: VEIL });
+      // 说明那一句从这一条的左边排起，一直占到“说明”按钮跟前：这一条有多宽，它一行就有多长（不再有 704 像素的上限）
+      expect(got.noteLeft, `${at}：说明那一句从这一条的左边排起`).toBeCloseTo(0, 0);
+      expect(got.noteRoom + got.gap + got.buttonWidth, `${at}：说明那一句、中间的空、按钮，合起来占满这一条`).toBeCloseTo(got.captionWidth, 0);
+      expect(got.gap, `${at}：说明那一句和按钮之间的空`).toBeCloseTo(12, 0);
+      // “说明”按钮：在这一条的右头（和上面的比例尺、指北一样靠右），和说明的头一行一样高低，在比例尺和指北的下面
+      expect(got.buttonRightGap, `${at}：“说明”按钮贴着这一条的右头`).toBeCloseTo(0, 0);
+      expect(got.legendRightGap, `${at}：比例尺和指北也贴着右头`).toBeCloseTo(0, 0);
+      expect(got.buttonTop, `${at}：“说明”按钮和说明的头一行对齐`).toBeCloseTo(0, 0);
+      expect(got.buttonHeight, `${at}：“说明”按钮看着多高`).toBe(20);
+      expect(got.buttonTopAt, `${at}：“说明”按钮在比例尺和指北的下面`).toBeGreaterThanOrEqual(got.legendBottom ?? Infinity);
+      // 说明的字到不了按钮底下；最多两行，没有截掉的；题记、远处也没有截掉的
+      expect(got.noteTextRight, `${at}：说明的字没有排到按钮底下`).toBeLessThanOrEqual(got.buttonLeft);
+      expect(got.noteLines, `${at}：说明占几行`).toBeLessThanOrEqual(2);
+      expect({ note: got.noteCut, line: got.lineCut, far: got.farCut }, `${at}：有没有截掉的字`).toEqual({ note: false, line: false, far: false });
+      // 各行的位置：上边 8，抬头 26，题记 26，说明每行 20，远处一行 20——远处那一行紧接在说明下面
+      if (got.farTop !== null) expect(got.farTop, `${at}：远处那一行的位置`).toBeCloseTo(8 + 26 + 26 + got.noteLines * got.lineHeight, 0);
+      expect(got.ends, `${at}：最后一行字的下边，在这一条里面`).toBeLessThanOrEqual(130 - 10 + 0.5);
+      rows.push(`  ${at}：说明 ${got.noteLines} 行（一行能有 ${Math.round(got.noteRoom)} 像素宽）${got.farTop === null ? '' : `，远处那一行在 ${Math.round(got.farTop)}`}，字到 ${Math.round(got.ends)} 为止`);
+    }
+    // “说明”按钮是一个按钮，不是一枚小标签：纸条的打扮，能点的地方有 44 像素高
+    const note = await slipDress(page, '.stage-note-button');
+    expect({ ground: note.ground, edge: note.edge, radius: note.radius, innerLine: note.innerLine, dropShadow: note.dropShadow }, `${where}：“说明”按钮`).toEqual({
+      ground: SLIP,
+      edge: `1px solid ${SLIP}`,
+      radius: '0px',
+      innerLine: true,
+      dropShadow: true,
+    });
+    expect(note.tapHeight, `${where}：“说明”按钮能点的地方`).toBeGreaterThanOrEqual(44);
+  }
+  console.log(['题记那一条，四种标准的窗口上每一小节：', ...rows].join('\n'));
 });
 
 test('人物页上的全程图片：电脑和横着拿的平板上，图片、题记、说明、出处都在栏里，不用在栏里滚；图片没有被压扁', async ({ page }) => {
@@ -661,7 +822,8 @@ test('“老平板”的替身（样式表照 iPadOS 15 的读法改过）：三
       expect(judge(runs).problems, `${at}：字的颜色`).toEqual([]);
     }
     // 题签是大的那一种
-    expect(await pane.locator('.stage-host .strip').first().evaluate((el) => getComputedStyle(el).fontSize), `${where}：题签的字号`).toBe('17px');
+    // 读了再读，直到读出数来：题签会被重摆，单读一次可能读到刚被换掉的那一个
+    await expect.poll(() => pane.locator('.stage-host .strip').evaluateAll((items) => items.filter((item) => item.isConnected).map((item) => getComputedStyle(item).fontSize)[0] ?? ''), { message: `${where}：题签的字号` }).toBe('17px');
     const width = await paneWidth(page);
     console.log(`${where}：沙盘栏 ${width.outer} 宽，${width.wide ? '宽的排法' : '窄的排法'}，四边留 ${top} ${right} ${bottom} ${left}，题记 130 高`);
   }

@@ -34,7 +34,7 @@ import { Sequencer, mixState, type Glide, type TableState } from './sequencer';
 import { styleFor } from './style';
 import { buildTable } from './table';
 import { buildTerrainMesh } from './terrainMesh';
-import { TRIAL_FRAMES, TRIAL_MIN_AREA, chooseTier, createGlideMeter, middle, type GlideMeter, type TierMode } from './tier';
+import { TRIAL_FRAMES, bigEnoughToTry, chooseTier, createGlideMeter, middle, type GlideMeter, type TierMode } from './tier';
 import { buildWater, rippleFor, type Water } from './water';
 
 /** 浏览器里的画布主人。 */
@@ -792,7 +792,7 @@ class ThreeStopView implements StopStageView {
 
   /**
    * 试画：一座沙盘只试一次，在头一个“页面在前台、沙盘栏也够大”的摆好的画面之后。
-   * 页面在后台、沙盘栏收着（一窄条说明不了真的画面）的时候先不试，留到下一次摆好。
+   * 页面在后台、沙盘栏收着（一窄条说明不了真的画面，多宽都一样：见 tier.ts 的 bigEnoughToTry）的时候先不试，留到下一次摆好。
    * 同一个画面再画几帧，每一帧都等显卡真的画完才看钟，取居中的一次，报给这一次访问的记性；它答“降”，这座沙盘就不用了。
    * 指定了画质的也量、也报（读数里要有），记性对它一律答“留着”。
    */
@@ -801,7 +801,7 @@ class ThreeStopView implements StopStageView {
     const choice = this.choice;
     if (this.trialDone || this.slow || !lease || !choice) return;
     const { width, height } = this.size();
-    if (!this.env.pageVisible() || width * height < TRIAL_MIN_AREA) return;
+    if (!this.env.pageVisible() || !bigEnoughToTry(width, height)) return;
     this.trialDone = true;
     // 先等刚才那一帧画完，不算在里面：它带着编译着色器、上传贴图、画影子，平常的一帧没有这些
     lease.finish();
@@ -1032,6 +1032,8 @@ class ThreeStopView implements StopStageView {
   private drawFrame(b: Built, size: { width: number; height: number }): void {
     const { renderer, camera, controls, sun, fog, models } = b;
     if (size.width !== this.sizeNow.width || size.height !== this.sizeNow.height || this.pixelRatio() !== this.sizeNow.ratio) this.applySize(renderer, camera);
+    // 水纹照页面上的像素算：把画布这一帧真用的像素比（applySize 刚定的）告诉水面；挪到另一块屏幕上，下一帧就跟上
+    b.water.setPixelRatio(this.sizeNow.ratio);
 
     const distance = camera.position.distanceTo(controls.target);
     camera.near = Math.max(60, distance * 0.1);

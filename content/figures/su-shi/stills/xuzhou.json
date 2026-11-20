@@ -11,7 +11,7 @@
     "scene": "f6bdd7cd22e204a6",
     "terrain": "69f43014f4863b78",
     "ground": "145f606b05e88dc8",
-    "program": "01bf42dbcff6dfc2"
+    "program": "32259b34480a75c5"
   },
   "shapes": {
     "wide": {
@@ -58,10 +58,10 @@
       "file": "xuzhou-1-wide.jpg",
       "width": 1800,
       "height": 1350,
-      "bytes": 121184,
+      "bytes": 121050,
       "quality": 82,
-      "key": "4a254f08c7702554",
-      "raw": "136663f4e7e0f3e4",
+      "key": "28b6feb220394fbc",
+      "raw": "15aeb514105c2249",
       "pose": {
         "target": [
           -449.9,
@@ -125,10 +125,10 @@
       "file": "xuzhou-1-narrow.jpg",
       "width": 1920,
       "height": 1144,
-      "bytes": 112345,
+      "bytes": 112123,
       "quality": 86,
-      "key": "870e6cb7d217d224",
-      "raw": "494522adcf86c705",
+      "key": "6ddb8886edd1dcde",
+      "raw": "45aaaf6c2cd8cea0",
       "pose": {
         "target": [
           -449.9,
@@ -192,10 +192,10 @@
       "file": "xuzhou-2-wide.jpg",
       "width": 1800,
       "height": 1350,
-      "bytes": 202479,
+      "bytes": 193102,
       "quality": 82,
-      "key": "784a972ed8210d1f",
-      "raw": "ccc9cb3cbb93ff59",
+      "key": "bb1f4db34ba5837c",
+      "raw": "b2ec5ab8851d4c8f",
       "pose": {
         "target": [
           -184,
@@ -247,10 +247,10 @@
       "file": "xuzhou-2-narrow.jpg",
       "width": 1920,
       "height": 1144,
-      "bytes": 216442,
+      "bytes": 207285,
       "quality": 86,
-      "key": "e75b804d64620b87",
-      "raw": "01c5834de2ed84cb",
+      "key": "a08719cb6d7de452",
+      "raw": "24cbd8ba401ceafb",
       "pose": {
         "target": [
           -184,
@@ -302,10 +302,10 @@
       "file": "xuzhou-3-wide.jpg",
       "width": 1800,
       "height": 1350,
-      "bytes": 198668,
+      "bytes": 164889,
       "quality": 82,
-      "key": "a4d1ad979f123d2e",
-      "raw": "553e2333cd1b6a87",
+      "key": "a7f8e58e8c362b57",
+      "raw": "42b32a27a4a3c618",
       "pose": {
         "target": [
           -55.2,
@@ -387,10 +387,10 @@
       "file": "xuzhou-3-narrow.jpg",
       "width": 1920,
       "height": 1144,
-      "bytes": 206267,
+      "bytes": 168097,
       "quality": 86,
-      "key": "45ec4bb5d138b44a",
-      "raw": "dc4b76da1a9bc8da",
+      "key": "277d6f532e9ce602",
+      "raw": "81b995fb8febf2ac",
       "pose": {
         "target": [
           -55.2,
@@ -472,10 +472,10 @@
       "file": "xuzhou-4-wide.jpg",
       "width": 1800,
       "height": 1350,
-      "bytes": 258698,
+      "bytes": 248036,
       "quality": 82,
-      "key": "1358d104ca853b52",
-      "raw": "1dfb692a55ff940c",
+      "key": "4188f3c4a14aadb5",
+      "raw": "964cf4589a59fd50",
       "pose": {
         "target": [
           312.8,
@@ -531,10 +531,10 @@
       "file": "xuzhou-4-narrow.jpg",
       "width": 1920,
       "height": 1144,
-      "bytes": 280737,
+      "bytes": 244861,
       "quality": 86,
-      "key": "cab986b51396eb0e",
-      "raw": "04d1976ef8970e23",
+      "key": "d925ffef13e3a31c",
+      "raw": "4182c618e76ce6ba",
       "pose": {
         "target": [
           312.8,
@@ -590,10 +590,10 @@
       "file": "xuzhou-5-wide.jpg",
       "width": 1800,
       "height": 1350,
-      "bytes": 200713,
+      "bytes": 198122,
       "quality": 82,
-      "key": "a46644de68e10a3b",
-      "raw": "0f40af1d7eac4110",
+      "key": "ff4f568112130a90",
+      "raw": "637486b48ecd9102",
       "pose": {
         "target": [
           -736,
@@ -651,10 +651,10 @@
       "file": "xuzhou-5-narrow.jpg",
       "width": 1920,
       "height": 1144,
-      "bytes": 226331,
+      "bytes": 224534,
       "quality": 86,
-      "key": "86c7f74dcb1bd2c0",
-      "raw": "d1552c1d2167f503",
+      "key": "53d45610345e5b51",
+      "raw": "841179ca7c27b8fe",
       "pose": {
         "target": [
           -736,
@@ -712,10 +712,10 @@
       "file": "xuzhou-6-wide.jpg",
       "width": 1800,
       "height": 1350,
-      "bytes": 222894,
+      "bytes": 223185,
       "quality": 82,
-      "key": "9e378cc2714443ee",
-      "raw": "403fb7f9a2364c6d",
+      "key": "abfa9994b7fb053b",
+      "raw": "70c1e9b4b18c3682",
       "pose": {
         "target": [
           -1242,
@@ -771,10 +771,10 @@
       "file": "xuzhou-6-narrow.jpg",
       "width": 1920,
       "height": 1144,
-      "bytes": 240335,
+      "bytes": 240645,
       "quality": 86,
-      "key": "6edade83d8a78a86",
-      "raw": "5234efb11df60233",
+      "key": "336d222c0ae0b6bf",
+      "raw": "ce3e68297119fad9",
       "pose": {
         "target": [
           -1242,
@@ -830,10 +830,10 @@
       "file": "xuzhou-7-wide.jpg",
       "width": 1800,
       "height": 1350,
-      "bytes": 213968,
+      "bytes": 212547,
       "quality": 82,
-      "key": "a17ea626be4e5f0c",
-      "raw": "b7d53f0061662ca6",
+      "key": "abbfe5b03d1443b8",
+      "raw": "f05d8eb3652681a8",
       "pose": {
         "target": [
           -2603.6,
@@ -899,10 +899,10 @@
       "file": "xuzhou-7-narrow.jpg",
       "width": 1920,
       "height": 1144,
-      "bytes": 249555,
+      "bytes": 247641,
       "quality": 86,
-      "key": "a3faf710536e48fb",
-      "raw": "9228abde8fae1aaf",
+      "key": "add97d575a31500d",
+      "raw": "e18777c6377b4481",
       "pose": {
         "target": [
           -2603.6,

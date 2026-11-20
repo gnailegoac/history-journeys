@@ -1,6 +1,6 @@
 /* 全站的颜色、字体、字号和尺寸都在这一个文件里。要换风格，只改这里。
    宽屏和窄屏的分界：窗口 960px 以上宽、而且横着（宽比高大）才是宽屏，写在 layout.css、stage.css 和 guide.css 的媒体查询里
-   （媒体查询不能用变量）；这个文件末尾按宽窄另定字号的两处用的也是它，和 1280px。 */
+   （媒体查询不能用变量）；这个文件末尾按宽窄另定字号的三处用的也是它，和 1280px、1400px。 */
 
 :root {
   /* 设备设成深色的时候，输入框、滚动条这些浏览器自己画的东西也照浅色画。 */
@@ -28,7 +28,7 @@
   --color-focus: #b03a2a; /* 纸上的焦点框 */
   --color-focus-on-silk: #28231f; /* 绢上的焦点框用墨色（沙盘栏和它里面的东西） */
   --color-shadow: rgb(60 40 10 / 0.34);
-  --color-stage-veil: rgb(197 177 137 / 0.94); /* 题记那一条的底：就是绢色，差一点不透明 */
+  --color-stage-veil: #c5b189; /* 题记那一条的底：就是那块绢，不透明——沙盘不从字底下透上来 */
   --color-slip-veil: rgb(250 245 231 / 0.96); /* 绢上的一句话底下垫的纸条：“正在摆”“没能摆出来” */
 
   /* 纸的纹理：浏览器照这几百个字节自己画出来的，不是图片文件；画不出来就是平的纸色。
@@ -62,13 +62,14 @@
   --size-stop-title: 1.375rem; /* 目录里各站的标题，22px */
   --size-ask: 1.125rem; /* “问讲解员”，18px */
   --size-nav: 1.25rem; /* 上一站、下一站的站名，20px */
-  --size-card-name: 1.5rem;
+  --size-card-name: 2.5rem; /* 首页卡片上竖着写的名字，40px */
   --weight-heading: 400; /* 没有粗体：两套字体都只带了一种粗细。这个记号留着，各处照旧引用它 */
 
   /* 尺寸 */
   --measure: 30em; /* 正文一行最多这么宽：30 个字（竖着拿的平板上就是这么宽） */
   --leaf-pad-start: 2rem; /* 宽屏上那一页纸左右留的空：左 32px，右 28px，一行字 = 纸宽 − 60px（1024 宽时 20 个字，1389 起 23 个字） */
   --leaf-pad-end: 1.75rem;
+  --bar-h: 4rem; /* 站点页贴着底边的那一条（上一站、问讲解员、下一站）：64px 高，宽屏上 68px */
   --tap: 2.75rem; /* 可点的东西至少 44px 高 */
   --radius: 2px; /* 按钮、面板的圆角。纸条（原文和凭据的那一行、小注、小标签、目录上的数字印）是方角的，不用它 */
   --gap-1: 0.25rem;
@@ -78,7 +79,7 @@
   --gap-5: 1.5rem;
   --gap-6: 2.25rem;
   --page-pad: 1.25rem; /* 文字栏两侧的留白 */
-  --home-width: 60rem;
+  --home-width: 40rem; /* 独自立在绢上的一页纸有多宽：“来源”页，没找到人物的那一页 */
 
   /* 版面 */
   --column-width: clamp(27.5rem, 36vw, 31.25rem); /* 宽屏上文字栏的宽度，440 到 500px */
@@ -98,15 +99,23 @@
   :root {
     --size-site-title: 3.25rem; /* 52px */
     --size-title: 2.375rem; /* 38px：文字栏只有 440px 宽 */
+    --bar-h: 4.25rem; /* 68px */
   }
 }
 
 @media (min-width: 1280px) and (orientation: landscape) {
   :root {
     --size-site-title: 4.125rem; /* 66px */
-    --size-title: 2.9375rem; /* 47px */
     --size-heading: 1.6875rem; /* 27px */
     --size-ask: 1.1875rem; /* 19px */
     --size-nav: 1.375rem; /* 22px */
+  }
+}
+
+/* 一页的大标题到 1400px 宽才放大：文字栏要到窗口 1389px 宽才长到头（500px），在那以前 47px 的字一行放不下九个，
+   “汴京：御史台的一百三十天”冒号后面的九个字会把最后一个“天”字单独甩到第三行（tests/e2e/titles.spec.ts 守着）。 */
+@media (min-width: 1400px) and (orientation: landscape) {
+  :root {
+    --size-title: 2.9375rem; /* 47px */
   }
 }

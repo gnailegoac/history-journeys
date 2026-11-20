@@ -95,6 +95,9 @@ const everHandedOver = () => writes.some((w) => w.name === 'class' && w.value.in
 
 let warn: ReturnType<typeof vi.spyOn>;
 const warned = (...words: string[]) => warn.mock.calls.some((call: unknown[]) => words.every((word) => call.map(String).join(' ').includes(word)));
+/** 换档是设备慢的时候本来该走的路：只用 console.info 记一笔，不算警告。 */
+let info: ReturnType<typeof vi.spyOn>;
+const told = (...words: string[]) => info.mock.calls.some((call: unknown[]) => words.every((word) => call.map(String).join(' ').includes(word)));
 
 async function mount(search: string, opts: { reducedMotion?: boolean } = {}) {
   win.location.search = search;
@@ -103,6 +106,7 @@ async function mount(search: string, opts: { reducedMotion?: boolean } = {}) {
   doc.activeElement = null;
   writes.length = 0;
   warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+  info = vi.spyOn(console, 'info').mockImplementation(() => {});
   const container = doc.createElement('div');
   doc.body.appendChild(container);
   const root = createRoot(container as any);
@@ -156,6 +160,7 @@ async function mount(search: string, opts: { reducedMotion?: boolean } = {}) {
 
 afterEach(() => {
   warn?.mockRestore();
+  info?.mockRestore();
 });
 
 describe('沙盘栏 + 每一小节的图片（状态 1、2、2b）', () => {
@@ -369,7 +374,10 @@ describe('立体的沙盘摆不了，放的是图片（状态 3 到 6）', () =>
     expect(page.q('.stage-controls .stage-retry')?.textContent).toBe(SAYS.tryTable);
     expect(page.q('.stage-notice-button')).toBeNull();
     expect(page.pane().className).toBe('stage-pane is-pinned is-wide is-kai');
-    expect(warned('太慢')).toBe(true);
+    // 降了一档、再降到只放图片：两句都只是记一笔，控制台里没有警告
+    expect(told('降一档')).toBe(true);
+    expect(told('这一次访问只放图片')).toBe(true);
+    expect(warned('太慢')).toBe(false);
     expect(page.shows()).toBe(FIRST);
     // 图片从头到尾是同一层，没有跟着沙盘重摆。
     const still = page.fakeStill();
@@ -417,7 +425,8 @@ describe('立体的沙盘摆不了，放的是图片（状态 3 到 6）', () =>
     await page.settled('slow', 'still');
     expect(page.fakeTable()).toBeNull();
     expect(page.notice()).toBe(SAYS.slow);
-    expect(warned('慢得没法用')).toBe(true);
+    expect(told('慢得没法用')).toBe(true);
+    expect(warned('慢得没法用')).toBe(false);
     // “回到这一节”换成了“试试立体的沙盘”，焦点跟过去。
     expect(doc.activeElement).toBe(page.q('.stage-retry'));
     await page.unmount();
@@ -595,7 +604,7 @@ describe('图片取不到（状态 9）', () => {
     await fine.unmount();
   });
 
-  it('后来换到的一张取不到：图片不放了，换成没有图片时的那句话和它的按钮，题记跟着读到的小节', { timeout: 30_000 }, async () => {
+  it('后来换到的一张取不到：图片不放了，换成没有图片时的那句话和它的按钮，题记跟着读到的小节；读到另一小节再放一次，取得到图片就回来', { timeout: 30_000 }, async () => {
     const page = await mount('?stage=fake-fail&sectionstills=fake&stillfail=2');
     await page.settled('failed', 'still');
     expect(page.notice()).toBe(SAYS.failed);
@@ -616,11 +625,33 @@ describe('图片取不到（状态 9）', () => {
     expect(warned('图片取不到')).toBe(true);
     // 焦点原来在“古名”上，它没了：落到那句话的按钮上。
     expect(doc.activeElement).toBe(page.q('.stage-retry'));
-    // 再读回第一节（它的图片本来取得到）：这一次已经不放图片了，不再去取。
+    // 一张取不到，不是从此一张也不放：再读回第一节（它的图片取得到），再放一次，图片回来了，按钮下面还是那一行话
+    await page.read(FIRST);
+    await page.settled('failed', 'still');
+    expect(page.fakeStill()).not.toBeNull();
+    expect(page.shows()).toBe(FIRST);
+    expect(page.caption()).toBe(FIRST);
+    expect(page.notice()).toBe(SAYS.failed);
+    expect(page.q('.stage-message')).toBeNull();
+    expect(page.q('.stage-controls')).not.toBeNull();
+    // 又读到取不到的那一节：照旧收起来，等下一回
+    await page.read(SECOND);
+    await page.until(() => page.q('.stage-message') !== null);
+    expect(page.picture()).toBe('none');
+    expect(page.fakeStill()).toBeNull();
+    // 浏览器明说断着网的时候不试（试了也是白试，栏还要白白变一回样子）；说网又通了，不用等读到另一小节就再放一次。
+    // 这时候读到的还是取不到的那一节，所以先读回第一节再断网，看的是“断着网不试，通了才试”
+    const nav = win.navigator;
+    win.navigator = { onLine: false };
     await page.read(FIRST);
     await settle(100);
-    expect(page.fakeStill()).toBeNull();
-    expect(page.caption()).toBe(FIRST);
+    expect(page.fakeStill(), '断着网还去取图片了').toBeNull();
+    expect(page.q('.stage-message')).not.toBeNull();
+    win.navigator = { onLine: true };
+    await act(async () => win.fire('online'));
+    await page.settled('failed', 'still');
+    expect(page.shows()).toBe(FIRST);
+    win.navigator = nav;
     await page.unmount();
   });
 });
@@ -652,7 +683,8 @@ describe('读着读着嫌慢，降一档（状态 10）', () => {
       return slowOne === null;
     });
     expect(goneBeforeStill).toBe(false);
-    expect(warned('降一档')).toBe(true);
+    expect(told('降一档')).toBe(true);
+    expect(warned('降一档')).toBe(false);
     await page.until(() => {
       tables = Math.max(tables, page.all('.fake-stage').length);
       return page.state() === 'ready' && page.picture() === 'table';

@@ -16,7 +16,9 @@ import {
   TRIAL_FRAMES,
   TRIAL_HOPELESS_MS,
   TRIAL_MIN_AREA,
+  TRIAL_MIN_HEIGHT,
   TRIAL_SLOW_MS,
+  bigEnoughToTry,
   chooseTier,
   createGlideMeter,
   createTierMemory,
@@ -48,9 +50,10 @@ function atStill(): TierMemory {
 describe('几条线的数', () => {
   // 试画的最小面积原来是四万：竖着拿的平板上收起来的那一条有 768 × 59 = 45,312，照四万算它也“够大”，改成了八万。
   it('和设计里写的一样（试画的最小面积除外：它后来从四万改成了八万）', () => {
-    expect({ TRIAL_FRAMES, TRIAL_MIN_AREA, TRIAL_SLOW_MS, TRIAL_HOPELESS_MS, GLIDE_SKIP_FRAMES, GLIDE_MIN_SAMPLES, GLIDE_SLOW_MS, GLIDE_STALLED_MS, SLOW_GLIDES_TO_STEP_DOWN }).toEqual({
+    expect({ TRIAL_FRAMES, TRIAL_MIN_AREA, TRIAL_MIN_HEIGHT, TRIAL_SLOW_MS, TRIAL_HOPELESS_MS, GLIDE_SKIP_FRAMES, GLIDE_MIN_SAMPLES, GLIDE_SLOW_MS, GLIDE_STALLED_MS, SLOW_GLIDES_TO_STEP_DOWN }).toEqual({
       TRIAL_FRAMES: 3,
       TRIAL_MIN_AREA: 80_000,
+      TRIAL_MIN_HEIGHT: 100,
       TRIAL_SLOW_MS: 50,
       TRIAL_HOPELESS_MS: 200,
       GLIDE_SKIP_FRAMES: 2,
@@ -59,6 +62,25 @@ describe('几条线的数', () => {
       GLIDE_STALLED_MS: 125,
       SLOW_GLIDES_TO_STEP_DOWN: 2,
     });
+  });
+
+  // 上下排的版面上收起来的那一条高 59 像素、和窗口一样宽。竖着的窗口多宽都是上下排，所以只看面积拦不住它：
+  // 竖起来的显示器上 1400 × 59 = 82,600，过了八万。另有一条“不到 100 像素高不试”，多宽都拦得住。
+  it('够不够试画：收起来的一条（59 像素高）多宽都不够；展开着的沙盘栏最小的也够；正好在线上的算够', () => {
+    for (const width of [600, 768, 959, 1024, 1032, 1400, 2160, 4000]) expect(bigEnoughToTry(width, 59), `${width} × 59`).toBe(false);
+    // 只看面积的话，1400 × 59 是“够”的：拦住它的是高
+    expect(1400 * 59).toBeGreaterThanOrEqual(TRIAL_MIN_AREA);
+    expect(59).toBeLessThan(TRIAL_MIN_HEIGHT);
+    // 展开着的：最小的（平板最窄 600 像素，栏最矮 11rem）、四种标准的窗口
+    expect(176).toBeGreaterThanOrEqual(TRIAL_MIN_HEIGHT);
+    for (const [width, height] of [[600, 176], [940, 900], [584, 768], [768, 573], [1024, 765]]) expect(bigEnoughToTry(width, height), `${width} × ${height}`).toBe(true);
+    // 两条线都是“不到才不试”：正好等于算够
+    expect(bigEnoughToTry(800, TRIAL_MIN_HEIGHT)).toBe(true);
+    expect(bigEnoughToTry(800, TRIAL_MIN_HEIGHT - 1)).toBe(false);
+    expect(bigEnoughToTry(400, 200)).toBe(true);
+    expect(bigEnoughToTry(399, 200)).toBe(false);
+    // 够高但是太小的一块，照旧不试
+    expect(bigEnoughToTry(300, 150)).toBe(false);
   });
 });
 

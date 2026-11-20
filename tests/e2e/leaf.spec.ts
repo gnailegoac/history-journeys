@@ -7,19 +7,28 @@
 //     iPad 上的 Safari 到 26.2 版才认。这里只证明 Chromium 里有这道线；Safari 靠 tests/fonts/font-files.test.ts 和
 //     tests/build/dist-size.test.ts 查写法）。词没有底色；点开以后字变红；能点的地方有一行那么高。
 // 三、正文那一栏里能点的东西，都不小于 44 像素见方：位置那一行的链接、目录里的每一站、“读原文”“凭据”那一行、
-//     小注的“关闭”、“图片出处”、上一站和下一站、回到目录、“到沙盘”、“问讲解员”、“没找到”页面上的链接。
+//     小注的“关闭”、“图片出处”、回到目录、“到沙盘”、贴着底边那一条里的上一站、下一站和“问讲解员”、“没找到”页面上的链接。
 //     量法：它的框不小于 44 像素见方；再像手指那样点，把它滚到看得见正文的那一块的正中，在它正中的上、下、左、右
 //     各 21 像素的地方看点到的是不是它（没有被别的东西盖住）。“图片出处”看着只有一行高，能点的地方是撑大了的，只看点不点得到。
 //     正文里可以点开的词在一行字中间，不要求 44 像素，要求有一行那么高。
 // 四、“读原文”“凭据”那一行：折着显加号，点开显减号，都是页面上真的字；记号是宋体，名字是楷体。
 //     抬头里的小方块、目录里的数字印、宽屏上那一页纸到底：各量一下。
+// 五、贴着底边的那一条和讲解员面板，四种标准的窗口上各量一遍。那一条：纸色带纹理，64 像素高（横排的版面 68），
+//     横排的版面上和那一页纸一样宽、纸的两道细线从它里面穿过去，别的窗口上和窗口一样宽；三格——上一站、“问讲解员”、下一站——
+//     和正文那一栏的左右边对齐，“问讲解员”在正中；“上一站”“下一站”是宋体的小字，站名是楷体，各占一行；
+//     “问讲解员”平常不铺红底（一圈红线、红字、前面一个小红方块），鼠标移上去才铺；正文的最后一行滚得到这一条上面。
+//     头一站、最后一站各看一遍（那一头的格子空着）；横着拿的平板上，两头换上各站里最长的两个短名字，三格还放得下。
+//     面板：横排的版面上和那一页纸一样宽、一直到窗口的底边（下面不露出正文），不挡沙盘；别的窗口上从底部升起，
+//     最高到窗口的四分之三，里面的字和正文那一栏一样宽、对齐；上边一道红线、一道影子；开着的时候那一条收起来。
 //
 // 沙盘用的是替身（?stage=fake）。数从真的页面和 content/ 里真的文件读，不另写一遍。
 
 import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
+import type { Figure } from '../../src/domain/types';
 import { STANDARD_PANES } from '../stage/support/standardPanes';
-import { expectStageAt, expectStill, fakeUrl, firstWrittenStopWithoutScene, fontsReady, headingsOf, openFigureWithTable } from './helpers';
+import { readBytes } from '../support/readBytes';
+import { expectStageAt, expectStill, fakeUrl, firstWrittenStopWithoutScene, foldBodiesReady, fontsReady, headingsOf, openFigureWithTable, scrollToBottom } from './helpers';
 
 /** 这种窗口上是不是横排的版面（文字在左、沙盘在右）：窗口 960 像素宽以上、而且横着（宽比高大），和 layout.css 的媒体查询是同一句。 */
 const sideBySide = (size: { width: number; height: number }): boolean => size.width >= 960 && size.width > size.height;
@@ -303,11 +312,27 @@ test('四种标准的窗口上：正文那一栏里能点的东西都不小于 4
       expect(problems, `${label}：这几样东西不够大，或者点不到`).toEqual([]);
     };
 
-    // 人物页：位置那一行、目录里的每一站
+    // 首页：可以点进去的卡片，卡片后面的“来源”。还没写的卡片不是能点的东西，这里数不到它们
+    await openAt(page, size, '#/');
+    await expect(page.locator('.card').first()).toBeVisible();
+    await expectStill(page);
+    const openCards = await page.locator('a.card').count();
+    expect(openCards).toBeGreaterThan(0);
+    expect(await page.locator('.reading').locator('a[href], button, summary, [role="button"], [tabindex]').count(), `${nameOf(size)}，首页：那页纸上能点的东西只有可以点进去的卡片和“来源”`).toBe(openCards + 1);
+    await check('首页', { 'a.card': openCards, 'a.stop-nav-sources': 1 });
+
+    // “来源”页：位置那一行，四份许可全文，两套字体的网站，每张图片的出处
+    await openAt(page, size, '#/sources');
+    await expect(page.locator('.sources-list li').first()).toBeVisible();
+    await expect(page.locator('.sources .quiet')).toHaveCount(0);
+    const pictureLinks = await page.locator('.sources [data-sources="pictures"] .sources-links a').count();
+    await check('“来源”页', { a: 1 + 4 + 2 + pictureLinks });
+
+    // 人物页：位置那一行、目录里的每一站、目录后面的“来源”
     await openAt(page, size, `#/${figureId}`);
     await expect(page.locator('.stop-item').first()).toBeVisible();
     await expectStill(page);
-    await check('人物页', { a: 1, 'a.stop-item': stops.length });
+    await check('人物页', { a: 1, 'a.stop-item': stops.length, 'a.stop-nav-sources': 1 });
 
     // 有沙盘的一站：小注、原文、凭据都点开
     await openAt(page, size, `#/${figureId}/${found.stopId}`);
@@ -315,13 +340,17 @@ test('四种标准的窗口上：正文那一栏里能点的东西都不小于 4
     const opened = await openAll();
     expect(opened.notes).toBeGreaterThan(0);
     await expect(page.locator('.provenance-body')).toBeVisible();
+    // 凭据里面的东西是点开才取的：等它到了，页面不再变长，再一个一个点
+    await foldBodiesReady(page);
     await check('有沙盘的一站，都点开', {
       a: 2,
       'span.note-term': opened.notes,
       'button.note-close': opened.notes,
       summary: opened.folds,
-      'a.stop-nav-link': 1,
+      'a.walk-link': 1,
+      // 正文末尾并排的两个：回到各站目录，来源
       'a.stop-nav-list': 1,
+      'a.stop-nav-sources': 1,
       'button.skip-to-stage': 1,
       'button.guide-open': 1,
     });
@@ -332,6 +361,7 @@ test('四种标准的窗口上：正文那一栏里能点的东西都不小于 4
       await expect(page.locator('.text-section').first()).toBeVisible();
       await expectStill(page);
       const openedHere = await openAll();
+      await foldBodiesReady(page);
       const credits = await page.locator('.stop-image-credit a').count();
       await check('没有沙盘的一站，都点开', { 'span.note-term': openedHere.notes, summary: openedHere.folds, ...(credits > 0 ? { a: 2 + credits } : {}) });
     }
@@ -340,7 +370,7 @@ test('四种标准的窗口上：正文那一栏里能点的东西都不小于 4
     if (notWritten) {
       await openAt(page, size, `#/${figureId}/${notWritten}`);
       await expect(page.locator('.not-written')).toBeVisible();
-      await check('还没写的一站', { a: 2, 'a.stop-nav-list': 1 });
+      await check('还没写的一站', { a: 2, 'a.stop-nav-list': 1, 'a.stop-nav-sources': 1, 'a.walk-link': 1 });
     }
 
     // 两种“没找到”
@@ -400,6 +430,17 @@ test('“读原文”“凭据”折着显加号、点开显减号；抬头里�
   expect(ticks.map((tick) => tick.filled)).toEqual(stops.map((_, i) => i === at));
   await expect(page.locator('.page-head .ticks')).toHaveAttribute('aria-hidden', 'true');
 
+  // 位置那一行的两个链接：下面各有一道细细的淡墨线（平板上没有“鼠标移上去”，靠它看得出点得动）。
+  // 线是分开写的那几条属性算出来的（合成一句的写法 iPad 上的 Safari 不认，见上面第二条）
+  const crumbs = await page.locator('.crumbs a').evaluateAll((links) =>
+    links.map((link) => {
+      const style = getComputedStyle(link);
+      return { line: style.textDecorationLine, style: style.textDecorationStyle, thick: style.textDecorationThickness, colour: style.textDecorationColor, text: style.color };
+    }),
+  );
+  expect(crumbs).toHaveLength(2);
+  for (const crumb of crumbs) expect(crumb, '位置那一行的链接').toEqual({ line: 'underline', style: 'solid', thick: '1px', colour: 'rgb(138, 126, 107)', text: 'rgb(90, 81, 70)' });
+
   // “读原文”“凭据”那一行：折着的时候看得见的是加号，点开是减号；记号是宋体，名字是楷体；一行至少 48 像素高
   const folds = page.locator('details.original, details.provenance');
   const count = await folds.count();
@@ -434,4 +475,429 @@ test('“读原文”“凭据”折着显加号、点开显减号；抬头里�
     expect(leaf.bottom, '那一页纸的下边').toBeGreaterThanOrEqual(leaf.window);
     expect(leaf.grain, '那一页纸上有没有纹理').toBe(true);
   }
+});
+
+// ---------------------------------------------------------------- 贴着底边的那一条，和讲解员面板
+
+/** tokens.css 里的几种颜色，算出来的样子。 */
+const PAPER = 'rgb(245, 238, 221)';
+const SLIP = 'rgb(250, 245, 231)';
+const INK = 'rgb(40, 35, 31)';
+const INK_SOFT = 'rgb(90, 81, 70)';
+const SEAL_RED = 'rgb(176, 58, 42)';
+const NO_FILL = 'rgba(0, 0, 0, 0)';
+/** 那一条多高（tokens.css 的 --bar-h）：横排的版面 68，别的 64。 */
+const BAR_H = { wide: 68, narrow: 64 } as const;
+
+interface Box {
+  left: number;
+  right: number;
+  top: number;
+  bottom: number;
+  width: number;
+  height: number;
+}
+
+/** 一格里的一行字（“上一站”，或者站名）。 */
+interface BarWord {
+  text: string;
+  box: Box;
+  /** 字自己从哪到哪（那一行的框可能比字宽，字也可能伸到框外面去）。 */
+  ink: { left: number; right: number };
+  size: number;
+  family: string;
+  colour: string;
+  lineHeight: number;
+  /** 字下面的线：种类、样子、粗细、颜色（没有线时开头是 none）。 */
+  underline: string;
+}
+
+/** 那一条里的一格。 */
+interface BarCell {
+  tag: string;
+  rel: string | null;
+  href: string | null;
+  text: string;
+  box: Box;
+  ground: string;
+  colour: string;
+  edge: string;
+  family: string;
+  size: number;
+  label: BarWord | null;
+  name: BarWord | null;
+  /** “问讲解员”前面的小方块。 */
+  dot: { size: string; colour: string } | null;
+}
+
+/** 画出来的一道竖线（::before、::after）。 */
+interface Rule {
+  content: string;
+  left: string;
+  right: string;
+  width: string;
+  colour: string;
+}
+
+interface BarReading {
+  window: { width: number; height: number };
+  bar: Box;
+  position: string;
+  ground: string;
+  grain: boolean;
+  topEdge: string;
+  leaf: Box;
+  column: Box;
+  barRules: Rule[];
+  leafRules: Rule[];
+  cells: BarCell[];
+}
+
+/** 量贴着底边的那一条：它自己、里面的三格、正文那一栏、那一页纸。 */
+function readBar(page: Page): Promise<BarReading> {
+  return page.evaluate(() => {
+    const need = (selector: string): HTMLElement => {
+      const el = document.querySelector<HTMLElement>(selector);
+      if (!el) throw new Error(`页面上没有 ${selector}`);
+      return el;
+    };
+    const box = (el: Element) => {
+      const r = el.getBoundingClientRect();
+      return { left: r.left, right: r.right, top: r.top, bottom: r.bottom, width: r.width, height: r.height };
+    };
+    const rule = (el: Element, which: string) => {
+      const s = getComputedStyle(el, which);
+      return { content: s.content, left: s.left, right: s.right, width: s.width, colour: s.backgroundColor };
+    };
+    const word = (el: HTMLElement | null) => {
+      if (el === null) return null;
+      const s = getComputedStyle(el);
+      const range = document.createRange();
+      range.selectNodeContents(el);
+      const ink = range.getBoundingClientRect();
+      return {
+        text: el.textContent ?? '',
+        box: box(el),
+        ink: { left: ink.left, right: ink.right },
+        size: parseFloat(s.fontSize),
+        family: s.fontFamily,
+        colour: s.color,
+        lineHeight: parseFloat(s.lineHeight),
+        underline: `${s.textDecorationLine} ${s.textDecorationStyle} ${s.textDecorationThickness} ${s.textDecorationColor}`,
+      };
+    };
+    const bar = need('.guide-dock');
+    const style = getComputedStyle(bar);
+    const leaf = need('.reading');
+    const cells = Array.from(bar.children).map((cell) => {
+      const s = getComputedStyle(cell);
+      const dot = getComputedStyle(cell, '::before');
+      return {
+        tag: cell.tagName.toLowerCase(),
+        rel: cell.getAttribute('rel'),
+        href: cell.getAttribute('href'),
+        text: cell.textContent ?? '',
+        box: box(cell),
+        ground: s.backgroundColor,
+        colour: s.color,
+        edge: `${s.borderTopWidth} ${s.borderTopStyle} ${s.borderTopColor}`,
+        family: s.fontFamily,
+        size: parseFloat(s.fontSize),
+        label: word(cell.querySelector<HTMLElement>('.walk-label')),
+        name: word(cell.querySelector<HTMLElement>('.walk-name')),
+        dot: cell.tagName === 'BUTTON' ? { size: `${dot.width} × ${dot.height}`, colour: dot.backgroundColor } : null,
+      };
+    });
+    return {
+      window: { width: window.innerWidth, height: window.innerHeight },
+      bar: box(bar),
+      position: style.position,
+      ground: style.backgroundColor,
+      grain: style.backgroundImage.includes('data:image/svg+xml'),
+      topEdge: `${style.borderTopWidth} ${style.borderTopStyle}`,
+      leaf: box(leaf),
+      column: box(need('.reading-inner')),
+      barRules: [rule(bar, '::before'), rule(bar, '::after')],
+      leafRules: [rule(leaf, '::before'), rule(leaf, '::after')],
+      cells,
+    };
+  });
+}
+
+test('四种标准的窗口上：贴着底边的那一条（上一站、问讲解员、下一站），和点开的讲解员面板', async ({ page }) => {
+  test.setTimeout(300_000);
+  const { figureId, found } = await openFigureWithTable(page, fakeUrl('#/'));
+  test.skip(!found, '还没有哪一站有沙盘');
+  if (!found) return;
+  // 各站的先后和短名字，照 content/ 里真的文件
+  const figure = JSON.parse(new TextDecoder().decode(readBytes(`content/figures/${figureId}/figure.json`))) as Figure;
+  const stops = figure.stops;
+  const at = stops.findIndex((stop) => stop.id === found.stopId);
+  expect(at, '有沙盘的那一站前面、后面都得有站，三格才都有东西').toBeGreaterThan(0);
+  expect(at).toBeLessThan(stops.length - 1);
+  const chars = (text: string): number => Array.from(text).length;
+  // 各站里最长的两个短名字（现在是五个字的“眉山到汴京”和“惠州、儋州”）
+  const longest = stops
+    .map((stop) => stop.shortTitle)
+    .sort((a, b) => chars(b) - chars(a))
+    .slice(0, 2);
+  expect(chars(longest[0])).toBeGreaterThanOrEqual(chars(stops[at - 1].shortTitle));
+  const rows: string[] = [];
+
+  /** 一格是一个链接：指着哪一站，上下两行各是什么样；放在那一条里的哪一头。 */
+  const expectLink = (cell: BarCell, rel: 'prev' | 'next', to: number, got: BarReading, label: string): void => {
+    expect({ tag: cell.tag, rel: cell.rel, href: cell.href }, `${label}：${rel === 'prev' ? '左' : '右'}边那一格`).toEqual({ tag: 'a', rel, href: `#/${figureId}/${stops[to].id}` });
+    const [small, name] = [cell.label, cell.name];
+    if (small === null || name === null) throw new Error(`${label}：那一格里没有两行字`);
+    expect({ text: small.text, size: small.size, colour: small.colour }, `${label}：小字那一行`).toEqual({ text: rel === 'prev' ? '上一站' : '下一站', size: 14, colour: INK_SOFT });
+    expect(small.family, `${label}：小字是宋体`).toMatch(/^"?Yanlu Song/);
+    expect({ text: name.text, colour: name.colour }, `${label}：站名那一行`).toEqual({ text: stops[to].shortTitle, colour: INK });
+    expect(name.family, `${label}：站名是楷体`).toMatch(/^"?Yanlu Kai/);
+    expect(name.size, `${label}：站名的字号`).toBeGreaterThanOrEqual(20);
+    // 站名下面一道细细的淡墨线（和“位置”那一行的链接一样）：往下一站去只有这一处，要看得出点得动；小字那一行没有线
+    expect(name.underline, `${label}：站名下面的线`).toBe('underline solid 1px rgb(138, 126, 107)');
+    expect(small.underline, `${label}：小字那一行没有线`).toMatch(/^none /);
+    // 上下两行，各是各的一行（楷体和宋体不挤在同一行里）；站名只占一行
+    expect(name.box.top, `${label}：站名在小字的下面`).toBeGreaterThanOrEqual(small.box.bottom - 0.5);
+    expect(name.box.height, `${label}：站名只占一行`).toBeCloseTo(name.lineHeight, 0);
+    // 整格都点得动：一直到那一条的底，不小于 44 像素见方；两头和正文那一栏的左右边对齐
+    expect(cell.box.height, `${label}：那一格的高`).toBeGreaterThanOrEqual(TAP);
+    expect(cell.box.width, `${label}：那一格的宽`).toBeGreaterThanOrEqual(TAP);
+    expect(cell.box.bottom, `${label}：那一格到那一条的底`).toBeCloseTo(got.bar.bottom, 0);
+    if (rel === 'prev') {
+      expect(cell.box.left, `${label}：左边那一格和正文的左边对齐`).toBeCloseTo(got.column.left, 0);
+      expect(name.ink.left, `${label}：站名从那一格的左边排起`).toBeCloseTo(cell.box.left, 0);
+      expect(name.ink.right, `${label}：站名没有伸出那一格`).toBeLessThanOrEqual(cell.box.right + 0.5);
+    } else {
+      expect(cell.box.right, `${label}：右边那一格和正文的右边对齐`).toBeCloseTo(got.column.right, 0);
+      expect(name.ink.right, `${label}：站名排到那一格的右边`).toBeCloseTo(cell.box.right, 0);
+      expect(name.ink.left, `${label}：站名没有伸出那一格`).toBeGreaterThanOrEqual(cell.box.left - 0.5);
+    }
+  };
+  /** 空着的一格。 */
+  const expectEmpty = (cell: BarCell, label: string): void => {
+    expect({ tag: cell.tag, text: cell.text }, label).toEqual({ tag: 'span', text: '' });
+  };
+  /** 那一条自己：钉在底边，多高多宽，纸色带纹理，上边一道线；横排的版面上，纸的两道细线从它里面穿过去。 */
+  const expectBarBox = (got: BarReading, side: boolean, label: string): void => {
+    expect(got.position, `${label}：那一条钉在屏幕上`).toBe('fixed');
+    expect(got.bar.bottom, `${label}：那一条贴着窗口的底边`).toBe(got.window.height);
+    expect(got.bar.height, `${label}：那一条的高`).toBe(side ? BAR_H.wide : BAR_H.narrow);
+    expect(got.bar.left, `${label}：那一条的左边`).toBe(0);
+    expect(got.bar.width, `${label}：那一条的宽`).toBe(side ? got.leaf.width : got.window.width);
+    expect({ ground: got.ground, grain: got.grain, topEdge: got.topEdge }, `${label}：那一条是纸色、带纸的纹理，上边一道线`).toEqual({ ground: PAPER, grain: true, topEdge: '1px solid' });
+    if (side) {
+      expect(got.leafRules.map((rule) => rule.content), `${label}：那一页纸两边的细线`).toEqual(['""', '""']);
+      expect({ left: got.barRules[0].left, width: got.barRules[0].width, colour: got.barRules[0].colour }, `${label}：左边那道细线从那一条里穿过去`).toEqual({
+        left: got.leafRules[0].left,
+        width: '1px',
+        colour: got.leafRules[0].colour,
+      });
+      expect({ right: got.barRules[1].right, width: got.barRules[1].width, colour: got.barRules[1].colour }, `${label}：右边那道细线从那一条里穿过去`).toEqual({
+        right: got.leafRules[1].right,
+        width: '1px',
+        colour: got.leafRules[1].colour,
+      });
+    } else {
+      expect(got.barRules.map((rule) => rule.content), `${label}：不是横排的版面，那一条里没有细线`).toEqual(['none', 'none']);
+    }
+  };
+
+  for (const size of WINDOWS) {
+    const side = sideBySide(size);
+    const where = nameOf(size);
+
+    // ---- 有沙盘的一站（前后都有站）：三格
+    await openAt(page, size, `#/${figureId}/${found.stopId}`);
+    await expectStageAt(page, headingsOf(found.scene)[0]);
+    await expect(page.locator('.guide-open')).toBeVisible();
+    await fontsReady(page);
+    await page.mouse.move(0, 0);
+    const got = await readBar(page);
+    expectBarBox(got, side, where);
+    expect(got.cells, `${where}：那一条里是三格`).toHaveLength(3);
+    const [left, ask, right] = got.cells;
+    expectLink(left, 'prev', at - 1, got, where);
+    expectLink(right, 'next', at + 1, got, where);
+    // “问讲解员”：平常不铺红底——一圈红线，红的楷体字，前面一个 10 像素的小红方块；在正中，和两头不挨着
+    expect({ tag: ask.tag, text: ask.text, ground: ask.ground, colour: ask.colour, edge: ask.edge, dot: ask.dot }, `${where}：“问讲解员”平常的样子`).toEqual({
+      tag: 'button',
+      text: '问讲解员',
+      ground: NO_FILL,
+      colour: SEAL_RED,
+      edge: `1px solid ${SEAL_RED}`,
+      dot: { size: '10px × 10px', colour: SEAL_RED },
+    });
+    expect(ask.family, `${where}：“问讲解员”是楷体`).toMatch(/^"?Yanlu Kai/);
+    expect(ask.size, `${where}：“问讲解员”的字号`).toBeGreaterThanOrEqual(18);
+    expect(ask.box.height, `${where}：“问讲解员”的高`).toBeGreaterThanOrEqual(TAP);
+    expect((ask.box.left + ask.box.right) / 2, `${where}：“问讲解员”在正文那一栏的正中`).toBeCloseTo((got.column.left + got.column.right) / 2, 0);
+    expect(left.box.right, `${where}：左边那一格不压着“问讲解员”`).toBeLessThanOrEqual(ask.box.left);
+    expect(right.box.left, `${where}：右边那一格不压着“问讲解员”`).toBeGreaterThanOrEqual(ask.box.right);
+    expect(ask.box.top, `${where}：“问讲解员”在那一条里面`).toBeGreaterThanOrEqual(got.bar.top);
+    expect(ask.box.bottom).toBeLessThanOrEqual(got.bar.bottom);
+    // 鼠标移上去才铺红底、字变成纸色；挪开又回去
+    await page.locator('.guide-open').hover();
+    const hovered = (await readBar(page)).cells[1];
+    expect({ ground: hovered.ground, colour: hovered.colour, dot: hovered.dot?.colour }, `${where}：鼠标移到“问讲解员”上`).toEqual({ ground: SEAL_RED, colour: PAPER, dot: PAPER });
+    await page.mouse.move(0, 0);
+    expect((await readBar(page)).cells[1].ground, `${where}：鼠标挪开以后`).toBe(NO_FILL);
+    rows.push(
+      `  ${where}：那一条 ${got.bar.width} × ${got.bar.height}；三格 ${Math.round(left.box.width)} / ${Math.round(ask.box.width)} / ${Math.round(right.box.width)} 像素宽；` +
+        `“问讲解员”${ask.size}px，站名 ${left.name?.size}px，小字 ${left.label?.size}px`,
+    );
+
+    // ---- 各站里最长的两个短名字换到两头（现在挨着写好了的站的名字都只有两个字；那几站写好以后就是这个样子）：三格还放得下
+    await page.evaluate((names) => {
+      document.querySelectorAll('.guide-dock .walk-name').forEach((name, i) => {
+        name.textContent = names[i];
+      });
+    }, longest);
+    const long = await readBar(page);
+    const [longLeft, longAsk, longRight] = long.cells;
+    for (const [cell, text, which] of [
+      [longLeft, longest[0], '左'],
+      [longRight, longest[1], '右'],
+    ] as const) {
+      const name = cell.name;
+      if (name === null) throw new Error('那一格里没有站名');
+      expect(name.text).toBe(text);
+      expect(name.box.height, `${where}：${which}边换成“${text}”，还是一行`).toBeCloseTo(name.lineHeight, 0);
+      expect(name.ink.left, `${where}：“${text}”没有伸出${which}边那一格`).toBeGreaterThanOrEqual(cell.box.left - 0.5);
+      expect(name.ink.right, `${where}：“${text}”没有伸出${which}边那一格`).toBeLessThanOrEqual(cell.box.right + 0.5);
+    }
+    expect(longLeft.box.right, `${where}：左边换成最长的名字，不压着“问讲解员”`).toBeLessThanOrEqual(longAsk.box.left);
+    expect(longRight.box.left, `${where}：右边换成最长的名字，不压着“问讲解员”`).toBeGreaterThanOrEqual(longAsk.box.right);
+    expect({ left: longAsk.box.left, right: longAsk.box.right }, `${where}：换了名字，“问讲解员”不挪地方`).toEqual({ left: ask.box.left, right: ask.box.right });
+    rows.push(`      换成“${longest[0]}”“${longest[1]}”：站名 ${Math.round((longLeft.name?.ink.right ?? 0) - (longLeft.name?.ink.left ?? 0))} 和 ${Math.round((longRight.name?.ink.right ?? 0) - (longRight.name?.ink.left ?? 0))} 像素宽，格子 ${Math.round(longLeft.box.width)} 像素宽`);
+
+    // ---- 正文的最后一行滚得到这一条上面
+    await scrollToBottom(page);
+    const lastLine = await page.locator('.stop-nav-list').evaluate((el) => el.getBoundingClientRect().bottom);
+    expect(lastLine, `${where}：滚到底，“回到各站目录”的下边在那一条的上边以上`).toBeLessThanOrEqual(got.bar.top);
+
+    // ---- 点开“问讲解员”
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await page.locator('.guide-open').click();
+    await expect(page.locator('.guide-panel')).toBeVisible();
+    await foldBodiesReady(page);
+    await expect(page.locator('.guide-panel .guide-form')).toBeVisible();
+    await fontsReady(page);
+    await page.mouse.move(0, 0);
+    const panel = await page.evaluate(() => {
+      const need = (selector: string): HTMLElement => {
+        const el = document.querySelector<HTMLElement>(selector);
+        if (!el) throw new Error(`页面上没有 ${selector}`);
+        return el;
+      };
+      const box = (el: Element) => {
+        const r = el.getBoundingClientRect();
+        return { left: r.left, right: r.right, top: r.top, bottom: r.bottom, width: r.width, height: r.height };
+      };
+      const sheet = need('.guide-panel');
+      const style = getComputedStyle(sheet);
+      const title = need('.guide-head h2');
+      const titleStyle = getComputedStyle(title);
+      const dot = getComputedStyle(title, '::before');
+      const close = need('.guide-close');
+      const closeStyle = getComputedStyle(close);
+      const send = need('.guide-form button') as HTMLButtonElement;
+      const sendStyle = getComputedStyle(send);
+      const leaf = box(need('.reading'));
+      // 面板下面露没露出正文：窗口最下面那一行像素上，那一页纸正中的那一点，点到的是不是面板
+      const under = document.elementFromPoint((leaf.left + Math.min(leaf.right, window.innerWidth)) / 2, window.innerHeight - 2);
+      return {
+        window: { width: window.innerWidth, height: window.innerHeight },
+        sheet: box(sheet),
+        position: style.position,
+        ground: style.backgroundColor,
+        grain: style.backgroundImage.includes('data:image/svg+xml'),
+        topEdge: `${style.borderTopWidth} ${style.borderTopStyle} ${style.borderTopColor}`,
+        shadow: style.boxShadow,
+        barShown: need('.guide-dock').getClientRects().length > 0,
+        underIsSheet: under !== null && sheet.contains(under),
+        leaf,
+        column: box(need('.reading-inner')),
+        pane: box(need('.stage-pane')),
+        head: box(need('.guide-head')),
+        firstLine: box(need('.guide-head + p')),
+        title: { text: title.textContent ?? '', family: titleStyle.fontFamily, size: parseFloat(titleStyle.fontSize), colour: titleStyle.color, dot: `${dot.width} × ${dot.height} ${dot.backgroundColor}` },
+        close: { text: close.textContent ?? '', family: closeStyle.fontFamily, size: parseFloat(closeStyle.fontSize), colour: closeStyle.color, box: box(close) },
+        samples: { marks: getComputedStyle(need('.guide-samples')).listStyleType, size: parseFloat(getComputedStyle(need('.guide-samples li')).fontSize) },
+        send: { ground: sendStyle.backgroundColor, family: sendStyle.fontFamily, disabled: send.disabled },
+      };
+    });
+    expect({ position: panel.position, ground: panel.ground, grain: panel.grain, topEdge: panel.topEdge }, `${where}：面板是一张浅纸色、带纹理的纸，上边一道红线`).toEqual({
+      position: 'fixed',
+      ground: SLIP,
+      grain: true,
+      topEdge: `3px solid ${SEAL_RED}`,
+    });
+    expect(panel.shadow, `${where}：面板上边压着一道影子`).not.toBe('none');
+    expect(panel.barShown, `${where}：面板开着的时候，那一条收起来`).toBe(false);
+    expect(panel.sheet.bottom, `${where}：面板一直到窗口的底边`).toBe(panel.window.height);
+    expect(panel.underIsSheet, `${where}：面板下面不露出正文`).toBe(true);
+    expect(panel.sheet.left, `${where}：面板的左边`).toBe(0);
+    if (side) {
+      // 横排的版面：和那一页纸一样宽，不伸到沙盘栏上；上面留着一截页面
+      expect(panel.sheet.width, `${where}：面板和那一页纸一样宽`).toBe(panel.leaf.width);
+      expect(panel.sheet.right, `${where}：面板不挡沙盘`).toBeLessThanOrEqual(panel.pane.left + 1);
+      expect(panel.sheet.top, `${where}：面板上面留着一截页面`).toBeGreaterThanOrEqual(64);
+    } else {
+      // 别的窗口：和窗口一样宽，最高到窗口的四分之三
+      expect(panel.sheet.width, `${where}：面板和窗口一样宽`).toBe(panel.window.width);
+      expect(panel.sheet.height, `${where}：面板最高到窗口的四分之三`).toBeLessThanOrEqual(panel.window.height * 0.75 + 0.5);
+    }
+    // 里面的字和正文那一栏一样宽、左右对齐（竖着拿的大平板上，正文那一栏在窗口正中，只有 570 像素宽）
+    expect(panel.head.left, `${where}：面板里的字和正文的左边对齐`).toBeCloseTo(panel.column.left, 0);
+    expect(panel.head.right, `${where}：面板里的字和正文的右边对齐`).toBeCloseTo(panel.column.right, 0);
+    expect(panel.firstLine.left).toBeCloseTo(panel.column.left, 0);
+    expect(panel.firstLine.right).toBeLessThanOrEqual(panel.column.right + 0.5);
+    // 标题：墨色的楷体，前面一个小红方块；“关闭”：宋体小字，能点的地方 44 像素见方
+    expect({ text: panel.title.text, size: panel.title.size, colour: panel.title.colour, dot: panel.title.dot }, `${where}：面板的标题`).toEqual({
+      text: '问讲解员',
+      size: 22,
+      colour: INK,
+      dot: `10px × 10px ${SEAL_RED}`,
+    });
+    expect(panel.title.family).toMatch(/^"?Yanlu Kai/);
+    expect({ text: panel.close.text, size: panel.close.size, colour: panel.close.colour }, `${where}：“关闭”`).toEqual({ text: '关闭', size: 14, colour: INK_SOFT });
+    expect(panel.close.family).toMatch(/^"?Yanlu Song/);
+    expect(panel.close.box.width).toBeGreaterThanOrEqual(TAP);
+    expect(panel.close.box.height).toBeGreaterThanOrEqual(TAP);
+    // 示例问题前面没有圆点；“发送”不铺红底
+    expect(panel.samples, `${where}：示例问题`).toEqual({ marks: 'none', size: 17 });
+    expect({ ground: panel.send.ground, disabled: panel.send.disabled }, `${where}：“发送”`).toEqual({ ground: NO_FILL, disabled: true });
+    expect(panel.send.family).toMatch(/^"?Yanlu Kai/);
+    rows.push(
+      `      面板 ${panel.sheet.width} × ${Math.round(panel.sheet.height)}，上边在 ${Math.round(panel.sheet.top)}；` +
+        `里面的字从 ${Math.round(panel.head.left)} 到 ${Math.round(panel.head.right)}（正文 ${Math.round(panel.column.left)} 到 ${Math.round(panel.column.right)}）`,
+    );
+    await page.keyboard.press('Escape');
+    await expect(page.locator('.guide-panel')).toHaveCount(0);
+    await expect(page.locator('.guide-dock')).toBeVisible();
+
+    // ---- 头一站：左边空着。最后一站：右边空着。中间有没有“问讲解员”，看这一站写没写
+    for (const [index, which] of [
+      [0, '头一站'],
+      [stops.length - 1, '最后一站'],
+    ] as const) {
+      const stop = stops[index];
+      const label = `${where}，${which}（${stop.shortTitle}）`;
+      await openAt(page, size, `#/${figureId}/${stop.id}`);
+      await expect(page.locator('.stop-page')).toHaveAttribute('data-stop-id', stop.id);
+      await expect(page.locator('.stop-page')).not.toHaveAttribute('data-stop-text', 'loading');
+      await fontsReady(page);
+      const end = await readBar(page);
+      expectBarBox(end, side, label);
+      expect(end.cells, `${label}：那一条里是三格`).toHaveLength(3);
+      if (index === 0) expectEmpty(end.cells[0], `${label}：左边那一格空着`);
+      else expectLink(end.cells[0], 'prev', index - 1, end, label);
+      if (stop.status === 'complete') expect(end.cells[1].tag, `${label}：中间是“问讲解员”`).toBe('button');
+      else expectEmpty(end.cells[1], `${label}：这一站还没写，中间空着`);
+      if (index === stops.length - 1) expectEmpty(end.cells[2], `${label}：右边那一格空着`);
+      else expectLink(end.cells[2], 'next', index + 1, end, label);
+    }
+  }
+  console.log(['贴着底边的那一条和讲解员面板：', ...rows].join('\n'));
 });

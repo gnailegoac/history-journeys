@@ -12,6 +12,8 @@
 // 随站的字体带得对不对（dist/ 里正好是放进仓库的那三个文件，index.html 预先声明的和样式表里写的是同一个文件），
 // 字体多大也印出来；构建出来的样式表里没有 Safari 读不懂的那几种写法（查的是构建以后的原文：构建的工具会改写样式表）。
 // 后两件怎么查在 tests/support/builtFonts.ts。
+// 还有一件：点开才下载的三段界面程序（凭据里面的东西、讲解员面板里面的东西、“来源”页里面的东西）各是单独的一块，
+// 页面一打开就下载的程序只有入口那一个文件——React 的核心没有被打包的工具单拆出去（拆出去的话页面的程序凭空多出约 600 字节）。
 // “压缩以后”用的是 gzip 平常的力度，和构建时印在屏幕上的那一列是同一个算法。
 //
 // 哪一块是哪一块，照构建清单（dist/.vite/manifest.json，vite.config.ts 里开的）找：
@@ -27,6 +29,7 @@ import { ENGINE_ENTRY, ENGINE_GZIP_MAX, FILE_URLS_ENTRY, PAGE_ENTRY, fontReport,
 import type { BuildManifest, SizeReport } from '../content/budgetRules';
 import { CONTAINER_MAX, CQW_MAX, builtFonts, builtStyleProblems } from '../support/builtFonts';
 import { oldIpadSheet } from '../support/oldIpadSheet';
+import { SOURCES_TEXT } from '../../src/ui/sourcesText';
 import type { BuiltSite, CommittedFont } from '../support/builtFonts';
 
 /** 项目的根目录下的 dist/：这个文件在 tests/build/ 里，往上两层。 */
@@ -97,6 +100,33 @@ describe('沙盘用到的文件的网址', () => {
     const page = pageKeys.map((key) => new TextDecoder().decode(readFileSync(new URL(manifest[key].file, DIST)))).join(' ');
     expect(files.filter((file) => page.includes(file)), '这几个文件的网址出现在页面一打开就下载的程序里').toEqual([]);
     console.log(`  沙盘用到的文件的网址（压缩以后）：${withCommas(gzipOnDisk(urls.file))} 字节，${files.length} 个网址，用到时才下载　${urls.file}`);
+  });
+});
+
+describe('点开才下载的几块', () => {
+  /** 点开才下载的几段界面程序：凭据里面的东西，讲解员面板里面的东西，“来源”页里面的东西。 */
+  const ON_DEMAND = ['src/ui/ProvenanceBody.tsx', 'src/ui/GuideBody.tsx', 'src/ui/SourcesBody.tsx'];
+
+  it('各是单独一块，页面一打开就下载的东西里没有它们；页面的程序只有一个文件（React 没有被单拆出去）', () => {
+    expect(existsSync(MANIFEST), '没有 dist/.vite/manifest.json：先运行 npm run build').toBe(true);
+    const manifest = readManifest(new TextDecoder().decode(readFileSync(MANIFEST)));
+    const pageKeys = staticClosure(manifest, PAGE_ENTRY);
+    for (const key of ON_DEMAND) {
+      expect(manifest[key], `清单里没有 ${key} 这一项：它被打进了别的块（多半是页面那一块），或者挪了地方`).toBeDefined();
+      expect(manifest[key].isDynamicEntry, `${key} 在清单里没有标成“用到时才下载”`).toBe(true);
+      expect(pageKeys, `${key} 成了页面一打开就下载的东西`).not.toContain(key);
+    }
+    // “来源”页上的话跟着那一块走，不在页面一打开就下载的程序里
+    const page = pageKeys.map((key) => new TextDecoder().decode(readFileSync(new URL(manifest[key].file, DIST)))).join(' ');
+    expect(page.includes(SOURCES_TEXT.lead), '“来源”页上的话出现在页面一打开就下载的程序里').toBe(false);
+    expect(new TextDecoder().decode(readFileSync(new URL(manifest['src/ui/SourcesBody.tsx'].file, DIST))).includes(SOURCES_TEXT.lead), '“来源”页上的话不在它自己的那一块里').toBe(true);
+    // 页面一打开就下载的程序只有入口那一个文件。点开才下载的一块要是引入了页面那一块里自己又用到 react 的程序
+    //（src/app/router.ts、useLoaded.ts，PageTitle.tsx，别的组件），打包的工具（rolldown 1.2）会把 React 的核心单拆成一个文件：
+    // 页面的程序凭空多出约 600 字节，页面一打开还多一次请求。量过：引入 src/domain、src/fonts/shipped.ts、不用 react 的文字模块没有事。
+    expect(
+      pageKeys.map((key) => manifest[key].file),
+      '页面一打开就下载的程序不止一个文件：多半是哪一块点开才下载的程序引入了页面那一块里用到 react 的模块（钩子要直接从 react 引，别的经过参数传进去）',
+    ).toEqual([manifest[PAGE_ENTRY].file]);
   });
 });
 

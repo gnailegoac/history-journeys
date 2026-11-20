@@ -5,7 +5,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Figure, FigureCard, StopExtras } from '../../src/domain/types';
 import { toContentFiles } from './files';
-import { checkBody, checkRoute, formatReport, formatViolation, lngLatProblem, validateContent } from './rules';
+import { RESERVED_FIGURE_IDS, checkBody, checkRoute, formatReport, formatViolation, lngLatProblem, validateContent } from './rules';
 import type { ContentFiles } from './rules';
 
 const texts = import.meta.glob<string>('./fixtures/**/*.{json,md}', { query: '?raw', import: 'default', eager: true });
@@ -101,6 +101,24 @@ describe('格式：文件读得出来，字段齐全，id 对得上', () => {
 
   it('两张卡片的 id 一样', () => {
     expect(all(editCards((cards) => (cards[1].id = 'demo')))).toEqual(['0 figures/index.json › [1].id']);
+  });
+
+  it('人物的 id 不能是 sources：地址 #/sources 是“来源”页。卡片上的、文件夹的名字都不行', () => {
+    expect(RESERVED_FIGURE_IDS).toContain('sources');
+    // 一张还没写的卡片叫这个 id
+    expect(all(editCards((cards) => (cards[1].id = 'sources')))).toEqual(['0 figures/index.json › [1].id']);
+    // 整位人物挪到叫 sources 的文件夹里，卡片、figure.json 的 id 都跟着改：两处都说
+    const moved: ContentFiles = {};
+    for (const [path, content] of Object.entries(GOOD)) moved[path.replace('figures/demo/', 'figures/sources/')] = content;
+    const cards = JSON.parse(GOOD[INDEX]) as FigureCard[];
+    expect(cards[0].id).toBe('demo');
+    cards[0].id = 'sources';
+    moved[INDEX] = JSON.stringify(cards);
+    moved['figures/sources/figure.json'] = JSON.stringify({ ...goodFigure(), id: 'sources' });
+    const found = all(moved);
+    expect(found).toContain('0 figures/index.json › [0].id');
+    expect(found).toContain('0 figures/sources/figure.json › id');
+    expect(found.filter((line) => !line.startsWith('0 '))).toEqual([]);
   });
 
   it('卡片标了可以点进去，却没有 figure.json', () => {

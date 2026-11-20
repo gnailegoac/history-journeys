@@ -68,6 +68,15 @@ export const SPLIT_SONG_BY_STOP = false;
  */
 export const FALLBACK_OK: Readonly<Record<string, string>> = {};
 
+/**
+ * 界面的程序里，字要点了才看得见的那几个文件：“来源”页上的话（读者从链接点进那一页才看得见）。
+ * 这几个文件里的字算作“点开才看得见的”：别处不点就看得见的字里没有它的话，它归点开才要的那个宋体文件（yanlu-song-more），
+ * 不进每位读者一打开网站就要下载的那一个（yanlu-song）。那一页打开的时候，浏览器照 unicode-range 自己去取那个文件。
+ * 列在这里的文件里只许写点了才看得见的字。有一个字其实不点也看得见、别处又没有，它就会让那个页面提前去取那个文件：
+ * tests/e2e/fonts.spec.ts（首页、人物页上那个文件不许被取）会发现。
+ */
+export const PRESSED_SOURCES: readonly string[] = ['src/ui/sourcesText.ts'];
+
 /** 用楷体排的字里不能有的：弯引号在这套楷体里只有三分之一个字宽。 */
 export const KAI_FORBIDDEN = '“”‘’';
 
@@ -187,10 +196,22 @@ export interface SiteStop {
 }
 
 /**
+ * 着色器的程序写在这两个文件夹的模板字符串里。它里面“//”到行尾是着色器自己的注释，谁也看不到：数字的时候去掉。
+ * 这两个文件夹里出错时的话、印在控制台里的话照旧算（它们不带“//”；带网址的，“:”后面的“//”不算注释）。
+ */
+export const SHADER_DIRS: readonly string[] = ['src/stage/three/', 'src/stage/ground/'];
+
+/** 这个文件里的模板字符串是不是可能装着着色器的程序。 */
+export function holdsShaders(path: string): boolean {
+  return SHADER_DIRS.some((dir) => path.startsWith(dir));
+}
+
+/**
  * 去掉程序里的注释：“//”到行尾，“/* … *\/”，JSX 里的“{/* … *\/}”。字符串、模板字符串、JSX 里的字都留着。
  * 不认识语法，只是一个字一个字地扫：所以字符串里的“//”不会被当成注释，网址里“:”后面的“//”也不会。
+ * shaders：模板字符串里“//”到行尾也去掉（着色器的注释，见 SHADER_DIRS）；单引号、双引号的字符串照旧不动。
  */
-export function stripComments(code: string): string {
+export function stripComments(code: string, options: { shaders?: boolean } = {}): string {
   let out = '';
   let i = 0;
   const n = code.length;
@@ -217,7 +238,8 @@ export function stripComments(code: string): string {
         if (code[j] === '\\') j++;
         j++;
       }
-      out += code.slice(i, j + 1);
+      const text = code.slice(i, j + 1);
+      out += c === '`' && options.shaders ? text.replace(/(^|[^:])\/\/[^\n`]*/g, '$1') : text;
       i = j + 1;
       continue;
     }
@@ -283,10 +305,15 @@ export function postscriptName(name: string): string {
 /**
  * 数出网站上显示的字，分好组，列出要做哪几个文件。
  * splitByStop：宋体要不要按站拆开（不写就照 SPLIT_SONG_BY_STOP）。fallbackOk：不进字体的字（不写就照 FALLBACK_OK）。
+ * pressedSources：界面的程序里字要点了才看得见的文件（不写就照 PRESSED_SOURCES）。
  */
-export function planFonts(site: SiteText, options: { splitByStop?: boolean; fallbackOk?: Readonly<Record<string, string>> } = {}): FontPlan {
+export function planFonts(
+  site: SiteText,
+  options: { splitByStop?: boolean; fallbackOk?: Readonly<Record<string, string>>; pressedSources?: readonly string[] } = {},
+): FontPlan {
   const splitByStop = options.splitByStop ?? SPLIT_SONG_BY_STOP;
   const fallbackOk = options.fallbackOk ?? FALLBACK_OK;
+  const pressedSources = options.pressedSources ?? PRESSED_SOURCES;
 
   // 三种篮子：kai；first:<归谁>；more:<归谁>。“归谁”是 common（界面、首页、人物页）或者一站的 id。每个篮子：字 → 用在哪。
   const baskets = new Map<string, Map<string, Set<string>>>();
@@ -321,7 +348,8 @@ export function planFonts(site: SiteText, options: { splitByStop?: boolean; fall
   // ---- 界面：程序里原样写着的每一个字（注释不算），index.html 里的字，英文字母、数字和半角的符号
   for (const [path, text] of Object.entries(site.sources)) {
     const code = path.endsWith('.html') ? text.replace(/<!--[\s\S]*?-->/g, '') : text;
-    first('common', `程序里（${path}）`, stripComments(code));
+    // 字要点了才看得见的文件（“来源”页上的话）：算作点开才看得见的。着色器的注释不算（见 SHADER_DIRS）
+    (pressedSources.includes(path) ? more : first)('common', `程序里（${path}）`, stripComments(code, { shaders: holdsShaders(path) }));
   }
   for (let code = 0x20; code < 0x7f; code++) first('common', '英文字母、数字和半角符号', String.fromCodePoint(code));
   for (const label of site.kaiLabels) kai('common', '界面上用楷体排的字', label);

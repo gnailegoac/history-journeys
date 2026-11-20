@@ -72,6 +72,15 @@ export async function fontsReady(page: Page): Promise<void> {
   });
 }
 
+/**
+ * 点开才去取的东西都到了。“凭据”里面的东西、讲解员面板里面的东西是另外两段程序，读者点开了才下载（src/ui/Provenance.tsx、
+ * GuidePanel.tsx）：一点就开，里面先是一句“加载中…”，取到了才换成内容。点开了这两样的测试，先等这一步，再看、再量、再拍里面的东西。
+ * 等的是：点开着的凭据里、开着的面板里，那一句等着的话不在了（折着的凭据里那一句一直在，不算）。
+ */
+export async function foldBodiesReady(page: Page): Promise<void> {
+  await expect(page.locator('details.provenance[open] .provenance-body > .quiet, .guide-panel > .quiet')).toHaveCount(0);
+}
+
 /** 拍一张照：先等字体到齐（见 fontsReady），再拍。给人看的照片都从这里拍。 */
 export async function shoot(page: Page, options: Parameters<Page['screenshot']>[0]): Promise<void> {
   await fontsReady(page);

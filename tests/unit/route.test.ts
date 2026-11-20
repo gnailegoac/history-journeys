@@ -1,7 +1,9 @@
-// 轨迹相关纯逻辑的单元测试：neighbours。
+// 轨迹相关纯逻辑的单元测试：neighbours。后面是页面读地址的程序（哪一页）。
 
 import { describe, expect, it } from 'vitest';
+import { figureHref, homeHref, parseHash, sourcesHref, stopHref } from '../../src/app/router';
 import { neighbours } from '../../src/domain/route';
+import { RESERVED_FIGURE_IDS } from '../content/rules';
 import type { Figure, LngLat, StopMeta } from '../../src/domain/types';
 
 function stop(id: string, lngLat: LngLat, extra: Partial<StopMeta> = {}): StopMeta {
@@ -79,5 +81,39 @@ describe('neighbours', () => {
 
   it('只有一站时前后都没有', () => {
     expect(neighbours({ ...figure, stops: [figure.stops[0]], legs: [] }, 'a')).toEqual({ index: 0, prev: null, next: null });
+  });
+});
+
+// 页面读地址的程序（src/app/router.ts）：# 后面的那一截是哪一页。
+describe('地址', () => {
+  it('四种页面：首页、“来源”页、人物页、站点页', () => {
+    for (const hash of ['', '#', '#/', '#//']) expect(parseHash(hash), `“${hash}”`).toEqual({ page: 'home' });
+    expect(parseHash('#/sources')).toEqual({ page: 'sources' });
+    expect(parseHash('#/sources/')).toEqual({ page: 'sources' });
+    expect(parseHash('#/su-shi')).toEqual({ page: 'figure', figureId: 'su-shi' });
+    expect(parseHash('#/su-shi/xuzhou')).toEqual({ page: 'stop', figureId: 'su-shi', stopId: 'xuzhou' });
+    // 大小写不一样的、后面还跟着一截的，不是“来源”页（照人物、照一站去找，找不到就说没有）
+    expect(parseHash('#/Sources')).toEqual({ page: 'figure', figureId: 'Sources' });
+    expect(parseHash('#/sources/x')).toEqual({ page: 'stop', figureId: 'sources', stopId: 'x' });
+  });
+
+  it('链接写出来再读回去是同一页；名字里的汉字、斜线都转得回来', () => {
+    expect(parseHash(homeHref)).toEqual({ page: 'home' });
+    expect(sourcesHref).toBe('#/sources');
+    expect(parseHash(sourcesHref)).toEqual({ page: 'sources' });
+    expect(parseHash(figureHref('su-shi'))).toEqual({ page: 'figure', figureId: 'su-shi' });
+    expect(parseHash(stopHref('苏轼', '徐/州'))).toEqual({ page: 'stop', figureId: '苏轼', stopId: '徐/州' });
+    // 转码坏了的地址不让页面出错，原样当名字用
+    expect(parseHash('#/%E4%')).toEqual({ page: 'figure', figureId: '%E4%' });
+  });
+
+  it('内容校验不许做人物 id 的词，正好是地址里另有用处的那几个：照人物页的写法写出来，读回去不是人物页', () => {
+    expect(RESERVED_FIGURE_IDS.length).toBeGreaterThan(0);
+    for (const id of RESERVED_FIGURE_IDS) expect(parseHash(figureHref(id)).page, `#/${id}`).not.toBe('figure');
+    // 反过来：平常的 id 都是人物页（表里没有多列）
+    for (const id of ['su-shi', 'xu-xiake', 'darwin', 'source', 'home']) {
+      expect(RESERVED_FIGURE_IDS).not.toContain(id);
+      expect(parseHash(figureHref(id))).toEqual({ page: 'figure', figureId: id });
+    }
   });
 });

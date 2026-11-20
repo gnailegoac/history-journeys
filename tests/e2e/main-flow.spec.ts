@@ -7,7 +7,7 @@
 import { expect, test } from '@playwright/test';
 import type { Locator, Page } from '@playwright/test';
 import type { StopScene } from '../../src/domain/scene';
-import { TRIAL_MIN_AREA } from '../../src/stage/three/tier';
+import { bigEnoughToTry } from '../../src/stage/three/tier';
 import { STRIP_NARROW_BELOW_PX } from '../stage/support/stripSizes';
 import {
   expectStageAt,
@@ -29,6 +29,7 @@ import {
   stripText,
   stripsOf,
   stripsOnStage,
+  twoFrames,
   watchPane,
 } from './helpers';
 import type { PaneMoment } from './helpers';
@@ -156,7 +157,7 @@ async function expectPaneSettled(page: Page, figureId: string, stopId: string): 
   else await expectStill(page);
 }
 
-test('首页：标题、一句话、人物卡片；没写好的人物不是链接', async ({ page }) => {
+test('首页：标题、一句话、人物卡片；没写好的人物不是链接；旁边的绢上是全程的图片；卡片后面有“来源”', async ({ page }) => {
   await page.goto(fakeUrl('#/'));
   await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
   await expect(page.locator('.home-line')).not.toBeEmpty();
@@ -177,8 +178,14 @@ test('首页：标题、一句话、人物卡片；没写好的人物不是链�
     await expect(card.locator('.tag')).toHaveText('还没写');
   }
 
-  // 首页没有沙盘栏。
-  await expect(stagePane(page)).toHaveCount(0);
+  // 首页旁边的绢上是人物页用的那个沙盘栏，放着全程的图片：没有沙盘的按钮和题记。
+  await expect(stagePane(page)).toHaveCount(1);
+  await expectStill(page);
+  await expect(stagePane(page).locator('.names-switch, .stage-foot, .stage-host')).toHaveCount(0);
+
+  // 卡片后面是通到“来源”页的链接
+  await expect(page.locator('.home .stop-nav a')).toHaveText('来源');
+  await expect(page.locator('.home .stop-nav a')).toHaveAttribute('href', '#/sources');
 });
 
 test('首页 → 人物页 → 一站：小注、原文、凭据、下一站和上一站、讲解员', async ({ page }) => {
@@ -292,9 +299,20 @@ test('首页 → 人物页 → 一站：小注、原文、凭据、下一站和�
     await expect(item.locator('.tag')).toHaveText(BASES);
   }
 
-  // ---- 下一站、上一站（这一站在头或在尾时，只有一个方向）
-  const next = page.locator('.stop-nav-link.is-next');
-  const prev = page.locator('.stop-nav-link.is-prev');
+  // ---- 下一站、上一站：在贴着底边的那一条里，不在正文里（这一站在头或在尾时，只有一个方向）
+  const bar = page.locator('.guide-dock');
+  await expect(bar).toBeVisible();
+  const next = bar.locator('a[rel="next"]');
+  const prev = bar.locator('a[rel="prev"]');
+  await expect(page.locator('.stop-page a[rel="next"], .stop-page a[rel="prev"]')).toHaveCount((await next.count()) + (await prev.count()));
+  // 正文末尾并排的两个链接：回到各站目录，来源（上一站、下一站不在这里了）
+  await expect(page.locator('.stop-nav a')).toHaveText(['回到各站目录', '来源']);
+  for (const link of [next, prev]) {
+    if ((await link.count()) === 0) continue;
+    // 一格里上下两行：“上一站”或者“下一站”，和那一站的短名字
+    await expect(link.locator('.walk-label')).toHaveText((await link.getAttribute('rel')) === 'next' ? '下一站' : '上一站');
+    await expect(link.locator('.walk-name')).not.toBeEmpty();
+  }
   const forward = (await next.count()) > 0;
   const there = forward ? next : prev;
   const back = forward ? prev : next;
@@ -340,6 +358,81 @@ test('首页 → 人物页 → 一站：小注、原文、凭据、下一站和�
   await dialog.getByRole('button', { name: '关闭' }).click();
   await expect(dialog).toHaveCount(0);
   await expect(opener).toBeFocused();
+});
+
+test('凭据、讲解员面板里面的东西点开才取：一点就开，里面先是“加载中…”；没取到说一句话，关上再点开重取', async ({ page }) => {
+  // 这两段程序的请求：各自头一次断掉，第二次压住、叫放才放。
+  const asked: string[] = [];
+  const held: (() => void)[] = [];
+  await page.route(/\/assets\/(ProvenanceBody|GuideBody)-[^/]*\.js$/, async (route) => {
+    const name = /(ProvenanceBody|GuideBody)-/.exec(route.request().url())![1];
+    asked.push(name);
+    if (asked.filter((item) => item === name).length === 1) return route.abort();
+    await new Promise<void>((resolve) => held.push(resolve));
+    return route.continue();
+  });
+  const FAILED_LINE = '没能读出来。关上再点开，可以再试一次；还不行，就刷新一下网页。';
+  const WAIT_LINE = '加载中…';
+
+  await openWrittenStop(page);
+  // 页面打开了、正文出来了：两段程序都还没要
+  await expect(page.locator('.text-section').first()).toBeVisible();
+  await expect(page.locator('.guide-open')).toBeVisible();
+  expect(asked).toEqual([]);
+
+  // ---- 凭据
+  const fold = page.locator('details.provenance');
+  const body = fold.locator('.provenance-body');
+  await expect(body).toBeHidden();
+  await fold.locator('summary').click();
+  // 一点就开；这一次取不到：一句话，说怎么再试
+  expect(await fold.evaluate((el: HTMLDetailsElement) => el.open)).toBe(true);
+  await expect(body).toHaveText(FAILED_LINE);
+  expect(asked).toEqual(['ProvenanceBody']);
+  // 关上再点开：重取。压着的时候那里是“加载中…”
+  await fold.locator('summary').click();
+  await expect(body).toBeHidden();
+  await fold.locator('summary').click();
+  await expect(body).toHaveText(WAIT_LINE);
+  await expect.poll(() => asked).toEqual(['ProvenanceBody', 'ProvenanceBody']);
+  expect(await body.locator('.quiet').evaluate((el) => parseFloat(getComputedStyle(el).fontSize))).toBeGreaterThanOrEqual(16);
+  await expect.poll(() => held.length).toBe(1);
+  held.shift()!();
+  await expect(fold.locator('.provenance-item').first()).toBeVisible();
+  await expect(body.locator('.quiet')).toHaveCount(0);
+  // 取到以后关上再点开：不再取，内容还在
+  await fold.locator('summary').click();
+  await fold.locator('summary').click();
+  await expect(fold.locator('.provenance-item').first()).toBeVisible();
+  expect(asked).toEqual(['ProvenanceBody', 'ProvenanceBody']);
+
+  // ---- 讲解员面板
+  const opener = page.getByRole('button', { name: '问讲解员' });
+  await opener.click();
+  const dialog = page.getByRole('dialog');
+  // 一点就开：标题和“关闭”马上就有；这一次里面的东西取不到
+  await expect(dialog.getByRole('heading', { name: '问讲解员' })).toBeVisible();
+  await expect(dialog.getByRole('button', { name: '关闭' })).toBeVisible();
+  await expect(dialog.locator('.quiet')).toHaveText(FAILED_LINE);
+  await expect(dialog.locator('.guide-form')).toHaveCount(0);
+  await dialog.getByRole('button', { name: '关闭' }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(opener).toBeFocused();
+  // 再点开：重取；压着的时候是“加载中…”
+  await opener.click();
+  await expect(dialog.locator('.quiet')).toHaveText(WAIT_LINE);
+  await expect.poll(() => asked.filter((item) => item === 'GuideBody').length).toBe(2);
+  await expect.poll(() => held.length).toBe(1);
+  held.shift()!();
+  await expect(dialog.locator('.guide-form')).toBeVisible();
+  await expect(dialog.locator('.quiet')).toHaveCount(0);
+  await expect(dialog.locator('.guide-samples li').first()).toBeVisible();
+  // 关上再开：不再取
+  await page.keyboard.press('Escape');
+  await expect(dialog).toHaveCount(0);
+  await opener.click();
+  await expect(dialog.locator('.guide-form')).toBeVisible();
+  expect(asked.filter((item) => item === 'GuideBody')).toHaveLength(2);
 });
 
 test('人物页的沙盘栏：一张定格图和图下面的字，没有沙盘的按钮；宽屏的版面', async ({ page }) => {
@@ -485,7 +578,7 @@ test('有沙盘的一站：跟着读到的小节换镜头、题记和题签；�
   await expectStrips(first, 'ancient');
   await expect(pane.locator('.stage-host .strip').first()).toBeVisible();
   // 题签是竖着写的。
-  expect(await pane.locator('.stage-host .strip').first().evaluate((el) => getComputedStyle(el).writingMode)).toBe('vertical-rl');
+  await expect.poll(() => pane.locator('.stage-host .strip').evaluateAll((items) => items.filter((item) => item.isConnected).map((item) => getComputedStyle(item).writingMode)[0] ?? '')).toBe('vertical-rl');
 
   // ---- 按钮够大；宽屏上没有“收起”。
   for (const button of await pane.locator('.stage-controls button:visible').all()) {
@@ -564,6 +657,67 @@ test('有沙盘的一站：跟着读到的小节换镜头、题记和题签；�
 
   // ---- 沙盘在一边不动，正文照常滚。
   expect((await pane.boundingBox())!.y).toBeCloseTo(0, 0);
+});
+
+test('窗口没变、沙盘栏自己变窄了（像页面长出了一条滚动条）：栏照新的宽度重排，沙盘得了通知；宽度没变就不通知', async ({ page }) => {
+  const { headings } = await openStopWithScene(page);
+  await expectStageAt(page, headings[0]);
+  const pane = stagePane(page);
+  const fake = fakeStage(page);
+  /** 页面记在栏上的宽度（--pane-w）和题记的字号（--line-size）。 */
+  const written = () => pane.evaluate((el: HTMLElement) => ({ w: el.style.getPropertyValue('--pane-w'), size: el.style.getPropertyValue('--line-size'), wide: el.classList.contains('is-wide') }));
+  const resizes = async () => Number(await fake.getAttribute('data-fake-resizes'));
+  const inner = () => pane.evaluate((el) => el.clientWidth);
+  const window0 = await page.evaluate(() => ({ w: window.innerWidth, h: window.innerHeight }));
+  const width = await inner();
+  expect(await written()).toEqual({ w: `${width}px`, size: '19px', wide: true });
+  // 等沙盘栏停稳（刚打开时量留边、摆题签会叫几次），记下这时候通知过几次
+  await page.waitForTimeout(400);
+  const before = await resizes();
+
+  // 整页右边让出 17 像素，一条滚动条那么宽。窗口的大小没有变，浏览器不会报“大小变了”
+  await page.evaluate(() => {
+    document.documentElement.style.paddingRight = '17px';
+  });
+  await expect.poll(inner).toBe(width - 17);
+  await expect.poll(async () => (await written()).w, { message: '栏窄了 17 像素，记在栏上的宽度没有跟着变' }).toBe(`${width - 17}px`);
+  await expect.poll(resizes, { message: '栏窄了，沙盘没有得到通知' }).toBeGreaterThan(before);
+  expect(await page.evaluate(() => ({ w: window.innerWidth, h: window.innerHeight }))).toEqual(window0);
+
+  // 再让出一大截，窄到题记换成窄的排法：类名也跟着换
+  const after = await resizes();
+  await page.evaluate(() => {
+    document.documentElement.style.paddingRight = '400px';
+  });
+  await expect.poll(async () => (await written()).wide).toBe(false);
+  expect((await written()).w).toBe(`${width - 400}px`);
+  await expect.poll(resizes).toBeGreaterThan(after);
+
+  // 只是高矮变了、宽度没变（栏下面的东西多了少了，另有地方管）：不为这个通知沙盘。
+  // 改的是栏自己的高（在页面底下垫一截空不算：栏的高是照窗口定的，一点不变，量栏的那个东西根本不会被叫到）；
+  // 先看栏真的矮了、量栏的东西也真的被叫到了，再看沙盘没有得到通知
+  await page.waitForTimeout(400);
+  const settled = await resizes();
+  const box = await pane.evaluate((el: HTMLElement) => ({ w: el.offsetWidth, h: el.offsetHeight }));
+  expect(box.h).toBeGreaterThan(600);
+  const boxesSeen = () => page.evaluate(() => (window as Window & { __paneBoxes?: number }).__paneBoxes ?? 0);
+  await pane.evaluate((el: HTMLElement) => {
+    const seen = window as Window & { __paneBoxes?: number };
+    seen.__paneBoxes = 0;
+    new ResizeObserver(() => {
+      seen.__paneBoxes = (seen.__paneBoxes ?? 0) + 1;
+    }).observe(el);
+  });
+  // 刚开始看的那一下算一次；等它过了再改高（同一帧里改的话，两次并成一次）
+  await expect.poll(boxesSeen).toBe(1);
+  await pane.evaluate((el: HTMLElement) => {
+    el.style.height = '500px';
+  });
+  await expect.poll(() => pane.evaluate((el: HTMLElement) => el.offsetHeight), { message: '栏的高没有变，这一步什么也查不到' }).toBe(500);
+  await expect.poll(boxesSeen, { message: '栏矮了，量栏的东西却没有被叫到' }).toBe(2);
+  expect(await pane.evaluate((el: HTMLElement) => el.offsetWidth)).toBe(box.w);
+  await page.waitForTimeout(600);
+  expect(await resizes(), '栏只是矮了、宽度没变，却通知了沙盘').toBe(settled);
 });
 
 test('沙盘旁边的“说明”：点了才展开完整的几句话，盖在沙盘上，不挤题记，不动沙盘；再点、按 Esc、换小节都收起', async ({ page }) => {
@@ -660,8 +814,18 @@ test('用键盘：标题后面有一步“到沙盘”，走到它上面才显�
   await page.keyboard.press('Enter');
   await expect(stagePane(page)).toBeFocused();
   expect(await page.evaluate(() => window.scrollY)).toBe(scrollBefore);
+  // 焦点到了栏上，看得出来：一圈 3 像素的墨色框，叠在栏里所有东西的上面（画面、按钮那一排、题记把栏自己盖满了，
+  // 画在栏自己身上的框露不出来），和栏一样大，不挡手指和鼠标
+  const ring = await stagePane(page).evaluate((pane) => {
+    const style = getComputedStyle(pane, '::after');
+    const layers = Array.from(pane.children).map((child) => Number(getComputedStyle(child).zIndex) || 0);
+    return { content: style.content, edge: `${style.borderTopWidth} ${style.borderTopStyle} ${style.borderTopColor}`, position: style.position, inset: `${style.top} ${style.right} ${style.bottom} ${style.left}`, above: Number(style.zIndex) > Math.max(...layers), taps: style.pointerEvents };
+  });
+  expect(ring).toEqual({ content: '""', edge: '3px solid rgb(40, 35, 31)', position: 'absolute', inset: '0px 0px 0px 0px', above: true, taps: 'none' });
   await page.keyboard.press('Tab');
   await expectOnFirstButtonInPane(page);
+  // 焦点走到按钮上，栏上的那一圈就没有了
+  expect(await stagePane(page).evaluate((pane) => getComputedStyle(pane, '::after').content)).toBe('none');
 });
 
 test('题签指到沙盘外面的远处时，沙盘旁边写着它在哪个方向、多远', async ({ page }) => {
@@ -803,6 +967,20 @@ test('还没写的站：有抬头和一句话，沙盘栏放定格图', async ({
   await expect(page.locator('.text-about')).toHaveCount(0);
   await expect(page.getByRole('button', { name: '问讲解员' })).toHaveCount(0);
   await expect(page.locator('.stop-nav-list')).toBeVisible();
+  // 贴着底边的那一条照样在：没有“问讲解员”，上一站、下一站照旧（在头或在尾的站只有一个方向），都指着目录里挨着它的那一站
+  const ids = await page.evaluate(() => Array.from(document.querySelectorAll('.guide-dock a')).map((link) => `${link.getAttribute('rel')} ${link.getAttribute('href')}`));
+  await page.goBack();
+  const order = await page.locator('.stop-item').evaluateAll((items) => items.map((item) => item.getAttribute('data-stop-id') ?? ''));
+  const at = order.indexOf(stopId);
+  const expected = [at > 0 ? `prev #/${figureId}/${order[at - 1]}` : null, at < order.length - 1 ? `next #/${figureId}/${order[at + 1]}` : null].filter((item) => item !== null);
+  expect(expected.length).toBeGreaterThan(0);
+  expect(ids).toEqual(expected);
+  await page.goForward();
+  await expect(page.locator('.stop-page')).toHaveAttribute('data-stop-id', stopId);
+  const dock = page.locator('.guide-dock');
+  await expect(dock).toBeVisible();
+  await expect(dock.locator('button')).toHaveCount(0);
+  await expect(dock.locator('a')).toHaveCount(expected.length);
 
   const hasStill = await expectStill(page);
   await expect(stagePane(page).locator('.stage-still-line')).toHaveText(hasStill ? NO_SCENE : NO_SCENE_ALONE);
@@ -1058,11 +1236,11 @@ test.describe('竖着拿的平板（768×1024）', () => {
     await expect(pane.locator('.names-switch')).toBeHidden();
     await expect(pane.locator('.stage-reset')).toBeHidden();
     expect(folded.height).toBeLessThan(80);
-    // 收起来的这一条，沙盘程序量到的容器是 768 × 59。它不够“试画”的那条线（src/stage/three/tier.ts 的 TRIAL_MIN_AREA）：
+    // 收起来的这一条，沙盘程序量到的容器是 768 × 59。它不够“试画”的那两条线（src/stage/three/tier.ts 的 bigEnoughToTry）：
     // 真的沙盘不拿这么一窄条量这台设备的快慢。（tests/stage/view-tier.test.ts 用的就是这里量到的大小。）
     const foldedHost = await pane.locator('.stage-host').evaluate((el) => ({ w: el.clientWidth, h: el.clientHeight }));
     expect(foldedHost).toEqual({ w: 768, h: 59 });
-    expect(foldedHost.w * foldedHost.h).toBeLessThan(TRIAL_MIN_AREA);
+    expect(bigEnoughToTry(foldedHost.w, foldedHost.h)).toBe(false);
 
     // 收起的时候读回第一节：沙盘看不见，不叫它白跑。
     const requestsFolded = await fakeRequests(page);
@@ -1078,7 +1256,7 @@ test.describe('竖着拿的平板（768×1024）', () => {
     await expect.poll(async () => Number(await fake.getAttribute('data-fake-resizes'))).toBeGreaterThan(resizesFolded);
     // 展开着的够“试画”的那条线。
     const openHost = await pane.locator('.stage-host').evaluate((el) => ({ w: el.clientWidth, h: el.clientHeight }));
-    expect(openHost.w * openHost.h).toBeGreaterThanOrEqual(TRIAL_MIN_AREA);
+    expect(bigEnoughToTry(openHost.w, openHost.h)).toBe(true);
     await expect(pane.locator('.stage-foot')).toBeVisible();
     await expect(fake).toBeVisible();
     await expect(pane.locator('.names-switch')).toBeVisible();
@@ -1186,6 +1364,139 @@ test.describe('竖着拿的平板（768×1024）', () => {
     const reading = (await page.locator('.reading').boundingBox())!;
     expect(reading.y).toBeGreaterThanOrEqual(paneBox.y + paneBox.height - 1);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  });
+});
+
+// 窗口很矮的时候（电脑上把网页放大到两倍，1440 × 900 的屏幕就只有 720 × 450；也像横着拿、宽度不到 960 的平板）：
+// 窄屏的排法，沙盘栏只有窗口的 56% 高，按钮那一排和题记之间剩不下几行。
+test.describe('很矮的窗口（720×450：把网页放大到两倍）', () => {
+  test.use({ viewport: { width: 720, height: 450 } });
+
+  test('“说明”展开的那一块至少有 160 像素高：题记上面不够，就往下盖住题记；不出沙盘栏，不盖按钮；里面滚得动，“关闭”点得到', async ({ page }) => {
+    const { headings } = await openStopWithScene(page);
+    await expectStageAt(page, headings[0]);
+    const pane = stagePane(page);
+    await pane.locator('.stage-note-button').click();
+    const panel = pane.locator('.stage-note-panel');
+    await expect(panel).toBeVisible();
+    const got = await pane.evaluate((el) => {
+      const box = (selector: string) => {
+        const r = el.querySelector(selector)!.getBoundingClientRect();
+        return { top: r.top, bottom: r.bottom, height: r.height };
+      };
+      const inside = el.querySelector('.stage-note-panel')!;
+      const r = el.getBoundingClientRect();
+      return { pane: { top: r.top, bottom: r.bottom, height: r.height }, panel: box('.stage-note-panel'), controls: box('.stage-controls'), caption: box('.stage-caption'), inside: inside.scrollHeight, shown: inside.clientHeight };
+    });
+    // 这个窗口上题记上面只剩下五十来像素：真的是不够的情形
+    expect(got.caption.top - got.controls.bottom, '这个窗口上按钮和题记之间本来就够高，查不到东西').toBeLessThan(100);
+    expect(got.panel.height, '展开的那一块只剩一条缝').toBeGreaterThanOrEqual(159);
+    expect(got.panel.top, '盖住了按钮那一排').toBeGreaterThanOrEqual(got.controls.bottom - 0.5);
+    expect(got.panel.bottom, '伸到沙盘栏外面去了').toBeLessThanOrEqual(got.pane.bottom);
+    expect(got.panel.bottom, '不够高的时候是往下盖住题记').toBeGreaterThan(got.caption.top);
+    // 放不下的在里面滚；“关闭”就在眼前，点了收起，焦点回到“说明”上（它又露出来了）
+    expect(got.inside).toBeGreaterThan(got.shown);
+    const close = panel.locator('.stage-note-close');
+    await expect(close).toBeInViewport();
+    await close.click();
+    await expect(panel).toHaveCount(0);
+    await expect(pane.locator('.stage-note-button')).toBeFocused();
+  });
+
+  test('按钮下面还有一行话的时候（放的是图片）地方更少：展开的那一块盖到题记的下边为止，不伸到沙盘栏外面，也不盖那一行话', async ({ page }) => {
+    const found = await findStopWithScene(page);
+    await page.goto('about:blank');
+    await page.goto('/?stage=fake-unsupported&sectionstills=fake#/' + found.figureId + '/' + found.stopId);
+    const pane = stagePane(page);
+    await expect(pane).toHaveAttribute('data-stage-picture', 'still');
+    await expect(pane.locator('.stage-notice')).toBeVisible();
+    await pane.locator('.stage-note-button').click();
+    const panel = pane.locator('.stage-note-panel');
+    await expect(panel).toBeVisible();
+    const got = await pane.evaluate((el) => {
+      const box = (selector: string) => {
+        const r = el.querySelector(selector)!.getBoundingClientRect();
+        return { top: r.top, bottom: r.bottom, height: r.height };
+      };
+      const r = el.getBoundingClientRect();
+      return { paneBottom: r.bottom, panel: box('.stage-note-panel'), notice: box('.stage-notice'), caption: box('.stage-caption') };
+    });
+    expect(got.panel.bottom, '伸到沙盘栏外面去了（下边被裁掉）').toBeLessThanOrEqual(got.paneBottom);
+    expect(got.panel.top, '盖住了按钮下面的那一行话').toBeGreaterThanOrEqual(got.notice.bottom - 0.5);
+    expect(got.panel.bottom, '该一直盖到题记的下边').toBeGreaterThan(got.caption.bottom - 8);
+    expect(got.panel.height, '展开的那一块只剩一条缝').toBeGreaterThanOrEqual(140);
+    await expect(panel.locator('.stage-note-close')).toBeInViewport();
+  });
+});
+
+test.describe('竖着拿的平板（768×1024）：焦点落到钉着的沙盘栏里', () => {
+  test.use({ viewport: { width: 768, height: 1024 } });
+
+  test('页面不跳：点“说明”再点“关闭”；用键盘一个一个走到栏里的按钮上。焦点回到正文里，走到的东西照旧不被栏挡住', async ({ page }) => {
+    const { headings } = await openStopWithScene(page);
+    await expectStageAt(page, headings[0]);
+    const pane = stagePane(page);
+    const at = () => page.evaluate(() => Math.round(window.scrollY));
+    expect(await pane.evaluate((el) => getComputedStyle(el).position)).toBe('sticky');
+    // 读到半截
+    await page.evaluate(() => window.scrollTo(0, 1200));
+    await expect.poll(at).toBe(1200);
+    await twoFrames(page);
+
+    // 用手（或者鼠标）：点“说明”，再点展开的那一块里的“关闭”，焦点回到“说明”按钮上。
+    // 照着按钮在屏幕上的位置点下去，像手指和鼠标那样（测试工具自己的“点一下”会先把按钮“滚到看得见的地方”，那正是要查的那一跳）
+    const press = async (target: Locator): Promise<void> => {
+      const box = (await target.boundingBox())!;
+      await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+    };
+    const noteButton = pane.locator('.stage-note-button');
+    await press(noteButton);
+    const panel = pane.locator('.stage-note-panel');
+    await expect(panel).toBeVisible();
+    expect(await at(), '点“说明”，页面跳了').toBe(1200);
+    await press(panel.locator('.stage-note-close'));
+    await expect(panel).toHaveCount(0);
+    await expect(noteButton).toBeFocused();
+    await twoFrames(page);
+    expect(await at(), '点“说明”再点“关闭”，页面跳了').toBe(1200);
+
+    // 用键盘：底下那一条的最后一格再往后，就是栏里的按钮。一个一个走过去，页面都不动
+    await page.locator('.guide-dock .walk-link.is-next').focus();
+    await twoFrames(page);
+    const base = await at();
+    const reached: string[] = [];
+    for (let i = 0; i < 12; i++) {
+      await page.keyboard.press('Tab');
+      const where = await page.evaluate(() => {
+        const el = document.activeElement;
+        return el && el !== document.body && el.closest('.stage-pane') ? (el.textContent ?? '') : null;
+      });
+      if (where === null) break;
+      reached.push(where);
+      await twoFrames(page);
+      expect(await at(), '焦点到了栏里的“' + where + '”上，页面跳了').toBe(base);
+    }
+    expect(reached, '用键盘走到了栏里的按钮').toEqual(expect.arrayContaining(['古名', '今名', '收起沙盘', '说明']));
+
+    // 程序把焦点放到栏自己身上（“到沙盘”那一步做的事）：也不跳
+    await pane.evaluate((el: HTMLElement) => el.focus());
+    await twoFrames(page);
+    expect(await at(), '焦点放到沙盘栏上，页面跳了').toBe(base);
+
+    // 焦点回到正文里：上面那一截照旧算数。找一样被钉着的栏挡住的、走得到的东西，把焦点放上去，它该滚到栏的下面来
+    const shown = await page.evaluate(() => {
+      const paneBottom = document.querySelector('.stage-pane')!.getBoundingClientRect().bottom;
+      const all = Array.from(document.querySelectorAll<HTMLElement>('.stop-page .note-term, .stop-page summary'));
+      const hidden = all.find((el) => {
+        const r = el.getBoundingClientRect();
+        return r.top > 0 && r.bottom < paneBottom - 40;
+      });
+      if (!hidden) return null;
+      hidden.focus();
+      return { top: hidden.getBoundingClientRect().top, paneBottom };
+    });
+    expect(shown, '正文里没有找到一样被栏挡住的东西，这一步查不到').not.toBeNull();
+    expect(shown!.top, '焦点到了正文里被栏挡住的东西上，它没有滚出来').toBeGreaterThanOrEqual(shown!.paneBottom);
   });
 });
 

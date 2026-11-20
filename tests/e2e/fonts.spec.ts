@@ -1,7 +1,7 @@
 // 随站的字体，在真的页面上查。字体文件本身对不对在 tests/fonts/font-files.test.ts（随 npm test 跑，不开浏览器）；
 // 这里看的是浏览器真的拿哪个字体画了哪些字。
 //
-// 一、每一个字都是随站的字体画的。走一遍网站：首页、人物页、每一站（写好的两站把每一条小注、每一篇原文、凭据都点开，
+// 一、每一个字都是随站的字体画的。走一遍网站：首页、人物页、“来源”页、每一站（写好的两站把每一条小注、每一篇原文、凭据都点开，
 //     讲解员面板也打开）、有沙盘的那一站每一小节的题记和“说明”、两种“没找到”的页面；有沙盘的那一站另外用“只放图片”的样子
 //     把每一小节的题签按古名、今名各看一遍，再摆一次真的沙盘。上面这些都在电脑的窗口（1440 × 900）里看。另外看：
 //     沙盘栏平常看不到的几种样子（浏览器画不了、太慢、读者要来的沙盘、画面断了、没摆出来、图片先垫着——那一行话，
@@ -29,6 +29,8 @@
 //     写好的站上，从点开算起不到两秒不取，字体到齐以后五秒之内自己取来，只取一次；以后点开什么、换到哪一站，都不再取。
 //     头两个文件各只取一次（index.html 里预先声明的那一份，样式表接着用）。这一项不用沙盘的替身：替身上那几行给测试看的字
 //     不在头两个文件里，有它在，第三个文件一打开就会被取来。用的是“只放图片”的样子。
+//     “来源”页上的话是点进那一页才看得见的，它们独有的字在第三个文件里（tests/support/fontTool.ts 的 PRESSED_SOURCES）：
+//     另有一项看，在首页上等着不取，点进“来源”页才取、只取一次，那一页里面的那一段程序也是点进去才下载的。
 // 五、网慢的时候：把楷体文件压住不给，过一秒看，沙盘栏的按钮、底下“问讲解员”的按钮、标题上都有字
 //    （先用别的字体顶着，不空着），正文也有字；放行以后换成随站的楷体。把头两个文件都压住，也一样。各拍一张照
 //    （拍的是字体还没到的样子）。
@@ -39,8 +41,10 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { expect, test } from '@playwright/test';
 import type { CDPSession, Page, Route } from '@playwright/test';
-import { expectRealTable, expectStageAt, expectStill, fakeUrl, firstStopWithScene, firstWrittenStop, fontsReady, headingsOf, openFigureWithTable, realUrl, scrollToBottom, scrollToSection, stagePane, stripsOf } from './helpers';
+import { expectRealTable, expectStageAt, expectStill, fakeUrl, firstStopWithScene, firstWrittenStop, foldBodiesReady, fontsReady, headingsOf, openFigureWithTable, realUrl, scrollToBottom, scrollToSection, stagePane, stripsOf } from './helpers';
 import { readBytes } from '../support/readBytes';
+import { SHIPPED_FONTS } from '../../src/fonts/shipped';
+import { SOURCES_TEXT } from '../../src/ui/sourcesText';
 import { PANE_QUERIES, PANE_SAYS, expectPane, notice, stopUrl } from './paneHelpers';
 
 /** 页面的主程序（构建以后的，或者开发服务上的）。 */
@@ -48,6 +52,9 @@ const MAIN_SCRIPT = /\/(assets\/index-[\w-]+\.js|src\/main\.tsx)(\?.*)?$/;
 
 const env = (globalThis as { process?: { env: Record<string, string | undefined> } }).process?.env ?? {};
 const DIR = env.SHOTS_DIR ?? 'tests/shots/fonts';
+
+/** “来源”页上说楷体的那一条（照 shipped.ts 里的名字和版本拼出来的原话）。 */
+const SOURCES_KAI_LINE = SOURCES_TEXT.kai(SHIPPED_FONTS.kai);
 
 /** 工具写进字体文件里的两个名字（src/fonts/fonts.css 的 font-family）。 */
 const KAI = 'Yanlu Kai';
@@ -269,6 +276,17 @@ test('走一遍网站：每一个字都是随站的字体画的，楷体的只�
   const stops = await page.locator('.stop-item').evaluateAll((items) => items.map((item) => ({ id: item.getAttribute('data-stop-id') ?? '', written: item.getAttribute('data-stop-status') === 'complete' })));
   expect(stops.length).toBeGreaterThan(0);
 
+  // ---- “来源”页：从人物页目录后面的链接点进去。里面的东西是另一段程序，两栏又要读内容：等它们都到了再查
+  await page.locator('.figure-page .stop-nav a').evaluate((link: HTMLElement) => link.click());
+  await expect(page.locator('.sources .page-title')).toHaveText('来源');
+  await expect(page.locator('.sources-lead')).toBeVisible();
+  await expect(page.locator('.sources-list li').first()).toBeVisible();
+  await expect(page.locator('.sources .quiet')).toHaveCount(0);
+  await fontsReady(page);
+  await look('“来源”页', 25);
+  // 这一页上通到别的网站的链接（字体的网站、图片出处）只是链接：页面没有去取它们（最后那一条“没有请求出了网站自己的地址”守着）
+  expect(await page.locator('.sources a[target="_blank"]').count(), '“来源”页上通到别的网站的链接').toBeGreaterThanOrEqual(2);
+
   // ---- 每一站
   for (const stop of stops) {
     await page.goto('about:blank');
@@ -296,11 +314,16 @@ test('走一遍网站：每一个字都是随站的字体画的，楷体的只�
     expect(opened.notes).toBeGreaterThan(0);
     await expect(page.locator('.note')).not.toHaveCount(0);
     await expect(page.locator('.provenance-body')).toBeVisible();
+    // 凭据里面的东西是点开才取的：等它到了再查（不然查到的只是一句“加载中…”）
+    await foldBodiesReady(page);
+    await expect(page.locator('.provenance-body .provenance-item')).not.toHaveCount(0);
     await look(`${stop.id}，小注（${opened.notes} 处）、原文和凭据（${opened.folds} 处）都点开`, 200);
 
-    // 讲解员面板
+    // 讲解员面板（里面的东西也是点开才取的）
     await page.getByRole('button', { name: '问讲解员' }).evaluate((button: HTMLElement) => button.click());
     await expect(page.getByRole('dialog')).toBeVisible();
+    await foldBodiesReady(page);
+    await expect(page.locator('.guide-panel .guide-form')).toBeVisible();
     await look(`${stop.id}，讲解员面板开着`, 200);
     await page.keyboard.press('Escape');
     await expect(page.getByRole('dialog')).toHaveCount(0);
@@ -349,7 +372,7 @@ test('走一遍网站：每一个字都是随站的字体画的，楷体的只�
       }
     }
     // 题签的样式就是楷体（上面只要求“样式是楷体的只用楷体”）
-    expect(await page.locator('.stage-still-host .strip').first().evaluate((el) => getComputedStyle(el).fontFamily)).toMatch(/^"?Yanlu Kai/);
+    await expect.poll(() => page.locator('.stage-still-host .strip').evaluateAll((items) => items.filter((item) => item.isConnected).map((item) => getComputedStyle(item).fontFamily)[0] ?? '')).toMatch(/^"?Yanlu Kai/);
 
     // ---- 沙盘栏别的几种样子（沙盘和图片都用替身）：那一行话、“试试立体的沙盘”“重新摆出来”“再试一次”“换回图片”这几个
     //      平常看不到的按钮，也都得是随站的字体画的（按钮是楷体：它上面的字要都在楷体的文件里）
@@ -403,7 +426,7 @@ test('走一遍网站：每一个字都是随站的字体画的，楷体的只�
     await expect(fold).toHaveText('收起沙盘');
     // 题记放不下、被截掉的时候，行尾的省略号是浏览器自己添的，不是页面上的字（上面一段一段地问，问不到它）。
     // 这里故意把题记写长三倍让它被截掉，再问整个元素：连那个省略号在内，都得是那一行的字体画的。
-    // 竖着拿的平板上题记够大（18px 多），是楷体：省略号也得是随站的楷体
+    // 竖着拿的平板上题记够大（18px），是楷体：省略号也得是随站的楷体
     //（楷体文件里没有省略号的话，Chromium 改画三个半角的句点，用的是设备自带的字体）。
     // 横着拿的平板上题记只有 14px，是宋体（楷体小了发灰）：那里再查一遍，省略号得是随站的宋体。
     const line = pane.locator('.stage-line');
@@ -616,8 +639,10 @@ test('第三个字体文件：首页、人物页、还没写的站上不取；�
     for (const fold of Array.from(document.querySelectorAll<HTMLDetailsElement>('details.original, details.provenance'))) fold.open = true;
   });
   await expect(page.locator('.note')).not.toHaveCount(0);
+  await foldBodiesReady(page);
+  await expect(page.locator('.provenance-body .provenance-item')).not.toHaveCount(0);
   await fontsReady(page);
-  const next = page.locator('.stop-nav-link.is-next');
+  const next = page.locator('.guide-dock a[rel="next"]');
   if ((await next.count()) > 0) {
     await next.evaluate((link: HTMLElement) => link.click());
     await expect(page.locator('.page-title')).toBeVisible();
@@ -631,6 +656,69 @@ test('第三个字体文件：首页、人物页、还没写的站上不取；�
     `${figureId}/${stopId}：第三个字体文件是点开这一站以后 ${asked - clicked} 毫秒、字体到齐以后 ${took} 毫秒取的，以后没有再取；` +
       `${unwrittenId ? `还没写的一站（${unwrittenId}）上没有取。` : '没有还没写的站可试。'}取字体的记录（文件@毫秒）：${fonts.all().join(' ')}`,
   );
+});
+
+test('“来源”页：在首页上等着，第三个字体文件和那一页的程序都不取；点进“来源”页才取，各只取一次；那一页上的字都画出来了', async ({ page, baseURL }) => {
+  test.setTimeout(120_000);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const fonts = watchFonts(page);
+  const whenAsked = sceneWhenAsked(page);
+  const scripts: string[] = [];
+  const all: string[] = [];
+  page.on('request', (request) => {
+    all.push(request.url());
+    // “来源”页里面的那一段程序（构建以后叫 assets/SourcesBody-….js；对着开发服务跑时是 src/ui/SourcesBody.tsx）
+    if (new URL(request.url()).pathname.includes('/SourcesBody')) scripts.push(request.url());
+  });
+
+  // “来源”页上的话里真的有头两个文件里没有的字（不然这一项查不到东西）：照做字体的记录读
+  const record = JSON.parse(new TextDecoder().decode(readBytes('src/fonts/fonts.json'))) as { files: { group: string; characters: string }[] };
+  const group = (name: string): string => record.files.find((file) => file.group === name)?.characters ?? '';
+  const words = new TextDecoder().decode(readBytes('src/ui/sourcesText.ts'));
+  const onlyLater = [...new Set(words)].filter((ch) => ch > '~' && group('song-more').includes(ch) && !group('song').includes(ch));
+  expect(onlyLater.length, '“来源”页上的话里，只在点开才要的那个字体文件里有的字').toBeGreaterThan(0);
+
+  // 首页（不用沙盘的替身，和上一项一样）：等五秒，都不取
+  await page.goto(realUrl('#/', null, '&tier=still'));
+  await expect(page.locator('a.card[data-available="true"]').first()).toBeVisible();
+  await expect(page.locator('.stage-still-box')).toHaveAttribute('data-still', 'shown');
+  await fontsReady(page);
+  await page.waitForTimeout(5_000);
+  expect(fonts.of('yanlu-song-more'), `首页上等了五秒，第三个字体文件不该取（${fonts.all().join(' ')}）。取的那一刻页面上：${fonts.of('yanlu-song-more').length > 0 ? await whenAsked() : ''}`).toEqual([]);
+  expect(scripts, '首页上不该取“来源”页里面的那一段程序').toEqual([]);
+
+  // 点卡片后面的“来源”
+  await page.locator('.home .stop-nav a').evaluate((link: HTMLElement) => link.click());
+  await expect(page).toHaveURL(/#\/sources$/);
+  await expect(page.locator('.sources .page-title')).toHaveText('来源');
+  await expect(page.locator('.sources-lead')).toBeVisible();
+  await expect(page.locator('.sources-list li').first()).toBeVisible();
+  await expect(page.locator('.sources .quiet')).toHaveCount(0);
+  await fontsReady(page);
+  await expect.poll(() => fonts.of('yanlu-song-more').length, { message: '点进“来源”页以后，第三个字体文件该取来（那一页上有它才有的字）' }).toBe(1);
+  await fontsReady(page);
+  expect(scripts, '“来源”页里面的那一段程序：点进去才取，只取一次').toHaveLength(1);
+  // 楷体那一条里有“楷”“鹜”这些头两个文件里没有的字：问浏览器这一段是拿什么字体画的，得全是随站的宋体
+  //（整页每一段字都查的是上面“走一遍网站”那一项）
+  const first = page.locator('.sources-item p').first();
+  expect([...onlyLater].some((ch) => SOURCES_KAI_LINE.includes(ch)), '楷体那一条里没有只在第三个文件里有的字：这一句查不到东西').toBe(true);
+  await expect(first).toHaveText(SOURCES_KAI_LINE);
+  const client = await debugger_(page);
+  const used = await fontsOfElement(client, '.sources-item p');
+  expect(used.reduce((sum, font) => sum + font.glyphCount, 0), '楷体那一条画出来的字形').toBeGreaterThanOrEqual([...SOURCES_KAI_LINE].filter((ch) => ch !== ' ').length);
+  expect(used.filter((font) => !isShipped(font, SONG)).map((font) => `${font.familyName}（${font.glyphCount} 个字形）`), '“来源”页上楷体那一条里有字不是随站的宋体画的').toEqual([]);
+  // 回首页再进来：都不再取
+  await page.locator('.sources .crumbs a').evaluate((link: HTMLElement) => link.click());
+  await expect(page.locator('.card').first()).toBeVisible();
+  await page.locator('.home .stop-nav a').evaluate((link: HTMLElement) => link.click());
+  await expect(page.locator('.sources-list li').first()).toBeVisible();
+  await fontsReady(page);
+  expect(fonts.of('yanlu-song-more'), `第三个字体文件只该取一次（${fonts.all().join(' ')}）`).toHaveLength(1);
+  expect(scripts, '“来源”页里面的那一段程序只该取一次').toHaveLength(1);
+  // 从头到尾没有一个请求出了网站自己的地址（这一页上有通到别的网站的链接，页面不去取它们）
+  const base = baseURL ?? page.url();
+  expect(all.filter((url) => !isOwn(url, base)), '出了网站自己地址的请求').toEqual([]);
+  console.log(`“来源”页：只在第三个字体文件里有的字 ${onlyLater.length} 个（${onlyLater.join('')}）；那个文件是点进这一页以后取的（${fonts.all().join(' ')}）；里面的程序 ${scripts.map((url) => url.slice(url.lastIndexOf('/') + 1)).join('、')} 取了一次`);
 });
 
 /**

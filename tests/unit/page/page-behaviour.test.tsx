@@ -14,6 +14,7 @@ const { act } = await import('react');
 const { createRoot } = await import('react-dom/client');
 const { FigureLayout } = await import('../../../src/ui/FigureLayout');
 const { FigureContents } = await import('../../../src/ui/FigureContents');
+const { useOnDemand } = await import('../../../src/app/useLoaded');
 
 const scene = JSON.parse(new TextDecoder().decode(readBytes('content/figures/su-shi/scenes/xuzhou.json'))) as StopScene;
 const headings = scene.sections.map((s) => s.heading);
@@ -26,6 +27,15 @@ async function waitFor(ok: () => boolean, ms = 15000) {
   const until = Date.now() + ms;
   while (!ok() && Date.now() < until) await settle(20);
   if (!ok()) throw new Error('等不到');
+}
+
+/**
+ * 点开一处折着的东西（<details>）：浏览器会把它的 open 设成真，再发一个 toggle 事件；假 DOM 里照样做一遍。
+ * open 写假再发一次，就是关上。
+ */
+async function setFold(fold: MiniElement, open: boolean) {
+  (fold as any).open = open;
+  await act(async () => void fold.dispatchEvent({ type: 'toggle' }));
 }
 
 async function mount(search: string, stopId: string | null) {
@@ -121,7 +131,11 @@ describe('整个版面 + 真的内容 + 沙盘的替身', () => {
     await act(async () => page.all('.names-switch button')[1].click());
     expect(stripWords()).toEqual(wordsOf(6, 'modern'));
 
-    // 凭据里的“沙盘上的东西”。
+    // 凭据里的“沙盘上的东西”。凭据里面的东西点开才取：折着的时候那里只有一句“加载中…”。
+    expect(page.q('.scene-register')).toBeNull();
+    expect(page.q('.provenance-body')?.textContent).toBe('加载中…');
+    await setFold(page.q('details.provenance')!, true);
+    await waitFor(() => page.q('.scene-register') !== null);
     const register = page.q('.scene-register')!;
     expect(register).not.toBeNull();
     // 五类各一组
@@ -138,6 +152,10 @@ describe('整个版面 + 真的内容 + 沙盘的替身', () => {
     expect(page.q('.stage-still-line')?.textContent).toBe('这一站的沙盘还没做好，先看全程。');
     expect(page.q('.stage-still img')).not.toBeNull();
     expect(page.q('.fake-stage')).toBeNull();
+    // 这一站的凭据点开：有正文的凭据，没有“沙盘上的东西”
+    await waitFor(() => page.q('details.provenance') !== null);
+    await setFold(page.q('details.provenance')!, true);
+    await waitFor(() => page.q('.provenance-item') !== null);
     expect(page.q('.scene-register')).toBeNull();
     expect(page.all('.strip')).toHaveLength(0);
 
@@ -237,6 +255,148 @@ describe('整个版面 + 真的内容 + 沙盘的替身', () => {
     for (const row of page.all('details.original summary')) expect(row.textContent.length).toBeGreaterThan('+−读原文'.length);
     expect(page.q('details.provenance summary')?.textContent).toBe('+−凭据');
     await page.unmount();
+  });
+
+  it('凭据里面的东西点开才取：折着只有一句“加载中…”，点开换成内容；关上再点开，内容还在', { timeout: 30_000 }, async () => {
+    const page = await mount('?stage=fake', 'xuzhou');
+    const fold = page.q('details.provenance')!;
+    // 折着：那一行在，里面只有等着的那一句（折着的东西浏览器不显出来）
+    expect(page.q('details.provenance summary')?.textContent).toBe('+−凭据');
+    expect(page.all('.provenance-body p').map((line) => line.textContent)).toEqual(['加载中…']);
+    expect(page.all('.provenance-group')).toHaveLength(0);
+    // 点开：取到了，等着的那一句不在了
+    await setFold(fold, true);
+    await waitFor(() => page.q('.provenance-group') !== null);
+    expect(page.all('.provenance-body .quiet')).toHaveLength(0);
+    expect(page.all('.provenance-item').length).toBeGreaterThan(0);
+    expect(page.q('.provenance-line')?.textContent).toBe('正文里的事和话，各自依据什么。');
+    // 关上再点开：不重取，内容一直在
+    await setFold(fold, false);
+    expect(page.all('.provenance-item').length).toBeGreaterThan(0);
+    await setFold(fold, true);
+    expect(page.all('.provenance-body .quiet')).toHaveLength(0);
+    await page.unmount();
+  });
+
+  it('贴着底边的那一条：三格——上一站、问讲解员、下一站；头一站左边空着，最后一站右边空着，没写的站中间空着', { timeout: 60_000 }, async () => {
+    const count = figure.stops.length;
+    const written = figure.stops.findIndex((stop) => stop.id === 'xuzhou');
+    expect(written).toBeGreaterThan(0);
+    expect(written).toBeLessThan(count - 1);
+    const page = await mount('?stage=fake', 'xuzhou');
+    /** 这一条里的三格，各是什么。 */
+    const cells = () =>
+      (page.q('.guide-dock')?.childNodes ?? []).map((cell) => {
+        const el = cell as MiniElement;
+        if (el.localName === 'a') {
+          return { kind: 'link', rel: attr(el, 'rel'), href: attr(el, 'href'), label: el.querySelector('.walk-label')?.textContent, name: el.querySelector('.walk-name')?.textContent, side: el.className };
+        }
+        if (el.localName === 'button') return { kind: 'button', text: el.textContent };
+        return { kind: 'empty', text: el.textContent };
+      });
+    const linkTo = (i: number, rel: 'prev' | 'next') => ({
+      kind: 'link',
+      rel,
+      href: `#/su-shi/${figure.stops[i].id}`,
+      label: rel === 'prev' ? '上一站' : '下一站',
+      name: figure.stops[i].shortTitle,
+      side: `walk-link is-${rel}`,
+    });
+    const empty = { kind: 'empty', text: '' };
+    const ask = { kind: 'button', text: '问讲解员' };
+    // 写好了的一站，在中间：三格都有
+    await waitFor(() => page.q('.guide-open') !== null);
+    expect(attr(page.q('.guide-dock'), 'aria-label')).toBe('换一站');
+    expect(cells()).toEqual([linkTo(written - 1, 'prev'), ask, linkTo(written + 1, 'next')]);
+    // 正文末尾是“回到各站目录”和“来源”两个链接；上一站、下一站只在这一条里，各一个
+    expect(page.all('.stop-nav a').map((link) => [link.textContent, attr(link, 'href')])).toEqual([
+      ['回到各站目录', '#/su-shi'],
+      ['来源', '#/sources'],
+    ]);
+    expect(page.all('.stop-page a').filter((link) => attr(link, 'rel') === 'prev' || attr(link, 'rel') === 'next')).toHaveLength(2);
+    // 头一站（还没写）：左边空着，中间空着，右边是下一站
+    expect(figure.stops[0].status).not.toBe('complete');
+    await page.show(figure.stops[0].id);
+    await waitFor(() => attr(page.q('.stop-page'), 'data-stop-id') === figure.stops[0].id && attr(page.q('.stop-page'), 'data-stop-text') === 'none');
+    expect(cells()).toEqual([empty, empty, linkTo(1, 'next')]);
+    expect(page.q('.guide-open')).toBeNull();
+    // 最后一站（还没写）：左边是上一站，中间空着，右边空着
+    expect(figure.stops[count - 1].status).not.toBe('complete');
+    await page.show(figure.stops[count - 1].id);
+    await waitFor(() => attr(page.q('.stop-page'), 'data-stop-id') === figure.stops[count - 1].id && attr(page.q('.stop-page'), 'data-stop-text') === 'none');
+    expect(cells()).toEqual([linkTo(count - 2, 'prev'), empty, empty]);
+    // 人物页上没有这一条；目录后面是通到“来源”页的链接
+    await page.show(null);
+    await waitFor(() => page.q('.stop-page') === null);
+    expect(page.q('.guide-dock')).toBeNull();
+    expect(page.all('.figure-page .stop-nav a').map((link) => [link.textContent, attr(link, 'href')])).toEqual([['来源', '#/sources']]);
+    await page.unmount();
+  });
+
+  it('“问讲解员”：一点就开，标题和“关闭”马上就有，里面先是“加载中…”，取到了换成内容；开着的时候那一条收起来', { timeout: 30_000 }, async () => {
+    const page = await mount('?stage=fake', 'xuzhou');
+    await waitFor(() => page.q('.guide-open') !== null);
+    expect(page.q('.guide-panel')).toBeNull();
+    expect(page.q('.guide-dock')?.hasAttribute('hidden')).toBe(false);
+    await act(async () => page.q('.guide-open')!.click());
+    // 这一下面板已经在了：标题、关闭；里面的东西或者还在取（一句“加载中…”），或者刚取到
+    const panel = page.q('.guide-panel')!;
+    expect(panel).not.toBeNull();
+    expect(attr(panel, 'role')).toBe('dialog');
+    expect(panel.querySelector('.guide-head h2')?.textContent).toBe('问讲解员');
+    expect(panel.querySelector('.guide-close')?.textContent).toBe('关闭');
+    expect(page.q('.guide-dock')?.hasAttribute('hidden')).toBe(true);
+    await waitFor(() => page.q('.guide-panel .guide-form') !== null);
+    expect(page.all('.guide-panel .quiet')).toHaveLength(0);
+    expect(page.all('.guide-panel p').map((line) => line.textContent)).toEqual([
+      '讲解员现在还不能回答问题。下面是以后可以问的问题的样子。',
+      `等它能回答了，只依据这一站写下的内容回答，不扮演${figure.name}。`,
+    ]);
+    expect(page.all('.guide-samples li').length).toBeGreaterThan(0);
+    // 关上：面板拿走，那一条回来；再点开，内容马上就在
+    await act(async () => page.q('.guide-close')!.click());
+    expect(page.q('.guide-panel')).toBeNull();
+    expect(page.q('.guide-dock')?.hasAttribute('hidden')).toBe(false);
+    await act(async () => page.q('.guide-open')!.click());
+    expect(page.q('.guide-panel .guide-form')).not.toBeNull();
+    await page.unmount();
+  });
+
+  it('点开才取的东西（useOnDemand）：没叫过不取；正在取、取到了不再取；没取到的，再叫一次重取', async () => {
+    const calls: { resolve: (value: string) => void; reject: () => void }[] = [];
+    const load = () => new Promise<string>((resolve, reject) => calls.push({ resolve, reject: () => reject(new Error('取不到')) }));
+    function Probe() {
+      const [got, ask] = useOnDemand(load);
+      return <button onClick={ask}>{got === null ? '没叫过' : got.state === 'ready' ? got.value : got.state}</button>;
+    }
+    const container = doc.createElement('div');
+    doc.body.appendChild(container);
+    const root = createRoot(container as any);
+    await act(async () => root.render(<Probe />));
+    const button = container.querySelector('button')!;
+    const press = () => act(async () => button.click());
+    expect(button.textContent).toBe('没叫过');
+    expect(calls).toHaveLength(0);
+    await press();
+    expect(button.textContent).toBe('loading');
+    expect(calls).toHaveLength(1);
+    // 正在取的时候再叫：不另取一遍
+    await press();
+    expect(calls).toHaveLength(1);
+    // 没取到
+    await act(async () => calls[0].reject());
+    expect(button.textContent).toBe('error');
+    // 再叫一次：重取；这一次取到了
+    await press();
+    expect(button.textContent).toBe('loading');
+    expect(calls).toHaveLength(2);
+    await act(async () => calls[1].resolve('取到了'));
+    expect(button.textContent).toBe('取到了');
+    // 取到了以后再叫：不再取
+    await press();
+    expect(calls).toHaveLength(2);
+    expect(button.textContent).toBe('取到了');
+    await act(async () => root.unmount());
   });
 
   it('还没有沙盘的站：沙盘栏一上来就是定格图那一种，不先说一句“沙盘正在摆出来”', { timeout: 30_000 }, async () => {

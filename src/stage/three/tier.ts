@@ -21,11 +21,16 @@ export type TierMode = 'forced' | 'asked' | 'auto';
 /** 试画连着画几帧，取居中的一次。 */
 export const TRIAL_FRAMES = 3;
 /**
- * 沙盘栏不到这么大（CSS 像素的面积）就先不试画：收起来的一条说明不了真的画面。
- * 窄屏上收起来的那一条有 59 像素高、和屏幕一样宽（不到 960 像素），最大 959 × 59 = 56,581；
- * 展开着的沙盘栏再小也有 600 × 176 = 105,600（平板最窄 600 像素，栏最矮 11rem）。这条线划在两者中间。
+ * 沙盘栏不到这么大（CSS 像素的面积）就先不试画：太小的一块说明不了真的画面。
+ * 展开着的沙盘栏再小也有 600 × 176 = 105,600（平板最窄 600 像素，栏最矮 11rem），比这条线大。
  */
 export const TRIAL_MIN_AREA = 80_000;
+/**
+ * 沙盘栏不到这么高（CSS 像素）也先不试画，不管它多宽：上下排的版面上收起来的那一条只有 59 像素高，里面没有画面可看。
+ * 那一条和窗口一样宽，而竖着的窗口多宽都是上下排（竖着拿的大平板 1024、1032，竖起来的显示器 1400 以上），
+ * 所以只看面积拦不住它：1400 × 59 = 82,600，已经过了上面那条线。展开着的沙盘栏最矮 176 像素（11rem）。这条线划在两者中间。
+ */
+export const TRIAL_MIN_HEIGHT = 100;
 /** 试画一帧超过这么多毫秒算慢：降一档。 */
 export const TRIAL_SLOW_MS = 50;
 /** 试画一帧超过这么多毫秒算没法用：直接只放图片。 */
@@ -40,6 +45,11 @@ export const GLIDE_SLOW_MS = 42;
 export const GLIDE_STALLED_MS = 125;
 /** 连着几次慢的滑动才降一档。 */
 export const SLOW_GLIDES_TO_STEP_DOWN = 2;
+
+/** 这么大的沙盘栏够不够试画：不矮于 TRIAL_MIN_HEIGHT，面积不小于 TRIAL_MIN_AREA。宽、高是 CSS 像素。 */
+export function bigEnoughToTry(width: number, height: number): boolean {
+  return height >= TRIAL_MIN_HEIGHT && width * height >= TRIAL_MIN_AREA;
+}
 
 /** 档位的高低，用来比。 */
 const RANK: Record<Ceiling, number> = { still: 0, reduced: 1, full: 2 };

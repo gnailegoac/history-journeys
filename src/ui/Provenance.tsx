@@ -1,10 +1,10 @@
-// 凭据：正文每一小节里，哪些话出自他本人或当时的记载，哪些是编写时补的；
-// 这一站有沙盘时，后面再接一栏“沙盘上的东西”。默认折起。
+// 凭据：折着的那一行。点开以后里面的东西（ProvenanceBody.tsx，连同“沙盘上的东西”一栏）是另一段程序，
+// 读者点开了才去取：一点就开，里面先是一句“加载中…”，取到了换成内容；没取到说一句话，关上再点开就重取。默认折起。
 
+import { useOnDemand } from '../app/useLoaded';
 import type { StopContent, StopScene } from '../domain';
-import { SceneRegister } from './SceneRegister';
 import { FoldSummary } from './StopText';
-import { BASIS_LABEL } from './text';
+import { Waiting } from './Waiting';
 
 interface Props {
   content: StopContent;
@@ -12,42 +12,18 @@ interface Props {
   scene: StopScene | null;
 }
 
+const loadBody = () => import('./ProvenanceBody');
+
 export function Provenance({ content, scene }: Props) {
+  const [body, ask] = useOnDemand(loadBody);
   if (content.provenance.length === 0 && !scene) return null;
-  const cites = new Map(content.sources.map((source) => [source.id, source.cite]));
 
   return (
-    <details className="provenance">
+    // 点开的那一下（不管是点的、键盘按的，还是程序打开的）去取里面的东西
+    <details className="provenance" onToggle={(event) => event.currentTarget.open && ask()}>
       <FoldSummary label="凭据" />
       <div className="provenance-body">
-        {content.provenance.length > 0 && <p className="provenance-line">正文里的事和话，各自依据什么。</p>}
-        {content.provenance.map((group, g) => (
-          <section key={g} className="provenance-group">
-            <h3>{group.section}</h3>
-            <ul>
-              {group.items.map((item, i) => {
-                const cited = item.sourceIds.flatMap((id) => {
-                  const cite = cites.get(id);
-                  return cite ? [cite] : [];
-                });
-                return (
-                  <li key={i} className="provenance-item" data-basis={item.basis}>
-                    <p className="provenance-what">
-                      {item.what}
-                      <span className="tag">{BASIS_LABEL[item.basis]}</span>
-                    </p>
-                    {cited.map((cite, c) => (
-                      <p key={c} className="provenance-cite">
-                        出处：{cite}
-                      </p>
-                    ))}
-                  </li>
-                );
-              })}
-            </ul>
-          </section>
-        ))}
-        {scene && <SceneRegister scene={scene} sources={content.sources} />}
+        {body?.state === 'ready' ? <body.value.ProvenanceBody content={content} scene={scene} /> : <Waiting failed={body?.state === 'error'} />}
       </div>
     </details>
   );

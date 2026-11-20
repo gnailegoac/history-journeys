@@ -220,7 +220,30 @@ describe.each(realSceneKeys())('%s 的预算', (key) => {
       // 水面的正文用到 Lambert 自己声明的两样（少了会编译不过，那是响的；这里顺手对一下）
       expect(shader.fragmentShader).toContain('#include <normal_pars_fragment>');
       expect(shader.uniforms.uH, '着色器拿到了水面自己的贴图').toBeDefined();
+      // 水纹照页面上的像素算：量“一个像素合地上多少米”的三处都乘上了像素比，别处没有不乘的 fwidth
+      expect(shader.fragmentShader).toContain('uniform float uPx;');
+      expect(shader.fragmentShader).toContain('float px = max(fwidth(p.x), fwidth(p.y)) * uPx;');
+      expect(shader.fragmentShader).toContain('float px = max(fwidth(vWPos.x), fwidth(vWPos.z)) * uPx;');
+      expect(shader.fragmentShader).toContain('float fw = fwidth(w) * 2.0 * uPx;');
+      const water = shader.fragmentShader.slice(shader.fragmentShader.indexOf('float whash('), shader.fragmentShader.indexOf('diffuseColor.a = a * mix('));
+      expect(count(water, 'fwidth('), '水面的着色器里量像素的地方多了或者少了：新添的也要乘 uPx').toBe(5);
+      expect(count(water, '* uPx;')).toBe(3);
     }
+    // 不说像素比是 1（像素比 1 的屏幕上画面和以前一样）；说了，两片水面都跟着；说 0 或者不是数，当 1
+    const ratios = (): number[] => materials.map((material) => {
+      const shader = { name: material.type, uniforms: UniformsUtils.clone(lib.uniforms), vertexShader: lib.vertexShader, fragmentShader: lib.fragmentShader };
+      (material.onBeforeCompile as (parameters: unknown, renderer: unknown) => void)(shader, null);
+      return (shader.uniforms as Record<string, { value: unknown }>).uPx.value as number;
+    });
+    expect(ratios()).toEqual([1, 1]);
+    t.water.setPixelRatio(1.5);
+    expect(ratios()).toEqual([1.5, 1.5]);
+    t.water.setPixelRatio(2);
+    expect(ratios()).toEqual([2, 2]);
+    t.water.setPixelRatio(0);
+    expect(ratios()).toEqual([1, 1]);
+    t.water.setPixelRatio(Number.NaN);
+    expect(ratios()).toEqual([1, 1]);
   });
 
   it(`减配的一档：每一节、从近到远，一个画面的三角形数不超过 ${withCommas(TRIANGLES_MAX)}，而且比完整的一档少`, { timeout: 120_000 }, async () => {

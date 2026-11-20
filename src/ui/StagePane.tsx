@@ -58,7 +58,7 @@ type TableChoice = 'auto' | 'pictures' | 'asked';
  * 题签的测试照同一个数分大小（tests/stage/support/stripSizes.ts）。
  */
 const WIDE_PANE_PX = 584;
-/** 栏里面的宽度（不连边线）到了这么多像素，题记那一行才用楷体（.is-kai）：照 stage.css 的算法，(661 − 21) ÷ 40，这时它正好 16px。 */
+/** 栏里面的宽度（不连边线）到了这么多像素，题记那一行才用楷体（.is-kai）：照下面 fitPane 的算法，(661 − 21) ÷ 40，这时它正好 16px。 */
 const KAI_PANE_PX = 661;
 /** 窄的排法里，比例尺的那一段最长多少像素：它和小节、时间挤在一行里。 */
 const NARROW_SCALE_PX = 56;
@@ -365,7 +365,7 @@ function TableStage({ table, section, namesMode, onNamesMode, folded, onFolded, 
   // 立体的沙盘现在摆着哪一小节；null 表示还一次都没摆到位。图片那一层的是 stillShown。
   const [shown, setShown] = useState<string | null>(null);
   const [moved, setMoved] = useState(false);
-  // 这一次不放图片：这座沙盘没有图片，或者有一张取不到（取不到以后，这一座就当没有图片，直到换一座沙盘）。
+  // 这一次不放图片：这座沙盘没有图片，或者有一张取不到（取不到以后，这一座先当没有图片；读到另一小节、网又通了，再放一次，见下面）。
   const [stillsOff, setStillsOff] = useState(stillSource === null);
   const [stillUp, setStillUp] = useState(false);
   const [stillShown, setStillShown] = useState<string | null>(null);
@@ -422,8 +422,10 @@ function TableStage({ table, section, namesMode, onNamesMode, folded, onFolded, 
     }
   }, [readInsets]);
 
-  // 栏有多宽，记在栏上：够宽挂 .is-wide，题记够大挂 .is-kai，栏里面的宽度写成 --pane-w（题记的字号照它算）。
-  // 这三样直接写在元素上，不经过重画（和指北、比例尺一样）。每次重画以后（类名会被重画冲掉）、窗口的大小变了以后都重写一遍，
+  // 栏有多宽，记在栏上：够宽挂 .is-wide，题记够大挂 .is-kai，栏里面的宽度写成 --pane-w，宽的排法里题记的字号写成 --line-size。
+  // 字号是（栏里面的宽度 − 21）÷ 40 往下取整，最小 14、最大 19 像素：整数的字号，40 个字在哪种系统上都是 40 × 字号那么宽
+  //（Linux 上平常一个字只占整数个像素，14.95px 的字会排成 15px 一个，行尾就被截掉了）。
+  // 这几样直接写在元素上，不经过重画（和指北、比例尺一样）。每次重画以后（类名会被重画冲掉）、窗口的大小变了以后都重写一遍，
   // 都赶在量留边、告诉画面之前：题记有多高、题签有多大，都跟着它变。
   const wide = useRef(false);
   const fitPane = useCallback(() => {
@@ -434,6 +436,7 @@ function TableStage({ table, section, namesMode, onNamesMode, folded, onFolded, 
     el.classList.toggle('is-wide', wide.current);
     el.classList.toggle('is-kai', inner >= KAI_PANE_PX);
     el.style.setProperty('--pane-w', `${inner}px`);
+    el.style.setProperty('--line-size', `${Math.min(19, Math.max(14, Math.floor((inner - 21) / 40)))}px`);
   }, []);
 
   // 指北和比例尺：直接改元素。栏窄的时候比例尺换一段短的。
@@ -502,7 +505,7 @@ function TableStage({ table, section, namesMode, onNamesMode, folded, onFolded, 
     const unsubscribe: (() => void)[] = [];
     const slot = stillSlot.current;
 
-    // 图片取不到（头一张，或者后来换到的哪一张）：这一座沙盘这一次就当没有图片，这一栏照“没有图片”的样子办。
+    // 图片取不到（头一张，或者后来换到的哪一张）：这一座沙盘先当没有图片，这一栏照“没有图片”的样子办。
     const giveUpStills = (reason: unknown) => {
       if (cancelled) return;
       console.warn('[沙盘] 这一小节的图片取不到，这一次不放图片了：', reason);
@@ -640,7 +643,8 @@ function TableStage({ table, section, namesMode, onNamesMode, folded, onFolded, 
     // 读者自己要来的那一座，换回图片；别的重摆一座（沙盘程序会给低一档的；连低一档也嫌慢，它会说 too-slow）。
     const tooSlow = () => {
       if (cancelled || !view) return;
-      console.warn(asked ? '[沙盘] 立体的沙盘在这台设备上慢得没法用，换回图片。' : '[沙盘] 这一档画质在这台设备上太慢，降一档重摆。');
+      // 设备慢的时候本来就该这样走，不是出了错：只记一笔（console.info），不算警告
+      console.info(asked ? '[沙盘] 立体的沙盘在这台设备上慢得没法用，换回图片。' : '[沙盘] 这一档画质在这台设备上太慢，降一档重摆。');
       unsubscribe.splice(0).forEach((off) => off());
       if (slot.view === view) slot.view = null;
       exposeReadout(null);
@@ -681,7 +685,7 @@ function TableStage({ table, section, namesMode, onNamesMode, folded, onFolded, 
       // “这台设备带不动”是沙盘程序替自己挑画质时的话；指定了画质的（读者要的、地址里写的）照样摆。
       if (!support.ok && !(support.reason === 'too-slow' && wanted !== undefined)) {
         if (support.reason === 'too-slow') {
-          console.warn('[沙盘] 立体的沙盘在这台设备上太慢，这一次访问只放图片。');
+          console.info('[沙盘] 立体的沙盘在这台设备上太慢，这一次访问只放图片。');
           if (pane.current?.contains(document.activeElement)) keepFocus.current = true;
           onChoice('pictures');
         } else {
@@ -780,6 +784,16 @@ function TableStage({ table, section, namesMode, onNamesMode, folded, onFolded, 
     catchUp(true);
   }, [goal, catchUp]);
 
+  // 有一张图片取不到，这一栏就先当没有图片（见 giveUpStills）。那多半是网断了一下，不该从此一张图片也不放：
+  // 读者读到另一小节的时候，或者浏览器说网又通了，再放一次；还是取不到，照旧收起来，等下一回。浏览器明说断着网的时候不试。
+  useEffect(() => {
+    if (!stillSource) return;
+    const again = () => window.navigator?.onLine !== false && setStillsOff(false);
+    again();
+    window.addEventListener('online', again);
+    return () => window.removeEventListener('online', again);
+  }, [goal, stillSource]);
+
   // 沙盘栏收起、展开了：大小变了，告诉画面。展开时，收起的那一阵读到了别的小节，直接摆过去（不滑）。
   useEffect(() => {
     foldedRef.current = folded;
@@ -791,9 +805,13 @@ function TableStage({ table, section, namesMode, onNamesMode, folded, onFolded, 
 
   useEffect(() => {
     let frame = 0;
+    const el = pane.current;
+    // 上一回是照多宽排的（连边线）
+    let seen = el?.offsetWidth;
     const onResize = () => {
       cancelAnimationFrame(frame);
       frame = requestAnimationFrame(() => {
+        seen = el?.offsetWidth;
         fitPane();
         tableSlot.current.view?.resize();
         stillSlot.current.view?.resize();
@@ -805,8 +823,13 @@ function TableStage({ table, section, namesMode, onNamesMode, folded, onFolded, 
       });
     };
     window.addEventListener('resize', onResize);
+    // 窗口没变、栏自己变宽变窄了（页面长出或者收掉了滚动条）：也照新的宽度重排一遍。
+    // 只看宽：高变了（收起、展开、多一行话）各有各的地方管；刚开始看的那一下、宽度没变的，什么也不做。
+    const watcher = el && typeof ResizeObserver === 'function' ? new ResizeObserver(() => el.offsetWidth !== seen && onResize()) : null;
+    if (el) watcher?.observe(el);
     return () => {
       cancelAnimationFrame(frame);
+      watcher?.disconnect();
       window.removeEventListener('resize', onResize);
     };
   }, [fitPane, syncInsets, showTopInfo, catchUp]);
@@ -874,7 +897,7 @@ function TableStage({ table, section, namesMode, onNamesMode, folded, onFolded, 
   const toggleNote = () => setNoteFor(noteOpen ? null : captionFor);
   const closeNote = useCallback(() => {
     // 焦点在展开的那一块里（它马上没了）：还给“说明”按钮。
-    if (notePanel.current?.contains(document.activeElement)) noteButton.current?.focus();
+    if (notePanel.current?.contains(document.activeElement)) noteButton.current?.focus({ preventScroll: true });
     setNoteFor(null);
   }, []);
   useEffect(() => {

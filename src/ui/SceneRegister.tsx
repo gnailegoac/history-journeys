@@ -5,7 +5,7 @@
 import { useMemo } from 'react';
 import { sceneRegister } from '../domain';
 import type { SceneRegister as Register, Source, StopScene } from '../domain';
-import { REGISTER_TEXT } from './text';
+import { REGISTER_TEXT } from './foldText';
 
 export function SceneRegister({ scene, sources }: { scene: StopScene; sources: Source[] }) {
   const register = useMemo(() => registerOf(scene, sources), [scene, sources]);

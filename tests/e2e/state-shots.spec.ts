@@ -1,11 +1,15 @@
 // 给页面的几种状态各拍一张照，用真的沙盘，供人看（不进仓库）：看的是字和版面，不是沙盘。
 // real-shots.spec.ts 拍的是人物页和每一小节；这里拍它没拍到的：
-//   home-<宽>x<高>.png               首页
-//   state-note-…                    点开一条小注
+//   home-<宽>x<高>.png               首页（绢上的全程图片取到了再拍）
+//   sources-…、sources-full-…、sources-foot-…  “来源”页：第一屏；整页，从头到尾一张长图；滚到最下面
+//   figure-list-…                   人物页的各站目录（在第一屏下面，滚到它拍）
+//   figure-foot-…                   人物页滚到最下面：目录后面通到“来源”页的链接
+//   stop-foot-…                     有沙盘的一站滚到最下面：正文末尾的“回到各站目录”和“来源”
+//   state-note-…                    点开一条小注（小注不在第一屏里的窗口上，先把带着那个词的一段滚到看得见的地方）
 //   state-original-…                点开一篇原文
-//   state-provenance-…              点开凭据
+//   state-provenance-…              点开凭据（里面的东西是点开才取的，等它到了再拍）
 //   state-register-…                凭据里“沙盘上的东西”一栏
-//   state-guide-…                   讲解员面板开着
+//   state-guide-…                   讲解员面板开着（也等里面的东西到了再拍）
 //   state-no-table-…                写好了正文、还没有沙盘的一站
 //   state-not-written-…             还没写的一站
 //   state-no-stop-…、state-no-figure-…  两种“没找到”
@@ -18,7 +22,7 @@
 import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
 import type { StageTier } from '../../src/stage/types';
-import { expectRealTable, expectStill, firstWrittenStopWithoutScene, openFigureWithTable, realUrl, shoot, stagePane } from './helpers';
+import { expectRealTable, expectStill, firstWrittenStopWithoutScene, foldBodiesReady, openFigureWithTable, realUrl, shoot, stagePane } from './helpers';
 
 const env = (globalThis as { process?: { env: Record<string, string | undefined> } }).process?.env ?? {};
 const DIR = env.SHOTS_DIR ?? 'tests/shots/real';
@@ -57,12 +61,34 @@ async function shootStates(page: Page, size: { width: number; height: number }):
     await shoot(page, { path: `${DIR}/${name}-${tag}.png` });
   };
 
-  // 首页
+  // 首页（绢上的全程图片取到了再拍）
   await page.goto(url('#/'));
   await expect(page.locator('.card').first()).toBeVisible();
+  if (await expectStill(page)) {
+    await expect.poll(() => page.locator('.stage-still img').evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth > 0)).toBe(true);
+  }
   await snap('home');
 
+  // “来源”页：从首页卡片后面的链接点进去。里面的东西是点进去才取的，两栏还要读内容：都到了再拍
+  await page.locator('.home .stop-nav a').evaluate((link: HTMLElement) => link.click());
+  await expect(page.locator('.sources-list li').first()).toBeVisible();
+  await expect(page.locator('.sources .quiet')).toHaveCount(0);
+  await snap('sources');
+  await shoot(page, { path: `${DIR}/sources-full-${tag}.png`, fullPage: true });
+  await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+  await snap('sources-foot');
+
   const { figureId, found } = await openFigureWithTable(page, url('#/'));
+  // 人物页的各站目录：在第一屏下面，滚到“各站目录”那个标题拍
+  await expectStill(page);
+  await page.getByRole('heading', { name: '各站目录' }).evaluate((heading) => heading.scrollIntoView({ block: 'start' }));
+  // 鼠标挪到角上：不然它正好停在哪一站上，那一站的名字就是“鼠标移上去”的红色
+  await page.mouse.move(1, 1);
+  await snap('figure-list');
+  // 目录后面通到“来源”页的链接：滚到页面最下面拍
+  await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+  await snap('figure-foot');
+  await page.evaluate(() => window.scrollTo(0, 0));
   const noTable = await firstWrittenStopWithoutScene(page, figureId);
   const notWritten = await page.locator('.stop-item[data-stop-status="outline"]').first().getAttribute('data-stop-id').catch(() => null);
 
@@ -74,9 +100,20 @@ async function shootStates(page: Page, size: { width: number; height: number }):
     // 点开第一条小注（在页面里直接点：不让测试工具把页面滚动）
     await page.locator('.note-term').first().evaluate((term: HTMLElement) => term.click());
     await expect(page.locator('.note').first()).toBeVisible();
+    // 小注要是不全在看得见正文的那一块里（竖着拿的平板上，它在钉着的沙盘下面、第一屏以外）：把带着那个词的一段滚到那一块的上边
+    await page.locator('.note').first().evaluate((note) => {
+      const pane = document.querySelector('.stage-pane');
+      const bar = document.querySelector('.guide-dock');
+      const paneBox = pane?.getBoundingClientRect();
+      const box = note.getBoundingClientRect();
+      const top = pane && paneBox && getComputedStyle(pane).position === 'sticky' && paneBox.left < box.right && paneBox.right > box.left ? paneBox.bottom : 0;
+      const bottom = bar ? bar.getBoundingClientRect().top : window.innerHeight;
+      if (box.top < top || box.bottom > bottom) (note.previousElementSibling ?? note).scrollIntoView({ block: 'start' });
+    });
     await paneSettled();
     await snap('state-note');
     await page.locator('.note-term').first().evaluate((term: HTMLElement) => term.click());
+    await page.evaluate(() => window.scrollTo(0, 0));
 
     // 点开第一篇原文
     await page.locator('details.original').first().evaluate((fold: HTMLDetailsElement) => {
@@ -90,6 +127,8 @@ async function shootStates(page: Page, size: { width: number; height: number }):
     await page.locator('details.provenance').first().evaluate((fold: HTMLDetailsElement) => {
       fold.open = true;
     });
+    await foldBodiesReady(page);
+    await expect(page.locator('.provenance-item').first()).toBeAttached();
     await scrollToTop(page, 'details.provenance');
     await paneSettled();
     await snap('state-provenance');
@@ -101,9 +140,16 @@ async function shootStates(page: Page, size: { width: number; height: number }):
     await page.evaluate(() => window.scrollTo(0, 0));
     await page.getByRole('button', { name: '问讲解员' }).evaluate((button: HTMLElement) => button.click());
     await expect(page.getByRole('dialog')).toBeVisible();
+    await foldBodiesReady(page);
+    await expect(page.locator('.guide-panel .guide-form')).toBeVisible();
     await paneSettled();
     await snap('state-guide');
     await page.keyboard.press('Escape');
+
+    // 正文的末尾：“回到各站目录”和“来源”（滚到页面最下面；沙盘跟到最后一节，等它停下来）
+    await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+    await paneSettled();
+    await snap('stop-foot');
   }
 
   // 写好了正文、还没有沙盘的一站

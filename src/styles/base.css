@@ -141,6 +141,8 @@ button:disabled {
 /* 一页的大标题。一行放不下的时候在标点后面折行（“眉山到汴京：/两次出川”），不从词中间断开、把一个字单独甩到下一行；
    标点之间的那一截自己就比一行长的时候，才从中间断。 */
 .page-title {
+  /* 字距放开以后，一行最后一个字后面多出一截空：往右让出这一截，正好排满一行的标题不会因为它多折一行 */
+  margin-right: -0.04em;
   font-family: var(--font-kai);
   font-size: var(--size-title);
   font-weight: var(--weight-heading);
@@ -173,10 +175,9 @@ button:disabled {
   transform: rotate(45deg);
 }
 
-/* 人物没找到、加载中时的整页：一页纸自己立着，和屏幕一样高。宽度是 40rem
-  （首页和“来源”页换样子时 --home-width 也改成这个数，那时这里换成记号）。 */
+/* 人物没找到、加载中时的整页，和“来源”页：一页纸自己立在绢上，和屏幕一样高，最宽 40rem（--home-width）。 */
 .plain-page {
-  max-width: 40rem;
+  max-width: var(--home-width);
   min-height: 100vh;
   margin: 0 auto;
   padding: var(--gap-6) var(--leaf-pad-start);

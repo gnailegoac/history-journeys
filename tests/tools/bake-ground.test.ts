@@ -513,7 +513,8 @@ describe('做图的工具自己（不开浏览器，不动 content/）', () => {
     expect({ ...now, inputs: old.inputs }).toEqual(old);
   });
 
-  it('少了一张图、图被换过、清单读不出来、压缩的质量改了：都重做', async () => {
+  it('少了一张图、图被换过、清单读不出来、压缩的质量改了：都重做', { timeout: 30_000 }, async () => {
+    // 这一项在发布流程的机器上要比默认的 5 秒久（这台机器上 3 秒左右）：给它自己的时限，不把要走的步数减少。
     const spoil: [string, (dirName: string) => void, number][] = [
       ['少了颜色那张图', (d) => rmSync(new URL(`${d}/sample-town.colour.jpg`, SCRATCH)), 0.95],
       ['田的标记那张图被换过', (d) => writeFileSync(new URL(`${d}/sample-town.fields.png`, SCRATCH), encodeGreyPng(new Uint8Array(4), 2, 2)), 0.95],

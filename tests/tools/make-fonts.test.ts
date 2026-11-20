@@ -41,13 +41,16 @@ import {
   LIBRARY_LICENCES,
   LICENCES_DIR,
   NAME_IDS,
+  PRESSED_SOURCES,
   RECIPE,
   RECORD_VERSION,
+  SHADER_DIRS,
   codeOf,
   fileRecord,
   fontFileProblems,
   fontRecord,
   fontsCss,
+  holdsShaders,
   isInterfaceSource,
   makeFont,
   missingFromShipped,
@@ -64,6 +67,7 @@ import {
   shippedFileProblems,
   shippedTs,
   sortedString,
+  sourceFiles,
   sourceRecord,
   stripComments,
   subsetSentence,
@@ -333,6 +337,76 @@ describe('数字：哪些字归哪一组（编出来的一位人物）', () => {
     // 只在程序里出现的字单独记着（英文不列）
     // “的、今、天”三个字编出来的内容里也有，不算只在程序里出现；省略号是工具自己添进楷体那一组的（见下一项），内容里没有
     expect(plan.onlyFromSrc).toBe(sortedString('串文模址显脚楷签真位置按正摆示意点缀…'));
+  });
+
+  it('字要点了才看得见的界面文件（“来源”页上的话）：只有它里面有的字归点开才看得见的一组，别处不点就看得见的字还在头一组；不列在名单里就照平常的界面文件算', () => {
+    const later = 'src/ui/later.ts';
+    const withLater = (): SiteText =>
+      madeUpSite((site) => {
+        site.sources[later] = "// 藏六\nexport const LATER = '晚串';\n";
+      });
+    // “串”在 src/ui/a.tsx 里不点就看得见：还在头一组，不重复放。“晚”只有这个文件里有：归点开才看得见的一组
+    const plan = planFonts(withLater(), { pressedSources: [later] });
+    expect(has(plan, 'song-more', '晚')).toBe(true);
+    expect(hasNone(plan, 'song', '晚')).toBe(true);
+    expect(has(plan, 'song', '串')).toBe(true);
+    expect(hasNone(plan, 'song-more', '串藏')).toBe(true);
+    expect(fileOf(plan, 'song-more').where.get('晚')).toEqual([`程序里（${later}）`]);
+    // “只在程序里出现的字”那一栏记的是头一组的：不算它
+    expect(plan.onlyFromSrc).not.toContain('晚');
+    // 没列在名单里：照平常的界面文件算，进头一组
+    const plain = planFonts(withLater(), { pressedSources: [] });
+    expect(has(plain, 'song', '晚')).toBe(true);
+    expect(hasNone(plain, 'song-more', '晚')).toBe(true);
+    expect(plain.onlyFromSrc).toContain('晚');
+    // 真的名单：“来源”页上的话在里面；列着的都是 src/ 里真有的界面文件（挪了地方、改了名字，这里通不过）
+    expect(PRESSED_SOURCES).toContain('src/ui/sourcesText.ts');
+    for (const path of PRESSED_SOURCES) {
+      expect(isInterfaceSource(path), path).toBe(true);
+      expect(sourceFiles(), `${path} 不在 src/ 里了`).toContain(path);
+    }
+  });
+
+  it('着色器的注释（沙盘程序那两个文件夹里，模板字符串里“//”到行尾）不算字；出错的话、印在控制台里的话照旧算；别的文件夹里不这样', () => {
+    // 一段着色器：两行注释，一行程序后面跟着注释；同一个文件里还有一句出错的话、一句带网址的话、一句写在单引号里的话
+    const shader = [
+      'const GLSL = `',
+      'uniform float uTime;',
+      '// 藏七：一整行',
+      'float f = 1.0; // 藏八',
+      '`;',
+      'throw new Error(`错${1}话`);',
+      "console.warn('[沙盘] 控台 // 留一');",
+      'const SITE = `https://example.org/留二`;',
+      '',
+    ].join('\n');
+    const withShader = (path: string): SiteText =>
+      madeUpSite((site) => {
+        site.sources[path] = shader;
+      });
+    for (const path of ['src/stage/three/x.ts', 'src/stage/ground/y.ts']) {
+      expect(holdsShaders(path), path).toBe(true);
+      const plan = planFonts(withShader(path));
+      expect(hasNone(plan, 'song', '藏七整行八'), path).toBe(true);
+      expect(hasNone(plan, 'song-more', '藏七整行八'), path).toBe(true);
+      expect(has(plan, 'song', '错话沙盘控台留一二'), path).toBe(true);
+      expect(plan.onlyFromSrc, path).not.toContain('藏');
+    }
+    // 别的文件夹（界面、沙盘程序的别处）：模板字符串里的字一个不少，和以前一样
+    for (const path of ['src/ui/z.ts', 'src/stage/scale.ts', 'src/stage/threex/x.ts']) {
+      expect(holdsShaders(path), path).toBe(false);
+      expect(has(planFonts(withShader(path)), 'song', '藏七整行八错话留一二'), path).toBe(true);
+    }
+    // 只动模板字符串里的：程序自己的注释照旧去掉，单引号里的“//”照旧留着，着色器那一行的程序留着，字符串没有被截短
+    const kept = stripComments(shader, { shaders: true });
+    expect(kept).toContain('uniform float uTime;\n\nfloat f = 1.0; \n`;');
+    expect(kept).toContain("'[沙盘] 控台 // 留一'");
+    expect(kept).toContain('`https://example.org/留二`');
+    expect(stripComments(shader)).toContain('// 藏七：一整行');
+    // 真的那两个文件夹都在，里面真有着色器（挪了地方，这里通不过）
+    for (const dir of SHADER_DIRS) expect(sourceFiles().some((path) => path.startsWith(dir) && isInterfaceSource(path)), dir).toBe(true);
+    const utf8 = new TextDecoder();
+    expect(sourceFiles().filter((path) => holdsShaders(path) && /\/\* glsl \*\/ `/.test(utf8.decode(readFileSync(at(path))))).length).toBeGreaterThanOrEqual(2);
   });
 
   it('替身、开发用的页面、工具做的文件不算界面', () => {

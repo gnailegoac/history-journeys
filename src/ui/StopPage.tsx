@@ -1,8 +1,8 @@
-// 站点页的文字栏：抬头、正文是怎么来的两句说明、正文、凭据、上一站和下一站、问讲解员。
+// 站点页的文字栏：抬头、正文是怎么来的两句说明、正文、凭据、回到各站目录和“来源”；贴着底边的那一条（上一站、问讲解员、下一站）。
 // 这一站有沙盘时，它还盯着读者读到了哪一小节，报给上面，沙盘的镜头跟着走。
 
 import { useEffect, useRef } from 'react';
-import { figureHref, stopHref } from '../app/router';
+import { figureHref, sourcesHref } from '../app/router';
 import { useLoaded } from '../app/useLoaded';
 import type { Loaded } from '../app/useLoaded';
 import { loadStop, neighbours } from '../domain';
@@ -13,7 +13,7 @@ import { GuidePanel } from './GuidePanel';
 import { PageTitle } from './PageTitle';
 import { Provenance } from './Provenance';
 import { StopText } from './StopText';
-import { STAGE_TEXT, STOP_TEXT_LINES, pageTitle, placeLabel } from './text';
+import { SOURCES_LABEL, STAGE_TEXT, STOP_TEXT_LINES, pageTitle, placeLabel } from './text';
 import { useReadingSection } from './useReadingSection';
 
 interface Props {
@@ -117,31 +117,17 @@ export function StopPage({ figure, stop, table, onSection }: Props) {
         </>
       )}
 
-      <nav className="stop-nav" aria-label="换一站">
-        <div className="stop-nav-row">
-          {prev ? (
-            <a className="stop-nav-link is-prev" href={stopHref(figure.id, prev.id)} rel="prev">
-              <span className="stop-nav-label">上一站</span>
-              <span className="stop-nav-name">{prev.shortTitle}</span>
-            </a>
-          ) : (
-            <span className="stop-nav-gap" />
-          )}
-          {next ? (
-            <a className="stop-nav-link is-next" href={stopHref(figure.id, next.id)} rel="next">
-              <span className="stop-nav-label">下一站</span>
-              <span className="stop-nav-name">{next.shortTitle}</span>
-            </a>
-          ) : (
-            <span className="stop-nav-gap" />
-          )}
-        </div>
+      {/* 正文完了：一个小菱形（样式表画的），下面并排两个链接：回到目录，“来源”页。上一站、下一站在贴着底边的那一条里。 */}
+      <div className="stop-nav">
         <a className="stop-nav-list" href={figureHref(figure.id)}>
           回到各站目录
         </a>
-      </nav>
+        <a className="stop-nav-sources" href={sourcesHref}>
+          {SOURCES_LABEL}
+        </a>
+      </div>
 
-      {written && <GuidePanel figureName={figure.name} sampleQuestions={written.sampleQuestions} />}
+      <GuidePanel figure={figure} prev={prev} next={next} sampleQuestions={written ? written.sampleQuestions : null} />
     </article>
   );
 }

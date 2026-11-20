@@ -84,6 +84,12 @@ export function validateContent(
 
 // ---------------------------------------------------------------- 首页卡片
 
+/**
+ * 不能拿来做人物的 id 的词：页面的地址里它们另有用处。#/sources 是“来源”页（src/app/router.ts），
+ * 叫这个 id 的人物，他的人物页就打不开了。tests/unit/route.test.ts 对着页面读地址的程序把这张表核了一遍。
+ */
+export const RESERVED_FIGURE_IDS: readonly string[] = ['sources'];
+
 export function checkIndex(files: ContentFiles): Violation[] {
   const file = 'figures/index.json';
   const read = readJson(files, file);
@@ -94,6 +100,9 @@ export function checkIndex(files: ContentFiles): Violation[] {
 
   const out = duplicateIds(cards, file, '');
   cards.forEach((card, i) => {
+    if (RESERVED_FIGURE_IDS.includes(card.id)) {
+      out.push(violation(0, file, `[${i}].id`, `“${card.id}”不能做人物的 id：地址 #/${card.id} 是网站自己的一页（“来源”页），换一个`));
+    }
     if (card.available && !has(files, `figures/${card.id}/figure.json`)) {
       out.push(violation(0, file, `[${i}].available`, `“${card.name}”标了可以点进去，但没有 figures/${card.id}/figure.json`));
     }
@@ -122,6 +131,9 @@ export function validateFigure(
 
   const out: Violation[] = [];
   if (figure.id !== figureId) out.push(violation(0, file, 'id', `应该和文件夹的名字一样（${figureId}），现在是“${figure.id}”`));
+  if (RESERVED_FIGURE_IDS.includes(figureId)) {
+    out.push(violation(0, file, 'id', `“${figureId}”不能做人物的 id（文件夹也不能叫这个名字）：地址 #/${figureId} 是网站自己的一页（“来源”页），换一个`));
+  }
   figure.stops.forEach((stop, i) => out.push(...duplicateIds(stop.localPlaces, file, `stops[${i}].localPlaces`)));
   out.push(...checkCoordinates(figure, file));
   out.push(...checkRoute(figure, file));

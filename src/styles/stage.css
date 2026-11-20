@@ -3,7 +3,7 @@
    样子：沙盘栏的底是一块绢（平的一种颜色）。绢上的字都是墨色，红只做记号；摆在绢上的东西——按钮、题签、
    展开的说明、一句话底下垫的那一小块——都是纸条：浅纸色，里面一圈深色的细线，右下一点影子，方角。
    栏宽、栏窄各一种排法，由页面量了栏的宽度以后在栏上挂类名来分（.is-wide、.is-kai，见 StagePane.tsx），
-   题记的字号照页面写在栏上的 --pane-w（栏里面的宽度）算：不用按栏宽查询的写法（@container、cqw），
+   题记的字号是页面照栏里面的宽度算好、写在栏上的（--line-size；栏里面的宽度是 --pane-w）：不用按栏宽查询的写法（@container、cqw），
    老平板（iPadOS 15 的 Safari）不认那两样。别的也只用它认得的写法。
    各处的边、垫的空、高度都不动（tests/e2e/pane-boxes.spec.ts 守着沙盘四边留的空）：换的只是颜色、字和影子。 */
 
@@ -158,21 +158,25 @@
   line-height: 1.25rem;
 }
 
-/* 两个小按钮：那一行话后面的“换回图片”，题记里的“说明”。都是小纸条：红字，一圈红的细线。
+/* 两个小按钮：那一行话后面的“换回图片”，题记里的“说明”。和上面那一排按钮一样是摆在绢上的纸条——纸色，
+   里面一圈深色的细线，右下一点影子——只是小，字是红的：看得出是能按的东西，不是一枚小标签（小标签只有一圈线，贴在纸上）。
+   那一圈 1px 的边留着（算在按钮的大小里），漆成纸色；深色的细线画在它里面。
    看着小（22px、20px 高），能点的地方有 44px 高，由各自的 ::after 撑出来。 */
 .stage-notice-button,
 .stage-note-button {
   position: relative;
   flex: none;
-  border: 1px solid var(--color-accent);
+  border: 1px solid var(--color-paper-raised);
   border-radius: 0;
   background: var(--color-paper-raised);
+  box-shadow: inset 0 0 0 1px var(--color-line-on-silk), 1px 2px 4px -1px rgb(60 40 10 / 0.45);
   color: var(--color-accent);
   font-size: var(--size-small);
   line-height: 1;
 }
 
-/* “换回图片”：::after 把它往下撑到沙盘上（往上是那一排按钮，不往上撑）。 */
+/* “换回图片”：::after 把它往下撑到沙盘上（往上是那一排按钮，不往上撑）。
+   ::after 的上下是从按钮那一圈 1px 的边里面量的：往上 4px、往下 20px，连按钮自己里面的 20px，一共 44px 高。 */
 .stage-notice-button {
   height: 1.375rem;
   padding: 0 0.5rem;
@@ -183,7 +187,7 @@
   position: absolute;
   left: 50%;
   top: -0.25rem;
-  bottom: -1.125rem;
+  bottom: -1.25rem;
   width: max(100%, var(--tap));
   transform: translateX(-50%);
 }
@@ -223,6 +227,20 @@
 
 .stage-pane:focus-visible {
   outline-offset: -3px;
+}
+
+/* 摆着沙盘的时候，栏里的画面、按钮那一排、题记把栏自己盖满了，画在栏自己身上的框一点也露不出来
+  （按了“到沙盘”以后，看不出焦点到了哪）。所以另画一圈，叠在栏里所有东西的上面；不挡手指和鼠标。 */
+.stage-pane.is-pinned:focus-visible::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 3;
+  border: 3px solid var(--color-focus-on-silk);
+  pointer-events: none;
 }
 
 /* ---------------------------------------------------------------- 按钮 */
@@ -371,7 +389,7 @@
   --caption-h: 8.125rem;
 }
 
-/* 摆着沙盘时，这一条盖在沙盘的下边：底是差一点不透明的绢色，上边一道细线（画在这一条里面，不占地方）。
+/* 摆着沙盘时，这一条盖在沙盘的下边：底就是那块绢，不透明（沙盘不从字底下透上来），上边一道细线（画在这一条里面，不占地方）。
    上面不做渐渐淡出去的一截：题签可能就立在这一条上边 4px 的地方，淡出去的一截会把题签脚上的印遮住。
    手指和鼠标穿过这一条，照样能转沙盘（“说明”按钮和展开的那一块除外）。 */
 .stage-pane.is-pinned .stage-foot {
@@ -506,7 +524,8 @@
 }
 
 /* “说明”按钮（样子见上面“两个小按钮”）：看着 20px 高，能点的地方有 44px 高：::after 把它往上撑 16px、往下撑 8px。
-   往下只撑 8px，是因为栏窄时它下面到沙盘栏的底边正好只有这么多。 */
+   往下只撑 8px，是因为栏窄时它下面到沙盘栏的底边正好只有这么多。
+   ::after 的上下是从按钮那一圈 1px 的边里面量的，所以各多写 1px（17、9）：从按钮的外沿算，才是往上 16px、往下 8px。 */
 .stage-note-button {
   height: 1.25rem;
   padding: 0 0.375rem;
@@ -517,22 +536,26 @@
   content: '';
   position: absolute;
   left: 50%;
-  top: -1rem;
-  bottom: -0.5rem;
+  top: -1.0625rem;
+  bottom: -0.5625rem;
   width: max(100%, var(--tap));
   transform: translateX(-50%);
 }
 
-/* 说明展开着：按钮的纸色深一点，红线粗一道。 */
+/* 说明展开着：按钮像按下去了——纸色深一点，里面那一圈线变红，影子收起来。 */
 .stage-note-button[aria-expanded='true'] {
+  border-color: var(--color-paper-note);
   background: var(--color-paper-note);
   box-shadow: inset 0 0 0 1px var(--color-accent);
 }
 
-/* ---- 栏宽时的排法（.is-wide，栏宽 584px 起）：题记自己一行，说明是最多两行的 short，远处另起一行排在最后。
+/* ---- 栏宽时的排法（.is-wide，栏宽 584px 起）：题记自己一行，说明是最多两行的 short（右头是“说明”按钮），远处另起一行排在最后。
    题记的字号照栏宽算：40 个字（题记最长这么多）正好放得下，最大 19px，最小 14px。
-   算法是（栏里面的宽度 − 21px）÷ 40：这一条的左右各垫 12px，题记可以往右多占 4px（右边还剩 8px），再留 1px 的余地。
-   横着拿的平板上栏里面宽 583px，算出来 14.05px；竖着拿的平板上 18.7px；电脑上 19px。
+   算法是（栏里面的宽度 − 21px）÷ 40，往下取成整数的像素：这一条的左右各垫 12px，题记可以往右多占 4px（右边还剩 8px），再留 1px 的余地。
+   取整是页面做的（StagePane.tsx 量了栏宽，把字号写成 --line-size；这里的浏览器还不认 round()）：有的系统上（Linux，平常的设置）
+   一个字只占整数个像素，14.95px 的字一个占 15px，40 个就比算好的宽出 2px，行尾被截掉。字号是整数，哪里都是 40 × 字号。
+   --line-size 还没写上的那一下是 14px。
+   横着拿的平板上栏里面宽 583px，算出来 14px；竖着拿的平板上 18px；电脑上 19px。
    题记够 16px 才用楷体（.is-kai，栏里面宽 661px 起）；不到 16px 用宋体：楷体的笔画细，小了就发灰，比下面的说明还淡。 */
 .stage-pane.is-wide .stage-caption {
   display: flex;
@@ -566,7 +589,7 @@
   margin-right: -0.25rem;
   overflow: hidden;
   font-family: var(--font-song);
-  font-size: clamp(var(--size-small), calc((var(--pane-w) - 1.3125rem) / 40), 1.1875rem);
+  font-size: var(--line-size, var(--size-small));
   line-height: 1.625rem;
   white-space: nowrap;
   text-overflow: ellipsis;
@@ -576,11 +599,13 @@
   font-family: var(--font-kai);
 }
 
+/* 说明那一句占满这一条的宽（栏有多宽，一行就有多长），“说明”按钮立在这一条的右头，和这一句的头一行对齐，
+   正在比例尺和指北的下面。那一句话排在按钮左边自己的一块里，再长也到不了按钮底下。 */
 .stage-pane.is-wide .stage-note {
   flex: none;
   order: 2;
   align-items: flex-start;
-  max-width: 44rem;
+  gap: var(--gap-3);
   height: auto;
   max-height: 2.5rem;
 }
@@ -622,7 +647,11 @@
 
 /* ---- 点“说明”展开的那一块：这一小节完整的几句说明，一张大一点的纸条。
    摆着沙盘时它盖在沙盘的下边、题记的上面，不占题记的地方，沙盘四边留的空不变；放不下就在这一块里滚。
-   没摆着沙盘时（起不来、画不了）它接在题记下面。 */
+   没摆着沙盘时（起不来、画不了）它接在题记下面。
+   沙盘栏很矮的时候（窗口矮，或者把网页放大到两倍：窄屏上栏只有窗口的 56% 高），按钮那一排和题记之间剩不下几行的地方。
+   这一块至少要有 10rem（160px）高：差多少，它就往下多盖题记多少（--note-lack），里面照样可以滚、可以点“关闭”。
+   最多盖到题记的下边为止（差的再多，也不伸到沙盘栏外面去：那时候它就比 160px 矮一点）。
+   四种标准的窗口上地方都够，差的是 0，和原来一样。 */
 .stage-note-panel {
   margin: 0 var(--gap-3) var(--gap-3);
   padding: var(--gap-2) var(--gap-3) var(--gap-3);
@@ -640,10 +669,13 @@
   position: absolute;
   left: var(--gap-2);
   right: var(--gap-2);
-  bottom: calc(100% + var(--gap-1));
+  /* 题记上面能给它的地方：沙盘栏的高，减去按钮那一排、题记和上下的空。 */
+  --note-room: calc(var(--stage-pane-h) - var(--stage-controls-room) - var(--caption-h) - var(--gap-3));
+  --note-lack: min(var(--caption-h), max(0px, 10rem - var(--note-room)));
+  bottom: calc(100% + var(--gap-1) - var(--note-lack));
   max-width: 44rem;
-  /* 最高到按钮那一排的下边：沙盘栏的高，减去按钮那一排、题记和上下的空。 */
-  max-height: calc(var(--stage-pane-h) - var(--stage-controls-room) - var(--caption-h) - var(--gap-3));
+  /* 最高到按钮那一排的下边。 */
+  max-height: calc(var(--note-room) + var(--note-lack));
   margin: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
@@ -654,12 +686,12 @@
 /* 按钮下面有一行话的时候（.under-notice 由页面挂在题记这一条上），展开的这一块再矮一行，不盖住那一行话。
    减去的就是那一行话的高（见 .stage-notice）。 */
 .stage-pane.is-pinned .stage-foot.under-notice .stage-note-panel {
-  max-height: calc(var(--stage-pane-h) - var(--stage-controls-room) - var(--caption-h) - var(--gap-3) - 1.875rem);
+  --note-room: calc(var(--stage-pane-h) - var(--stage-controls-room) - var(--caption-h) - var(--gap-3) - 1.875rem);
 }
 
 @media (min-width: 960px) and (orientation: landscape) {
   .stage-pane.is-pinned .stage-foot.under-notice .stage-note-panel {
-    max-height: calc(var(--stage-pane-h) - var(--stage-controls-room) - var(--caption-h) - var(--gap-3) - 2.125rem);
+    --note-room: calc(var(--stage-pane-h) - var(--stage-controls-room) - var(--caption-h) - var(--gap-3) - 2.125rem);
   }
 }
 

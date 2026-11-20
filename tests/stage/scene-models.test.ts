@@ -108,7 +108,8 @@ describe.each(realSceneKeys())('%s 的小模型', (key) => {
     return terrain + WATER_TRIANGLES + dryPlane + quality.mistLayers * MIST_TRIANGLES_PER_LAYER + STAND_TRIANGLES;
   };
 
-  it.each([FULL_QUALITY, REDUCED_QUALITY])('$tier：每一节的模型都造得出来，镜头远远近近都没有坏掉的数', async (quality) => {
+  it.each([FULL_QUALITY, REDUCED_QUALITY])('$tier：每一节的模型都造得出来，镜头远远近近都没有坏掉的数', { timeout: 30_000 }, async (quality) => {
+    // 这一项在发布流程的机器上要比默认的 5 秒久（这台机器上 2 秒左右）：给它自己的时限，不把要走的步数减少。
     const { R, models } = table(quality);
     // 和页面上一样：先备好，再一节一节换着显
     await models.prepare(R.headings);

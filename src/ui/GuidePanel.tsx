@@ -1,22 +1,34 @@
-// “问讲解员”：底边一条里的一个按钮，点开是讲解员面板。原型里答疑还没有接入，面板只展示，
-// 并在标题下面直接说明现在还不能回答。
+// 贴着底边的那一条，和“问讲解员”点开的面板。
+// 那一条里并排三格：左边上一站，中间“问讲解员”，右边下一站。这一站在头或在尾时，那一头的格子空着；
+// 这一站的正文还没写（或者还没读出来）时中间空着，两头照旧。
+// 原型里答疑还没有接入，面板只展示，并在标题下面直接说明现在还不能回答。
+// 面板里面的东西（GuideBody.tsx）是另一段程序，读者点开了才去取：面板一点就开，标题和“关闭”马上就有，
+// 下面先是一句“加载中…”，取到了换成内容；没取到说一句话，关上再点开就重取。
 
 import { useEffect, useId, useRef, useState } from 'react';
-import { getGuideService } from '../guide';
+import { stopHref } from '../app/router';
+import { useOnDemand } from '../app/useLoaded';
+import type { Figure, StopMeta } from '../domain';
+import { Waiting } from './Waiting';
 
 interface Props {
-  figureName: string;
-  sampleQuestions: string[];
+  figure: Figure;
+  /** 上一站、下一站；没有的是 null。 */
+  prev: StopMeta | null;
+  next: StopMeta | null;
+  /** 这一站的示例问题；正文还没写、还没读出来时是 null：那时没有“问讲解员”。 */
+  sampleQuestions: string[] | null;
 }
 
-export function GuidePanel({ figureName, sampleQuestions }: Props) {
-  const guide = getGuideService();
+const loadBody = () => import('./GuideBody');
+
+export function GuidePanel({ figure, prev, next, sampleQuestions }: Props) {
   const [open, setOpen] = useState(false);
+  const [body, ask] = useOnDemand(loadBody);
   const opener = useRef<HTMLButtonElement>(null);
   const panel = useRef<HTMLElement>(null);
   const wasOpen = useRef(false);
   const titleId = useId();
-  const inputId = useId();
 
   // 打开时焦点进面板，关上后回到按钮。
   useEffect(() => {
@@ -34,15 +46,42 @@ export function GuidePanel({ figureName, sampleQuestions }: Props) {
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [open]);
 
+  // 一头的格子：“上一站”或者“下一站”（宋体的小字）在上，站名（楷体）在下，各占一行；没有那一站时是空的一格。
+  const cell = (stop: StopMeta | null, rel: 'prev' | 'next') =>
+    stop ? (
+      <a className={`walk-link is-${rel}`} href={stopHref(figure.id, stop.id)} rel={rel}>
+        <span className="walk-label">{rel === 'prev' ? '上一站' : '下一站'}</span>
+        <span className="walk-name">{stop.shortTitle}</span>
+      </a>
+    ) : (
+      <span />
+    );
+
   return (
     <>
-      <div className="guide-dock" hidden={open}>
-        <button ref={opener} type="button" className="guide-open" aria-haspopup="dialog" aria-expanded={open} onClick={() => setOpen(true)}>
-          问讲解员
-        </button>
-      </div>
+      <nav className="guide-dock walk" aria-label="换一站" hidden={open}>
+        {cell(prev, 'prev')}
+        {sampleQuestions ? (
+          <button
+            ref={opener}
+            type="button"
+            className="guide-open"
+            aria-haspopup="dialog"
+            aria-expanded={open}
+            onClick={() => {
+              setOpen(true);
+              ask();
+            }}
+          >
+            问讲解员
+          </button>
+        ) : (
+          <span />
+        )}
+        {cell(next, 'next')}
+      </nav>
 
-      {open && (
+      {open && sampleQuestions && (
         <section ref={panel} className="guide-panel" role="dialog" aria-modal="false" aria-labelledby={titleId} tabIndex={-1}>
           <div className="guide-head">
             <h2 id={titleId}>问讲解员</h2>
@@ -50,34 +89,7 @@ export function GuidePanel({ figureName, sampleQuestions }: Props) {
               关闭
             </button>
           </div>
-
-          {!guide.available && (
-            <>
-              <p>讲解员现在还不能回答问题。下面是以后可以问的问题的样子。</p>
-              <p>等它能回答了，只依据这一站写下的内容回答，不扮演{figureName}。</p>
-            </>
-          )}
-
-          {sampleQuestions.length > 0 && (
-            <>
-              <h3>{guide.available ? '可以这样问' : '以后可以这样问'}</h3>
-              <ul className="guide-samples">
-                {sampleQuestions.map((question, i) => (
-                  <li key={i}>{question}</li>
-                ))}
-              </ul>
-            </>
-          )}
-
-          <form className="guide-form" onSubmit={(event) => event.preventDefault()}>
-            <label htmlFor={inputId}>你的问题</label>
-            <div className="guide-form-row">
-              <textarea id={inputId} rows={2} disabled={!guide.available} />
-              <button type="submit" disabled={!guide.available}>
-                发送
-              </button>
-            </div>
-          </form>
+          {body?.state === 'ready' ? <body.value.GuideBody figureName={figure.name} sampleQuestions={sampleQuestions} /> : <Waiting failed={body?.state === 'error'} />}
         </section>
       )}
     </>

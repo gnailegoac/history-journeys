@@ -190,6 +190,18 @@ const ROUTE: RouteStyle = {
     steep: [0.22, 0.6],
     patch: 0.24,
   },
+  // 路：颜色、宽度、虚线的长短都是定稿的样张的（scene/routetable.js 的 STYLE）。样张近看时把线加粗四成半，这里不分远近，一个宽度
+  roads: {
+    lines: {
+      ink: { colour: '#3a2d24', opacity: 0.92, widthPx: 1.45 },
+      now: { colour: '#b03a2a', opacity: 1, widthPx: 1.75 },
+      past: { colour: '#8d7d64', opacity: 0.9, widthPx: 0.95 },
+    },
+    halo: { colour: '#f4ecd6', opacity: 0.62, widthPx: 3.3 },
+    dashPx: [7, 5.5],
+    reducedExtraPx: 0.3,
+    liftM: 14,
+  },
 };
 
 // ---------------------------------------------------------------- 合起来

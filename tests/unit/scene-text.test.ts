@@ -1,11 +1,13 @@
 // 从场景数据生成的文字和查询的单元测试：某一节有哪些东西，题签指在哪、写什么字，远处怎么说，
-// 沙盘旁边的说明，凭据里“沙盘上的东西”一栏。用的是几组测试共用的那座小沙盘（tests/support/fixtureScene.ts）。
+// 沙盘旁边的说明，凭据里“沙盘上的东西”一栏。用的是几组测试共用的那座小沙盘（tests/support/fixtureScene.ts）；
+// 全程沙盘那一支用校验规则的那座小样本；最后把 content/ 里真的场景（两层的沙盘）都过一遍。
 
 import { describe, expect, it } from 'vitest';
-import type { SceneFarPlace, SceneFrame, SceneStrip, StopScene } from '../../src/domain/scene';
+import type { RouteScene, SceneFarPlace, SceneFrame, SceneStrip, StopScene, TableScene } from '../../src/domain/scene';
+import { coordsOf } from '../../src/domain/sceneGeoRoute';
 import { stripPoint } from '../../src/domain/sceneStripPoint';
-import { NOTE_BRIEF_MAX, NOTE_SHORT_MAX, existsAt, farSay, reliefSay, sceneRegister, sectionHeadings, sectionInfo, stripTexts, thingsAt } from '../../src/domain/sceneText';
-import type { LngLat } from '../../src/domain/types';
+import { NOTE_BRIEF_MAX, NOTE_SHORT_MAX, existsAt, farSay, farSayFrom, reliefSay, sceneRegister, sectionHeadings, sectionInfo, stripTexts, thingsAt } from '../../src/domain/sceneText';
+import type { LngLat, Source } from '../../src/domain/types';
 import { FIXTURE_HEADINGS, FIXTURE_M, fixturePoint, fixtureScene, fixtureSources } from '../support/fixtureScene';
 
 const [FIRST, SECOND] = FIXTURE_HEADINGS;
@@ -490,24 +492,227 @@ describe('sceneRegister', () => {
   });
 });
 
+// ---------------------------------------------------------------- 全程沙盘
+// 同一套函数，交给它一座全程沙盘（场景文件里写着 "level": "route"）。用的是校验规则那座合格的小样本
+// （tests/content/fixtures/good/figures/demo/scenes/route.json）：三站，三趟路四截，一处远处，一个裁了角的湖。
+
+const routeSamples = import.meta.glob<string>('../content/fixtures/good/figures/demo/scenes/route.json', { query: '?raw', import: 'default', eager: true });
+const ROUTE_SAMPLE = Object.values(routeSamples)[0];
+
+/** 拿一份全程沙盘的小样本来改。 */
+function routeWith(change: (scene: RouteScene) => void = () => {}): RouteScene {
+  const scene = JSON.parse(ROUTE_SAMPLE) as RouteScene;
+  change(scene);
+  return scene;
+}
+
+describe('全程沙盘：题签（stripTexts）', () => {
+  it('站的地名带着它是哪几站；水名是河、湖、只染水色的水和海；指着远处的是远处；别的地方没有 stops 这一项', () => {
+    const scene = routeWith();
+    expect(stripTexts(scene, '全程', 'ancient')).toEqual([
+      { id: 's-river', text: '示例城', tone: 'place', stops: ['river'] },
+      { id: 's-pass', text: '南山口', tone: 'place', stops: ['pass'] },
+      { id: 's-port', text: '东港', tone: 'place', stops: ['port'] },
+      { id: 's-long', text: '长河', tone: 'water' },
+      { id: 's-sea', text: '海', tone: 'water' },
+    ]);
+    expect(stripTexts(scene, '到示例城', 'ancient')[0]).toEqual({ id: 's-far', text: '北都', tone: 'far' });
+    const last = stripTexts(scene, '到东港', 'ancient');
+    expect(last.map((t) => `${t.text} ${t.tone}`)).toEqual(['南山口 place', '东港 place', '南溪 water', '镜湖 water', '大泽 water', '南岭 place', '海 water']);
+    // 南岭是地名点，不是站：没有 stops 这一项（不是空的一串）
+    expect(last[5]).toEqual({ id: 's-ridge', text: '南岭', tone: 'place' });
+    expect('stops' in last[5]).toBe(false);
+  });
+
+  it('一个地方是两站（杭州那样）：两站都带着，按场景里写的先后；stops 写成空的就当没有', () => {
+    const twice = routeWith((s) => (s.places[0].stops = ['river', 'port']));
+    expect(stripTexts(twice, '全程', 'ancient')[0].stops).toEqual(['river', 'port']);
+    const none = routeWith((s) => (s.places[0].stops = []));
+    expect('stops' in stripTexts(none, '全程', 'ancient')[0]).toBe(false);
+  });
+
+  it('选今天的名字：写了 modern 的换，没写的不换；带着哪几站不变', () => {
+    const scene = routeWith();
+    expect(stripTexts(scene, '全程', 'modern').map((t) => t.text)).toEqual(['示例市', '南山口', '东港市', '长河', '海']);
+    expect(stripTexts(scene, '全程', 'modern')[0].stops).toEqual(['river']);
+    expect(stripTexts(scene, '到示例城', 'modern')[0].text).toBe('北都市');
+  });
+
+  it('站点沙盘的题签没有 stops 这一项', () => {
+    for (const heading of FIXTURE_HEADINGS) for (const strip of stripTexts(fixtureScene(), heading, 'ancient')) expect(Object.keys(strip)).toEqual(['id', 'text', 'tone']);
+  });
+});
+
+describe('全程沙盘：远处（farSayFrom）和山高（reliefSay）', () => {
+  it('从题签指的那一点量，不从沙盘的原点量：定州在路进沙盘的那一点往北约 14 公里', () => {
+    expect(farSayFrom([114.946, 38.395], { at: [115.0, 38.51], gloss: '今河北定州' })).toBe('往北约 14 公里（今河北定州）');
+    // 同一处远处，要是从苏轼全程沙盘的原点量，是往北一千多公里：不是这句话
+    expect(farSayFrom([112.25, 28.25], { at: [115.0, 38.51] })).toBe('往北约 1170 公里');
+  });
+
+  it('球面上量：沿经线一度是 111.19 公里；赤道上沿纬线一度也是；北纬 60 度上沿纬线一度是一半', () => {
+    expect(farSayFrom([110, 30], { at: [110, 31] })).toBe('往北约 110 公里');
+    expect(farSayFrom([110, 31], { at: [110, 30] })).toBe('往南约 110 公里');
+    expect(farSayFrom([110, 0], { at: [111, 0] })).toBe('往东约 110 公里');
+    expect(farSayFrom([111, 0], { at: [110, 0] })).toBe('往西约 110 公里');
+    expect(farSayFrom([10, 60], { at: [11, 60] })).toBe('往东约 56 公里');
+    // 沿经线 0.5 度是 55.6 公里：不到 100 公里取整公里
+    expect(farSayFrom([110, 30], { at: [110, 30.5] })).toBe('往北约 56 公里');
+  });
+
+  it('八个方位词、括注的写法和站点沙盘的一样；同一点是 0 公里', () => {
+    expect(farSayFrom([110, 30], { at: [111, 31] })).toBe('往东北约 145 公里');
+    expect(farSayFrom([110, 30], { at: [109, 29] })).toBe('往西南约 145 公里');
+    expect(farSayFrom([110, 30], { at: [111, 29], gloss: ' 今某地 ' })).toBe('往东南约 145 公里（今某地）');
+    expect(farSayFrom([110, 30], { at: [109, 31], gloss: '  ' })).toBe('往西北约 145 公里');
+    expect(farSayFrom([110, 30], { at: [110, 30] })).toBe('往北约 0 公里');
+  });
+
+  it('矮山多夸：两个数是 highTimes 和 lowTimes', () => {
+    expect(reliefSay({ kind: 'low-hills-more', lowBelowM: 300, lowTimes: 25, power: 0.6, highTimes: 8 })).toEqual({
+      full: '山的高度夸大了约 8 到 25 倍，矮山夸得多、高山夸得少',
+      short: '山高夸大 8 到 25 倍',
+    });
+    expect(reliefSay(routeWith().frame.relief).short).toBe('山高夸大 12 到 25 倍');
+  });
+});
+
+describe('全程沙盘：沙盘旁边的说明（sectionInfo）', () => {
+  const SIZES = '山的高度夸大了约 12 到 25 倍，矮山夸得多、高山夸得少；河和路都画宽了，不按比例。';
+  const RECIPE_NOTE = '平地抹平了，山的位置和形状是今天的。路没到的西南角留白。';
+
+  it('头一节（全程）：路都画着，每一截各算一样；三种写法里说的是“平地抹平”、highTimes 到 lowTimes 两个数、“河和路都画宽了”', () => {
+    expect(sectionInfo(routeWith(), '全程')).toEqual({
+      section: '全程',
+      date: '示例三年到五年',
+      line: '示例先生走过的三站。实线是他写到过的路，虚线只知道两头。',
+      note: {
+        short: '南溪、新渠、镜湖的西南角等 7 样是示意；平地抹平；山高夸大 12 到 25 倍；河和路都画宽了',
+        brief: '7 样是示意；平地抹平；山高夸大 12 到 25 倍；河画宽了',
+        // 先是水（河、从湖面里裁掉的角、只染水色的水），再是路，最后是抹成海的地方；explain 点的 recipe 不印第二遍
+        lines: ['南溪、新渠、镜湖的西南角、大泽、示例四年示例城到南山口的水路等 7 样是示意。', RECIPE_NOTE, '海岸是照今天画的，当时差多少没有查。', SIZES],
+      },
+      far: [],
+    });
+  });
+
+  it('看路的一节：后面各站的路还没有画，不算；远处从题签指的那一点量；explain 点到一趟路，印的是它各截的 note', () => {
+    expect(sectionInfo(routeWith(), '到示例城')).toEqual({
+      section: '到示例城',
+      date: '示例三年春',
+      line: '从北都往西南，到示例城。',
+      note: {
+        short: '南溪、新渠、镜湖的西南角等 5 样是示意；平地抹平；山高夸大 12 到 25 倍；河和路都画宽了',
+        brief: '5 样是示意；平地抹平；山高夸大 12 到 25 倍；河画宽了',
+        lines: ['南溪、新渠、镜湖的西南角、大泽、东边的海岸是示意。', RECIPE_NOTE, '从北都来的路是照《行记》画的。', '北都在这块沙盘的北边外面。', SIZES],
+      },
+      far: [{ id: 'far-north', name: '北都', say: '往北约 80 公里（今北都市）' }],
+    });
+  });
+
+  it('一共几样，一节一节多起来：5、6、7；头一节是全部 7 样', () => {
+    const count = (heading: string) => Number(/^(\d+) 样/.exec(sectionInfo(routeWith(), heading).note.brief)?.[1]);
+    expect(['全程', '到示例城', '到南山口', '到东港'].map(count)).toEqual([7, 5, 6, 7]);
+  });
+
+  it('explain 点到的一趟路，它的各截排在最前面；按正文摆的那一截不算示意，写了 unsure 才算一部分示意', () => {
+    expect(sectionInfo(routeWith(), '到南山口').note.lines[0]).toBe('示例四年示例城到南山口的水路、南溪、新渠、镜湖的西南角、大泽等 6 样是示意。');
+    expect(sectionInfo(routeWith(), '到东港').note.lines[0]).toBe('示例五年溪口到东港的水路、镜湖的西南角、东边的海岸、南溪、新渠等 7 样是示意。');
+    const partly = routeWith((s) => (s.roads.journeys[2].parts[0].unsure = '过山的山口'));
+    expect(sectionInfo(partly, '到东港').note.lines[0]).toBe('示例五年溪口到东港的水路、镜湖的西南角、东边的海岸、南溪，还有示例五年南山口到溪口的路的过山的山口，等 8 样是示意。');
+    expect(sectionInfo(partly, '到东港').note.short).toBe('示例五年南山口到溪口的路的细节等 8 样是示意；平地抹平；山高夸大 12 到 25 倍；河和路都画宽了');
+    // 前一节这趟路还没有画：不算
+    expect(sectionInfo(partly, '到南山口').note.brief).toMatch(/^6 样是示意；/);
+  });
+
+  it('展开的说明：一趟路各截的 note 按先后，裁掉的角、抹成海的地方、没有画的东西（用 why）、地形，都印；同一句话只印一遍', () => {
+    expect(sectionInfo(routeWith(), '到东港').note.lines.slice(2, -1)).toEqual([
+      '溪口到东港的路只知道两头，画成虚线。',
+      '镜湖的西南角当时还是陆地，裁掉了。',
+      '东边的一小块陆地是后来才有的，抹成了海。',
+      '今天的水库当时没有，沙盘上没有画。',
+      '山的位置和形状是今天的。',
+    ]);
+    // 两截都写了 note：照先后各印一句；两截写的是同一句话：只印一遍
+    const both = routeWith((s) => (s.roads.journeys[2].parts[0].note = '南山口到溪口要翻山。'));
+    expect(sectionInfo(both, '到东港').note.lines.slice(2, 4)).toEqual(['南山口到溪口要翻山。', '溪口到东港的路只知道两头，画成虚线。']);
+    const same = routeWith((s) => (s.roads.journeys[2].parts[0].note = s.roads.journeys[2].parts[1].note));
+    expect(sectionInfo(same, '到东港').note.lines).toHaveLength(8);
+    // 后一节再点前面的一趟路、海面、海岸：也照点的先后印
+    const again = routeWith((s) => s.sections[3].explain.push('j-pass', 'levels', 'coast'));
+    expect(sectionInfo(again, '到东港').note.lines.slice(-4, -1)).toEqual(['到南山口的路只知道两头，画成虚线。', '海面是一个平面。海岸、湖和河是照线画上去的。', '海岸是照今天画的，当时差多少没有查。']);
+  });
+
+  it('远处：这一节的题签指到了才有；题签没写 at 的量不了，跳过去', () => {
+    expect(sectionInfo(routeWith(), '到南山口').far).toEqual([]);
+    const moved = routeWith((s) => (s.strips.find((strip) => strip.id === 's-far')!.at = [112, 31.4]));
+    expect(sectionInfo(moved, '到示例城').far[0].say).toBe('往北约 11 公里（今北都市）');
+    const bare = routeWith((s) => delete s.strips.find((strip) => strip.id === 's-far')!.at);
+    expect(sectionInfo(bare, '到示例城').far).toEqual([]);
+  });
+
+  it('recipe 没有写 note 时（校验不让这样），地形修整过这一句也不缺；没有这一小节就报错；不改传进来的场景', () => {
+    expect(sectionInfo(routeWith((s) => delete s.terrain.recipe.note), '全程').note.lines[1]).toBe('平地抹平了，山照原样。');
+    expect(() => sectionInfo(routeWith(), '到北都')).toThrow('没有“到北都”这一小节');
+    const scene = routeWith();
+    for (const heading of sectionHeadings(scene)) sectionInfo(scene, heading);
+    expect(scene).toEqual(routeWith());
+  });
+});
+
+describe('全程沙盘：凭据里“沙盘上的东西”（sceneRegister）', () => {
+  it('海面、海岸、从湖面里裁掉的角各是一项；一趟路的每一截是一项，id 是“这一趟/第几截”；出处用场景自己的 sources', () => {
+    const scene = routeWith();
+    const register = sceneRegister(scene, scene.sources);
+    expect(register.groups.map((group) => `${group.label}：${group.entries.map((entry) => entry.id).join(' ')}`)).toEqual([
+      '真的：terrain p-ridge',
+      '今天的位置：levels coast long mirror p-river p-pass p-port far-north',
+      '按正文摆的：j-river/1 j-port/1',
+      '示意的：recipe sea-east south-stream cut mirror-sw marsh j-pass/1 j-port/2',
+      '点缀：',
+    ]);
+    const names = new Map(register.groups.flatMap((group) => group.entries.map((entry) => [entry.id, entry.name] as const)));
+    expect(names.get('levels')).toBe('海面');
+    expect(names.get('coast')).toBe('海岸');
+    expect(names.get('j-port/2')).toBe('示例五年溪口到东港的水路');
+    const part = register.groups[3].entries.find((entry) => entry.id === 'j-port/2')!;
+    expect(part.unsure).toBe('路线');
+    expect(part.basis).toBe(scene.roads.journeys[2].parts[1].basis);
+    const river = register.groups[2].entries[0];
+    expect(river.cites).toEqual(scene.roads.journeys[0].parts[0].sourceIds.map((id) => scene.sources.find((source) => source.id === id)!.cite));
+    expect(river.cites.length).toBeGreaterThan(0);
+    expect(register.notDrawn.map((item) => item.name)).toEqual(['水库']);
+    expect(register.credits).toEqual(scene.credits);
+  });
+});
+
 // ---------------------------------------------------------------- content/ 里真实的场景
 // 上面用的是假的小沙盘。这里把 content/ 里每个真的场景文件都过一遍：每一节都拼得出说明，每条题签都指得到一个点。
+// 站点沙盘和全程沙盘（写着 "level": "route" 的）都在里面；两层说法不一样的三处照各自的查。
+// 全程沙盘的镜头、题签摆不摆得下、说明印没印全，另有 tests/stage/route-views.test.ts。
 
+const BOM = String.fromCharCode(0xfeff);
+const parse = <T>(raw: string): T => JSON.parse(raw.startsWith(BOM) ? raw.slice(1) : raw) as T;
 const sceneTexts = import.meta.glob<string>('/content/figures/*/scenes/*.json', { query: '?raw', import: 'default', eager: true });
 const stopTexts = import.meta.glob<string>('/content/figures/*/stops/*.json', { query: '?raw', import: 'default', eager: true });
-// 全程沙盘（写着 "level": "route" 的）不在这里：沙盘旁边那几句话的生成还没有接上它（接上的那一步把这个筛子拿掉）；
-// 它的镜头、题签和说明现在由 tests/stage/route-views.test.ts 查。
-const realScenes = Object.entries(sceneTexts)
-  .map(([path, raw]) => ({ path, scene: JSON.parse(raw.replace(/^\uFEFF/, '')) as StopScene }))
-  .filter(({ scene }) => (scene as { level?: string }).level !== 'route');
+const realScenes = Object.entries(sceneTexts).map(([path, raw]) => ({ path, scene: parse<TableScene>(raw) }));
+
+/** 两层的沙盘说法不一样的三处：地形修整了哪里（一句话里的），第四样（一句话里的两种、展开的那一句里的）。 */
+function wordsOf(scene: TableScene): { recipe: string; short: string; brief: string; full: string } {
+  return scene.level === 'route'
+    ? { recipe: '平地抹平', short: '河和路都画宽了', brief: '河画宽了', full: '河和路都画宽了，不按比例。' }
+    : { recipe: '平地修整过', short: '模型和河都放大了', brief: '模型和河放大了', full: '都放大了' };
+}
 
 describe('content/ 里真实的场景', () => {
-  it('至少有一个场景文件', () => {
-    expect(realScenes.length).toBeGreaterThan(0);
+  it('至少有一个场景文件；两层的沙盘都有', () => {
+    expect(realScenes.filter(({ scene }) => scene.level !== 'route').length).toBeGreaterThan(0);
+    expect(realScenes.filter(({ scene }) => scene.level === 'route').length).toBeGreaterThan(0);
   });
 
   it('每一节都拼得出说明，四样都在；题记和时间是场景里写的', () => {
     for (const { path, scene } of realScenes) {
+      const words = wordsOf(scene);
       for (const section of scene.sections) {
         const info = sectionInfo(scene, section.heading);
         const label = `${path} 小节“${section.heading}”`;
@@ -516,19 +721,21 @@ describe('content/ 里真实的场景', () => {
         expect(info.note.lines[0], label).toMatch(/是示意。$|没有归在示意一类的。$/);
         expect(info.note.lines[1], label).toBe(scene.terrain.recipe.note);
         expect(info.note.lines[info.note.lines.length - 1], label).toContain(reliefSay(scene.frame.relief).full);
-        expect(info.note.lines[info.note.lines.length - 1], label).toContain('都放大了');
-        expect(info.note.short, label).toContain('平地修整过');
+        expect(info.note.lines[info.note.lines.length - 1], label).toContain(words.full);
+        expect(info.note.short, label).toContain(`；${words.recipe}；`);
         expect(info.note.short, label).toContain(reliefSay(scene.frame.relief).short);
-        expect(info.note.short, label).toContain('模型和河都放大了');
+        expect(info.note.short.endsWith(`；${words.short}`), label).toBe(true);
         expect(info.note.short, label).not.toContain('\n');
         // 沙盘旁边给这一句留的地方是定死的：栏宽时两行，栏窄时一行。超了就会被截掉。
         expect(info.note.short.length, label).toBeLessThanOrEqual(NOTE_SHORT_MAX);
-        expect(info.note.brief, label).toMatch(/是示意；平地修整过；/);
+        expect(info.note.brief, label).toContain(`是示意；${words.recipe}；`);
         expect(info.note.brief, label).toContain(reliefSay(scene.frame.relief).short);
-        expect(info.note.brief, label).toContain('模型和河放大了');
+        expect(info.note.brief.endsWith(`；${words.brief}`), label).toBe(true);
         expect(info.note.brief.length, label).toBeLessThanOrEqual(NOTE_BRIEF_MAX);
-        // explain 里点到的每一样，它的那句话都在展开的说明里。
-        expect(info.note.lines.length, label).toBeLessThanOrEqual(section.explain.length + 3);
+        // explain 里点到的每一样，它的那句话都在展开的说明里（全程沙盘上点到一趟路，是它的每一截各一句）。
+        const journeys = scene.level === 'route' ? scene.roads.journeys : [];
+        const most = section.explain.reduce((sum, id) => sum + (journeys.find((journey) => journey.id === id)?.parts.length ?? 1), 0);
+        expect(info.note.lines.length, label).toBeLessThanOrEqual(most + 3);
         for (const far of info.far) expect(far.say, label).toMatch(/^往(东|南|西|北|东南|西南|东北|西北)约 \d+ 公里/);
       }
     }
@@ -536,8 +743,11 @@ describe('content/ 里真实的场景', () => {
 
   it('每一节的每条题签都有字，都指得到沙盘里面或者边上的一个点', () => {
     for (const { path, scene } of realScenes) {
+      // 站点沙盘：照原点的纬度另算一遍（不用程序里的换算）。全程沙盘：圆锥投影，用 sceneGeoRoute 的换算，量的是沙盘里的米
       const frame = scene.frame;
       const kx = 111320 * Math.cos((frame.center[1] * Math.PI) / 180);
+      const scale = scene.level === 'route' ? scene.frame.scale : 1;
+      const local = scene.level === 'route' ? coordsOf(scene).toLocal : ([lng, lat]: LngLat): [number, number] => [(lng - frame.center[0]) * kx, -(lat - frame.center[1]) * 110950];
       for (const section of scene.sections) {
         const texts = stripTexts(scene, section.heading, 'ancient');
         expect(texts.map((t) => t.id), `${path} 小节“${section.heading}”`).toEqual(section.strips);
@@ -546,34 +756,68 @@ describe('content/ 里真实的场景', () => {
           const strip = scene.strips.find((s) => s.id === id);
           expect(text).not.toBe('');
           if (!strip) continue;
-          const [lng, lat] = stripPoint(scene, strip);
-          const x = (lng - frame.center[0]) * kx;
-          const z = -(lat - frame.center[1]) * 110950;
+          const [x, z] = local(stripPoint(scene, strip));
           const label = `${path} 题签“${id}”（${text}）`;
           // 指着远处的摆在边上，算出来的点可能差出去一丁点，放宽 1 米。
-          expect(x, label).toBeGreaterThanOrEqual(-frame.westM - 1);
-          expect(x, label).toBeLessThanOrEqual(frame.eastM + 1);
-          expect(z, label).toBeGreaterThanOrEqual(-frame.northM - 1);
-          expect(z, label).toBeLessThanOrEqual(frame.southM + 1);
+          expect(x, label).toBeGreaterThanOrEqual(-frame.westM / scale - 1);
+          expect(x, label).toBeLessThanOrEqual(frame.eastM / scale + 1);
+          expect(z, label).toBeGreaterThanOrEqual(-frame.northM / scale - 1);
+          expect(z, label).toBeLessThanOrEqual(frame.southM / scale + 1);
         }
       }
+    }
+  });
+
+  it('全程沙盘：是站的地名点，它的题签带着这几站，古名今名都一样；看路的一节里到的这一站一定带着；头一节里每一站都带着', () => {
+    for (const { path, scene } of realScenes) {
+      if (scene.level !== 'route') continue;
+      const stops = scene.sections.flatMap((section) => (section.stop ? [section.stop] : []));
+      expect(stops.length, path).toBeGreaterThan(0);
+      for (const section of scene.sections) {
+        for (const names of ['ancient', 'modern'] as const) {
+          for (const strip of stripTexts(scene, section.heading, names)) {
+            const place = scene.places.find((item) => item.id === scene.strips.find((s) => s.id === strip.id)?.of);
+            expect(strip.stops, `${path} ${section.heading} ${strip.id}`).toEqual(place?.stops);
+            if (strip.stops) expect(strip.tone).toBe('place');
+          }
+        }
+        if (section.stop) expect(stripTexts(scene, section.heading, 'ancient').flatMap((strip) => strip.stops ?? []), `${path} ${section.heading}`).toContain(section.stop);
+      }
+      const first = stripTexts(scene, scene.sections[0].heading, 'ancient').flatMap((strip) => strip.stops ?? []);
+      expect([...new Set(first)].sort(), path).toEqual([...stops].sort());
     }
   });
 
   it('凭据里的一栏：带类别和依据的东西一样不少，出处都对得出写法', () => {
     for (const { path, scene } of realScenes) {
       const stopPath = path.replace('/scenes/', '/stops/');
-      const sources = (JSON.parse(stopTexts[stopPath].replace(/^\uFEFF/, '')) as { sources: { id: string; basis: 'own-words' | 'record' | 'later'; cite: string }[] }).sources;
+      const sources = scene.level === 'route' ? scene.sources : parse<{ sources: Source[] }>(stopTexts[stopPath]).sources;
       const register = sceneRegister(scene, sources);
       const listed = register.groups.reduce((sum, group) => sum + group.entries.length, 0);
+      // 站点沙盘：地形、整理、水位、河岸的规矩四样，加上各样东西。
+      // 全程沙盘：地形、整理、海面、海岸四样，加上各样东西；从湖面里裁掉的角、一趟路的每一截各一项。
       const expected =
-        4 + scene.terrain.edits.length + scene.water.rivers.length + scene.water.rapids.length + scene.water.dry.length + scene.places.length + scene.things.length + scene.dressing.length + scene.far.length;
+        scene.level === 'route'
+          ? 4 +
+            scene.terrain.edits.length +
+            scene.water.rivers.length +
+            scene.water.lakes.length +
+            scene.water.lakes.filter((lake) => lake.except).length +
+            scene.water.washes.length +
+            scene.places.length +
+            scene.far.length +
+            scene.roads.journeys.reduce((sum, journey) => sum + journey.parts.length, 0)
+          : 4 + scene.terrain.edits.length + scene.water.rivers.length + scene.water.rapids.length + scene.water.dry.length + scene.places.length + scene.things.length + scene.dressing.length + scene.far.length;
       expect(listed, path).toBe(expected);
       for (const group of register.groups) {
         for (const entry of group.entries) {
           expect(entry.name, `${path} ${entry.id}`).not.toBe('');
           expect(entry.basis, `${path} ${entry.id}`).not.toBe('');
         }
+      }
+      // 全程沙盘的出处在场景文件自己的 sources 里：真的、今天的位置、按正文摆的三类，每一项都对得出至少一条写法
+      if (scene.level === 'route') {
+        for (const group of register.groups.slice(0, 3)) for (const entry of group.entries) expect(entry.cites.length, `${path} ${entry.id}`).toBeGreaterThan(0);
       }
       expect(register.notDrawn).toHaveLength(scene.notDrawn.length);
       expect(register.credits).toEqual(scene.credits);

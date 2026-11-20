@@ -14,21 +14,26 @@
 //   2 山：比着“比四周低处高出多少，再加两成海拔”分带——山脚赭石，山腰石绿，每条山脉自己排前头的山顶石青；
 //     顺着坡往下的细纹（皴），沟里深一点，山脊上提亮一点；
 //   3 留白的地方（recipe.blank）：空绢的颜色，海岸只留一道淡线，西边的边上先过一层淡花青的白；
+//     颜色跟着地势淡（地面的 keep），比地势先淡完，边是打散的：山谷先淡，山脊后淡；河跟着陆地一起淡；
 //   4 只染水色的水（washes）：一片化开的淡水色，没有岸线；
 //   5 河：两岸先留一道白；照今天画的河用深一点的花青，示意的河和运河淡一点；粗细照样式里按 weight 写的公里数；
+//     空着的一头（不接着别的河、不在湖里）慢慢收细；
 //   6 沙盘四边留出空绢；一点手工上色的不匀；
-//   7 海和湖：淡花青，离岸远了深一点，岸边留一道白（海岸几公里宽，湖岸不到一公里）。
-// 和样张不一样的四处：
+//   7 海和湖：淡花青，离岸远了深一点，岸边留一道白（海岸几公里宽，湖岸不到一公里）；
+//     河口上海的颜色，河的线穿过岸边那道白进海，再淡掉。
+// 和样张不一样的五处：
 //   海和湖是这里画进去的（样张是着色器现画的）：混色照样在线性的光里算，画出来和样张是一个颜色；
-//   山的颜色照整理过的地面（平原抹成缓坡以后的）上，不照今天的地形；
+//   山的颜色照整理过的地面（平原抹成缓坡以后的）上，不照今天的地形；留白那一步压过的地方照没压以前的上；
 //   每个点自己跳的那一点颗粒不要了（压成 JPEG 就糊了，还白占字节）；只染水色的水上面那几道水纹也不画；
-//   留白的边是场景里写的圈，抹开了的，不再用噪声打散。
+//   留白的边是场景里写的圈，西边的两条边由地面那边用噪声打散（src/stage/ground/route.ts 的 blankKeep），这里的颜色跟着它；
+//   水纹的标记离海岸远一些才有（样张贴着岸边那道白就画）。
 
 import type { RouteScene } from '../../../src/domain/scene';
 import type { FrameCoords } from '../../../src/domain/sceneGeo';
 import type { LngLat } from '../../../src/domain/types';
 import { clamp, fbm, hash2, hex, mix3, smoothstep } from '../../../src/stage/ground/num';
-import { routePictureSize } from '../../../src/stage/ground/route';
+import { curveInverse } from '../../../src/domain/sceneGeoRoute';
+import { BLANK_BLUR_M, keepAt, routePictureSize } from '../../../src/stage/ground/route';
 import type { RouteGround } from '../../../src/stage/ground/route';
 import type { Vec2, Vec3 } from '../../../src/stage/ground/types';
 import type { RouteRiverWidth, StageStyle } from '../../../src/stage/three/internal';
@@ -39,8 +44,37 @@ import type { TodayFeature } from '../../content/routeRules';
 const TRIAL_KM_PER_POINT = 2001 / 1812;
 const TRIAL_KM_PER_CELL = 3;
 
-/** 留白的圈，颜色从边上往里慢慢淡下去：把圈抹开这么多米。地势在圈的边线外面就收平了，颜色到圈里面才淡完。 */
-const BLANK_COLOUR_BLUR_M = 45_000;
+/**
+ * 留白的边上，颜色比地势先淡完。地势是从（打散以后的）边线外面约 75 公里起收、到边线收完的（地面的 keepAt）；
+ * 颜色在边线外面 COLOUR_GONE_KM 公里就已经是空绢了，再往外 COLOUR_FADE_KM 公里才上足——地势开始收以前颜色已经在淡。
+ * 哪里先淡是噪声和山形定的（山谷先淡，山脊后淡），最多前后挪 COLOUR_TORN_KM 公里。
+ * 2026-11-20 对着沙盘上的图改的：原来颜色比地势晚淡完，西边的高原收平的那一道坡上成了一条笔直的石青带、西南角一条赭石线。
+ */
+const COLOUR_GONE_KM = 16;
+const COLOUR_FADE_KM = 72;
+const COLOUR_TORN_KM = 20;
+/** 抹开了的“离留白多远”倒算回公里，只在这么多公里以内分得出远近。 */
+const BLANK_REACH_KM = 108;
+
+/** 河空着的一头在这么多公里里收细；一头离别的河的线不到 RIVER_JOIN_KM 就算接上了；离沙盘的边不到 RIVER_EDGE_KM 的不收。 */
+const RIVER_TAPER_KM = 45;
+const RIVER_JOIN_WIDTH = 0.5;
+const RIVER_END_OPEN = 0.2;
+const RIVER_END_AT_SEA = 0.42;
+const RIVER_JOIN_KM = 12;
+const RIVER_EDGE_KM = 90;
+/**
+ * 河口：离陆地 MOUTH_NARROW_KM 公里以外的海是“宽的海”，离宽的海也有这么远的海是“窄的海”（两岸相距不到三十公里上下的河口、水道）；
+ * 河头四周 MOUTH_SEED_KM 公里以内的窄海是漫的起点；漫出去 MOUTH_BLEND_KM 公里，或者离宽的海不到 MOUTH_OPEN_KM 公里，河的颜色换完成海的颜色。
+ */
+const MOUTH_NARROW_KM = 15;
+const MOUTH_SEED_KM = 30;
+const MOUTH_BLEND_KM = 130;
+const MOUTH_OPEN_KM = 22;
+/** 水纹离岸多远才画：把“是不是水”抹开这么多公里，再从 0.6 到 0.93 过渡——离岸十公里以内不画，五十公里以外画足。 */
+const RIPPLE_OFFSHORE_KM = 27;
+/** 只染水色的水里面，岸边的留白少上多少（1 是一点不上）。 */
+const WASH_SAND = 0.6;
 
 /** 海和湖的边在图上化开多宽（“是不是水”从 0.5 − 这个数到 0.5 + 这个数匀着过渡）：约一个点。 */
 const WATER_EDGE = 0.12;
@@ -124,11 +158,30 @@ function coverageOfEach(W: number, H: number, rings: Vec2[][]): Float32Array {
   return out;
 }
 
-/** 把一条折线按半宽（点）盖到栅格上，取最大值。坐标是“点”，和 coverage 一样。 */
-function stampLine(buf: Float32Array, W: number, H: number, pts: Vec2[], halfW: number): void {
+/**
+ * 把一条折线按半宽（点）盖到栅格上，取最大值。坐标是“点”，和 coverage 一样。
+ * taper 写了的话：head、tail 是这一头收到原来的几成（1 是不收），在 taper.len 个点的长度里慢慢收细——
+ * 河从山里出来是细的；到了海边的，收到和河口差不多宽，不留一个比河口还粗的圆头。
+ */
+function stampLine(buf: Float32Array, W: number, H: number, pts: Vec2[], halfW: number, taper?: { head: number; tail: number; len: number }): void {
+  // 每个点离两头各多远（沿着线量）
+  const along: number[] = [0];
+  for (let s = 1; s < pts.length; s++) along.push(along[s - 1] + Math.hypot(pts[s][0] - pts[s - 1][0], pts[s][1] - pts[s - 1][1]));
+  const total = along[along.length - 1];
+  const len = taper ? Math.min(taper.len, total * 0.45) : 0;
+  const widthAt = (d: number): number => {
+    if (!taper || len <= 0) return halfW;
+    let k = 1;
+    if (taper.head < 1) k = Math.min(k, taper.head + (1 - taper.head) * smoothstep(0, len, d));
+    if (taper.tail < 1) k = Math.min(k, taper.tail + (1 - taper.tail) * smoothstep(0, len, total - d));
+    return halfW * k;
+  };
   for (let s = 0; s < pts.length - 1; s++) {
     const [ax, ay] = pts[s];
     const [bx, by] = pts[s + 1];
+    // 这一段里宽度变不变（变的话每个点照它沿着线的位置算，线上的点再稀也是在 len 里收完）
+    const seg = along[s + 1] - along[s];
+    const even = widthAt(along[s]) === halfW && widthAt(along[s + 1]) === halfW && (len <= 0 || (along[s] >= len && total - along[s + 1] >= len));
     const r = halfW + 1;
     const x0 = Math.max(0, Math.floor(Math.min(ax, bx) - r));
     const x1 = Math.min(W - 1, Math.ceil(Math.max(ax, bx) + r));
@@ -143,7 +196,7 @@ function stampLine(buf: Float32Array, W: number, H: number, pts: Vec2[], halfW: 
         const py = y + 0.5 - ay;
         const t = clamp((px * dx + py * dy) / l2, 0, 1);
         const d = Math.hypot(px - dx * t, py - dy * t);
-        const c = clamp(halfW + 0.5 - d, 0, 1);
+        const c = clamp((even ? halfW : widthAt(along[s] + seg * t)) + 0.5 - d, 0, 1);
         const i = y * W + x;
         if (c > buf[i]) buf[i] = c;
       }
@@ -215,6 +268,44 @@ function minFilter(src: Float32Array, W: number, H: number, r: number, sign = 1)
   return out;
 }
 
+/**
+ * 每个点离最近的一个“是”的点多远（单位是点；横竖走一步算 1，斜着走一步算 1.4 上下，来回扫两遍的近似算法）。
+ * 一个“是”的点也没有的话，处处是一个很大的数。
+ */
+function distanceTo(W: number, H: number, is: (t: number) => boolean): Float32Array {
+  const d = new Float32Array(W * H);
+  const A = 1;
+  const B = 4 / 3;
+  for (let t = 0; t < d.length; t++) d[t] = is(t) ? 0 : 1e9;
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      const t = y * W + x;
+      let v = d[t];
+      if (x > 0) v = Math.min(v, d[t - 1] + A);
+      if (y > 0) {
+        v = Math.min(v, d[t - W] + A);
+        if (x > 0) v = Math.min(v, d[t - W - 1] + B);
+        if (x < W - 1) v = Math.min(v, d[t - W + 1] + B);
+      }
+      d[t] = v;
+    }
+  }
+  for (let y = H - 1; y >= 0; y--) {
+    for (let x = W - 1; x >= 0; x--) {
+      const t = y * W + x;
+      let v = d[t];
+      if (x < W - 1) v = Math.min(v, d[t + 1] + A);
+      if (y < H - 1) {
+        v = Math.min(v, d[t + W] + A);
+        if (x < W - 1) v = Math.min(v, d[t + W + 1] + B);
+        if (x > 0) v = Math.min(v, d[t + W - 1] + B);
+      }
+      d[t] = v;
+    }
+  }
+  return d;
+}
+
 /** 把一条折线加密成顺滑的线（Catmull-Rom，过每一个写出来的点）。step 是大约的点距，和 pts 一个单位。 */
 export function densify(pts: Vec2[], step: number): Vec2[] {
   const out: Vec2[] = [];
@@ -236,17 +327,6 @@ export function densify(pts: Vec2[], step: number): Vec2[] {
   }
   out.push([pts[pts.length - 1][0], pts[pts.length - 1][1]]);
   return out;
-}
-
-/** 一点在不在一圈线里面（照经纬度直接算）。 */
-function insideRing(lng: number, lat: number, ring: readonly LngLat[]): boolean {
-  let inside = false;
-  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
-    const a = ring[i];
-    const b = ring[j];
-    if (a[1] > lat !== b[1] > lat && lng < ((b[0] - a[0]) * (lat - a[1])) / (b[1] - a[1]) + a[0]) inside = !inside;
-  }
-  return inside;
 }
 
 // ---------------------------------------------------------------- 平地上的大块（样张的）
@@ -373,12 +453,95 @@ export function paintRoute(input: RoutePaintInput): RoutePainted {
   for (let i = 0; i < wat.length; i++) wat[i] = Math.max(1 - land[i], lake[i] * land[i]);
   const sdf = gauss(wat, W, H, points(1.0));
   const wide = gauss(wat, W, H, points(9));
-  // 河：照今天画的一层，淡的一层（示意的河、运河）
+  const far = gauss(wat, W, H, RIPPLE_OFFSHORE_KM / kmPerPoint);
+  // 河：照今天画的一层，淡的一层（示意的河、运河）。线还是 riverPaths() 的线，一个点也不挪；只是空着的一头收细
   const riv = new Float32Array(W * H);
   const rivPale = new Float32Array(W * H);
-  for (const river of riverPaths(scene, features, coords, style)) {
-    for (const line of river.lines) stampLine(river.pale ? rivPale : riv, W, H, line.map(localToPoint), river.widthKm / kmPerPoint / 2);
+  const drawn =riverPaths(scene, features, coords, style).flatMap((river) => river.lines.filter((line) => line.length >= 2).map((line) => ({ river, pts: line.map(localToPoint) })));
+  const joinPts = RIVER_JOIN_KM / kmPerPoint;
+  const edgePts = RIVER_EDGE_KM / kmPerPoint;
+  const pointAt = (p: Vec2): number => clamp(Math.floor(p[1]), 0, H - 1) * W + clamp(Math.floor(p[0]), 0, W - 1);
+  /** 这一头是不是到了海边（十几公里以内有海）。 */
+  const atSea = (p: Vec2): boolean => wide[pointAt(p)] > 0.08 && lakeIn[pointAt(p)] < 0.05;
+  /**
+   * 这一头收到原来的几成。接着别的河（十二公里以内有别的河的线）、在湖里或只染水色的水里、挨着沙盘的边：不收；
+   * 到了海边：收到 RIVER_END_AT_SEA（和河口差不多宽）；别的（河从山里出来的那一头，断在平地上的那一头）：收到 RIVER_END_OPEN。
+   */
+  const endWidth = (self: number, p: Vec2): number => {
+    if (p[0] < edgePts || p[0] > W - edgePts || p[1] < edgePts || p[1] > H - edgePts) return 1;
+    const t = pointAt(p);
+    if (lake[t] > 0.3 || wash[t] > 0.15) return 1;
+    for (let o = 0; o < drawn.length; o++) {
+      // 比自己细一半还多的不算接上：大江的头挨着运河，不是大江接着往下流
+      if (o === self || drawn[o].river.widthKm < drawn[self].river.widthKm * RIVER_JOIN_WIDTH) continue;
+      const other = drawn[o].pts;
+      for (let s = 0; s < other.length - 1; s++) {
+        const [ax, ay] = other[s];
+        const dx = other[s + 1][0] - ax;
+        const dy = other[s + 1][1] - ay;
+        const u = clamp(((p[0] - ax) * dx + (p[1] - ay) * dy) / (dx * dx + dy * dy || 1e-9), 0, 1);
+        if (Math.hypot(p[0] - ax - dx * u, p[1] - ay - dy * u) < joinPts) return 1;
+      }
+    }
+    return atSea(p) ? RIVER_END_AT_SEA : RIVER_END_OPEN;
+  };
+  drawn.forEach(({ river, pts }, self) => {
+    const taper = { head: endWidth(self, pts[0]), tail: endWidth(self, pts[pts.length - 1]), len: RIVER_TAPER_KM / kmPerPoint };
+    stampLine(river.pale ? rivPale : riv, W, H, pts, river.widthKm / kmPerPoint / 2, taper);
+  });
+  // 河口。今天的岸线把长江、钱塘江、珠江的下游画成窄窄的一条海，河的线到它的头上就完了；窄的海整个落在岸边那道白里，
+  // 看上去像河在陆地上断了、一条白路通到海。所以：从到了海边的河头起，顺着窄的海（两岸相距不到二十几公里）一路漫出去，
+  // 漫到的地方不上岸边那道白，上水的颜色——挨着河头是河的颜色，漫出去 MOUTH_BLEND_KM 公里慢慢换成海的颜色
+  const narrowR = Math.max(2, Math.round(MOUTH_NARROW_KM / kmPerPoint));
+  const sea = new Float32Array(W * H);
+  for (let i = 0; i < sea.length; i++) sea[i] = 1 - land[i];
+  // 离陆地够远的海是“宽的海”；离宽的海比这还远的海是“窄的海”（照距离量，边是圆的）
+  const toLand = distanceTo(W, H, (t) => sea[t] <= 0.5);
+  const toWide = distanceTo(W, H, (t) => sea[t] > 0.5 && toLand[t] > narrowR);
+  const spread = new Int32Array(W * H).fill(-1); // 从河头漫到这里走了几个点；−1 是没漫到
+  const reachPale = new Uint8Array(W * H);
+  const queue = new Int32Array(W * H);
+  let head = 0;
+  let tail = 0;
+  const narrowAt = (t: number): boolean => sea[t] > 0.5 && toWide[t] > narrowR + 1;
+  const seedR = Math.round(MOUTH_SEED_KM / kmPerPoint);
+  for (const { river, pts } of drawn) {
+    for (const p of [pts[0], pts[pts.length - 1]]) {
+      if (!atSea(p)) continue;
+      const cx = Math.floor(p[0]);
+      const cy = Math.floor(p[1]);
+      for (let y = Math.max(0, cy - seedR); y <= Math.min(H - 1, cy + seedR); y++) {
+        for (let x = Math.max(0, cx - seedR); x <= Math.min(W - 1, cx + seedR); x++) {
+          const t = y * W + x;
+          if (spread[t] >= 0 || !narrowAt(t) || Math.hypot(x - cx, y - cy) > seedR) continue;
+          spread[t] = 0;
+          reachPale[t] = river.pale ? 1 : 0;
+          queue[tail++] = t;
+        }
+      }
+    }
   }
+  while (head < tail) {
+    const t = queue[head++];
+    const x = t % W;
+    for (const o of [x > 0 ? t - 1 : -1, x < W - 1 ? t + 1 : -1, t - W, t + W]) {
+      if (o < 0 || o >= spread.length || spread[o] >= 0 || !narrowAt(o)) continue;
+      spread[o] = spread[t] + 1;
+      reachPale[o] = reachPale[t];
+      queue[tail++] = o;
+    }
+  }
+  const mouthIn = new Float32Array(W * H);
+  const mouthRiver = new Float32Array(W * H);
+  const blend = MOUTH_BLEND_KM / kmPerPoint;
+  for (let i = 0; i < spread.length; i++) {
+    if (spread[i] < 0) continue;
+    mouthIn[i] = 1;
+    // 河的颜色：顺着河口往外慢慢换成海的颜色；快到宽的海了也换完
+    mouthRiver[i] = (1 - smoothstep(0.1 * blend, blend, spread[i])) * smoothstep(narrowR + 1, narrowR + 1 + MOUTH_OPEN_KM / kmPerPoint, toWide[i]);
+  }
+  const mouth = gauss(mouthIn, W, H, points(1.2));
+  const mouthTone = gauss(mouthRiver, W, H, points(1.2));
   // 离水近不近（水边的草色、岸边的留白用）
   const anyWater = new Float32Array(W * H);
   for (let i = 0; i < anyWater.length; i++) anyWater[i] = Math.max(wat[i], riv[i], rivPale[i], wash[i] * 0.7);
@@ -386,30 +549,31 @@ export function paintRoute(input: RoutePaintInput): RoutePainted {
   const bank = gauss(anyWater, W, H, points(1.6));
 
   // ---------- 备料：地面网格上的东西
-  const hp = ground.h;
-  const story = new Float32Array(N); // 1 是路到了的地方，0 是留白
+  // 上色照的海拔：留白那一步压过的地方照没压以前的算（样张也是）。照压过的算，高原收平的那一道坡自己成了一座“山”，
+  // 坡顶上一条石青、坡脚一条赭石，顺着留白的边画成一道线
+  const hp = new Float32Array(N);
+  const story = new Float32Array(N); // 离（打散以后的）留白的边线多少公里：正的在外面，负的在留白里面；一百一十公里以外不再分
   const loess = new Float32Array(N); // 西北的黄土高原：偏黄，少上石绿
   const edge = new Float32Array(N); // 离沙盘的边多少公里
   const mistW = new Float32Array(N); // 是不是在西边（留白的边在西边带一点淡花青，像雾）
-  const blank = scene.terrain.recipe.blank.filter((ring) => ring.length >= 3);
-  const outside = new Float32Array(N);
   for (let j = 0; j < nz; j++) {
     const z = ground.z0 + j * cell;
     for (let i = 0; i < nx; i++) {
       const x = ground.x0 + i * cell;
       const k = j * nx + i;
       const [lng, lat] = coords.toLngLat(x, z);
-      outside[k] = blank.some((ring) => insideRing(lng, lat, ring)) ? 0 : 1;
+      const soft = ground.blank[k];
+      const keep = keepAt(soft);
+      hp[k] = keep < 1 ? scene.frame.datumM + curveInverse(scene.frame.relief, (ground.y[k] / keep) * scale) : ground.h[k];
+      // 抹开 40 公里的那个数倒算回“离边线几公里”（照正态分布的近似式倒算；两头压在 ±110 公里）
+      const side = 2 * soft - 1;
+      const widths = Math.sqrt(-(Math.PI / 2) * Math.log(Math.max(1e-6, 1 - side * side)));
+      story[k] = clamp(((side < 0 ? -widths : widths) * BLANK_BLUR_M) / 1000, -BLANK_REACH_KM, BLANK_REACH_KM);
       mistW[k] = 1 - smoothstep(104.6, 106.2, lng);
       loess[k] = smoothstep(34.3, 35.3, lat) * (1 - smoothstep(111.6, 113.0, lng)) * smoothstep(350, 900, hp[k]);
       edge[k] = (Math.min(x - coords.x0, coords.x1 - x, z - coords.z0, coords.z1 - z) * scale) / 1000;
     }
   }
-  // 留白的边：颜色比地势晚一点才淡下去（地势先收平），边上就没有发白的浮雕。
-  // 地势从圈的边线外面约 75 公里起收，到边线收完（src/stage/ground/route.ts 的 blankKeep）；颜色抹开 45 公里，
-  // 从边线外面一点起慢慢淡，到圈里面约 60 公里淡完（样张的留白也是近一百公里宽的一条慢慢淡下去）
-  const soft = blank.length > 0 ? gauss(outside, nx, nz, BLANK_COLOUR_BLUR_M / (cell * scale)) : outside;
-  for (let k = 0; k < N; k++) story[k] = smoothstep(-0.08, 0.81, soft[k]);
   // 大尺度的随机（上色用）
   const n1 = new Float32Array(N);
   const n2 = new Float32Array(N);
@@ -487,12 +651,14 @@ export function paintRoute(input: RoutePaintInput): RoutePainted {
   };
   const P = route.bands;
   const MIST = mix3(C.mist, C.sea, 0.38); // 淡花青的白
-  const WASH = mix3(C.sea, C.seaDeep, 0.4);
+  const WASH = mix3(C.sea, C.seaDeep, 0.8); // 只染水色的水：比海岸的浅水深一点，近湖的颜色（原来是 0.4，在平地上发灰发白）
   const STROKE_PALE: Vec3 = [250, 246, 228];
   const CREST_PALE: Vec3 = [255, 250, 232];
   const SEA = linear3(C.sea);
   const SEA_DEEP = linear3(C.seaDeep);
   const FOAM = linear3(C.ripple);
+  const RIVER = linear3(C.river);
+  const RIVER_SONG = linear3(C.riverSong);
 
   const colour = new Uint8Array(W * H * 3);
   const marks = new Uint8Array(W * H);
@@ -506,7 +672,16 @@ export function paintRoute(input: RoutePaintInput): RoutePainted {
       const h = sampleGrid(hp, fx, fy);
       const rel = sampleGrid(lr, fx, fy);
       const curv = sampleGrid(cv, fx, fy);
-      const st = sampleGrid(story, fx, fy);
+      // 留白的边：颜色比地势先淡完，边是打散的——山谷先淡，山脊后淡，再加一层噪声。st 是 1 的地方颜色上足，0 是空绢
+      const out = sampleGrid(story, fx, fy);
+      let st = 1;
+      if (out < BLANK_REACH_KM - 0.01) {
+        const later = clamp((fbm(xk / 34, yk / 34, 3, 331) - 0.5) * 2.6 + clamp(curv / 260, -0.5, 0.5), -1, 1);
+        const gone = COLOUR_GONE_KM - COLOUR_TORN_KM * later;
+        st = smoothstep(gone, gone + COLOUR_FADE_KM, out);
+      }
+      /** 陆地上画的东西（河、岸边的白）跟着陆地的颜色一起淡。 */
+      const shown = 0.03 + 0.97 * st;
       const lo = sampleGrid(loess, fx, fy);
       const ed = sampleGrid(edge, fx, fy);
       const a1 = sampleGrid(n1, fx, fy);
@@ -563,17 +738,19 @@ export function paintRoute(input: RoutePaintInput): RoutePainted {
       if (st < 0.999) {
         const mw = sampleGrid(mistW, fx, fy);
         const to = mw > 0 ? mix3(C.blank, MIST, mw * smoothstep(0.04, 0.4, st)) : C.blank;
-        col = mix3(col, to, (1 - smoothstep(0.1, 0.78, st)) * 0.97);
+        col = mix3(col, to, (1 - smoothstep(0.04, 0.96, st)) * 0.97);
       }
       const sd = sdf[t];
       if (st < 0.6 && sd > 0.06) col = mix3(col, C.shoreInk, smoothstep(0.1, 0.42, sd) * (1 - smoothstep(0.1, 0.6, st)) * 0.5);
       // 4 只染水色的水：一片化开的淡水色，没有岸线
-      if (mk > 0.02) col = mix3(col, WASH, smoothstep(0.08, 0.8, mk + (a2 - 0.5) * 0.25) * 0.8);
-      // 5 河：先在两岸留一道白，再上花青。示意的河淡一点、素一点
-      col = mix3(col, C.sand, clamp(bank[t] * 2.2, 0, 1) * 0.55 * st);
-      const rv = riv[t] * (0.08 + 0.92 * st);
+      const washed = mk > 0.02 ? smoothstep(0.08, 0.8, mk + (a2 - 0.5) * 0.25) : 0;
+      if (washed > 0) col = mix3(col, WASH, washed * 0.88);
+      // 5 河：先在两岸留一道白，再上花青。示意的河淡一点、素一点。留白的地方河跟着陆地一起淡掉
+      // 只染水色的水里面少留白（WASH_SAND）：照河岸那样留白，整片水色就盖成一块发灰的白了
+      col = mix3(col, C.sand, clamp(bank[t] * 2.2, 0, 1) * 0.55 * shown * (1 - WASH_SAND * washed));
+      const rv = riv[t] * shown;
       if (rv > 0) col = mix3(col, C.river, rv * 0.95);
-      const rs = rivPale[t];
+      const rs = rivPale[t] * shown;
       if (rs > 0) col = mix3(col, C.riverSong, rs * 0.92 * (1 - rv));
       // 6 四边留出空绢；一点手工上色的不匀
       const fade = 1 - smoothstep(10, 70 + a3 * 190, ed + (a1 - 0.5) * 50);
@@ -588,7 +765,9 @@ export function paintRoute(input: RoutePaintInput): RoutePainted {
       if (water > 0) {
         const li = lakeIn[t];
         const inLake = li > 0.015 ? 0.9 + 0.06 * smoothstep(0.45, 0.98, li) : 0;
-        const off = clamp(Math.max(wide[t], inLake), 0, 1);
+        // 河口：从河头漫到的窄海，当“离岸够远”，不上岸边那道白
+        const inMouth = mouth[t];
+        const off = clamp(Math.max(wide[t], inLake, 0.9 * inMouth), 0, 1);
         const deep = smoothstep(0.84, 1.0, off);
         // 湖里没有海岸那道几公里宽的白，只按软边留一道不到一公里的细白
         const fringe = Math.max(1 - smoothstep(0.5, 0.7, off), (1 - smoothstep(0.5, 0.72, sd)) * 0.8);
@@ -597,13 +776,31 @@ export function paintRoute(input: RoutePaintInput): RoutePainted {
           const tone = SEA[c] + (SEA_DEEP[c] - SEA[c]) * deep;
           wc[c] = tone + (FOAM[c] - tone) * fringe * 0.6;
         }
+        // 河口挨着河头的一段是河的颜色，往外慢慢换成海的颜色
+        const riverShare = mouthTone[t] * 0.9 * shown;
+        if (riverShare > 0) {
+          const to = reachPale[t] ? RIVER_SONG : RIVER;
+          for (let c = 0; c < 3; c++) wc[c] += (to[c] - wc[c]) * riverShare;
+        }
+        // 河的线穿过岸边那道白进海，离岸十来公里以后淡掉（湖里不画）
+        const through = inLake > 0 ? 0 : (1 - smoothstep(0.62, 0.92, wide[t])) * shown;
+        if (through > 0 && (riv[t] > 0 || rivPale[t] > 0)) {
+          const a = riv[t] * 0.95 * through;
+          const b = rivPale[t] * 0.92 * through * (1 - riv[t]);
+          for (let c = 0; c < 3; c++) {
+            wc[c] += (RIVER[c] - wc[c]) * a;
+            wc[c] += (RIVER_SONG[c] - wc[c]) * b;
+          }
+        }
         const lr0 = linear(r);
         const lg0 = linear(g);
         const lb0 = linear(b);
         r = screen(lr0 + (wc[0] - lr0) * water);
         g = screen(lg0 + (wc[1] - lg0) * water);
         b = screen(lb0 + (wc[2] - lb0) * water);
-        marks[t] = Math.round(clamp(water * smoothstep(0.52, 0.8, off) * (1 - FRINGE_ON_RIPPLE * fringe), 0, 1) * 255);
+        // 水纹：海上离岸十公里以内不画，五十公里以外画足（一道水纹有几十公里长，贴着岸画就压到岸上去了）；湖里照旧，离湖岸几公里起画
+        const offshore = Math.max(smoothstep(0.6, 0.93, far[t]), inLake > 0 ? smoothstep(0.52, 0.8, inLake) : 0);
+        marks[t] = Math.round(clamp(water * offshore * (1 - FRINGE_ON_RIPPLE * fringe), 0, 1) * 255);
       }
       const o = t * 3;
       colour[o] = clamp(Math.round(r), 0, 255);

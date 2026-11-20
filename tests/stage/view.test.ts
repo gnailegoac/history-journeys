@@ -61,7 +61,7 @@ const begun: { table: StopTable; signal: AbortSignal }[] = [];
 const finished: { args: Parameters<GroundPaintJob['finish']>; source: GroundPaintSource }[] = [];
 const terrainInputs: TerrainMeshInput[] = [];
 
-vi.mock('../../src/stage/overlay', () => ({ mountStrips: (): StripLayer => strips.mount() }));
+vi.mock('../../src/stage/overlay', async (original) => ({ ...(await original<typeof import('../../src/stage/overlay')>()), mountStrips: (): StripLayer => strips.mount() }));
 
 vi.mock('../../src/stage/three/kit', () => ({
   buildModels: (ctx: KitContext): ModelSet => (realKit ? realKit.buildModels(ctx) : kit.buildModels(ctx)),

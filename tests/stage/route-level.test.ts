@@ -1,7 +1,7 @@
 // 全程沙盘才用的那一块程序（src/stage/three/routeLevel.ts）和地形板为它添的三样（src/stage/three/terrainMesh.ts）。
 // 在 Node 里跑，不要浏览器。数都从真的函数、真的场景文件读，不在这里另写一份。
 //   先画好的地面怎么取：记号对得上就用；对不上照样用，在控制台里说一句；没有、取不到、大小不对就拒绝（全程沙盘不现画）。
-//   两个替身：水面的替身把“水纹怎么摆”“画布的像素比”转给地面的材质；云气的替身什么也不做；路现在是空的。
+//   两个替身：水面的替身把“水纹怎么摆”“画布的像素比”转给地面的材质；云气的替身什么也不做；路从这一块里转出去（路自己的测试在 route-kit.test.ts）。
 //   地形板：网格的疏密照样式（完整 198 × 224，减配粗 1.07 倍）；顶点不取附近的最低值；第二张图标的是水纹，着色器换了一段。
 //   站点沙盘的地形板一个字也没有变（不传那三样时）。
 
@@ -9,6 +9,7 @@ import { Mesh, ShaderLib, UniformsUtils, type IUniform, type Material, type Vect
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { routeNormals, routePictureSize } from '../../src/stage/ground/route';
 import type { GroundPaintSource } from '../../src/stage/three/groundPaint';
+import { buildRouteModels as kitRoads } from '../../src/stage/three/routeKit';
 import { buildRouteModels, routeGroundInputs, routeGroundPaint, routeMist, routeWater } from '../../src/stage/three/routeLevel';
 import { styleFor } from '../../src/stage/three/style';
 import { buildTerrainMesh, terrainGrid } from '../../src/stage/three/terrainMesh';
@@ -210,7 +211,7 @@ describe.each(keys)('%s', (key) => {
       mesh.dispose();
     });
 
-    it('水面的替身把“水纹怎么摆”“画布的像素比”转给地面的材质；云气的替身、空的路什么也不画', { timeout: 30_000 }, () => {
+    it('水面的替身把“水纹怎么摆”“画布的像素比”转给地面的材质；云气的替身什么也不画；路就是 routeKit.ts 的那一个函数', { timeout: 30_000 }, () => {
       const mesh = build('full');
       const water = routeWater(mesh.uniforms);
       expect(mesh.uniforms.uDense.value).toBe(0.5);
@@ -231,10 +232,7 @@ describe.each(keys)('%s', (key) => {
       mist.setFlood(1);
       mist.setStrength(0.4);
       expect(mist.group.children).toHaveLength(0);
-      const roads = buildRouteModels();
-      expect(roads.apply('全程', 0, 50_000)).toBe(false);
-      expect(roads.triangles()).toBe(0);
-      expect(roads.group.children).toHaveLength(0);
+      expect(buildRouteModels).toBe(kitRoads);
       mesh.dispose();
     });
   });

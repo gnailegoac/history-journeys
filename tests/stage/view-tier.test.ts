@@ -40,7 +40,7 @@ const KEY = 'su-shi/xuzhou';
 let kit = fakeKit(() => new Group());
 let strips = fakeStrips();
 
-vi.mock('../../src/stage/overlay', () => ({ mountStrips: (): StripLayer => strips.mount() }));
+vi.mock('../../src/stage/overlay', async (original) => ({ ...(await original<typeof import('../../src/stage/overlay')>()), mountStrips: (): StripLayer => strips.mount() }));
 vi.mock('../../src/stage/three/kit', () => ({ buildModels: (ctx: KitContext): ModelSet => kit.buildModels(ctx) }));
 vi.mock('../../src/stage/three/groundPaint', async (original) => ({
   ...(await original<typeof import('../../src/stage/three/groundPaint')>()),

@@ -11,6 +11,7 @@
 //   5 平原抹成缓坡（recipe 是 plain-smoothed），只动陆地；
 //   6 海拔过“矮山多夸”的曲线，除以沙盘的比例，得到沙盘里的高度；
 //   7 留白的圈（recipe.blank）里面，把夸大以后的高度压到 3%，再倒算回海拔，两样才对得上。
+//     西边的高原和西南角那两条边不照圈的直线切，用噪声打散、顺着山谷伸进来（blankKeep）。
 
 import { contentKey } from '../../domain/contentKey';
 import type { PlainSmoothed, RouteScene, RouteTerrain } from '../../domain/scene';
@@ -20,7 +21,7 @@ import type { LngLat } from '../../domain/types';
 import { gauss } from './blur';
 import { bilinear, gridOf } from './grid';
 import type { Grid } from './grid';
-import { clamp, smoothstep } from './num';
+import { clamp, fbm, smoothstep } from './num';
 import type { Dem, GroundSamplers } from './types';
 
 /** 第 4 步轻轻抹一下：抹开多少格。半格：0.04 度一格的地形文件抹这么多，山的样子和定稿的样张对得上。 */
@@ -55,6 +56,8 @@ export interface RouteGround {
   y: Float32Array;
   /** 是不是陆地：1 是，0 是海。 */
   land: Uint8Array;
+  /** 离留白多远（blankSoft 算的）：1 是离得远，0 是留白里面深处；这一格的高度留了多少是 keepAt(blank[k])。 */
+  blank: Float32Array;
 }
 
 /**
@@ -231,21 +234,80 @@ export function plainSlope(h: Float32Array, land: Uint8Array, recipe: PlainSmoot
 }
 
 /**
- * 留白：每个格点上夸大以后的高度留多少（1 是照常，BLANK_KEEP 是留白的地方）。
- * 圈里面是 0、外面是 1，抹开 BLANK_BLUR_M（40 公里），再从 0.5 到 0.97 匀着过渡：圈里面整个压平，
- * 圈的边线往外约 75 公里宽的一条慢慢收平（在那一条里，路到了的地方的山也跟着矮下来）。
- * 上色的工具也用它：留白的地方上空绢的颜色。
+ * 留白的边在西边打散：圈是场景里写的直线，照直线切，西边的高原和西南角就成了两道笔直的边。
+ * 所以东经 TORN_WEST_OF 以西，一个点算不算在圈里，不照它自己的位置，照它挪开一点以后的位置算；
+ * 挪多少是两层噪声定的（定稿的样张就是这样打散西边的，数是它的），山里的谷底再多挪一些：留白顺着山谷伸进来，山脊留在外面。
+ * 往东最多挪 TORN_EAST_DEG 度、往西最多 TORN_WEST_DEG 度（所以眉州以东的地势一米也不动）；南北最多 TORN_LAT_DEG 度。
+ * 台湾和吕宋的两圈在东边，不动。
  */
-export function blankKeep(scene: RouteScene, heights: Pick<RouteHeights, 'grid' | 'lngLat'>): Float32Array {
+const TORN_WEST_OF: [number, number] = [106.3, 107.7];
+const TORN_EAST_DEG = 0.4;
+const TORN_WEST_DEG = 0.6;
+const TORN_LAT_DEG = 0.6;
+/** 抹开以后再打散一遍，最多把那个数挪多少（在边线上；往两头慢慢不挪）。 */
+const TORN_AGAIN = 0.45;
+/** 谷底只算到这两条经线之间为止（往东慢慢不算）。 */
+const VALLEY_WEST_OF: [number, number] = [105.2, 106.2];
+
+/** 压到 limit 以内，不留平的一段：小的时候几乎不动，大了慢慢贴上去。 */
+const soften1 = (v: number, limit: number): number => limit * Math.tanh(v / limit);
+
+/**
+ * 离留白多远，抹开了的：圈里面是 0、外面是 1（西边的两条边先打散，见上），抹开 BLANK_BLUR_M（40 公里）。
+ * 0.5 在（打散以后的）边线上；边线以外一百公里上下才正好是 1，以内一百公里上下才正好是 0。
+ * heights 是第 1 到 4 步的结果（平原还没有抹）：山里的谷底照它量。
+ * 地势照它收平（keepAt），上色的工具照它把颜色淡下去（颜色比地势先淡完）。
+ */
+export function blankSoft(scene: RouteScene, heights: Pick<RouteHeights, 'grid' | 'lngLat' | 'h'>): Float32Array {
   const { nx, nz, cell } = heights.grid;
   const n = nx * nz;
   const rings = scene.terrain.recipe.blank.filter((ring) => ring.length >= 3).map(boxed);
   const keep = new Float32Array(n).fill(1);
   if (rings.length === 0) return keep;
-  for (let k = 0; k < n; k++) if (within(heights.lngLat[k * 2], heights.lngLat[k * 2 + 1], rings)) keep[k] = 0;
-  const soft = gauss(keep, nx, nz, BLANK_BLUR_M / (cell * scene.frame.scale));
-  for (let k = 0; k < n; k++) keep[k] = BLANK_KEEP + (1 - BLANK_KEEP) * smoothstep(0.5, 0.97, soft[k]);
-  return keep;
+  const cellM = cell * scene.frame.scale;
+  // 山里的谷底：比四周六十公里的平均低多少（只算七八百米以上的山里；盆地、平原不算）
+  const near = gauss(heights.h, nx, nz, 9000 / cellM);
+  const around = gauss(heights.h, nx, nz, 60_000 / cellM);
+  for (let k = 0; k < n; k++) {
+    let lng = heights.lngLat[k * 2];
+    let lat = heights.lngLat[k * 2 + 1];
+    const torn = 1 - smoothstep(TORN_WEST_OF[0], TORN_WEST_OF[1], lng);
+    if (torn > 0) {
+      const valley = clamp((around[k] - near[k]) / 650, 0, 1) * smoothstep(700, 1100, near[k]) * (1 - smoothstep(VALLEY_WEST_OF[0], VALLEY_WEST_OF[1], lng));
+      const wn = (fbm(lng * 2.1, lat * 2.1, 3, 301) - 0.5) * 1.5 + (fbm(lng * 0.7 + 9, lat * 0.7, 2, 307) - 0.5) * 2.6;
+      const vn = (fbm(lng * 1.9 + 31, lat * 1.9 + 7, 3, 311) - 0.5) * 1.5 + (fbm(lng * 0.6 + 3, lat * 0.6 + 17, 2, 313) - 0.5) * 2.2;
+      // 留白往东伸多少度（正的是往东）、往北伸多少度（正的是往北）
+      const east = 1.5 * valley - wn;
+      const north = 0.9 * valley - vn;
+      lng -= torn * (east > 0 ? soften1(east, TORN_EAST_DEG) : soften1(east, TORN_WEST_DEG));
+      lat -= torn * soften1(north, TORN_LAT_DEG);
+    }
+    if (within(lng, lat, rings)) keep[k] = 0;
+  }
+  const soft = gauss(keep, nx, nz, BLANK_BLUR_M / cellM);
+  // 抹开以后边又顺了，收平的那一道坡成了一条匀匀的带子。西边再打散一遍：坡脚往前往后挪十几公里，七八十公里一个起伏。
+  // 只动过渡的那一条（乘了 soft × (1 − soft)）：留白里面深处还是 0，离得远的还是 1
+  for (let k = 0; k < n; k++) {
+    const s = soft[k];
+    if (s <= 0 || s >= 1) continue;
+    const lng = heights.lngLat[k * 2];
+    const torn = 1 - smoothstep(TORN_WEST_OF[0], TORN_WEST_OF[1], lng);
+    if (torn <= 0) continue;
+    const lat = heights.lngLat[k * 2 + 1];
+    soft[k] = clamp(s + torn * TORN_AGAIN * (fbm(lng * 1.3 + 5, lat * 1.3 + 11, 2, 317) - 0.5) * 4 * s * (1 - s), 0, 1);
+  }
+  return soft;
+}
+
+/**
+ * 留白：夸大以后的高度留多少（1 是照常，BLANK_KEEP 是留白的地方）。soft 是 blankSoft 在这一格的数，从 0.5 到 0.97 匀着过渡：
+ * 边线里面整个压平，边线往外约 75 公里宽的一条慢慢收平（在那一条里，路到了的地方的山也跟着矮下来）。
+ */
+export const keepAt = (soft: number): number => BLANK_KEEP + (1 - BLANK_KEEP) * smoothstep(0.5, 0.97, soft);
+
+/** 每个格点上夸大以后的高度留多少：blankSoft 过一遍 keepAt。 */
+export function blankKeep(scene: RouteScene, heights: Pick<RouteHeights, 'grid' | 'lngLat' | 'h'>): Float32Array {
+  return blankSoft(scene, heights).map(keepAt);
 }
 
 /** 全程沙盘的地面：七步做完（见这个文件开头）。dem 用 readRouteDem 读，coords 用 coordsOf(scene)。 */
@@ -256,14 +318,15 @@ export function buildRouteGround(scene: RouteScene, dem: Dem, coords: FrameCoord
   // 5 平原抹成缓坡
   const h = smoothPlain(heights.h, heights.land, scene.terrain.recipe, nx, nz, cell * scale);
   // 6 过曲线，除以比例；7 留白的地方压平，再倒算回海拔
-  const keep = blankKeep(scene, heights);
+  const blank = blankSoft(scene, heights);
   const y = new Float32Array(nx * nz);
   for (let k = 0; k < y.length; k++) {
+    const keep = keepAt(blank[k]);
     const full = coords.y(h[k]);
-    y[k] = full * keep[k];
-    if (keep[k] < 1) h[k] = datumM + curveInverse(relief, y[k] * scale);
+    y[k] = full * keep;
+    if (keep < 1) h[k] = datumM + curveInverse(relief, y[k] * scale);
   }
-  return { nx, nz, cell, x0, z0, h, y, land: heights.land };
+  return { nx, nz, cell, x0, z0, h, y, land: heights.land, blank };
 }
 
 /** 类别和依据那一组字段里纯是给人读的字：地面不读它们，不算进记号（和站点沙盘的 ./key.ts 一样）。 */

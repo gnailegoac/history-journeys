@@ -950,6 +950,8 @@ class FakeElement {
     this.parent.children = this.parent.children.filter((child) => child !== this);
     this.parent = null;
   }
+  /** 题签层在自己那一层上听“按了一下”（带站号的印的题签才用得着，查它的是 tests/unit/page/strip-seals.test.ts）；这个假页面里没有人按。 */
+  addEventListener(): void {}
   /** 自己底下所有的元素（不算自己）。 */
   all(): FakeElement[] {
     return this.children.flatMap((child) => [child, ...child.all()]);

@@ -19,6 +19,7 @@
     "route:terrain": "vitest run tests/tools/route-tools.test.ts --mode terrain --reporter=verbose",
     "route:today": "vitest run tests/tools/route-tools.test.ts --mode today --reporter=verbose",
     "route:map": "vitest run tests/tools/route-tools.test.ts --mode map --reporter=verbose",
+    "route:bank": "vitest run tests/tools/route-tools.test.ts --mode bank --reporter=verbose",
     "stills": "playwright test -c playwright.stills.config.ts"
   },
   "dependencies": {

@@ -18,6 +18,7 @@ import {
   BufferGeometry,
   DataTexture,
   Group,
+  InstancedBufferGeometry,
   InstancedMesh,
   Mesh,
   MeshBasicMaterial,
@@ -29,6 +30,9 @@ import {
   UniformsUtils,
 } from 'three';
 import type { Material } from 'three';
+import { LineMaterial } from 'three/examples/jsm/lines/LineMaterial.js';
+import { LineSegments2 } from 'three/examples/jsm/lines/LineSegments2.js';
+import { LineSegmentsGeometry } from 'three/examples/jsm/lines/LineSegmentsGeometry.js';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import type { ModelSet, Quality } from '../../src/stage/three/internal';
 import { buildModels } from '../../src/stage/three/kit';
@@ -63,7 +67,8 @@ import {
 } from './support/budgets';
 import type { FoundTexture } from './support/budgets';
 import { fakeDocument } from './support/fakeRenderer';
-import { realScene, realSceneKeys } from './support/realScenes';
+import { buildRouteModels } from '../../src/stage/three/routeKit';
+import { realRouteScene, realScene, realSceneKeys } from './support/realScenes';
 import type { RealScene } from './support/realScenes';
 
 const TIERS: readonly StageTier[] = ['full', 'reduced'];
@@ -360,6 +365,83 @@ describe.each(realSceneKeys())('%s 的预算', (key) => {
   });
 });
 
+// 全程沙盘的一个画面 = 地形板 + 路 + 座子（没有水面、没有云气：海和湖画在地面上，view.ts 给的是两个空的替身）。
+// 路是照真的场景真造出来的（src/stage/three/routeKit.ts），数法还是 drawn()：一段线一份、六个三角形。
+// 路的多少不跟着镜头的远近变，所以不用从近到远扫，每一节数一次。
+describe.each(realSceneKeys('route'))('%s 的预算（全程沙盘）', (key) => {
+  const R = realRouteScene(key);
+  const style = styleFor(R.scene.style);
+  const route = style.route;
+  if (!route) throw new Error('样式里没有全程沙盘的那一份');
+  const blank = (): GroundPaintSource => ({ kind: 'live', colour: new Uint8Array(4), w: 1, h: 1, normals: new Uint8Array(R.ground.nx * R.ground.nz * 4) });
+  const parts = (tier: StageTier) => ({
+    terrain: buildTerrainMesh({
+      samplers: R.samplers,
+      paint: blank(),
+      nx: R.ground.nx,
+      nz: R.ground.nz,
+      coords: R.coords,
+      style,
+      maxAnisotropy: 8,
+      marks: 'ripples',
+      underWater: false,
+      segmentM: route.segmentM * (tier === 'reduced' ? route.reducedSegmentTimes : 1),
+      ripplePx: route.ripplePx,
+    }),
+    roads: buildRouteModels({ scene: R.scene, coords: R.coords, samplers: R.samplers, style: route, tier }),
+    stand: buildTable(R.coords, style.palette),
+  });
+
+  it(`每一节、两档：一个画面的三角形数不超过 ${withCommas(TRIANGLES_MAX)}、不超过 ${DRAW_CALLS_MAX} 批，减配的比完整的少`, { timeout: 120_000 }, () => {
+    const made = { full: parts('full'), reduced: parts('reduced') };
+    const frame = (tier: StageTier, heading: string): { calls: number; triangles: number; roads: { calls: number; triangles: number } } => {
+      const t = made[tier];
+      t.roads.apply(heading, 0, 50_000);
+      const roads = drawn(t.roads.group);
+      const rest = [drawn(t.terrain.group), drawn(t.stand.group)];
+      return { calls: roads.calls + rest[0].calls + rest[1].calls, triangles: roads.triangles + rest[0].triangles + rest[1].triangles, roads };
+    };
+    const fails: string[] = [];
+    const warns: string[] = [];
+    const lines: string[] = [
+      `${key} 一个画面（地形板 + 路 + 座子）：地形板完整 ${withCommas(drawn(made.full.terrain.group).triangles)}、减配 ${withCommas(drawn(made.reduced.terrain.group).triangles)} 个三角形，${drawn(made.full.terrain.group).calls} 批；座子 ${withCommas(drawn(made.full.stand.group).triangles)} 个，${drawn(made.full.stand.group).calls} 批`,
+    ];
+    let heaviest = { heading: '', triangles: 0 };
+    for (const heading of R.headings) {
+      const full = frame('full', heading);
+      const reduced = frame('reduced', heading);
+      // 路报的数和显出来的网格数出来的一样（两档的路一样多，只是减配的粗一点）
+      expect(made.full.roads.triangles(), heading).toBe(full.roads.triangles);
+      expect(reduced.roads.triangles, heading).toBe(full.roads.triangles);
+      for (const [tier, f] of [['full', full], ['reduced', reduced]] as const) {
+        const what = `${heading}（${TIER_NAME[tier]}）`;
+        for (const found of [checkTriangles(what, f.triangles), checkDrawCalls(what, f.calls)]) {
+          if (found.fail) fails.push(found.fail);
+          if (found.warn) warns.push(found.warn);
+        }
+      }
+      const found = checkReduced(heading, full.triangles, reduced.triangles);
+      if (found.fail) fails.push(found.fail);
+      if (found.warn) warns.push(found.warn);
+      if (full.triangles > heaviest.triangles) heaviest = { heading, triangles: full.triangles };
+      lines.push(
+        `  ${heading}：完整 ${withCommas(full.triangles)} 个三角形、${full.calls} 批，减配 ${withCommas(reduced.triangles)} 个、${reduced.calls} 批（省 ${(((full.triangles - reduced.triangles) / full.triangles) * 100).toFixed(1)}%）；其中路 ${withCommas(full.roads.triangles)} 个、${full.roads.calls} 批`,
+      );
+    }
+    lines.push(`  最重的一节是“${heaviest.heading}”`);
+    console.log(lines.join('\n'));
+    if (warns.length > 0) console.warn(`[预算] ${key} 有 ${warns.length} 处要留意（减配省得不到 ${REDUCED_SAVES_WARN * 100}%，或者快到上限）：\n${warns.slice(0, 8).join('\n')}`);
+    expect(fails).toEqual([]);
+    // 看整块沙盘的一节每一趟路都画，是最重的
+    expect(heaviest.heading).toBe(R.headings[0]);
+    for (const tier of TIERS) {
+      made[tier].terrain.dispose();
+      made[tier].roads.dispose();
+      made[tier].stand.dispose();
+    }
+  });
+});
+
 describe('预算自己查得出毛病（编出来的数和编出来的模型）', () => {
   it('三角形数：正好等于上限合格，多一个不行；过了提醒的线提醒', () => {
     expect(checkTriangles('某一节', TRIANGLES_MAX)).toEqual({ warn: '某一节：200,000 个三角形，快到上限 200,000 了' });
@@ -441,6 +523,26 @@ describe('预算自己查得出毛病（编出来的数和编出来的模型）'
     const many = new Group();
     for (let i = 0; i < DRAW_CALLS_MAX + 1; i++) many.add(new Mesh(triangle(1), plain));
     expect(checkDrawCalls('编出来的', drawn(many).calls).fail).toBe('编出来的：101 批，超过了 100');
+  });
+
+  it('数粗线（全程沙盘的路）：一个网格一批，一段线六个三角形；一段也没有的不画；份数没写明的成批形状按一份算', () => {
+    // 两段线：three 的粗线是一个普通的网格，形状是成批的——八个顶点、六个三角形的一小块，一段线一份
+    const two = new LineSegments2(new LineSegmentsGeometry().setPositions([0, 0, 0, 1, 0, 0, 1, 0, 0, 2, 0, 0]), new LineMaterial());
+    expect(two.geometry.index?.count).toBe(18);
+    expect(two.geometry.instanceCount).toBe(2);
+    expect(drawn(two)).toEqual({ calls: 1, triangles: 12 });
+    // 和别的东西在一棵树里：照样各算各的
+    const root = new Group();
+    root.add(two, new Mesh(new BufferGeometry().setAttribute('position', new BufferAttribute(new Float32Array(27), 3)), new MeshBasicMaterial()));
+    expect(drawn(root)).toEqual({ calls: 2, triangles: 12 + 3 });
+    // 一段也没有的粗线：不画
+    const none = new LineSegments2(new LineSegmentsGeometry().setPositions([]), new LineMaterial());
+    expect(none.geometry.instanceCount).toBe(0);
+    expect(drawn(none)).toEqual({ calls: 0, triangles: 0 });
+    // 成批的形状没有写明几份（还是无穷大）：按一份算，不会数出无穷大来
+    const open = new InstancedBufferGeometry().setAttribute('position', new BufferAttribute(new Float32Array(18), 3));
+    expect(open.instanceCount).toBe(Infinity);
+    expect(drawn(new Mesh(open, new MeshBasicMaterial()))).toEqual({ calls: 1, triangles: 2 });
   });
 
   it('找一棵编出来的模型树上的贴图：字段上的、自己写的着色器里的、编译前塞进去的、投影子用的材质上的；同一张只记一次', () => {

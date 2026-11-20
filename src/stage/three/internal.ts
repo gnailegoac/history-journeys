@@ -126,6 +126,26 @@ export interface RouteStyle {
     steep: [number, number];
     patch: number;
   };
+  /**
+   * 路画成什么线（沙盘程序用，src/stage/three/routeKit.ts）。宽度都是页面上的像素，镜头远近都一样宽。
+   * lines 是三种路：ink 墨线（全程那一节的每一趟），now 刚走的（到这一站来的），past 走过的（到前面各站去的）。
+   * halo 是垫在每一笔下面的浅色线。dashPx 是虚线一划多长、一空多长。reducedExtraPx：减配的一档没有抗锯齿，线加粗这么多。
+   * liftM：线比地面（海上是海面）抬高多少，沙盘里的米。
+   */
+  roads: {
+    lines: Record<'ink' | 'now' | 'past', RouteLineStyle>;
+    halo: RouteLineStyle;
+    dashPx: [number, number];
+    reducedExtraPx: number;
+    liftM: number;
+  };
+}
+
+/** 一种线：颜色（'#rrggbb'）、透明度、多宽（页面上的像素）。 */
+export interface RouteLineStyle {
+  colour: string;
+  opacity: number;
+  widthPx: number;
 }
 
 /** 一种时代样式：颜色、地面怎么上色、模型跟着远近怎么变、题签抬多高、灯、雾。 */

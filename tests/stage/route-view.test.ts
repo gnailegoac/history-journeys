@@ -5,18 +5,25 @@
 //   摆得出来：ready 完成；地形板是全程沙盘的那一种（完整 90,392 个三角形，减配 79,280 个）；不起雾；
 //     先画好的地面和现在的场景、地形文件对得上（控制台里没有说“旧的”）；
 //   比例尺说的是地上的长度（几百公里），不是沙盘里的米；拍定格图用的“一米多少像素”也是地上的米；
-//   题签现在一条也不摆（下一步接）；
+//   路画出来了（头一节每一趟都画）；题签摆的是这一节的那几条，是站的地名带着站号的印（页面交了每一站的印才有）；
 //   没有先画好的地面：ready 拒绝，说得出缘故（全程沙盘不现画）。
 
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { BakedGroundManifest } from '../../src/domain/bakedGround';
 import type { StripLayer } from '../../src/stage/overlay/types';
+import { sectionStripSpecs } from '../../src/stage/overlay/strips';
+import { roadRuns, segmentCount } from '../../src/stage/roadLines';
 import { createHost } from '../../src/stage/three/host';
+import { ROAD_SEGMENT_TRIANGLES } from '../../src/stage/three/routeKit';
 import { terrainGrid } from '../../src/stage/three/terrainMesh';
 import { styleFor } from '../../src/stage/three/style';
 import type { BrowserHost, ViewEnv } from '../../src/stage/three/view';
 import type { RouteTable, StageOptions, StageViewInfo, StopStageView } from '../../src/stage/types';
+import { stripTexts } from '../../src/domain/sceneText';
+import { stopMarks } from '../../src/domain/stopMarks';
+import type { Figure } from '../../src/domain/types';
 import { readBytes } from '../support/readBytes';
+import { drawn } from './support/budgets';
 import { fakeCanvas, fakeDocument, fakeFetch, fakeHostParts, fakeRenderer, fakeStrips, trianglesUnder } from './support/fakeRenderer';
 import { realRouteScene, realSceneKeys } from './support/realScenes';
 
@@ -29,7 +36,7 @@ let picturesFail = false;
 /** 交不交“全程沙盘那一块程序怎么取”。 */
 let withLoader = true;
 
-vi.mock('../../src/stage/overlay', () => ({ mountStrips: (): StripLayer => strips.mount() }));
+vi.mock('../../src/stage/overlay', async (original) => ({ ...(await original<typeof import('../../src/stage/overlay')>()), mountStrips: (): StripLayer => strips.mount() }));
 // 全程沙盘那一块程序是真的，只把“取图片”换成假的（Node 里没有 Image）：给一张只有大小的图
 vi.mock('../../src/stage/three/routeLevel', async (original) => {
   const actual = await original<typeof import('../../src/stage/three/routeLevel')>();
@@ -120,13 +127,17 @@ describe(`${KEY} 在沙盘程序里`, () => {
     const world = s.fake.lastWorld();
     if (!world) throw new Error('一帧也没有画');
     expect(world.fog).toBeNull();
-    // 场景里依次是：地形板、水（替身，空的）、云气（替身，空的）、路（现在是空的）、座子
+    // 场景里依次是：地形板、水（替身，空的）、云气（替身，空的）、路、座子
     const { sx, sz } = terrainGrid(R.coords, route.segmentM);
     expect(trianglesUnder(world.children[0])).toBe(sx * sz * 2 + (sx + sz) * 4);
     expect(trianglesUnder(world.children[0])).toBe(90_392);
     expect(trianglesUnder(world.children[1])).toBe(0);
     expect(trianglesUnder(world.children[2])).toBe(0);
-    expect(trianglesUnder(world.children[3])).toBe(0);
+    // 路：头一节每一趟都画，每一笔两遍（垫底的一遍、墨线一遍），一段线六个三角形
+    const whole = segmentCount(roadRuns(R.scene, R.coords, 0));
+    expect(whole).toBeGreaterThan(1000);
+    expect(drawn(world.children[3]).triangles).toBe(whole * 2 * ROAD_SEGMENT_TRIANGLES);
+    expect(drawn(world.children[3]).calls).toBeGreaterThan(1);
     // content/ 里先画好的地面不比场景和地形文件旧：没有说“旧的”，也没有别的抱怨
     expect(warn.mock.calls.map((call) => String(call[0]))).toEqual([]);
   });
@@ -142,7 +153,7 @@ describe(`${KEY} 在沙盘程序里`, () => {
     expect(trianglesUnder(world.children[0])).toBe(79_280);
   });
 
-  it('比例尺和“一米多少像素”说的是地上的米：全程一节的比例尺是几百公里；题签现在一条也不摆', { timeout: 120_000 }, async () => {
+  it('比例尺和“一米多少像素”说的是地上的米：全程一节的比例尺是几百公里；没有交每一站的印，题签上就没有印', { timeout: 120_000 }, async () => {
     const s = stage(940, 900);
     const view = await openView(s, baked);
     const infos: StageViewInfo[] = [];
@@ -161,10 +172,48 @@ describe(`${KEY} 在沙盘程序里`, () => {
     expect(Math.abs(metres * shot.pxPerMetre - info.scale.px)).toBeLessThan(1);
     // 镜头离对准的那一点，除以比例以后在两千公里的沙盘上：一米不到千分之一个像素
     expect(shot.pxPerMetre).toBeLessThan(0.001);
-    // 这一节的题签指着的点照样算得出来（拍定格图要用），只是沙盘上现在不摆字
+    // 这一节的题签指着的点（拍定格图要用），和沙盘上摆的那几条是同一批
     expect(shot.anchors.map((anchor) => anchor.id)).toEqual(R.scene.sections[0].strips);
-    expect(strips.specs()).toEqual([]);
-    expect(strips.log[0]).toBe("set ");
+    expect(strips.specs().map((spec) => spec.id)).toEqual(R.scene.sections[0].strips);
+    expect(strips.specs()).toEqual(sectionStripSpecs(R.scene, R.headings[0], stripTexts(R.scene, R.headings[0], 'ancient')));
+    expect(strips.specs().some((spec) => spec.seals)).toBe(false);
+  });
+
+  it('交了每一站的印：是站的地名带着印，一站一方；这一节讲的那一站的印 here 是 true；换成今天的名字，印不变', { timeout: 120_000 }, async () => {
+    const figure = JSON.parse(new TextDecoder().decode(readBytes(`content/figures/${FIGURE}/figure.json`))) as Figure;
+    const marks = stopMarks(figure, (id) => `#/${FIGURE}/${id}`);
+    const s = stage(940, 900);
+    const view = await openView(s, baked, { marks });
+    await until(view.ready);
+    const sealsOf = (): Record<string, string[]> => Object.fromEntries(strips.specs().flatMap((spec) => (spec.seals ? [[spec.text, spec.seals.map((seal) => `${seal.label}${seal.filled ? '实' : '空'}${seal.here ? '这' : ''}`)]] : [])));
+    // 头一节：每一站一方，杭州两方，惠州和昌化军是同一站；没有哪一方是“这一站”
+    const first = sealsOf();
+    const stopsOnTable = R.scene.places.flatMap((place) => place.stops ?? []);
+    expect(Object.values(first).flat().length).toBe(stopsOnTable.length);
+    expect(Object.values(first).flat().some((seal) => seal.endsWith('这'))).toBe(false);
+    for (const spec of strips.specs()) {
+      const place = R.scene.places.find((item) => item.id === R.scene.strips.find((strip) => strip.id === spec.id)?.of);
+      expect(spec.seals?.map((seal) => seal.stop) ?? [], spec.text).toEqual(place?.stops ?? []);
+      for (const seal of spec.seals ?? []) {
+        expect(seal.label).toBe(marks[seal.stop].label);
+        expect(seal.href).toBe(`#/${FIGURE}/${seal.stop}`);
+        expect(seal.filled).toBe(figure.stops.find((stop) => stop.id === seal.stop)?.status === 'complete');
+        expect(seal.title).toBe(marks[seal.stop].title);
+      }
+    }
+    // 看路的一节：到的那一站的印是“这一站”，别的不是
+    for (const section of R.scene.sections.slice(1)) {
+      await until(view.showSection(section.heading, { animate: false }));
+      const here = strips.specs().flatMap((spec) => (spec.seals ?? []).filter((seal) => seal.here).map((seal) => seal.stop));
+      expect(here.length, section.heading).toBeGreaterThan(0);
+      expect(new Set(here), section.heading).toEqual(new Set([section.stop]));
+    }
+    // 换成今天的名字：字换了，印还是那几方
+    const before = strips.specs().map((spec) => spec.seals);
+    view.setNamesMode('modern');
+    expect(strips.specs().map((spec) => spec.seals)).toEqual(before);
+    expect(strips.specs().map((spec) => spec.text)).toEqual(stripTexts(R.scene, R.headings.at(-1) as string, 'modern').map((t) => t.text));
+    console.log(`${KEY} 头一节题签上的印：${Object.entries(first).map(([text, seals]) => `${text} ${seals.join(' ')}`).join('，')}`);
   });
 
   it('没有先画好的地面、图片取不到：ready 拒绝，说得出缘故', { timeout: 120_000 }, async () => {

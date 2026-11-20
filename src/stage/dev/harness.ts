@@ -3,7 +3,7 @@
 // 拍定格图的工具（npm run stills）也是在这一页上拍的。
 //
 // 网址上可以带：?figure=su-shi&stop=xuzhou 看哪一站（不写就是这两个）；&stop=route 看这位人物的全程沙盘
-//（只有立体的沙盘程序摆得了它；题签和路还没有接上）；&section=水退以后 一开始摆哪一节；
+//（只有立体的沙盘程序摆得了它；站的地名上带着站号的印，和页面一样从 figure.json 里拼）；&section=水退以后 一开始摆哪一节；
 // &names=modern 题签用今天的名字；&reduced 不滑，直接换；
 // &tier=full 或 &tier=reduced 指定画质（不写由沙盘程序自己挑）；
 // &insets=62,130,130,130 四边各留出多少像素（上、右、下、左；不写是上 44、下 28）；
@@ -11,9 +11,11 @@
 // &bg=%23ebe3d3 页面的底色（沙盘的画布是透明的，四周露出来的就是它）；
 // &engine=still 不摆立体的沙盘，摆定格图（这一站要已经有定格图），用来在各种窗口大小上看定格图摆得对不对。
 
+import { loadFigure } from '../../domain/content';
 import type { TableScene } from '../../domain/scene';
 import { loadStopTable } from '../../domain/sceneContent';
 import { sectionInfo } from '../../domain/sceneText';
+import { stopMarks } from '../../domain/stopMarks';
 import { loadStageEngine, stillEngine } from '../index';
 import type { NamesMode, StageInsets, StageTier, StageViewInfo, StopStageView, StopTable } from '../types';
 
@@ -98,11 +100,6 @@ function count(): void {
 
 /** 沙盘旁边要印的字：这一节的时间和题记。生成不出来时只写小节的名字。 */
 function describe(heading: string, scene: TableScene): string {
-  // 全程沙盘的说明下一步才从场景里生成：这里先照小节里写的印
-  if (scene.level === 'route') {
-    const section = scene.sections.find((s) => s.heading === heading);
-    return section ? `${section.heading}（${section.date}）${section.line}` : heading;
-  }
   try {
     const info = sectionInfo(scene, heading);
     return `${info.section}（${info.date}）${info.line}`;
@@ -146,7 +143,7 @@ function setNames(mode: NamesMode): void {
 }
 
 async function mount(): Promise<void> {
-  const [engine, table] = await Promise.all([useStill ? Promise.resolve(stillEngine) : loadStageEngine(), loadStopTable(figureId, stopId)]);
+  const [engine, table, figure] = await Promise.all([useStill ? Promise.resolve(stillEngine) : loadStageEngine(), loadStopTable(figureId, stopId), loadFigure(figureId)]);
   engineLine = `${engine.name} ${engine.version}`;
   if (!table) {
     status.textContent = `${figureId}/${stopId} 这一站还没有场景文件`;
@@ -181,6 +178,8 @@ async function mount(): Promise<void> {
       section: current,
       insets: askedInsets(),
       tier: askedTier(),
+      // 全程沙盘上每一站的印：和页面一样从 figure.json 里拼（网址照页面的写法；这一页上按了只是换一下 # 后面的字）
+      marks: scene.level === 'route' && figure ? stopMarks(figure, (id) => `#/${figureId}/${id}`) : undefined,
     },
   );
   view = created;

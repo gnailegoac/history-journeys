@@ -8,11 +8,13 @@ import type { RouteScene } from '../../src/domain/scene';
 import { routeCoords } from '../../src/domain/sceneGeoRoute';
 import type { LngLat } from '../../src/domain/types';
 import { hex } from '../../src/stage/ground/num';
-import { buildRouteGround, readRouteDem, routePictureSize } from '../../src/stage/ground/route';
+import { buildRouteGround, keepAt, readRouteDem, routePictureSize } from '../../src/stage/ground/route';
 import { styleFor } from '../../src/stage/three/style';
 import { readToday } from '../content/routeRules';
 import { readBytes } from '../support/readBytes';
+import { routeBakeParts } from '../tools/route/bakeRoute';
 import { coverage, densify, gauss, paintRoute, riverPaths } from '../tools/route/paint';
+import { realRouteScene, realSceneKeys } from './support/realScenes';
 
 const FIXTURE = 'tests/content/fixtures/good/figures/demo/scenes/';
 const text = (file: string): string => new TextDecoder().decode(readBytes(`${FIXTURE}${file}`));
@@ -93,12 +95,14 @@ describe('在样本上画一遍', () => {
     const got = rgb(far);
     for (let c = 0; c < 3; c++) expect(Math.abs(got[c] - deep[c]), `离岸远的海的颜色 ${got.join(',')}，深的花青是 ${deep.join(',')}`).toBeLessThanOrEqual(3);
     expect(mark(far)).toBeGreaterThan(230);
-    // 岸边发白，水纹淡：贴着岸（半公里）不画，离岸三公里只有一点，再远才画足
+    // 岸边发白，不画水纹：一道水纹有几十公里长，贴着岸画就压到岸上去了。离岸三公里还不画，二十公里上下画一半，四五十公里以外画足
     const shore: LngLat = [114.48, 29.9];
     expect(rgb(shore)[0]).toBeGreaterThan(got[0] + 15);
     expect(mark([114.455, 29.9])).toBe(0);
-    expect(mark(shore)).toBeGreaterThan(0);
-    expect(mark(shore)).toBeLessThan(mark(far) / 3);
+    expect(mark(shore)).toBe(0);
+    const halfway = mark([114.66, 29.9]);
+    expect(halfway).toBeGreaterThan(40);
+    expect(halfway).toBeLessThan(mark(far) * 0.75);
   });
 
   it('平地：暖的茶色，不画水纹；陆地上哪里都不标水纹（湖除外）', () => {
@@ -164,6 +168,10 @@ describe('在样本上画一遍', () => {
     expect(canal / 1.56).toBeGreaterThan(route.riverKm.canal * 0.6);
     expect(canal / 1.56).toBeLessThan(route.riverKm.canal * 1.6);
     expect(trunk).toBeGreaterThan(canal * 2);
+    // 空着的一头收细：长河东头断在平地上（不接别的河，不在湖里，没到海边），离头十公里的地方不到中段一半宽
+    const nearEnd = across([112.4, 29.646]);
+    expect(nearEnd, `离头十公里处宽 ${nearEnd.toFixed(1)} 公里，中段 ${trunk.toFixed(1)} 公里`).toBeLessThan(trunk * 0.5);
+    expect(nearEnd).toBeGreaterThan(0);
   });
 
   it('只染水色的水：比四周的平地蓝，没有岸线，也不画水纹', () => {
@@ -176,6 +184,89 @@ describe('在样本上画一遍', () => {
     const k0 = at([113.6, 29.75]);
     for (let d = -30; d < 30; d++) {
       for (let c = 0; c < 3; c++) expect(Math.abs(painted.colour[(k0 + d) * 3 + c] - painted.colour[(k0 + d + 1) * 3 + c])).toBeLessThan(6);
+    }
+  });
+});
+
+// content/ 里真的那一座：留白的边和河口是照着沙盘上的图改的（2026-11-20），在真的地面上查。画一遍三百多万个点，这台机器上八九秒。
+describe.each(realSceneKeys('route').filter((key) => key === 'su-shi/route'))('%s 画出来：留白的边，河口', (key) => {
+  let painted: { w: number; h: number; rgb: Uint8Array; mask: Uint8Array } | null = null;
+  const picture = (): { w: number; h: number; rgb: Uint8Array; mask: Uint8Array } => (painted ??= routeBakeParts(key).paint());
+
+  it('留白的边上颜色比地势先淡完：西边地势还剩三成以下的陆地，画的已经是空绢（或者淡花青的白），没有一格还是石青、石绿', { timeout: 300_000 }, () => {
+    const R = realRouteScene(key);
+    const { nx, nz, cell, x0, z0, land, blank } = R.ground;
+    const p = picture();
+    let low = 0;
+    let coloured = 0;
+    let far = 0;
+    let farColoured = 0;
+    for (let j = 2; j < nz - 2; j++) {
+      for (let i = 2; i < nx - 2; i++) {
+        const k = j * nx + i;
+        // 只看四周都是陆地的格子：岸边的一格，图上可能已经是海
+        if (!land[k] || !land[k - 1] || !land[k + 1] || !land[k - nx] || !land[k + nx] || !land[k - nx - 1] || !land[k - nx + 1] || !land[k + nx - 1] || !land[k + nx + 1]) continue;
+        const [lng] = R.coords.toLngLat(x0 + i * cell, z0 + j * cell);
+        if (lng > 107.7) continue;
+        const t = (j * 3 * p.w + i * 3) * 3;
+        // 空绢是 237、222、188 上下，淡花青的白更亮；石绿、石青、赭石的红都不到 190
+        const pale = p.rgb[t] >= 195;
+        const keep = keepAt(blank[k]);
+        if (keep <= 0.3) {
+          low++;
+          if (!pale) coloured++;
+        } else if (blank[k] === 1 && R.ground.h[k] > 1500) {
+          // 离留白一百公里以外的高山：照常上色
+          far++;
+          if (!pale) farColoured++;
+        }
+      }
+    }
+    console.log(`${key}：东经 107.7 度以西，地势只剩三成以下的陆地 ${low} 格，其中还上着颜色的 ${coloured} 格；离留白远的高山 ${far} 格，上着颜色的 ${farColoured} 格`);
+    expect(low).toBeGreaterThan(20_000);
+    expect(coloured).toBe(0);
+    // 离留白远的高山照常上着颜色（一成上下是黄土高原上淡的黄土色，本来就淡）：留白没有淡到不该淡的地方去
+    expect(farColoured).toBeGreaterThan(far * 0.75);
+  });
+
+  it('河口：长江口里是水的颜色，不是岸边那道白；口外是海的颜色', { timeout: 300_000 }, () => {
+    const R = realRouteScene(key);
+    const { cell, x0, z0 } = R.ground;
+    const p = picture();
+    const rgb = (q: LngLat): [number, number, number] => {
+      const [x, z] = R.coords.toLocal(q);
+      const t = (Math.round(((z - z0) / cell) * 3) * p.w + Math.round(((x - x0) / cell) * 3)) * 3;
+      return [p.rgb[t], p.rgb[t + 1], p.rgb[t + 2]];
+    };
+    // 江阴、狼山之间的江面（今天的岸线把这一段画成窄窄的一条海）；口外的海
+    const inMouth = rgb([120.79, 31.98]);
+    const outside = rgb([122.3, 31.2]);
+    console.log(`${key}：长江口里 ${inMouth.join(',')}；口外的海 ${outside.join(',')}`);
+    // 岸边那道白：红在 215 上下，蓝比红只多几级。水的颜色：红不到 190，蓝比红多二十级以上
+    expect(inMouth[0]).toBeLessThan(190);
+    expect(inMouth[2] - inMouth[0]).toBeGreaterThan(20);
+    expect(outside[2] - outside[0]).toBeGreaterThan(20);
+  });
+
+  it('只染水色的水带着一点湖的蓝：梁山泊、射阳湖的中心，蓝比红多（原来红比蓝多，在平地上是一块发灰的白）；可比真的湖淡得多，不到太湖湖心的六成', { timeout: 300_000 }, () => {
+    const R = realRouteScene(key);
+    const { cell, x0, z0 } = R.ground;
+    const p = picture();
+    const blue = (q: LngLat): number => {
+      const [x, z] = R.coords.toLocal(q);
+      const t = (Math.round(((z - z0) / cell) * 3) * p.w + Math.round(((x - x0) / cell) * 3)) * 3;
+      return p.rgb[t + 2] - p.rgb[t];
+    };
+    const lake = blue([120.2, 31.2]);
+    const washes: [string, LngLat][] = [
+      ['梁山泊', [116.17, 35.68]],
+      ['射阳湖', [119.7, 33.38]],
+    ];
+    console.log(`${key}：蓝比红多出来的——太湖湖心 ${lake}；` + washes.map(([name, q]) => `${name} ${blue(q)}`).join('，'));
+    expect(lake).toBeGreaterThan(25);
+    for (const [name, q] of washes) {
+      expect(blue(q), name).toBeGreaterThan(0);
+      expect(blue(q), name).toBeLessThan(lake * 0.6);
     }
   });
 });

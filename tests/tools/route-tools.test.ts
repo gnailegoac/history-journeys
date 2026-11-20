@@ -2,6 +2,7 @@
 //   npm run route:terrain   地形文件      content/figures/su-shi/scenes/route.terrain.bin
 //   npm run route:today     今天的岸线、湖、河   content/figures/su-shi/scenes/route.today.geojson
 //   npm run route:map       检查图（不进仓库）  tests/shots/route-check/map.png、map.txt：从正上方看，场景里的每一条线、每一圈、每一条路
+//   npm run route:bank      走水路的路贴着河岸走的线：只印出来，人看过以后贴进 scenes/route.json（做法见 tests/tools/route/bankTool.ts 的开头）
 // 做好以后放进仓库，随场景文件一起走；发布的流程不重新做。两个文件都不手改。
 // 文件是什么样子、怎么做的，写在 tests/tools/route/terrainTool.ts 和 tests/tools/route/todayTool.ts 的开头。
 //
@@ -19,7 +20,9 @@
 // 和磁盘上的那一份比，字节一样就说“已经是新的”，什么也不写；不一样才写。
 //
 // 检查图那一个模式读的是 content/ 里的场景文件、地形文件和 route.today.geojson，不读样张；ROUTE_OUT 对它也管用（如 tests/shots/e-u1）。
-// 还没有写的一个模式（设计里叫 route:bank）：位置留在下面“以后的模式”那一段。
+// 岸线那一个模式读的也是 content/ 里的场景文件和 route.today.geojson。它另认一个环境变量：
+//   WAY         只做这一条路（路的 id，如 w-min）；不设就把写了 along、沿着一条河走的路都做一遍。
+// 设了 ROUTE_OUT 的话，另把做出来的线写成 banks.json 放进那个文件夹（给贴线的人用；不设就只印）。
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
@@ -27,9 +30,13 @@ import { contentKey } from '../../src/domain/contentKey';
 import type { RouteScene } from '../../src/domain/scene';
 import { routeCoords } from '../../src/domain/sceneGeoRoute';
 import { buildRouteGround, readRouteDem } from '../../src/stage/ground/route';
+import { styleFor } from '../../src/stage/three/style';
 import { readToday } from '../content/routeRules';
 import { decodePng, encodeRgbPng } from '../support/png';
+import { BANKS, BANK_TAPER_KM, bankLine, bankOfWay, chaikin, dense, lineText, simplify, stitch } from './route/bankTool';
+import type { Km } from './route/bankTool';
 import { MAP_POINTS_PER_CELL, drawRouteMap, lineKm, waySolid } from './route/mapTool';
+import { riverPaths } from './route/paint';
 import { ROUTE_GRID, insideTrial, lambertConic, landMask, latOf, lngOf, readTerrain, readTrialDem, resampleTerrain, terrainBytes, trialHeightAt } from './route/terrainTool';
 import type { LatLngGrid, LngLat } from './route/terrainTool';
 import { THIN_KM, TODAY_BOX, bytesByKind, clipLineToBox, closeRing, insideRing, landRings, positionName, restoreShrunk, ringCentre, signedArea, thin, todayFeatures, todayProblems, todayText } from './route/todayTool';
@@ -38,7 +45,7 @@ import type { TodayFeature, TrialWater } from './route/todayTool';
 const env = (globalThis as { process?: { env: Record<string, string | undefined> } }).process?.env ?? {};
 
 /** 这一次要做哪一样；不是来做文件的（比如随 npm test 跑）就是 null。 */
-const MODE = (['terrain', 'today', 'map'] as const).find((mode) => import.meta.env.MODE === mode || env.ROUTE_MODE === mode) ?? null;
+const MODE = (['terrain', 'today', 'map', 'bank'] as const).find((mode) => import.meta.env.MODE === mode || env.ROUTE_MODE === mode) ?? null;
 
 /** 项目的根目录：这个文件在 tests/tools/ 里，往上两层。 */
 const ROOT = new URL('../../', import.meta.url);
@@ -225,12 +232,52 @@ describe.skipIf(MODE !== 'map')('全程沙盘的检查图（npm run route:map）
   });
 });
 
-// ---------------------------------------------------------------- 以后的模式
-//
-// 设计里还有一个模式，谁用到谁写，添一组 describe.skipIf(MODE !== '…')，再在上面 MODE 的名单和 package.json 里添上名字：
-//   bank   npm run route:bank   走水路的那几段路贴着河岸走的线，做出来贴进场景文件
-// 要读 route.today.geojson 的话，TodayFeature 和 landRings 在 tests/tools/route/todayTool.ts；
-// 要读地形文件的话，ROUTE_GRID、readTerrain、lngOf、latOf 在 tests/tools/route/terrainTool.ts。
+// ---------------------------------------------------------------- npm run route:bank
+
+describe.skipIf(MODE !== 'bank')('走水路的路贴着河岸走的线（npm run route:bank）', () => {
+  it('印出每一条线（WAY=<路的 id> 只做一条）', { timeout: 120_000 }, () => {
+    const tag = '[全程沙盘·岸线]';
+    const read = (file: string): string => new TextDecoder().decode(readFileSync(new URL(`${SCENES}${file}`, ROOT)));
+    const scene = JSON.parse(read('route.json')) as RouteScene;
+    const today = readToday({ today: read(scene.water.todayFile) }, 'today');
+    if (!today || 'problem' in today) throw new Error(`${SCENES}${scene.water.todayFile} 读不出来`);
+    const coords = routeCoords(scene.frame);
+    const paths = riverPaths(scene, today.features, coords, styleFor(scene.style));
+    const rivers = new Set(scene.water.rivers.map((river) => river.id));
+    const asked = env.WAY;
+    if (asked && !scene.roads.ways.some((way) => way.id === asked)) throw new Error(`WAY 写的“${asked}”不是场景里的一条路`);
+    const ways = scene.roads.ways.filter((way) => (asked ? way.id === asked : way.along !== undefined && rivers.has(way.along)));
+    const out: Record<string, [number, number][]> = {};
+    console.log(`${tag} ${ways.length} 条路。每条印三行：怎么做的，做出来的线（贴进 ${SCENES}route.json 里这条路的 line），和场景里现在写的一样不一样。`);
+    for (const way of ways) {
+      const made = bankOfWay(scene, today.features, coords, paths, way);
+      const side = made.spec.side === 1 ? '左手边' : '右手边';
+      const end = (i: 0 | 1): string => `离河心 ${made.ends.km[i].toFixed(1)} 公里，${made.ends.tapered[i] ? '收回到城里' : '从岸上直着连过去'}`;
+      const { pulled, wet, tight, folded, skippedKm } = made.made;
+      const skipped = Math.max(...skippedKm);
+      console.log(
+        `${made.way} 沿 ${made.river}：离河心 ${made.spec.offKm} 公里，${side}（${made.spec.why}）。头${end(0)}；尾${end(1)}。` +
+          `${made.line.length} 个点，${made.km.toFixed(0)} 公里（场景里现在的线是 ${lineKm(scene, coords, way.line).toFixed(0)} 公里）；` +
+          `离画出来的河最远 ${made.farKm.toFixed(1)} 公里，收回到城里的两截以外最近 ${Number.isFinite(made.nearKm) ? made.nearKm.toFixed(1) : '—'} 公里；` +
+          `河的线接成 ${made.chains} 条，用的一条 ${made.chainKm.toFixed(0)} 公里` +
+          `${skipped > 0 ? `；直着连到城里要过水，从河上往前让了 ${skipped.toFixed(0)} 公里` : ''}` +
+          `${pulled > 0 ? `；为了躲开水往河这边收过的有 ${pulled} 个点` : ''}${wet > 0 ? `；还落在水里的有 ${wet} 个点（换另一边）` : ''}` +
+          `${tight > 0 ? `；离河不够远的有 ${tight} 个点（河在这里绕得密）` : ''}${folded > 0 ? `；线折回去、去掉了 ${folded} 个点` : ''}${made.spec.paste === false ? '；这一条不贴进场景' : ''}`,
+      );
+      console.log(`  ${lineText(made.line)}`);
+      console.log(`  ${lineText(made.line) === lineText(way.line) ? '和场景里现在写的线一样。' : '和场景里现在写的线不一样。'}`);
+      expect(made.line.length).toBeGreaterThanOrEqual(2);
+      expect(made.line[0]).toEqual(way.line[0]);
+      expect(made.line[made.line.length - 1]).toEqual(way.line[way.line.length - 1]);
+      if (made.spec.paste !== false) out[way.id] = made.line;
+    }
+    if (env.ROUTE_OUT) {
+      diskIo(outFolder(env.ROUTE_OUT)).write('banks.json', new TextEncoder().encode(`${JSON.stringify(out)}\n`));
+      console.log(`${tag} ROUTE_OUT 指的文件夹里的 banks.json 写好了（${Object.keys(out).length} 条要贴的线）。`);
+    }
+    expect(ways.length).toBeGreaterThan(0);
+  });
+});
 
 // ---------------------------------------------------------------- 工具自己（随 npm test 跑，不动 content/）
 
@@ -240,14 +287,15 @@ describe('做全程沙盘的文件的工具自己（用编出来的小数据，�
   /** 测试里用的“投影”：一度当 100 公里，量起来方便。 */
   const flat = (lng: number, lat: number): [number, number] => [lng * 100, lat * 100];
 
-  it('只有用自己的模式跑（--mode terrain、--mode today，或者 ROUTE_MODE）才真的做', () => {
+  it('只有用自己的模式跑（--mode terrain、--mode today、--mode map、--mode bank，或者 ROUTE_MODE）才真的做', () => {
     expect(typeof import.meta.env.MODE).toBe('string');
     // 两头各查一句（不照抄 MODE 的那一行，那样永远不会红）：随 npm test 跑的时候一定不做；用哪个模式跑就做哪一样。
     const asked = [import.meta.env.MODE, env.ROUTE_MODE];
-    if (!asked.includes('terrain') && !asked.includes('today') && !asked.includes('map')) expect(MODE).toBeNull();
+    if (!asked.includes('terrain') && !asked.includes('today') && !asked.includes('map') && !asked.includes('bank')) expect(MODE).toBeNull();
     if (import.meta.env.MODE === 'terrain') expect(MODE).toBe('terrain');
     if (import.meta.env.MODE === 'today') expect(MODE).toBe('today');
     if (import.meta.env.MODE === 'map') expect(MODE).toBe('map');
+    if (import.meta.env.MODE === 'bank') expect(MODE).toBe('bank');
   });
 
   describe('检查图', () => {
@@ -641,6 +689,118 @@ describe('做全程沙盘的文件的工具自己（用编出来的小数据，�
         expect(problems((f) => (f[7].properties.kind = 'lake'))).toEqual(['第 7 项（lake river@102.35,22.00）不是河，却是一条线']);
         expect(problems((f) => (f[5].geometry = { type: 'LineString', coordinates: [[101, 28]] }))).toEqual(['第 5 项（river Huang）的线不到两个点']);
       });
+    });
+  });
+
+  describe('岸线', () => {
+    /** 一条从 [0, 0] 往东 200 公里的直河，2 公里一个点。 */
+    const straight: Km[] = Array.from({ length: 101 }, (_v, i): Km => [i * 2, 0]);
+    const dry = (): boolean => false;
+    /** 线上每一点离一条河（一串点）最近多少公里。 */
+    const fromRiver = (p: Km, river: Km[]): number => Math.min(...river.map((q) => Math.hypot(p[0] - q[0], p[1] - q[1])));
+
+    it('化简：离连线不到给的数的点去掉；削角：两头不动，一段变两点', () => {
+      expect(simplify([[0, 0], [50, 3], [100, 0]], 9)).toEqual([[0, 0], [100, 0]]);
+      expect(simplify([[0, 0], [50, 12], [100, 0]], 9)).toEqual([[0, 0], [50, 12], [100, 0]]);
+      expect(chaikin([[0, 0], [100, 0], [100, 100]], 1)).toEqual([[0, 0], [25, 0], [75, 0], [100, 25], [100, 75], [100, 100]]);
+      expect(chaikin([[0, 0], [10, 0]], 2)).toEqual([[0, 0], [10, 0]]);
+    });
+
+    it('把一条河的几段接成一条：头尾挨着的接上，要倒过来的倒过来；离得远的另算一条', () => {
+      const chains = stitch([
+        [[100, 0], [150, 0]],
+        [[0, 0], [40, 0], [95, 0]],
+        // 这一段是倒着写的（尾在 [155, 0]），也是最长的一段：接出来的那一条照它的方向走
+        [[260, 0], [200, 0], [155, 0]],
+        [[400, 50], [420, 50]],
+      ]);
+      expect(chains).toHaveLength(2);
+      expect(chains[0].map((p) => p[0])).toEqual([260, 200, 155, 150, 100, 95, 40, 0]);
+      expect(chains[1]).toEqual([[400, 50], [420, 50]]);
+      // 相距 12 公里以上的不接
+      expect(stitch([[[0, 0], [10, 0]], [[23, 0], [40, 0]]])).toHaveLength(2);
+    });
+
+    it('直河：线在写的那一边、离河心正好那么远；两头在 34 公里里慢慢收回到城里；头尾就是给的两点', () => {
+      const a: Km = [0, 0];
+      const b: Km = [200, 0];
+      const left = bankLine({ centre: straight, a, b, off: 6, side: 1, inWater: dry }).line;
+      expect(left[0]).toBe(a);
+      expect(left[left.length - 1]).toBe(b);
+      // 往东走的左手边是北边
+      for (const p of left) {
+        if (p[0] >= BANK_TAPER_KM && p[0] <= 200 - BANK_TAPER_KM) expect(p[1]).toBeCloseTo(6, 6);
+        else expect(p[1]).toBeLessThan(6);
+        expect(p[1]).toBeGreaterThanOrEqual(0);
+      }
+      // 收回的那一截里越走越靠岸
+      const head = left.filter((p) => p[0] < BANK_TAPER_KM);
+      for (let i = 1; i < head.length; i++) expect(head[i][1]).toBeGreaterThan(head[i - 1][1]);
+      const right = bankLine({ centre: straight, a, b, off: 6, side: -1, inWater: dry }).line;
+      expect(right[Math.floor(right.length / 2)][1]).toBeCloseTo(-6, 6);
+      // 倒着走（从东头到西头）的左手边是南边
+      const back = bankLine({ centre: straight, a: b, b: a, off: 6, side: 1, inWater: dry }).line;
+      expect(back[0]).toBe(b);
+      expect(back[Math.floor(back.length / 2)][1]).toBeCloseTo(-6, 6);
+    });
+
+    it('城在岸上几公里：线从城里出来，不先回河心；城不在河边：不收，从岸上直着连过去', () => {
+      const near = bankLine({ centre: straight, a: [0, 4], b: [200, 0], off: 6, side: 1, inWater: dry }).line;
+      expect(near[0]).toEqual([0, 4]);
+      for (const p of near.filter((q) => q[0] < BANK_TAPER_KM)) expect(p[1]).toBeGreaterThanOrEqual(4 - 1e-9);
+      const far = bankLine({ centre: straight, a: [0, 30], b: [200, 0], off: 6, side: 1, inWater: dry, taperA: false }).line;
+      expect(far[0]).toEqual([0, 30]);
+      // 第二个点已经在岸上了
+      expect(far[1][0]).toBeCloseTo(0, 6);
+      expect(far[1][1]).toBeCloseTo(6, 6);
+    });
+
+    it('弯弯曲曲的河：线只会比写的数离河远，不会近（两头收回的一截以外）', () => {
+      // 左右摆 5 公里、40 公里一个来回的河：引线把这些弯都抹平了
+      const winding: Km[] = Array.from({ length: 151 }, (_v, i): Km => [i * 2, 5 * Math.sin((i * 2 * Math.PI) / 20)]);
+      const fine = dense(winding, 0.25);
+      const made = bankLine({ centre: winding, a: winding[0], b: winding[150], off: 6, side: 1, inWater: dry });
+      const middle = made.line.filter((p) => p[0] > BANK_TAPER_KM + 5 && p[0] < 300 - BANK_TAPER_KM - 5);
+      expect(middle.length).toBeGreaterThan(50);
+      const away = middle.map((p) => fromRiver(p, fine));
+      expect(Math.min(...away)).toBeGreaterThan(5.7);
+      expect(Math.max(...away)).toBeLessThan(15);
+      expect(made.tight).toBe(0);
+    });
+
+    it('挪过去落进水里的点往河这边收，最多收到离河 2.5 公里；收到头还在水里的数得出来；直着连到城里要过水就从河上往前让', () => {
+      // 北岸 4 公里以外、东西 20 公里宽的一片湖
+      const lake = (p: Km): boolean => p[0] > 90 && p[0] < 110 && p[1] > 4 && p[1] < 30;
+      const made = bankLine({ centre: straight, a: [0, 0], b: [200, 0], off: 6, side: 1, inWater: lake });
+      expect(made.pulled).toBeGreaterThan(0);
+      expect(made.wet).toBe(0);
+      for (const p of made.line) expect(lake(p)).toBe(false);
+      const beside = made.line.filter((p) => p[0] > 92 && p[0] < 108);
+      for (const p of beside) {
+        expect(p[1]).toBeLessThanOrEqual(4);
+        expect(p[1]).toBeGreaterThanOrEqual(2.5 - 1e-9);
+      }
+      // 湖一直伸到离河 1 公里：收到头还在水里
+      const deep = (p: Km): boolean => p[0] > 90 && p[0] < 110 && p[1] > 1 && p[1] < 30;
+      expect(bankLine({ centre: straight, a: [0, 0], b: [200, 0], off: 6, side: 1, inWater: deep }).wet).toBeGreaterThan(0);
+      // 城在北边 30 公里，城和河口之间隔着一片海湾（x 不到 20 的地方、y 在 3 到 20 之间）
+      const bay = (p: Km): boolean => p[0] < 20 && p[1] > 3 && p[1] < 20;
+      const far = bankLine({ centre: straight, a: [40, 30], b: [200, 0], off: 6, side: 1, inWater: bay, taperA: false, meetA: [0, 0] });
+      expect(far.skippedKm[0]).toBeGreaterThanOrEqual(20);
+      expect(far.line[0]).toEqual([40, 30]);
+      expect(far.line[1][0]).toBeGreaterThanOrEqual(20);
+    });
+
+    it('苏轼的全程沙盘：写了 along、沿着一条河走的路，在 BANKS 里都有；大江以南的两段运河写着不贴', () => {
+      const scene = JSON.parse(new TextDecoder().decode(readFileSync(new URL(`${SCENES}route.json`, ROOT)))) as RouteScene;
+      const rivers = new Set(scene.water.rivers.map((river) => river.id));
+      const along = scene.roads.ways.filter((way) => way.along !== undefined && rivers.has(way.along)).map((way) => way.id);
+      expect(Object.keys(BANKS).sort()).toEqual(along.slice().sort());
+      expect(Object.keys(BANKS).filter((id) => BANKS[id].paste === false)).toEqual(['w-canal-s1', 'w-canal-s2']);
+      for (const spec of Object.values(BANKS)) {
+        expect(spec.offKm).toBeGreaterThanOrEqual(5);
+        expect(spec.offKm).toBeLessThanOrEqual(9);
+      }
     });
   });
 

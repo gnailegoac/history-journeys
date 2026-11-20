@@ -10,8 +10,9 @@
 
 import type { NamesMode, RouteScene, StopScene } from '../domain/scene';
 import type { StillManifest } from '../domain/stills';
+import type { StopMark } from '../domain/stopMarks';
 
-export type { NamesMode };
+export type { NamesMode, StopMark };
 
 /** 画质分两档：完整，减配。定格图不算一档画质，它是另一个 StageEngine（src/stage/still）。 */
 export type StageTier = 'full' | 'reduced';
@@ -80,6 +81,11 @@ export interface StageOptions {
    * 只和 tier 一起写。
    */
   asked?: boolean;
+  /**
+   * 全程沙盘上每一站的印：键是 figure.json 里站的 id。页面用 src/domain/stopMarks.ts 的 stopMarks() 从 figure.json 里拼。
+   * 不写，题签上就没有站号的印。站点沙盘不看。
+   */
+  marks?: Record<string, StopMark>;
 }
 
 /** 跟着镜头变的两样：指北和比例尺。 */

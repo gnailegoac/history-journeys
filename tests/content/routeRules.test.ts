@@ -8,6 +8,7 @@ import { describe, expect, it } from 'vitest';
 import type { BakedGroundManifest } from '../../src/domain/bakedGround';
 import type { RouteScene, StopScene } from '../../src/domain/scene';
 import { routeCoords } from '../../src/domain/sceneGeoRoute';
+import { sectionInfo } from '../../src/domain/sceneText';
 import type { Figure, LngLat } from '../../src/domain/types';
 import { MADE_FILES_PENDING, includePendingFrom, isPending, tablesToMake } from '../support/pendingTables';
 import { fileSize, readBytes } from '../support/readBytes';
@@ -557,6 +558,9 @@ describe('规则 14 小节（全程沙盘）', () => {
     const strip = scene.strips.find((item) => item.of === far.id)!;
     // 从路出沙盘的那一点到北都：往北 80 公里
     expect(routeFarWords(far, strip.at!)).toBe('北都：往北约 80 公里（今北都市）');
+    // 校验量的就是页面印在沙盘旁边的那一句（sectionInfo 给的），不是另拼的；另算的一遍（greatCircle）和它对得上
+    expect(sectionInfo(scene, scene.sections[1].heading).far).toEqual([{ id: far.id, name: far.name, say: '往北约 80 公里（今北都市）' }]);
+    expect(Math.round(greatCircle(strip.at!, far.at).km)).toBe(80);
     // 这句话 16 个字宽（数字和空格算半个），前面还要空半个字：题记最多 33 个字
     expect(routeProblems((s) => (s.sections[1].line = '字'.repeat(34)))).toEqual(['14 sections[1].line']);
     expect(routeProblems((s) => (s.sections[1].line = '字'.repeat(33)))).toEqual([]);

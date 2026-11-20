@@ -446,12 +446,76 @@ describe.each(realSceneKeys('route'))('%s 的地面', (key) => {
         sum += (Math.atan(Math.hypot(gx, gz)) * 180) / Math.PI;
       }
     }
-    console.log(`${key}：留白的陆地 ${blank} 格，坡平均 ${(sum / Math.max(1, blank)).toFixed(3)} 度；一点没有压的 ${open} 格`);
+    // 留白是哪些格子，照程序自己说的算（压到底的那些）。2026-11-20 西边的边打散以前：33574 格，坡平均 0.589 度，一点没有压的 313784 格
+    console.log(`${key}：留白的陆地 ${blank} 格，坡平均 ${(sum / Math.max(1, blank)).toFixed(3)} 度；一点没有压的 ${open} 格（边打散以前是 33574 格、0.589 度、313784 格）`);
     expect(blank).toBeGreaterThan(10_000);
     expect(sum / blank).toBeLessThan(0.6);
     expect(open).toBeGreaterThan(250_000);
-    // 八站都不在留白里
+    // 八站都不在留白里；别的地名点也一样，地势一点没有压
     for (const place of R.scene.places.filter((p) => p.stops)) expect(keep[cellOf(R, place.at)], place.name).toBe(1);
+    for (const place of R.scene.places) expect(keep[cellOf(R, place.at)], place.name).toBe(1);
+  });
+
+  it('留白的边在西边是打散的：最西边的高原那条边前后挪动半度以上，是来回弯的；西南角那条边离场景里写的直线也有远有近', () => {
+    const R = realRouteScene(key);
+    const { keep, before } = stages(R);
+    const { nx, nz } = R.ground;
+    const flat = (k: number): boolean => keep[k] <= BLANK_KEEP + 1e-6;
+    // 西边：每六行（约 20 公里）取一行，只取场景里写的那条经线（圈的东边）在这一行落在北纬 27.5 到 33.5 度之间的；
+    // 这一行压到底的格子最东到哪条经线。来回几次：这条边从它自己的平均经线的一侧走到另一侧算一次
+    const ringEast = Math.max(...R.scene.terrain.recipe.blank[1].map((p) => p[0]));
+    const west: number[] = [];
+    for (let j = 0; j < nz; j += 6) {
+      let edge = NaN;
+      let latAtRing = NaN;
+      for (let i = 0; i < nx; i++) {
+        const k = j * nx + i;
+        const lng = before.lngLat[k * 2];
+        if (lng > 105.5) break;
+        if (lng <= ringEast) latAtRing = before.lngLat[k * 2 + 1];
+        if (flat(k)) edge = lng;
+      }
+      if (!Number.isNaN(edge) && latAtRing >= 27.5 && latAtRing <= 33.5) west.push(edge);
+    }
+    const westMean = west.reduce((a, b) => a + b, 0) / Math.max(1, west.length);
+    let turns = 0;
+    for (let r = 1; r < west.length; r++) if ((west[r] - westMean) * (west[r - 1] - westMean) < 0) turns++;
+    const westRange = Math.max(...west) - Math.min(...west);
+    // 西南角：东经 103.2 到 106 度之间（再往西是高原的那一圈），每一列从南往北，头一个没压到底的格子在哪条纬线，减掉场景里写的那条线在这条经线上的纬度
+    const ring = R.scene.terrain.recipe.blank[0];
+    const lineLat = (lng: number): number => {
+      for (let s = 0; s + 1 < ring.length; s++) {
+        const [a, b] = [ring[s], ring[s + 1]];
+        if (lng >= a[0] && lng <= b[0] && b[0] > a[0]) return a[1] + ((b[1] - a[1]) * (lng - a[0])) / (b[0] - a[0]);
+      }
+      return NaN;
+    };
+    const south: number[] = [];
+    for (let i = 0; i < nx; i++) {
+      for (let j = nz - 1; j >= 0; j--) {
+        const k = j * nx + i;
+        const lng = before.lngLat[k * 2];
+        if (lng < 103.2 || lng > 106) break;
+        if (!flat(k)) {
+          const off = before.lngLat[k * 2 + 1] - lineLat(lng);
+          if (!Number.isNaN(off)) south.push(off);
+          break;
+        }
+      }
+    }
+    const southRange = Math.max(...south) - Math.min(...south);
+    console.log(
+      `${key}：西边的边（北纬 27.5 到 33.5 度，每六行取一行，${west.length} 行）最东到东经 ${Math.max(...west).toFixed(2)} 度、最西到 ${Math.min(...west).toFixed(2)} 度，在自己的平均经线（东经 ${westMean.toFixed(2)} 度）两侧来回了 ${turns} 次；` +
+        `西南角的边（${south.length} 列）比写的直线最多靠北 ${Math.max(...south).toFixed(2)} 度、最少 ${Math.min(...south).toFixed(2)} 度`,
+    );
+    expect(west.length).toBeGreaterThan(25);
+    expect(westRange).toBeGreaterThan(0.5);
+    // 一条斜着的直线只过自己的平均经线一次；过两次以上，才是来回弯的
+    expect(turns).toBeGreaterThanOrEqual(2);
+    expect(south.length).toBeGreaterThan(60);
+    expect(southRange).toBeGreaterThan(0.3);
+    // 眉州以东不动：最东也到不了东经 103 度
+    expect(Math.max(...west)).toBeLessThan(103);
   });
 
   it('法线图：每格四个字节，平地朝上，没有倒过来的', () => {

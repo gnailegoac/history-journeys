@@ -14,12 +14,12 @@
 import { Buffer } from 'node:buffer';
 import { createHash } from 'node:crypto';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
-import type { StopScene } from '../../src/domain/scene';
-import { SCENE_CLASS_LABEL } from '../../src/domain/scene';
+import type { RouteScene, StopScene, TableScene } from '../../src/domain/scene';
+import { ROUTE_SCENE_ID, SCENE_CLASS_LABEL } from '../../src/domain/scene';
 import { loadFigure, loadFigureCards, loadStop } from '../../src/domain/content';
 import { loadStopTable } from '../../src/domain/sceneContent';
 import { sceneRegister, sectionHeadings, sectionInfo, stripTexts } from '../../src/domain/sceneText';
-import type { Figure, FigureCard, StopContent } from '../../src/domain/types';
+import type { Figure, FigureCard, Source, StopContent } from '../../src/domain/types';
 import { KAI_LABELS, placeLabel } from '../../src/ui/text';
 import type { FontTables } from './sfnt';
 import { charactersOf, checkSfnt, cmapOf, englishName, featuresOf, glyphCountOf, hintingOf, namesOf, readSfnt, readWoff2, renameSfnt } from './sfnt';
@@ -185,6 +185,8 @@ export interface SiteFigure {
   figure: Figure;
   /** 写好了正文的站，和有沙盘的站。 */
   stops: SiteStop[];
+  /** 这位人物的全程沙盘的场景（scenes/route.json）；没有是 null。 */
+  route: RouteScene | null;
 }
 
 export interface SiteStop {
@@ -367,7 +369,7 @@ export function planFonts(
 
   // ---- 每位人物
   const stopIds: string[] = [];
-  for (const { figure, stops } of site.figures) {
+  for (const { figure, stops, route } of site.figures) {
     const page = `${figure.name}的人物页`;
     for (const text of [figure.name, figure.era, figure.years, figure.tagline, ...figure.intro]) first('common', page, text);
     kai('common', page, figure.name);
@@ -423,30 +425,40 @@ export function planFonts(
         for (const question of content.sampleQuestions) more(id, says('示例问题'), question);
       }
 
-      if (scene) {
-        // 沙盘旁边的字：小节名和题记是楷体；时间、远处的那句话、一句说明的两种写法是宋体；完整的说明点开才有
-        for (const heading of sectionHeadings(scene)) {
-          const info = sectionInfo(scene, heading);
-          kai(id, says('沙盘'), info.section);
-          kai(id, says('沙盘'), info.line);
-          for (const text of [info.date, info.note.short, info.note.brief, ...info.far.map((far) => `${far.name}：${far.say}`)]) first(id, says('沙盘'), text);
-          for (const line of info.note.lines) more(id, says('“说明”'), line);
-          // 题签：古名、今名两种叫法
-          for (const names of ['ancient', 'modern'] as const) for (const strip of stripTexts(scene, heading, names)) kai(id, says('题签'), strip.text);
-        }
-        // 凭据里“沙盘上的东西”一栏：点开才有
-        const register = sceneRegister(scene, content?.sources ?? []);
-        const column = says('“沙盘上的东西”');
-        for (const group of register.groups) {
-          for (const entry of group.entries) {
-            for (const text of [entry.name, entry.basis, ...entry.cites]) more(id, column, text);
-            if (entry.unsure) more(id, column, `${entry.name}的${entry.unsure}是示意。`);
-          }
-        }
-        for (const item of register.notDrawn) for (const text of [item.name, item.why, ...item.cites]) more(id, column, text);
-        for (const credit of register.credits) more(id, column, credit);
+      if (scene) table(id, says, scene, content?.sources ?? []);
+    }
+
+    // ---- 全程沙盘：摆在人物页上（首页也用它），所以它的字归大家共用的那一拨，不归哪一站。出处是场景文件自己的 sources
+    if (route) table('common', (what) => `${page}（全程沙盘的${what}）`, route, route.sources);
+  }
+
+  /**
+   * 一座沙盘（站点沙盘，或者全程沙盘）要显示的字：都是页面生成它们的那几个函数算出来的。
+   * home 是这些字归谁（一站的 id，或者 common）；says 给出“用在哪”的叫法。
+   * 全程沙盘上站名的题签脚上还有写着站号的印：那几个数字（一到十）是楷体的，列在界面上用楷体排的字里（KAI_LABELS）。
+   */
+  function table(home: string, says: (what: string) => string, scene: TableScene, sources: Source[]): void {
+    // 沙盘旁边的字：小节名和题记是楷体；时间、远处的那句话、一句说明的两种写法是宋体；完整的说明点开才有
+    for (const heading of sectionHeadings(scene)) {
+      const info = sectionInfo(scene, heading);
+      kai(home, says('沙盘'), info.section);
+      kai(home, says('沙盘'), info.line);
+      for (const text of [info.date, info.note.short, info.note.brief, ...info.far.map((far) => `${far.name}：${far.say}`)]) first(home, says('沙盘'), text);
+      for (const line of info.note.lines) more(home, says('“说明”'), line);
+      // 题签：古名、今名两种叫法
+      for (const names of ['ancient', 'modern'] as const) for (const strip of stripTexts(scene, heading, names)) kai(home, says('题签'), strip.text);
+    }
+    // 凭据里“沙盘上的东西”一栏：点开才有
+    const register = sceneRegister(scene, sources);
+    const column = says('“沙盘上的东西”');
+    for (const group of register.groups) {
+      for (const entry of group.entries) {
+        for (const text of [entry.name, entry.basis, ...entry.cites]) more(home, column, text);
+        if (entry.unsure) more(home, column, `${entry.name}的${entry.unsure}是示意。`);
       }
     }
+    for (const item of register.notDrawn) for (const text of [item.name, item.why, ...item.cites]) more(home, column, text);
+    for (const credit of register.credits) more(home, column, credit);
   }
 
   // ---- 分组
@@ -557,7 +569,10 @@ export async function readSite(): Promise<SiteText> {
       const table = await loadStopTable(figure.id, stop.id);
       if (content || table) stops.push({ id: stop.id, content, scene: table?.scene ?? null });
     }
-    figures.push({ figure, stops });
+    // 全程沙盘的场景文件：页面读它的程序还没有接上（接人物页的那一步），这里直接读文件
+    const routePath = `content/figures/${folder}/scenes/${ROUTE_SCENE_ID}.json`;
+    const route = existsSync(new URL(routePath, ROOT)) ? (JSON.parse(readText(routePath).replace(/^﻿/, '')) as RouteScene) : null;
+    figures.push({ figure, stops, route });
   }
   return { sources, kaiLabels: KAI_LABELS, cards: await loadFigureCards(), figures };
 }

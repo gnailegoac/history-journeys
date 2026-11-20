@@ -13,7 +13,7 @@
 import type { NamesMode, StopScene } from '../../domain/scene';
 import { stripTexts } from '../../domain/sceneText';
 import type { StillManifest, StillShape, StillShot } from '../../domain/stills';
-import { mountStrips } from '../overlay';
+import { mountStrips, sectionStripSpecs } from '../overlay';
 import type { StripLayer, StripSpec } from '../overlay/types';
 import { chooseScale } from '../scale';
 import type { StageEngine, StageInsets, StageOptions, StageReadout, StageViewInfo, StopStageView, StopTable } from '../types';
@@ -123,6 +123,8 @@ class StillStopView implements StopStageView {
   private readonly reducedMotion: boolean;
   private namesMode: NamesMode;
   private insets: StageInsets;
+  /** 全程沙盘上每一站的印（页面交进来的）；站点沙盘用不着。 */
+  private readonly marks: StageOptions['marks'];
 
   private readonly wrapper: HTMLDivElement;
   /** 两张叠着的图片：一张摆着现在的，另一张用来取下一张。 */
@@ -172,6 +174,7 @@ class StillStopView implements StopStageView {
     this.reducedMotion = options.reducedMotion;
     this.namesMode = options.namesMode;
     this.insets = options.insets ?? NO_INSETS;
+    this.marks = options.marks;
 
     let first = this.headings[0] ?? '';
     if (options.section !== undefined) {
@@ -513,12 +516,7 @@ class StillStopView implements StopStageView {
     let specs: StripSpec[] = [];
     // 题签摆不出来（场景文件有毛病）不该连图也不让看
     try {
-      specs = stripTexts(this.scene, shown.heading, this.namesMode).map((t) => ({
-        id: t.id,
-        text: t.text,
-        tone: t.tone,
-        side: this.scene.strips.find((s) => s.id === t.id)?.side,
-      }));
+      specs = sectionStripSpecs(this.scene, shown.heading, stripTexts(this.scene, shown.heading, this.namesMode), this.marks);
     } catch (error) {
       console.warn('[定格图] 这一小节的题签没能摆出来', error);
     }

@@ -30,6 +30,7 @@
 
 import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
+import type { RouteScene } from '../../src/domain/scene';
 import type { LngLat, Figure, StopContent, StopMeta } from '../../src/domain/types';
 import { fontReport, withCommas } from '../content/budgetRules';
 import { fixtureScene, fixtureSources } from '../support/fixtureScene';
@@ -286,12 +287,16 @@ function madeUpSite(change: (site: SiteText) => void = () => {}): SiteText {
             scene: null,
           },
         ],
+        route: null,
       },
     ],
   };
   change(site);
   return site;
 }
+
+/** 校验规则那座合格的全程沙盘小样本（tests/content/fixtures/good/figures/demo/scenes/route.json）。 */
+const routeSample = (): RouteScene => JSON.parse(utf8.decode(readFileSync(at('tests/content/fixtures/good/figures/demo/scenes/route.json')))) as RouteScene;
 
 const fileOf = (plan: FontPlan, group: string): PlannedFile => {
   const file = plan.files.find((item) => item.group === group);
@@ -501,6 +506,58 @@ describe('数字：哪些字归哪一组（编出来的一位人物）', () => {
     // 用了谁的数据那一行只在这一栏里：有它自己才有的字时，那个字在点开才看得见的一组里
     const onlyInCredits = shippable(scene.credits.join('')).filter((ch) => !fileOf(plan, 'song').characters.includes(ch));
     for (const ch of onlyInCredits) expect(fileOf(plan, 'song-more').characters).toContain(ch);
+  });
+
+  it('全程沙盘（人物页上的那一座）：题签的古名今名、小节名、题记是楷体；时间、那一句说明、远处的那句话看得见；“说明”展开的、“沙盘上的东西”点开才看得见', () => {
+    const route = routeSample();
+    const plan = planFonts(madeUpSite((site) => (site.figures[0].route = route)));
+    for (const strip of route.strips) {
+      expect(has(plan, 'kai', strip.text), strip.text).toBe(true);
+      if (strip.modern) expect(has(plan, 'kai', strip.modern), strip.modern).toBe(true);
+    }
+    for (const section of route.sections) {
+      expect(has(plan, 'kai', section.heading)).toBe(true);
+      expect(has(plan, 'kai', section.line)).toBe(true);
+      expect(has(plan, 'song', section.date)).toBe(true);
+    }
+    // 常印着的那一句（示意的东西的名字，一截路的名字也在里面）和远处的那句话：看得见
+    expect(has(plan, 'song', '南溪、新渠、镜湖的西南角等 7 样是示意；平地抹平；山高夸大 12 到 25 倍；河和路都画宽了')).toBe(true);
+    expect(has(plan, 'song', '示例五年溪口到东港的水路')).toBe(true);
+    expect(has(plan, 'song', `北都：往北约 80 公里（${route.far[0].gloss}）`)).toBe(true);
+    // “说明”展开的每一句、“沙盘上的东西”一栏（依据、出处的写法、没有画的、用了谁的数据），在两组宋体里总有一份
+    const all = new Set([...fileOf(plan, 'song').characters, ...fileOf(plan, 'song-more').characters]);
+    const pressed = [
+      route.terrain.recipe.note,
+      route.water.coast.note,
+      ...route.roads.journeys.flatMap((journey) => journey.parts.flatMap((part) => [part.note, part.basis, part.name])),
+      ...route.water.rivers.map((river) => river.basis),
+      route.water.lakes[0].except?.basis,
+      ...route.sources.map((source) => source.cite),
+      ...route.notDrawn.map((item) => item.why),
+      ...route.credits,
+    ];
+    for (const text of pressed) for (const ch of shippable(text ?? '')) expect(all.has(ch), `“${ch}”（${text}）`).toBe(true);
+    // 只在依据里有的字归点开才看得见的一组，不进一打开就下载的那个文件
+    const onlyPressed = [...new Set(shippable(route.water.rivers.map((river) => river.basis).join('')))].filter((ch) => !fileOf(plan, 'song').characters.includes(ch));
+    expect(onlyPressed.length).toBeGreaterThan(0);
+    for (const ch of onlyPressed) expect(fileOf(plan, 'song-more').characters).toContain(ch);
+    // 没有全程沙盘的时候，这些字一个也不在；用在哪写的是人物页
+    const without = planFonts(madeUpSite());
+    expect(hasNone(without, 'kai', '镜湖')).toBe(true);
+    expect(fileOf(plan, 'kai').where.get('镜')).toEqual(['某人的人物页（全程沙盘的题签）']);
+    expect(fileOf(plan, 'song').where.get('抹')).toEqual(['某人的人物页（全程沙盘的沙盘）']);
+  });
+
+  it('全程沙盘的字归大家共用的文件（它摆在人物页上），按站拆开的时候也不归哪一站', () => {
+    const route = routeSample();
+    const split = planFonts(madeUpSite((site) => (site.figures[0].route = route)), { splitByStop: true });
+    const same = planFonts(madeUpSite(), { splitByStop: true });
+    expect(split.files.map((file) => file.group)).toEqual(same.files.map((file) => file.group));
+    expect(has(split, 'song', '镜湖抹')).toBe(true);
+    // 一站自己的文件里一个字也没有多：只会少（原来只有这一站用的字，全程沙盘也用了，就挪进大家共用的文件）
+    for (const file of split.files.filter((item) => item.stop !== null)) for (const ch of file.characters) expect(fileOf(same, file.group).characters, `${file.name} “${ch}”`).toContain(ch);
+    const moved = [...fileOf(same, 'song-s2').characters].filter((ch) => !fileOf(split, 'song-s2').characters.includes(ch)).join('');
+    expect(has(split, 'song', moved)).toBe(true);
   });
 
   it('记在“用设备自带的字显示”里的字不进字体，另外报出来', () => {

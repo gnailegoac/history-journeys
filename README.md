@@ -42,6 +42,7 @@ npm start
 | `npm run bake` | 给每座沙盘的地面上色，存成两张图和一份清单，放在 `content/figures/<人物>/baked/`。有了它，沙盘打开时不用现画地面（开发机上徐州摆好快一秒上下）。一座沙盘十几秒；地面没有变时什么也不写 |
 | `npm run route:terrain`、`npm run route:today` | 做全程沙盘的地形文件和“今天的海岸、湖、河”（`content/figures/su-shi/scenes/route.terrain.bin`、`route.today.geojson`）。只照 `spikes/art-direction/route/data/` 里的文件做，不连外面的服务；文件没有变时什么也不写。平常用不着跑 |
 | `npm run route:map` | 画全程沙盘的检查图：从正上方看，场景文件里的每一条线、每一圈、每一条路，放在 `tests/shots/route-check/`（不进仓库）。改了 `scenes/route.json` 里的线以后跑一遍，看一眼 |
+| `npm run route:bank` | 做全程沙盘上走水路的路贴着河岸走的线：路画在河的一边，离河心几公里，河才露得出来。只把线印出来，不改文件；看过以后贴进 `scenes/route.json` 里那条路的 `line`，再跑 `npm run route:map` 看一眼。`WAY=w-min npm run route:bank` 只做一条路；每条路离河多远、在哪一边，写在 `tests/tools/route/bankTool.ts` 的 `BANKS` 里。改了河的线或者这几条路的两头以后才用得着 |
 | `STILLS_OUT=content/figures npm run stills` | 把每座沙盘的每一小节拍成定格图，宽、窄各一张，连同一份清单，放进 `content/figures/<人物>/stills/`。一座沙盘半分钟上下；画面没有变的图片不重写 |
 | `npm run stills` | 同上一条，只是试拍：存到 `tests/shots/stills-trial/`（不进仓库），不动 `content/` |
 

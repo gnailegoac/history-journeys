@@ -9,10 +9,11 @@ import { contentKey } from '../../src/domain/contentKey';
 export const PROGRAM_FOLDERS = ['src/stage/three/', 'src/stage/ground/', 'src/stage/dev/'] as const;
 
 /**
- * 另外单算的几个文件。拍照的工具是两个文件：make-stills.spec.ts 管浏览器，stillsTool.ts 里是它不靠浏览器的部分
+ * 另外单算的几个文件。src/stage/roadLines.ts 算的是全程沙盘上的路怎么走（画路的 src/stage/three/routeKit.ts 用它），不在上面那几个文件夹里。
+ * 拍照的工具是两个文件：make-stills.spec.ts 管浏览器，stillsTool.ts 里是它不靠浏览器的部分
  * （两种形状各照什么拍、质量从高往低试哪几档、清单里的数取几位）——都决定拍出来什么样，都算。
  */
-export const PROGRAM_FILES = ['src/stage/scale.ts', 'stage-dev.html', 'tests/tools/make-stills.spec.ts', 'tests/support/stillsTool.ts', 'playwright.stills.config.ts'] as const;
+export const PROGRAM_FILES = ['src/stage/scale.ts', 'src/stage/roadLines.ts', 'stage-dev.html', 'tests/tools/make-stills.spec.ts', 'tests/support/stillsTool.ts', 'playwright.stills.config.ts'] as const;
 
 /** 场景数据的那几个文件：src/domain/ 里名字以 scene 打头的 .ts。 */
 const SCENE_SOURCE = /^src\/domain\/scene[^/]*\.ts$/;

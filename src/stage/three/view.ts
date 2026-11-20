@@ -21,8 +21,8 @@ import { coordsOf } from '../../domain/sceneGeoRoute';
 import { stripTexts } from '../../domain/sceneText';
 import { buildFields, readDem, samplers as groundSamplers } from '../ground';
 import type { GroundSamplers, Vec2, Vec3 } from '../ground/types';
-import { mountStrips } from '../overlay';
-import type { StripLayer, StripSpec } from '../overlay/types';
+import { mountStrips, sectionStripSpecs } from '../overlay';
+import type { StripLayer } from '../overlay/types';
 import type { NamesMode, RouteTable, StageInsets, StageOptions, StageReadout, StageShot, StageTable, StageTier, StageViewInfo, StopStageView, StopTable } from '../types';
 import { beginGroundPaint, type GroundPaintJob } from './groundPaint';
 import { nextFrame, nextPaint, type Lease, type StageHost } from './host';
@@ -646,7 +646,7 @@ class ThreeStopView implements StopStageView {
     await nextPaint();
     if (gone()) return null;
 
-    const models = level.buildRouteModels();
+    const models = level.buildRouteModels({ scene, coords, samplers, style: routeStyle, tier: quality.tier });
     this.keep(() => models.dispose());
     return { samplers, terrain, water, mist, stand, models };
   }
@@ -832,15 +832,8 @@ class ThreeStopView implements StopStageView {
 
   /** 换一批题签：这一小节的，按现在的古今名字。 */
   private showStrips(heading: string, b: Built): void {
-    const scene = this.scene;
-    // 全程沙盘的题签（带站号的印）下一步才接上：现在一条也不摆
-    const texts = scene.level === 'route' ? [] : stripTexts(scene, heading, this.namesMode);
-    const specs: StripSpec[] = texts.map((t) => ({
-      id: t.id,
-      text: t.text,
-      tone: t.tone,
-      side: scene.strips.find((s) => s.id === t.id)?.side,
-    }));
+    // 全程沙盘上是站的地名带着站号的印（options.marks 里有的那几站）
+    const specs = sectionStripSpecs(this.scene, heading, stripTexts(this.scene, heading, this.namesMode), this.options.marks);
     this.stripsFor = heading;
     this.shownStrips = this.stripsOf(specs.map((s) => s.id));
     this.spotCache = null;

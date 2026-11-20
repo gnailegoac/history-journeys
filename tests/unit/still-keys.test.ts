@@ -10,7 +10,7 @@ import { deflateSync } from 'node:zlib';
 import { describe, expect, it } from 'vitest';
 import packageJson from '../../package.json';
 import { contentKey } from '../../src/domain/contentKey';
-import type { StopScene } from '../../src/domain/scene';
+import type { RouteScene, StopScene, TableScene } from '../../src/domain/scene';
 import type { StillManifest } from '../../src/domain/stills';
 import { FIT_MARGIN_PX, MAX_FIT } from '../../src/stage/three/rig';
 import type { StageShot } from '../../src/stage/types';
@@ -48,7 +48,7 @@ import {
   type RawPicture,
 } from '../support/stillsTool';
 
-const realScenes = import.meta.glob<StopScene>('/content/figures/*/scenes/*.json', { import: 'default', eager: true });
+const realScenes = import.meta.glob<TableScene>('/content/figures/*/scenes/*.json', { import: 'default', eager: true });
 
 const KEY = /^[0-9a-f]{16}$/;
 
@@ -147,21 +147,38 @@ describe('场景里决定画面的那一部分的记号（pictureKey）', () => 
   });
 
   it('content/ 里真的场景文件：算得出记号，改一个镜头的数就变，改一句依据不变', () => {
-    // 全程沙盘不在这里：它的定格图还没有做，“场景里决定画面的部分”的记号怎么算，等拍它的那一步定
-    const paths = Object.keys(realScenes).filter((path) => (realScenes[path] as { level?: string }).level !== 'route');
-    expect(paths.length).toBeGreaterThan(0);
+    // 两层的沙盘都查（全程沙盘写着 "level": "route"）：记号是同一个函数算的，去掉的也是同样那几种字段。
+    // 全程沙盘的定格图还没有拍（等人物页接上它）：这里只管“算得出、该变的变、不该变的不变”，清单新不新由 stills-fresh 到时候查。
+    const paths = Object.keys(realScenes);
+    expect(paths.filter((path) => realScenes[path].level === 'route').length).toBeGreaterThan(0);
+    expect(paths.filter((path) => realScenes[path].level !== 'route').length).toBeGreaterThan(0);
     for (const path of paths) {
       const scene = realScenes[path];
       const key = pictureKey(scene);
       expect(key, path).toMatch(KEY);
-      const moved = JSON.parse(JSON.stringify(scene)) as StopScene;
+      const moved = JSON.parse(JSON.stringify(scene)) as TableScene;
       moved.sections[0].camera.bearing += 1;
       expect(pictureKey(moved), path).not.toBe(key);
-      const reworded = JSON.parse(JSON.stringify(scene)) as StopScene;
-      reworded.things[0].basis += '（补一句）';
+      const reworded = JSON.parse(JSON.stringify(scene)) as TableScene;
+      // 改一句依据（站点沙盘上是头一样摆件的，全程沙盘上是头一趟路头一截的）、一句题记、一条题签上的字
+      if (reworded.level === 'route') {
+        reworded.roads.journeys[0].parts[0].basis += '（补一句）';
+        reworded.roads.journeys[0].parts[0].note = '改一句说明';
+        reworded.roads.journeys[0].name += '改';
+        reworded.strips[0].modern = '改';
+      } else reworded.things[0].basis += '（补一句）';
       reworded.sections[0].line += '！';
       reworded.strips[0].text = '改';
       expect(pictureKey(reworded), path).toBe(key);
+      // 全程沙盘：一截路换一种画法（实线、虚线看它的类别）、一条路挪一个点，画面就变
+      if (scene.level === 'route') {
+        const redrawn = JSON.parse(JSON.stringify(scene)) as RouteScene;
+        redrawn.roads.journeys[0].parts[0].class = redrawn.roads.journeys[0].parts[0].class === 'text' ? 'schematic' : 'text';
+        expect(pictureKey(redrawn), path).not.toBe(key);
+        const rerouted = JSON.parse(JSON.stringify(scene)) as RouteScene;
+        rerouted.roads.ways[0].line[0][0] += 0.01;
+        expect(pictureKey(rerouted), path).not.toBe(key);
+      }
     }
   });
 });
@@ -216,6 +233,8 @@ describe('沙盘程序和拍照工具的记号（programKey）', () => {
       'src/stage/ground/paint.ts',
       'src/stage/dev/harness.ts',
       'src/stage/scale.ts',
+      'src/stage/roadLines.ts',
+      'src/stage/three/routeKit.ts',
       'src/domain/scene.ts',
       'src/domain/sceneGeo.ts',
       'src/domain/sceneText.ts',
@@ -243,7 +262,7 @@ describe('沙盘程序和拍照工具的记号（programKey）', () => {
       expect(isProgramPath(path), path).toBe(false);
     }
     expect(PROGRAM_FOLDERS).toEqual(['src/stage/three/', 'src/stage/ground/', 'src/stage/dev/']);
-    expect(PROGRAM_FILES).toEqual(['src/stage/scale.ts', 'stage-dev.html', 'tests/tools/make-stills.spec.ts', 'tests/support/stillsTool.ts', 'playwright.stills.config.ts']);
+    expect(PROGRAM_FILES).toEqual(['src/stage/scale.ts', 'src/stage/roadLines.ts', 'stage-dev.html', 'tests/tools/make-stills.spec.ts', 'tests/support/stillsTool.ts', 'playwright.stills.config.ts']);
   });
 
   it('工具和测试读的是磁盘上同一批文件：都在单子里，路径用“/”，版本就是 package.json 里写的', () => {

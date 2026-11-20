@@ -3,7 +3,7 @@
 //   地面的算法（../ground/route.ts 的几个函数，从这里转出去）；
 //   先画好的地面怎么取（routeGroundPaint）——全程沙盘的地面不在页面上现画，只用制作时画好的两张图；
 //   两个替身：全程沙盘没有水面，也没有云气，可 view.ts 每一帧都要对水面和云气说话，这里给它两个什么也不画的；
-//   路（buildRouteModels）：现在是空的一组，下一步接上。
+//   路（buildRouteModels，在 ./routeKit.ts 里，从这里转出去）。
 // 查构建结果的测试把这一块连同它静态引入的东西单算一组（tests/content/budgetRules.ts 的 ROUTE_ENTRY）。
 
 import { Group, type IUniform, type Vector2 } from 'three';
@@ -14,7 +14,6 @@ import type { RouteGround } from '../ground/route';
 import type { RouteTable } from '../types';
 import { loadPicture, pictureSize } from './groundPaint';
 import type { GroundPaintSource } from './groundPaint';
-import type { ModelSet } from './internal';
 import type { Mist } from './mist';
 import type { Water } from './water';
 // 这一句只为打包：这一块程序只在沙盘程序已经下载了以后才取。写了这一句，打包的工具就知道沙盘程序那一块一定在，
@@ -23,6 +22,7 @@ import type { Water } from './water';
 import './engine';
 
 export { buildRouteGround, readRouteDem, routeSamplers } from '../ground/route';
+export { buildRouteModels } from './routeKit';
 
 // ---------------------------------------------------------------- 先画好的地面
 
@@ -75,7 +75,7 @@ export function routeGroundPaint(table: RouteTable, signal: AbortSignal, loadIma
   };
 }
 
-// ---------------------------------------------------------------- 两个替身，和路
+// ---------------------------------------------------------------- 两个替身
 
 /**
  * 水面的替身：全程沙盘的海和湖是画在地面上的，没有水面。水纹由地面的着色器画，
@@ -101,9 +101,4 @@ export function routeWater(uniforms: Record<string, IUniform>): Water {
 /** 云气的替身：全程沙盘不画云气。 */
 export function routeMist(): Mist {
   return { group: new Group(), setFlood() {}, setStrength() {}, dispose() {} };
-}
-
-/** 全程沙盘上的路。现在是空的一组：什么也不画，一个三角形也没有。 */
-export function buildRouteModels(): ModelSet {
-  return { group: new Group(), apply: () => false, prepare: () => Promise.resolve(), triangles: () => 0, dispose() {} };
 }

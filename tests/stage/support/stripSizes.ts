@@ -35,8 +35,9 @@ export function stripSizeKind(paneWidth: number): StripSizeKind {
 /**
  * 全程沙盘上是站的地名，题签脚上不是那方小红印，是一方一方写着第几站的红印（一站一方，杭州两方）。
  * 这样的题签的高 = base + perChar × 字数 + perSeal × 印的方数：宽的栏上下各垫 6，一方印 19 像素、上面空 3；
- * 窄的栏上垫 4、下垫 5，一方印 16 像素、上面空 2。这几个数是设计稿定的；印的样式做出来以后，
- * 浏览器测试要量一条带印的真题签来和这里比（现在还没有那一项）。
+ * 窄的栏上垫 4、下垫 5，一方印 16 像素、上面空 2（样式在 src/styles/stage.css 的 .strip.has-seals 和 .strip-seal）。
+ * 2026-11-20 在浏览器里对着真的题签量过（沙盘测试页接上页面的样式）：宽的栏上徐州 29 × 72、杭州 29 × 94、昌化军 29 × 91，
+ * 窄的栏上 24 × 58、24 × 76、24 × 74，和这里算出来的一样。浏览器测试里量带印的题签的那一项，等人物页摆上全程沙盘时添。
  */
 export const SEALED_STRIP_SIZE: Record<StripSizeKind, { base: number; perSeal: number }> = {
   wide: { base: 12, perSeal: 22 },
@@ -65,19 +66,16 @@ export function sectionStrips(scene: StopScene, heading: string, paneWidth: numb
 }
 
 /**
- * 全程沙盘一小节要摆的题签，照这么宽的沙盘栏算好大小。字是当时的名字，或者今天的名字（写了 modern 的才换）；
- * 指着“是站的地名点”的题签带着站号的印，一站一方。页面上拼这些字的程序（src/domain/sceneText.ts）接上全程沙盘以后，
- * 这里改成用它。
+ * 全程沙盘一小节要摆的题签，照这么宽的沙盘栏算好大小。字和“是哪几站”都是页面拼出来的那一份
+ * （src/domain/sceneText.ts 的 stripTexts）：当时的名字，或者今天的名字（写了 modern 的才换）；
+ * 指着“是站的地名点”的题签带着站号的印，一站一方。
  */
 export function routeSectionStrips(scene: RouteScene, heading: string, paneWidth: number, names: NamesMode = 'ancient'): StripInput['strips'] {
   const kind = stripSizeKind(paneWidth);
-  const section = scene.sections.find((item) => item.heading === heading);
-  if (!section) throw new Error(`全程沙盘里没有“${heading}”这一节`);
-  return section.strips.map((id, rank) => {
-    const strip = scene.strips.find((item) => item.id === id);
-    if (!strip) throw new Error(`${heading} 写的题签 ${id}，场景里没有`);
-    const text = names === 'modern' && strip.modern ? strip.modern : strip.text;
-    const seals = scene.places.find((place) => place.id === strip.of)?.stops?.length ?? 0;
-    return { id, ...stripSize(text, kind, seals), rank, side: strip.side };
-  });
+  return stripTexts(scene, heading, names).map((t, rank) => ({
+    id: t.id,
+    ...stripSize(t.text, kind, t.stops?.length ?? 0),
+    rank,
+    side: scene.strips.find((s) => s.id === t.id)?.side,
+  }));
 }

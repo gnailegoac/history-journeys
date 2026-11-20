@@ -8,7 +8,7 @@
 //（src/renderers/WebGLRenderer.js 的 projectObject 和 renderBufferDirect，webgl/WebGLBufferRenderer.js）。
 // 这个文件运行时不引入 three（只取类型）：浏览器端到端测试也要读它。
 
-import type { BufferGeometry, InstancedMesh, Material, Mesh, Object3D, Texture } from 'three';
+import type { BufferGeometry, InstancedBufferGeometry, InstancedMesh, Material, Mesh, Object3D, Texture } from 'three';
 import { PICTURE_EDGE_MAX, verdict, withCommas } from '../../content/budgetRules';
 
 /** 一个画面最多多少个三角形；过了多少提醒一句。 */
@@ -96,6 +96,8 @@ function drawnVertices(geometry: BufferGeometry, start = 0, count = Infinity): n
 /**
  * 这棵树现在显出来的东西，画一帧要几批、一共多少个三角形。
  * 藏起来的（visible 是 false）连同它下面的都不算；成批摆的（InstancedMesh）一个网格算一批，摆了 0 个的不画；
+ * 形状自己是成批的（InstancedBufferGeometry，粗线 LineSegments2、Line2 就是：一个普通的网格，形状里一段线一份）、
+ * 份数又写明了的，也是一批，三角形乘上份数（three 画的时候就是这样数的）；份数没有写明的（还是无穷大）按一份算。
  * 一个网格用了几种材质的，一种一批。不管镜头看不看得见（不按视野裁掉）：数的是最多的情形。
  */
 export function drawn(root: Object3D): { calls: number; triangles: number } {
@@ -106,7 +108,9 @@ export function drawn(root: Object3D): { calls: number; triangles: number } {
     const d = o as Drawable;
     if ((d.isMesh || d.isLine || d.isPoints || d.isSprite) && d.geometry && d.material) {
       const instanced = (o as InstancedMesh).isInstancedMesh === true;
-      const copies = instanced ? (o as InstancedMesh).count : 1;
+      const shape = d.geometry as InstancedBufferGeometry;
+      const perShape = shape.isInstancedBufferGeometry === true && Number.isFinite(shape.instanceCount) ? shape.instanceCount : 1;
+      const copies = instanced ? (o as InstancedMesh).count : perShape;
       const solid = d.isMesh || d.isSprite;
       if (copies > 0) {
         if (Array.isArray(d.material)) {

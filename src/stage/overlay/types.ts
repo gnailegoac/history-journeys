@@ -15,6 +15,22 @@ export interface StripSpec {
   tone: 'place' | 'water' | 'far';
   /** 最好摆在那一点的哪一边。不写就摆在上边。 */
   side?: 'above' | 'below' | 'left' | 'right';
+  /**
+   * 全程沙盘上是站的地名才有：名字下面一站一方写着站号的印，每一方是通到那一站的链接（杭州两方）。
+   * label 是印上的字（一到八）；href 是那一站的网址；filled：正文写好了的站是实心的印，还没写的只有一道边；
+   * here：这一小节讲的就是这一站，印外面多一圈墨线；title 是读屏软件念的那一句（“第四站，徐州：大水围城”）。
+   */
+  seals?: StripSeal[];
+}
+
+/** 题签上的一方站号的印。 */
+export interface StripSeal {
+  stop: string;
+  label: string;
+  href: string;
+  filled: boolean;
+  here: boolean;
+  title: string;
 }
 
 /** 摆题签要知道的东西。 */

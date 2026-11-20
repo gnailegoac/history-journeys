@@ -905,6 +905,58 @@
   opacity: 0.92;
 }
 
+/* 全程沙盘上是站的地名：脚上不是那方小印，是一方一方写着第几站的印，一站一方，每一方通到那一站。
+   写好了的站是实心的印，还没写的只有一道边；这一小节讲的那一站，印外面多一圈墨线。
+   带印的题签按得动（题签这一层本来不接手指）。印是 19px 见方、上面空 3px，下垫改成 6 → 高 12 + 19.04 × 字数 + 22 × 印的方数；
+   按得到的地方比印大（44px）：上下两方印各管到两方中间。数在 tests/stage/support/stripSizes.ts 里也写着。 */
+.strip.has-seals {
+  padding-bottom: 6px;
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+.strip.has-seals::after {
+  content: none;
+}
+
+.strip-seal {
+  position: relative;
+  display: inline-block;
+  width: 19px;
+  height: 19px;
+  margin: 3px -1px 0;
+  border-radius: 2px;
+  box-shadow: inset 0 0 0 1.5px var(--color-accent, #b03a2a);
+  color: var(--color-accent, #b03a2a);
+  font-size: 13px;
+  line-height: 19px;
+  letter-spacing: 0;
+  text-align: center;
+  text-decoration: none;
+  vertical-align: top;
+  writing-mode: horizontal-tb;
+}
+
+.strip-seal[data-filled='true'] {
+  background: var(--color-accent, #b03a2a);
+  color: var(--color-paper-raised, #faf5e7);
+}
+
+.strip-seal[data-here='true'] {
+  outline: 2px solid var(--color-ink, #28231f);
+}
+
+.strip-seal::after {
+  content: '';
+  position: absolute;
+  inset: -12.5px;
+}
+
+.strip-seal + .strip-seal::after {
+  top: -1.5px;
+  bottom: -23.5px;
+}
+
 /* 水名用靛青。 */
 .strip[data-tone='water'] {
   color: var(--color-water, #3e6072);
@@ -940,4 +992,26 @@
   width: 5px;
   height: 5px;
   margin-left: -2.5px;
+}
+
+/* 栏窄时印也小一号：16px 见方、上面空 2px，下垫 5 → 高 9 + 15.68 × 字数 + 18 × 印的方数。 */
+.stage-pane:not(.is-wide) .strip.has-seals {
+  padding-bottom: 5px;
+}
+
+.stage-pane:not(.is-wide) .strip-seal {
+  width: 16px;
+  height: 16px;
+  margin: 2px -1px 0;
+  font-size: 11px;
+  line-height: 16px;
+}
+
+.stage-pane:not(.is-wide) .strip-seal::after {
+  inset: -14px;
+}
+
+.stage-pane:not(.is-wide) .strip-seal + .strip-seal::after {
+  top: -1px;
+  bottom: -27px;
 }

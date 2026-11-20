@@ -11,6 +11,7 @@ import { ROUTE_RESERVED_IDS, ROUTE_SCENE_ID, SCENE_CLASSES, SCENE_CLASS_LABEL, S
 import type { Grounds, RouteScene, SceneClass, TodayPick } from '../../src/domain/scene';
 import type { FrameCoords } from '../../src/domain/sceneGeo';
 import { routeCoords } from '../../src/domain/sceneGeoRoute';
+import { farSayFrom, sectionInfo } from '../../src/domain/sceneText';
 import type { Figure, LngLat } from '../../src/domain/types';
 import { kilobytes, megabytes } from './budgetRules';
 import { CLASS_LIST, GROUNDS, HAN, LINE_MAX, NEEDS_SOURCE, TERRAIN_MAX_BYTES, WORDS_MAX, insideRing, samePoint, textWidth, toLine, unsureProblem } from './sceneRules';
@@ -223,19 +224,13 @@ export function greatCircle(from: LngLat, to: LngLat): { km: number; bearingDeg:
   return { km, bearingDeg: (bearing + 360) % 360 };
 }
 
-const COMPASS = ['北', '东北', '东', '东南', '南', '西南', '西', '西北'] as const;
-
 /**
  * 全程沙盘上远处的那句话，如“定州：往北约 14 公里（今河北定州）”：方向和距离从题签指的那一点（路出沙盘的地方）量到那个地方，
- * 不从沙盘的原点量。写法和站点沙盘的一样（src/domain/sceneText.ts 的 farSay）：八个方位词；不到 100 公里取整公里，
- * 100 公里以上取最近的 5 公里。页面上印这句话的程序接进来以后（sceneText.ts），这里改成用那一个。
+ * 不从沙盘的原点量。名字后面的那一截就是页面印的（src/domain/sceneText.ts 的 farSayFrom），这里不另拼。
+ * 上面的 greatCircle 是另算的一遍，留着给测试核页面的那一个用。
  */
 export function routeFarWords(far: { name: string; at: LngLat; gloss?: string }, from: LngLat): string {
-  const { km, bearingDeg } = greatCircle(from, far.at);
-  const direction = COMPASS[Math.round(bearingDeg / 45) % COMPASS.length];
-  const rounded = km < 100 ? Math.round(km) : Math.round(km / 5) * 5;
-  const gloss = far.gloss?.trim();
-  return `${far.name}：往${direction}约 ${rounded} 公里${gloss ? `（${gloss}）` : ''}`;
+  return `${far.name}：${farSayFrom(from, far)}`;
 }
 
 // ---------------------------------------------------------------- 今天的海岸、湖、河（todayFile）
@@ -766,7 +761,7 @@ export function checkRouteSections(scene: RouteScene, file: string, stops: strin
     if (length === 0) bad(`${at}.line`, `小节“${section.heading}”没有写题记`);
     else if (length > LINE_MAX) bad(`${at}.line`, `小节“${section.heading}”的题记有 ${length} 个字，不能超过 ${LINE_MAX} 个`);
     else {
-      const far = farWords(section.strips);
+      const far = farWords(section.heading);
       const width = textWidth(section.line.trim()) + far.reduce((sum, words) => sum + 0.5 + textWidth(words), 0);
       if (far.length > 0 && width > WORDS_MAX) {
         bad(
@@ -795,15 +790,16 @@ export function checkRouteSections(scene: RouteScene, file: string, stops: strin
   });
   return out;
 
-  /** 这一节的题签指到的远处，在沙盘旁边各印成什么字。题签没写 at 的拼不出来，当没有（规则 15 会报）。 */
-  function farWords(stripIds: string[]): string[] {
-    const words: string[] = [];
-    for (const id of stripIds) {
-      const strip = scene.strips.find((item) => item.id === id);
-      const far = strip ? scene.far.find((item) => item.id === strip.of) : undefined;
-      if (strip?.at && far) words.push(routeFarWords(far, strip.at));
+  /**
+   * 这一节的题签指到的远处，在沙盘旁边各印成什么字：用的就是页面印这几个字的那个函数（和站点沙盘的校验一样）。
+   * 题签没写 at 的拼不出来，当没有（规则 15 会报）；整节拼不出来也当没有，别的规则会报。
+   */
+  function farWords(heading: string): string[] {
+    try {
+      return sectionInfo(scene, heading).far.map((far) => `${far.name}：${far.say}`);
+    } catch {
+      return [];
     }
-    return words;
   }
 
   /** explain 里的一个 id 指的那样东西的 note；找不到这样东西时是 null。 */

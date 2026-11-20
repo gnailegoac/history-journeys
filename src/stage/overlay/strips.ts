@@ -7,11 +7,15 @@
 //
 // 一条题签摆不下时不摆，在它指的那一点上画一个空心的圈：这里有一处没标出。这一层不写句子——沙盘旁边的话都是页面的。
 // 远处的题签，那一点上另画一个朝沙盘外面的小箭头（见 ARROW_LENGTH），底下垫一圈纸色的衬边。
+// 全程沙盘上是站的地名，名字下面带着站号的印（StripSpec.seals）：每一方是一个链接，按名字就是按头一方。
+// 带印的题签接得住手指和鼠标（样式表里 .has-seals 开了 pointer-events），从它上面起手的拖动转不动沙盘。
 // 圈的样子（不填色、墨色的边）直接写在元素上：样式表里 .strip-leaders circle 那一条是给实心的点用的，会把圈也填上。
 
-import type { StageInsets } from '../types';
+import type { TableScene } from '../../domain/scene';
+import type { StripText } from '../../domain/sceneText';
+import type { StageInsets, StopMark } from '../types';
 import { placeStrips } from './placeStrips';
-import type { StripInput, StripLayer, StripPlacement, StripSpec } from './types';
+import type { StripInput, StripLayer, StripPlacement, StripSeal, StripSpec } from './types';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
@@ -44,6 +48,26 @@ interface Item {
   h: number;
 }
 
+/**
+ * 一小节要摆的题签。texts 是页面拼的那一份字（src/domain/sceneText.ts 的 stripTexts(scene, heading, 古今)，叫的人自己拼好交进来：
+ * 这个文件不引 sceneText.ts——引了，打包的工具会把它从页面的程序里单拆成一个文件）；side 是场景里写的；
+ * 全程沙盘上是站的地名带上站号的印。marks 是每一站的印怎么写、通到哪（页面从 figure.json 里拼的）；
+ * 没有交、或者里面没有这一站，这一站就没有印。立体的沙盘和定格图都用这一个函数。
+ */
+export function sectionStripSpecs(scene: TableScene, heading: string, texts: StripText[], marks?: Record<string, StopMark>): StripSpec[] {
+  const here = scene.level === 'route' ? scene.sections.find((section) => section.heading === heading)?.stop : undefined;
+  return texts.map((t) => {
+    const spec: StripSpec = { id: t.id, text: t.text, tone: t.tone, side: scene.strips.find((s) => s.id === t.id)?.side };
+    const seals: StripSeal[] = [];
+    for (const stop of t.stops ?? []) {
+      const mark = marks?.[stop];
+      if (mark) seals.push({ stop, label: mark.label, href: mark.href, filled: mark.written, here: stop === here, title: mark.title });
+    }
+    if (seals.length > 0) spec.seals = seals;
+    return spec;
+  });
+}
+
 /** 在沙盘的容器里挂一层题签。只往 container 里面添东西，destroy 时把自己添的都拿走。 */
 export function mountStrips(container: HTMLElement): StripLayer {
   const doc = container.ownerDocument;
@@ -58,6 +82,13 @@ export function mountStrips(container: HTMLElement): StripLayer {
   svg.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;overflow:visible';
   root.append(svg);
   container.append(root);
+  // 带印的题签，按在名字上（印的外面）：去头一方印的那一站。按在印上的是链接自己的事
+  root.addEventListener('click', (event) => {
+    const target = event.target as Element | null;
+    if (!target || target.closest('a')) return;
+    const first = target.closest('.has-seals')?.querySelector<HTMLElement>('a');
+    first?.click();
+  });
 
   let items: Item[] = [];
   // 上一次 place 给的位置。换一批题签、重新量大小以后，先照它摆。
@@ -74,6 +105,22 @@ export function mountStrips(container: HTMLElement): StripLayer {
     // 先藏着：量得出大小，但还没摆好位置的时候不让人看见。
     el.style.cssText = 'position:absolute;left:0;top:0;transform:translate(-50%,-50%);writing-mode:vertical-rl;white-space:nowrap;visibility:hidden';
     el.textContent = spec.text;
+    if (spec.seals?.length) {
+      el.className = 'strip has-seals';
+      for (const seal of spec.seals) {
+        const a = doc.createElement('a');
+        a.className = 'strip-seal';
+        a.setAttribute('href', seal.href);
+        a.dataset.stopId = seal.stop;
+        a.dataset.filled = String(seal.filled);
+        a.dataset.here = String(seal.here);
+        a.setAttribute('aria-label', seal.title);
+        // 站的先后在正文那一栏的目录里，键盘从那里走；这里不再排一遍
+        a.setAttribute('tabindex', '-1');
+        a.textContent = seal.label;
+        el.append(a);
+      }
+    }
 
     const line = doc.createElementNS(SVG_NS, 'line');
     line.setAttribute('stroke', 'currentColor');

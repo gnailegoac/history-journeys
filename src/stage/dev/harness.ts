@@ -17,7 +17,7 @@ import { loadStopTable } from '../../domain/sceneContent';
 import { sectionInfo } from '../../domain/sceneText';
 import { stopMarks } from '../../domain/stopMarks';
 import { loadStageEngine, stillEngine } from '../index';
-import type { NamesMode, StageInsets, StageTier, StageViewInfo, StopStageView, StopTable } from '../types';
+import type { NamesMode, StageInsets, StageTier, StageViewInfo, StopStageView } from '../types';
 
 const params = new URLSearchParams(location.search);
 const figureId = params.get('figure') ?? 'su-shi';
@@ -156,10 +156,6 @@ async function mount(): Promise<void> {
   }
   // 读内容的程序还只认站点沙盘（它给的类型写的是站点沙盘的场景）：route.json 读出来其实是全程沙盘，在这里认出来
   const scene = table.scene as TableScene;
-  if (scene.level === 'route' && useStill) {
-    status.textContent = '全程沙盘还没有定格图';
-    return;
-  }
   describeScene = scene;
   headings = scene.sections.map((s) => s.heading);
   if (!headings.includes(current)) current = headings[0] ?? '';
@@ -169,9 +165,8 @@ async function mount(): Promise<void> {
   const created = engine.create(
     container,
     // 读到什么就交给沙盘什么：这一站有先画好的地面、有定格图的，一起带上，和正式页面摆出来的是同一座。
-    // 全程沙盘交进去时 kind 写 route。StageEngine.create 的参数现在还写着站点沙盘（页面、定格图和替身都还只认它），
-    // 立体的沙盘程序自己两种都认（view.ts 的 createStopView）：所以这里转一下类型，等页面接上全程沙盘时一起放宽。
-    (scene.level === 'route' ? { ...table, kind: 'route', key: `${figureId}/${stopId}`, scene } : { kind: 'stop', key: `${figureId}/${stopId}`, ...table }) as StopTable,
+    // 全程沙盘交进去时 kind 写 route。
+    scene.level === 'route' ? { ...table, kind: 'route', key: `${figureId}/${stopId}`, scene } : { kind: 'stop', key: `${figureId}/${stopId}`, ...table },
     {
       namesMode,
       reducedMotion: params.has('reduced') || window.matchMedia('(prefers-reduced-motion: reduce)').matches,

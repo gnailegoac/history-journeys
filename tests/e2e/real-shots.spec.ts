@@ -21,7 +21,7 @@
 import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
 import type { StageTier } from '../../src/stage/types';
-import { expectRealTable, expectStill, headingsOf, openFigureWithTable, realUrl, scrollToSection, shoot, stagePane } from './helpers';
+import { expectRealTable, headingsOf, openFigureWithTable, realUrl, scrollToSection, shoot, stagePane } from './helpers';
 
 const env = (globalThis as { process?: { env: Record<string, string | undefined> } }).process?.env ?? {};
 // 存到哪：平时是 tests/shots/real；想另存一套（比如留着对比）就设 SHOTS_DIR。
@@ -104,10 +104,9 @@ async function shootEverything(page: Page, size: { width: number; height: number
 
   const { found } = await openFigureWithTable(page, realUrl('#/', tier));
 
-  // 人物页：等定格图真的显出来再拍
-  if (await expectStill(page)) {
-    await expect.poll(() => page.locator('.stage-still img').evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth > 0)).toBe(true);
-  }
+  // 人物页：等全程沙盘真的摆好再拍
+  await expectRealTable(page, tier, 120_000);
+  await page.waitForTimeout(600);
   await shoot(page, { path: `${DIR}/figure-${tag}.png` });
 
   test.skip(!found, '还没有哪一站有沙盘');

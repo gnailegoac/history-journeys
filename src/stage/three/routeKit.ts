@@ -4,7 +4,7 @@
 //
 // 怎么画：
 //   不比深浅（depthTest 关着），排在地形板后面画：山后面的路也看得见，线不会被起伏的地面吃掉半截。
-//   每一笔下面垫一道浅色的线，全部的笔画合成一份线段表（一批）。
+//   墨线和刚走的路，每一笔下面垫一道浅色的线，合成一份线段表（一批）；走过的路不垫（样式里的 haloUnder）。
 //   一种状态的实线合成一份线段表（一批）；虚线一笔一条线（一划一空要一路排下去，不能在接头上重来）。
 //   宽度是页面上的像素，镜头远近都一样；减配的一档没有抗锯齿，加粗一点。
 //   虚线的一划一空在页面上总是那么长：每一帧把“沙盘里的一米合多少像素”告诉虚线的材质（dashScale），不重造线。
@@ -122,7 +122,9 @@ export function buildRouteModels(ctx: RouteKitContext): ModelSet {
     if (index < 0) return;
     const runs = roadRuns(scene, coords, index);
     if (runs.length === 0) return;
-    add(new LineSegments2(new LineSegmentsGeometry().setPositions(pairs(runs)), halo), ORDER.halo);
+    // 垫底的浅色线：只垫样式里说要垫的那几种
+    const under = runs.filter((run) => look.haloUnder.includes(run.state));
+    if (under.length > 0) add(new LineSegments2(new LineSegmentsGeometry().setPositions(pairs(under)), halo), ORDER.halo);
     for (const state of ROAD_STATES) {
       const mine = runs.filter((run) => run.state === state);
       const whole = mine.filter((run) => !run.dotted);
@@ -137,8 +139,8 @@ export function buildRouteModels(ctx: RouteKitContext): ModelSet {
         add(line, ORDER[state]);
       }
     }
-    // 每一笔画两遍：垫底的一遍，上面的一遍
-    segments = segmentCount(runs) * 2;
+    // 垫了底的画两遍：垫底的一遍，上面的一遍
+    segments = segmentCount(runs) + segmentCount(under);
   }
 
   return {

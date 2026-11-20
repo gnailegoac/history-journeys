@@ -129,12 +129,13 @@ export interface RouteStyle {
   /**
    * 路画成什么线（沙盘程序用，src/stage/three/routeKit.ts）。宽度都是页面上的像素，镜头远近都一样宽。
    * lines 是三种路：ink 墨线（全程那一节的每一趟），now 刚走的（到这一站来的），past 走过的（到前面各站去的）。
-   * halo 是垫在每一笔下面的浅色线。dashPx 是虚线一划多长、一空多长。reducedExtraPx：减配的一档没有抗锯齿，线加粗这么多。
+   * halo 是垫在笔画下面的浅色线，haloUnder 是哪几种路下面垫它（走过的路不垫：垫了读成一条白线）。dashPx 是虚线一划多长、一空多长。reducedExtraPx：减配的一档没有抗锯齿，线加粗这么多。
    * liftM：线比地面（海上是海面）抬高多少，沙盘里的米。
    */
   roads: {
     lines: Record<'ink' | 'now' | 'past', RouteLineStyle>;
     halo: RouteLineStyle;
+    haloUnder: readonly ('ink' | 'now' | 'past')[];
     dashPx: [number, number];
     reducedExtraPx: number;
     liftM: number;

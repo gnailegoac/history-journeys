@@ -28,7 +28,7 @@ describe('StrictMode', () => {
               onStopPage
               table={state === 'ready' ? { state: 'ready', value: table } : { state: 'error' }}
               section={section}
-              still={{ state: 'ready', value: null }}
+              route={{ state: 'ready', value: null }}
               onReloadTable={() => (reloads += 1)}
             />
           </StrictMode>,

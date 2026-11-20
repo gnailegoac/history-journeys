@@ -2,7 +2,7 @@
 // 数都从真的函数、真的场景文件、真的样式读（../../src/stage/roadLines.ts 算出来的笔画、样式里路的那一份），不在这里另写一份。
 // 查这几件：
 //   头一节（全程）每一趟路都是墨线；看路的小节，到这一站的是印泥红、到前面各站的是淡墨，后面的不画；
-//   每一笔下面垫着一道浅色的线，全部的笔画合成一批；一种状态的实线合成一批；虚线一笔一条、一路排下去；
+//   墨线和刚走的路下面垫着一道浅色的线，合成一批；走过的路下面不垫（样式里的 haloUnder）；一种状态的实线合成一批；虚线一笔一条、一路排下去；
 //   线不比深浅，排在地形板后面画；比地面（海上是海面）抬高样式里写的那么多；
 //   宽度是样式里写的页面像素，减配的一档加粗一点；虚线的一划一空跟着镜头的远近，在页面上总是那么长；
 //   triangles() 报的和显出来的网格数出来的一样（一段线六个三角形）；一个画面里路最多画 14 批；
@@ -49,19 +49,22 @@ describe.each(realSceneKeys('route'))('%s 的路', (key) => {
     expect(new Set(colours).size).toBe(4);
   });
 
-  it('每一节：画的就是 roadRuns 排出来的那几笔——垫底的一批是全部的笔画，每种状态的实线一批，虚线一笔一条', () => {
+  it('每一节：画的就是 roadRuns 排出来的那几笔——垫底的一批是样式里说要垫的那几种，每种状态的实线一批，虚线一笔一条', () => {
     const kit = build();
     const report: string[] = [];
     R.headings.forEach((heading, index) => {
       kit.apply(heading, 0, 50_000);
       const runs = roadRuns(R.scene, R.coords, index);
       const all = lines(kit);
-      // 垫底的：一批，全部的笔画
+      // 垫底的：一批，是样式里说要垫的那几种路的笔画（走过的路不垫）
+      const under = runs.filter((run) => look.haloUnder.includes(run.state));
+      expect(under.length, heading).toBeGreaterThan(0);
+      expect(under.some((run) => run.state === 'past'), '走过的路下面垫了浅色线').toBe(false);
       const halos = all.filter((line) => kindOf(line) === 'halo');
       expect(halos.length, heading).toBe(1);
       expect(halos[0]).toBeInstanceOf(LineSegments2);
       expect(halos[0]).not.toBeInstanceOf(Line2);
-      expect(segmentsIn(halos[0]), heading).toBe(segmentCount(runs));
+      expect(segmentsIn(halos[0]), heading).toBe(segmentCount(under));
       for (const state of ROAD_STATES) {
         const mine = runs.filter((run) => run.state === state);
         const drawnHere = all.filter((line) => kindOf(line) === state);
@@ -92,7 +95,7 @@ describe.each(realSceneKeys('route'))('%s 的路', (key) => {
       // 报的三角形数和显出来的网格数出来的一样；路画的批数有上限
       const counted = drawn(kit.group);
       expect(kit.triangles(), heading).toBe(counted.triangles);
-      expect(kit.triangles(), heading).toBe(segmentCount(runs) * 2 * ROAD_SEGMENT_TRIANGLES);
+      expect(kit.triangles(), heading).toBe((segmentCount(runs) + segmentCount(under)) * ROAD_SEGMENT_TRIANGLES);
       expect(counted.calls, `${heading} 的路画 ${counted.calls} 批`).toBeLessThanOrEqual(ROAD_CALLS_MAX);
       report.push(`  ${heading}：${runs.length} 笔（虚线 ${runs.filter((run) => run.dotted).length} 笔），${segmentCount(runs)} 段，连垫底的 ${counted.triangles} 个三角形，${counted.calls} 批`);
     });

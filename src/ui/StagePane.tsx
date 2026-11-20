@@ -1,15 +1,17 @@
-// 沙盘栏。人物页上放一张全程沙盘的定格图；有沙盘的站摆这一站的沙盘，镜头跟着读到的小节走；
-// 还没有沙盘的站先放那张定格图。沙盘起不来时留一句话，不影响阅读。
+// 沙盘栏。人物页上摆全程沙盘，看的是头一节（全程）；有沙盘的站摆这一站的沙盘，镜头跟着读到的小节走；
+// 还没有自己的沙盘的站，摆的还是全程沙盘，看的是到这一站去的那一节（来路）。人物页和这几站用的是同一座（同一个 key）：
+// 在它们之间来回，全程沙盘不重摆，镜头滑过去。沙盘起不来时留一句话，不影响阅读。
 //
 // 这一栏有七种状态，写在 data-stage-state 上，每一种都至少有一张图或一句话：
-//   still        全程的定格图，或者一句“还没接进来”“还没做好”
+//   still        没有沙盘可摆（这位人物还没有全程沙盘）：一句“还没接进来”。全程沙盘这一次没读出来是 failed，可以再试一次
 //   loading      正在摆
 //   ready        摆好了
 //   failed       没能摆出来，可以再试一次
 //   unsupported  这个浏览器画不了
 //   slow         这台设备带不动立体的沙盘（或者地址里指定了只放图片）
 //   lost         画面中途断了，可以重新摆出来
-// 另外三个属性：
+// 另外四个属性：
+//   data-stage-level    摆着的是全程沙盘时写 route；站点沙盘不写
 //   data-stage-picture  现在放着的是什么：table 立体的沙盘，still 图片，none 都没有。
 //                       立体的沙盘盖着图片慢慢显出来的那一小会儿还算 still，显完、图片拿走了才是 table
 //                       （拍照的工具等到 table 再拍，拍到的就只有沙盘）。
@@ -29,10 +31,8 @@ import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useSta
 import type { MutableRefObject, ReactNode, Ref } from 'react';
 import type { Loaded } from '../app/useLoaded';
 import { sectionHeadings, sectionInfo } from '../domain';
-import type { SectionInfo, StopScene } from '../domain';
-import type { NamesMode, StageInsets, StageReadout, StageTier, StageViewInfo, StopStageView, StopTable } from '../stage/types';
-import { RouteStill } from './RouteStill';
-import type { RouteStillInfo } from './RouteStill';
+import type { SectionInfo, TableScene } from '../domain';
+import type { NamesMode, RouteTable, StageInsets, StageOptions, StageReadout, StageTable, StageTier, StageViewInfo, StopStageView, StopTable } from '../stage/types';
 import { NotePanel, SectionCaption } from './SectionCaption';
 import { fitScale } from './scale';
 import { canDrawStage, pickStageEngine, pickStillEngine, pickTier, wantsReadout } from './stageEngineSource';
@@ -75,19 +75,28 @@ const STILL_WAIT_MS = 1500;
 const DEBUG_EVERY_MS = 1000;
 
 interface Props {
-  /** 正在读的是不是一站。人物页上为 false。 */
+  /** 正在读的是不是一站。人物页（和首页）上为 false。 */
   onStopPage: boolean;
-  /** 这一站的沙盘；读出来是 null 表示这一站还没有沙盘。人物页上不看它。 */
+  /** 这一站自己的沙盘；读出来是 null 表示这一站还没有自己的沙盘。人物页上不看它。 */
   table: Loaded<StopTable | null>;
-  /** 读到了哪一小节（小节标题）；还不知道时为 null。 */
+  /** 读到了哪一小节（小节标题）；还不知道时为 null。摆着全程沙盘时不看它。 */
   section: string | null;
-  /** 全程沙盘的定格图；读出来是 null 表示还没有这张图。 */
-  still: Loaded<RouteStillInfo | null>;
+  /** 这位人物的全程沙盘；读出来是 null 表示还没有。 */
+  route: Loaded<RouteTable | null>;
+  /** 正在读的那一站的 id：摆着全程沙盘时，看的是到这一站去的那一节。 */
+  stopId?: string | null;
+  /** 全程沙盘上每一站的印（src/domain/stopMarks.ts）。 */
+  marks?: StageOptions['marks'];
+  /** 这一站的正文写好了：它要是没有自己的沙盘，按钮下面多一行话说明沙盘上摆的是什么。 */
+  written?: boolean;
   /** 沙盘的数据没读出来，读者点了“再试一次”。 */
   onReloadTable: () => void;
 }
 
-export function StagePane({ onStopPage, table, section, still, onReloadTable }: Props) {
+/** 人物页上没有“这一站自己的沙盘”。 */
+const NO_OWN: Loaded<StopTable | null> = { state: 'ready', value: null };
+
+export function StagePane({ onStopPage, table, section, route, stopId, marks, written, onReloadTable }: Props) {
   // 古名还是今名、收没收起、立体的沙盘摆不摆，换一站也留着（只记到这一次访问结束，不存到别处）。
   const [namesMode, setNamesMode] = useState<NamesMode>('ancient');
   const [folded, setFolded] = useState(false);
@@ -95,24 +104,27 @@ export function StagePane({ onStopPage, table, section, still, onReloadTable }: 
   // 读者在这一栏里按了按钮，或者画面断了，栏里的东西接着就换掉：换完以后把焦点放回栏里（见 restoreFocus）。
   const keepFocus = useRef(false);
 
+  // 这一栏摆哪一座：这一站自己的沙盘；人物页上，或者这一站没有自己的沙盘，就是全程沙盘。
+  const own = onStopPage ? table : NO_OWN;
+  const source: Loaded<StageTable | null> = own.state === 'ready' && !own.value ? route : own;
+
   // 沙盘的数据还在读：也是过了一会儿还没有画面才说“正在摆”。从哪一刻等起的记下来，沙盘接着数，不从头数。
-  const reading = onStopPage && table.state === 'loading';
+  const reading = source.state === 'loading';
   const openedAt = useRef<number | null>(null);
   useEffect(() => {
     if (reading) openedAt.current = Date.now();
   }, [reading]);
   const late = useLate(reading, LOADING_LINE_AFTER_MS);
 
-  if (!onStopPage) return <StillPane still={still} onStopPage={false} />;
-
-  if (table.state === 'loading') {
+  if (source.state === 'loading') {
     return (
       <Pane state="loading" picture="none" pinned>
         <Says>{late && <p className="stage-loading">{STAGE_TEXT.loading}</p>}</Says>
       </Pane>
     );
   }
-  if (table.state === 'error') {
+  // 没读出来：这一站自己的沙盘，或者要摆的全程沙盘。说一句，读者可以再试一次。
+  if (source.state === 'error') {
     return (
       <Pane state="failed" picture="none">
         <Says>
@@ -121,13 +133,30 @@ export function StagePane({ onStopPage, table, section, still, onReloadTable }: 
       </Pane>
     );
   }
-  if (table.value === null) return <StillPane still={still} onStopPage />;
+  const found = source.value;
+  // 没有沙盘可摆：这位人物还没有全程沙盘。
+  if (!found) {
+    return (
+      <Pane state="still" picture="none">
+        <p className="stage-still-line" role="status">
+          {STAGE_TEXT.noRoute}
+        </p>
+      </Pane>
+    );
+  }
+  // 全程沙盘看哪一节：人物页上是头一节；一站的页面上是到这一站去的那一节。每一次都明说：
+  // 摆着的沙盘记着上一次认得的小节，不说的话，从一站回到人物页它还停在那一站的来路上。
+  const whole = found.kind === 'route';
+  const road = whole ? ((stopId && found.scene.sections.find((s) => s.stop === stopId)) || found.scene.sections[0])?.heading : null;
 
   return (
     <TableStage
-      key={table.value.key}
-      table={table.value}
-      section={section}
+      key={found.key}
+      table={found}
+      section={whole ? (road ?? null) : section}
+      resetLabel={!whole ? STAGE_TEXT.reset : onStopPage ? STAGE_TEXT.resetRoad : STAGE_TEXT.resetWhole}
+      marks={marks}
+      standing={whole && onStopPage && written ? STAGE_TEXT.roadNotice : null}
       namesMode={namesMode}
       onNamesMode={setNamesMode}
       folded={folded}
@@ -163,6 +192,8 @@ interface PaneProps {
   tier?: StageTier | null;
   /** 上面那一张画面现在摆着的小节。 */
   section?: string;
+  /** 摆着的是全程沙盘。 */
+  route?: boolean;
   /** 窄屏上钉在顶上不动（有画面的时候，或者摆着的沙盘画面断了）；不写就跟着页面一起滚走。 */
   pinned?: boolean;
   folded?: boolean;
@@ -171,7 +202,7 @@ interface PaneProps {
 }
 
 // tabIndex={-1}：这一栏自己不在 Tab 的顺序里，但程序可以把焦点放上来（见 restoreFocus 和站点页的“到沙盘”）。
-function Pane({ state, picture, tier, section, pinned = false, folded = false, paneRef, children }: PaneProps) {
+function Pane({ state, picture, tier, section, route, pinned = false, folded = false, paneRef, children }: PaneProps) {
   const className = ['stage-pane', pinned ? 'is-pinned' : '', pinned && folded ? 'is-folded' : ''].filter(Boolean).join(' ');
   return (
     <section
@@ -183,6 +214,7 @@ function Pane({ state, picture, tier, section, pinned = false, folded = false, p
       data-stage-picture={picture}
       data-stage-tier={tier ?? undefined}
       data-stage-section={section}
+      data-stage-level={route ? 'route' : undefined}
     >
       {children}
     </section>
@@ -250,31 +282,7 @@ function restoreFocus(flag: MutableRefObject<boolean>, target: HTMLElement | nul
   target.focus({ preventScroll: true });
 }
 
-// ---------------------------------------------------------------- 定格图
-
-function StillPane({ still, onStopPage }: { still: Loaded<RouteStillInfo | null>; onStopPage: boolean }) {
-  const picture = still.state === 'ready' ? still.value : null;
-  // data-still：shown 有图，none 没有图，loading 还在取。
-  return (
-    <Pane state="still" picture={picture ? 'still' : 'none'}>
-      <div className="stage-still-box" data-still={picture ? 'shown' : still.state === 'loading' ? 'loading' : 'none'}>
-        {onStopPage && (
-          <p className="stage-still-line" role="status">
-            {picture ? STAGE_TEXT.noScene : STAGE_TEXT.noSceneAlone}
-          </p>
-        )}
-        {picture && <RouteStill still={picture} />}
-        {!picture && !onStopPage && (
-          <p className="stage-still-line" role="status">
-            {still.state === 'loading' ? STAGE_TEXT.stillLoading : STAGE_TEXT.noRoute}
-          </p>
-        )}
-      </div>
-    </Pane>
-  );
-}
-
-// ---------------------------------------------------------------- 一座站点沙盘
+// ---------------------------------------------------------------- 一座沙盘（站点沙盘，或者全程沙盘）
 
 type Phase = Exclude<PaneState, 'still'>;
 
@@ -296,8 +304,13 @@ function emptySlot(): Slot {
 }
 
 interface TableProps {
-  table: StopTable;
+  table: StageTable;
   section: string | null;
+  /** 中间那个按钮上的字：回到这一节，回到全程，回到这一段。 */
+  resetLabel: string;
+  marks: StageOptions['marks'];
+  /** 这一座从头到尾都印在按钮下面的一行话（这一站没有自己的沙盘）；没有是 null。立体的沙盘摆不了、放着图片时，让给那时候的那一句。 */
+  standing: string | null;
   namesMode: NamesMode;
   onNamesMode: (mode: NamesMode) => void;
   folded: boolean;
@@ -312,7 +325,7 @@ interface TableProps {
 // 每换一座沙盘，这个组件从头来（外面给了不同的 key），里面的状态不会带着上一座的。
 // 同一座沙盘重摆（再试一次、重新摆出来、降一档、读者要试试立体的）不从头来：只是下面“摆立体的沙盘”那一段重跑一遍，
 // 图片、按钮、题记都留在原处。
-function TableStage({ table, section, namesMode, onNamesMode, folded, onFolded, choice, onChoice, openedAt, keepFocus }: TableProps) {
+function TableStage({ table, section, resetLabel, marks, standing, namesMode, onNamesMode, folded, onFolded, choice, onChoice, openedAt, keepFocus }: TableProps) {
   const pane = useRef<HTMLElement>(null);
   const host = useRef<HTMLDivElement>(null);
   const stillHost = useRef<HTMLDivElement>(null);
@@ -522,7 +535,7 @@ function TableStage({ table, section, namesMode, onNamesMode, folded, onFolded, 
         if (first === null) throw new Error('场景里一个小节也没有');
         const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
         const insets = readInsets();
-        const made = engine.create(stillHost.current, table, { namesMode: names.current, reducedMotion, section: first, insets });
+        const made = engine.create(stillHost.current, table, { namesMode: names.current, reducedMotion, section: first, insets, marks });
         view = made;
         Object.assign(slot, { view: made, requested: first, arrived: first, info: null, insets });
 
@@ -568,7 +581,7 @@ function TableStage({ table, section, namesMode, onNamesMode, folded, onFolded, 
       setStillUp(false);
       setStillShown(null);
     };
-  }, [table, stillSource, stillWanted, readInsets, showViewInfo, keepFocus]);
+  }, [table, marks, stillSource, stillWanted, readInsets, showViewInfo, keepFocus]);
 
   // 摆立体的沙盘。沙盘程序用到时才加载。build 加一、读者的选择变了，就把手上的这一座关掉，从头再来一遍。
   useEffect(() => {
@@ -583,6 +596,8 @@ function TableStage({ table, section, namesMode, onNamesMode, folded, onFolded, 
     // 从哪一刻等起：头一回是从这一站的数据开始读的时候，以后（重摆、读者改了主意）都是从现在。
     const since = firstBuild.current && openedAt.current !== null ? openedAt.current : Date.now();
     firstBuild.current = false;
+    // 那个钟点只给读了数据以后摆的头一座用一次：换一座数据早就读好的沙盘（从一站回到人物页），等是从现在数起的。
+    openedAt.current = null;
     if (picturesOnly) {
       setPhase('slow');
       return;
@@ -704,6 +719,7 @@ function TableStage({ table, section, namesMode, onNamesMode, folded, onFolded, 
         reducedMotion,
         section: first,
         insets,
+        marks,
         tier: wanted,
         ...(asked ? { asked: true } : {}),
       });
@@ -758,7 +774,7 @@ function TableStage({ table, section, namesMode, onNamesMode, folded, onFolded, 
       endSlow.current = null;
       close();
     };
-  }, [table, build, picturesOnly, asked, urlTier, debug, openedAt, onChoice, readInsets, showViewInfo, keepFocus]);
+  }, [table, marks, build, picturesOnly, asked, urlTier, debug, openedAt, onChoice, readInsets, showViewInfo, keepFocus]);
 
   // 嫌慢的那一座留在原处，等图片：图片出来了（或者这一次不放图片），或者等够了，就关掉它。
   useEffect(() => {
@@ -930,7 +946,8 @@ function TableStage({ table, section, namesMode, onNamesMode, folded, onFolded, 
           ? STAGE_TEXT.stillLost
           : STAGE_TEXT.stillFailed;
   // 读者要来的那一座沙盘：从他点了按钮起就印着“可以换回图片”，这样摆好的前后上面留的空一样，画面不跳。
-  const line = stillsOff ? null : forGood ? withStills : asked ? STAGE_TEXT.askedLine : null;
+  const stateLine = stillsOff ? null : forGood ? withStills : asked ? STAGE_TEXT.askedLine : null;
+  const line = stateLine ?? standing;
 
   const legend =
     top !== 'none' ? (
@@ -956,7 +973,16 @@ function TableStage({ table, section, namesMode, onNamesMode, folded, onFolded, 
   // （窄屏上读者多半正读到半截，栏一缩，那句话和按钮就滚到看不见的地方去了）。
   // 没有放画面的那一块的时候没有“收起”按钮，所以也不算收起。
   return (
-    <Pane state={phase} picture={picture} tier={tableUp ? tier : null} section={onShow ?? undefined} pinned={area || phase === 'lost'} folded={area && folded} paneRef={pane}>
+    <Pane
+      state={phase}
+      picture={picture}
+      tier={tableUp ? tier : null}
+      section={onShow ?? undefined}
+      route={table.kind === 'route'}
+      pinned={area || phase === 'lost'}
+      folded={area && folded}
+      paneRef={pane}
+    >
       {area && (
         <div className={handing ? 'stage-canvas is-handing-over' : 'stage-canvas'}>
           <div ref={stillHost} className="stage-still-host" />
@@ -974,12 +1000,12 @@ function TableStage({ table, section, namesMode, onNamesMode, folded, onFolded, 
               {STAGE_TEXT.modern}
             </button>
           </div>
-          {/* 中间的一个按钮：摆着（或者正在摆）立体的沙盘时是“回到这一节”；摆不了、放着图片时，换成这一种状态的按钮。
+          {/* 中间的一个按钮：摆着（或者正在摆）立体的沙盘时是“回到这一节”（全程沙盘上是“回到全程”“回到这一段”）；摆不了、放着图片时，换成这一种状态的按钮。
               两个按钮各有各的 key：换的时候是真的换了一个元素，焦点不会留在一个意思已经变了的按钮上。 */}
           {!forGood && (
             // 点不了的时候用 aria-disabled，不用 disabled：点完它就变成点不了的，用 disabled 的话焦点会掉到页面外头去。
             <button key="reset" type="button" className="stage-button stage-reset" aria-disabled={!canReset} onClick={resetView}>
-              {STAGE_TEXT.reset}
+              {resetLabel}
             </button>
           )}
           {forGood && stateAction && (
@@ -1000,7 +1026,7 @@ function TableStage({ table, section, namesMode, onNamesMode, folded, onFolded, 
         {area && line !== null && (
           <div className="stage-notice" ref={notice}>
             <p>{line}</p>
-            {!forGood && (
+            {stateLine !== null && !forGood && (
               <button type="button" className="stage-notice-button" onClick={backToStills}>
                 {STAGE_TEXT.backToStills}
               </button>
@@ -1028,7 +1054,7 @@ function TableStage({ table, section, namesMode, onNamesMode, folded, onFolded, 
 
 // 从场景数据取字的地方都兜住错误：这些字出不来，正文也要照常读。
 
-function headingsOf(scene: StopScene): string[] {
+function headingsOf(scene: TableScene): string[] {
   try {
     return sectionHeadings(scene);
   } catch (error) {
@@ -1037,7 +1063,7 @@ function headingsOf(scene: StopScene): string[] {
   }
 }
 
-function infoOf(scene: StopScene, heading: string): SectionInfo | null {
+function infoOf(scene: TableScene, heading: string): SectionInfo | null {
   try {
     return sectionInfo(scene, heading);
   } catch (error) {

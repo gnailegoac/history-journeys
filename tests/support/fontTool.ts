@@ -379,11 +379,6 @@ export function planFonts(
       kai('common', `${page}（各站目录）`, stop.title);
       kai('common', `${page}（各站目录）`, stop.shortTitle);
     }
-    if (figure.routeStill) {
-      for (const text of [figure.routeStill.note, figure.routeStill.credit]) first('common', `${page}（全程沙盘的图片）`, text);
-      kai('common', `${page}（全程沙盘的图片）`, figure.routeStill.caption);
-      more('common', `${page}（全程沙盘的图片）`, figure.routeStill.alt);
-    }
 
     // ---- 每一站
     for (const { id, content, scene } of stops) {
@@ -569,7 +564,7 @@ export async function readSite(): Promise<SiteText> {
       const table = await loadStopTable(figure.id, stop.id);
       if (content || table) stops.push({ id: stop.id, content, scene: table?.scene ?? null });
     }
-    // 全程沙盘的场景文件：页面读它的程序还没有接上（接人物页的那一步），这里直接读文件
+    // 全程沙盘的场景文件：这里直接读文件（页面是经 loadRouteTable 读的，读到的是同一份）
     const routePath = `content/figures/${folder}/scenes/${ROUTE_SCENE_ID}.json`;
     const route = existsSync(new URL(routePath, ROOT)) ? (JSON.parse(readText(routePath).replace(/^﻿/, '')) as RouteScene) : null;
     figures.push({ figure, stops, route });

@@ -47,14 +47,5 @@
       "localPlaces": []
     }
   ],
-  "legs": [{ "from": "a", "to": "c", "via": [{ "name": "半路", "lngLat": [110, 95] }] }],
-  "routeStill": {
-    "file": "missing.jpg",
-    "width": 160,
-    "height": 90,
-    "alt": "",
-    "caption": "一张不存在的定格图",
-    "note": "  ",
-    "credit": "校验器示例"
-  }
+  "legs": [{ "from": "a", "to": "c", "via": [{ "name": "半路", "lngLat": [110, 95] }] }]
 }

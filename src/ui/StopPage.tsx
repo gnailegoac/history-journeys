@@ -19,8 +19,10 @@ import { useReadingSection } from './useReadingSection';
 interface Props {
   figure: Figure;
   stop: StopMeta;
-  /** 这一站的沙盘；读出来是 null 表示这一站还没有沙盘。 */
+  /** 这一站自己的沙盘；读出来是 null 表示这一站还没有自己的沙盘。 */
   table: Loaded<StopTable | null>;
+  /** 这一站没有自己的沙盘，沙盘栏里摆着全程沙盘上到这一站去的来路。 */
+  road: boolean;
   /** 读者读到了另一小节（小节标题）。 */
   onSection: (section: string) => void;
 }
@@ -30,7 +32,7 @@ function toStage(): void {
   document.querySelector<HTMLElement>('.stage-pane')?.focus();
 }
 
-export function StopPage({ figure, stop, table, onSection }: Props) {
+export function StopPage({ figure, stop, table, road, onSection }: Props) {
   const content = useLoaded(`${figure.id}/${stop.id}`, () => loadStop(figure.id, stop.id));
   const { index, prev, next } = neighbours(figure, stop.id);
   const written = content.state === 'ready' && content.value !== null ? content.value : null;
@@ -79,7 +81,7 @@ export function StopPage({ figure, stop, table, onSection }: Props) {
         </p>
         <PageTitle documentTitle={pageTitle(stop.title, figure.name)}>{stop.title}</PageTitle>
         {/* 沙盘栏在页面的结构里排在正文后面：用键盘、读屏的人要走完整篇正文才到得了它的按钮。这里给一步直接过去的。 */}
-        {scene && (
+        {(scene || road) && (
           <button type="button" className="skip-to-stage" onClick={toStage}>
             {STAGE_TEXT.toStage}
           </button>
@@ -103,7 +105,8 @@ export function StopPage({ figure, stop, table, onSection }: Props) {
       {content.state === 'loading' && <p className="quiet">正文加载中…</p>}
       {content.state === 'error' && <p className="quiet">这一站的正文没能读出来。</p>}
       {content.state === 'ready' && content.value === null && (
-        <p className="quiet not-written">这一站的正文还没写。</p>
+        // 头一站没有来路：他是从这里出发的，沙盘上摆的是出发的那几趟路。
+        <p className="quiet not-written">这一站的正文还没写。{road && (index === 0 ? '沙盘上是他从这一站出发的路。' : '沙盘上是到这一站的来路。')}</p>
       )}
       {written && (
         <>

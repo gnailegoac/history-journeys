@@ -1,11 +1,12 @@
-// 人物页的文字栏：他是谁，加各站的目录；末尾是通到“来源”页的链接。
+// 人物页的文字栏：他是谁，加各站的目录，折着的一行“凭据”（全程沙盘上的东西各属于哪一类、依据什么）；末尾是通到“来源”页的链接。
 
 import { sourcesHref, stopHref } from '../app/router';
-import type { Figure } from '../domain';
+import type { Figure, RouteScene } from '../domain';
 import { PageTitle } from './PageTitle';
+import { Provenance } from './Provenance';
 import { NOT_WRITTEN, SOURCES_LABEL, pageTitle, placeLabel } from './text';
 
-export function FigureContents({ figure }: { figure: Figure }) {
+export function FigureContents({ figure, route }: { figure: Figure; route: RouteScene | null }) {
   return (
     <article className="figure-page">
       <header className="page-head">
@@ -52,6 +53,9 @@ export function FigureContents({ figure }: { figure: Figure }) {
           ))}
         </ol>
       </section>
+
+      {/* 全程沙盘的凭据：和站点页上是同一个组件，这里只有“沙盘上的东西”一栏，出处是全程沙盘自己的。 */}
+      {route && <Provenance content={{ provenance: [], sources: route.sources }} scene={route} />}
 
       {/* 目录完了：一个小菱形（样式表画的），下面是通到“来源”页的链接。 */}
       <div className="stop-nav">

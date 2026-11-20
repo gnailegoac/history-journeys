@@ -1,5 +1,5 @@
 // 主流程：首页 → 人物页 → 一站 → 小注、原文、凭据 → 下一站、上一站 → 讲解员；
-// 再加沙盘栏的各种情形：定格图、摆着沙盘、起不来、画不了、画面断了、竖着拿的平板（沙盘在上、文字在下的排法）、减少动态效果。
+// 再加沙盘栏的各种情形：全程沙盘（人物页、没有自己的沙盘的站）、摆着这一站的沙盘、起不来、画不了、画面断了、竖着拿的平板（沙盘在上、文字在下的排法）、减少动态效果。
 // 用沙盘的替身（?stage=fake）。只看结构和行为，不看正文的字句。
 // 用替身时不写 ?sectionstills 就当这座沙盘没有每一小节的图片，所以这里看的都是“没有图片”时的沙盘栏；
 // 有图片时的样子在 pane-stills.spec.ts。
@@ -11,7 +11,7 @@ import { bigEnoughToTry } from '../../src/stage/three/tier';
 import { STRIP_NARROW_BELOW_PX } from '../stage/support/stripSizes';
 import {
   expectStageAt,
-  expectStill,
+  expectRoute,
   fakeRequests,
   fakeStage,
   fakeUrl,
@@ -21,6 +21,8 @@ import {
   headingsOf,
   openFirstFigure,
   paneMoments,
+  roadOf,
+  routeOnDisk,
   sceneOnDisk,
   scrollThrough,
   scrollToBottom,
@@ -42,8 +44,10 @@ const FAILED = '沙盘没能摆出来，正文可以照常读。';
 const UNSUPPORTED = '这个浏览器画不出立体的沙盘。换一个新一点的浏览器，或者把手机、平板的系统升级以后再来看。正文可以照常读。';
 const LOST = '沙盘的画面断了。';
 const NO_ROUTE = '全程沙盘还没接进来。';
-const NO_SCENE = '这一站的沙盘还没做好，先看全程。';
-const NO_SCENE_ALONE = '这一站的沙盘还没做好。';
+const ROAD_NOTICE = '这一站的沙盘还没做好，沙盘上是到这一站的来路。';
+const NOT_WRITTEN = '这一站的正文还没写。';
+const NOT_WRITTEN_ROAD = '这一站的正文还没写。沙盘上是到这一站的来路。';
+const NOT_WRITTEN_FIRST = '这一站的正文还没写。沙盘上是他从这一站出发的路。';
 
 /** 从首页一路点进第一个写好的站。 */
 async function openWrittenStop(page: Page): Promise<{ figureId: string; stopId: string }> {
@@ -150,14 +154,14 @@ async function expectNoteButtonTapArea(page: Page): Promise<void> {
   expect(hits).toEqual({ above: true, below: true, left: true, right: true, tooHigh: false });
 }
 
-/** 进了一站以后，等沙盘栏定下来：有沙盘的站摆着第一节，没有的放定格图。 */
+/** 进了一站以后，等沙盘栏定下来：有沙盘的站摆着第一节，没有的摆着全程沙盘。 */
 async function expectPaneSettled(page: Page, figureId: string, stopId: string): Promise<void> {
   const scene = sceneOnDisk(figureId, stopId);
   if (scene) await expectStageAt(page, headingsOf(scene)[0]);
-  else await expectStill(page);
+  else await expectRoute(page);
 }
 
-test('首页：标题、一句话、人物卡片；没写好的人物不是链接；旁边的绢上是全程的图片；卡片后面有“来源”', async ({ page }) => {
+test('首页：标题、一句话、人物卡片；没写好的人物不是链接；旁边的绢上是全程沙盘；卡片后面有“来源”', async ({ page }) => {
   await page.goto(fakeUrl('#/'));
   await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
   await expect(page.locator('.home-line')).not.toBeEmpty();
@@ -178,10 +182,15 @@ test('首页：标题、一句话、人物卡片；没写好的人物不是链�
     await expect(card.locator('.tag')).toHaveText('还没写');
   }
 
-  // 首页旁边的绢上是人物页用的那个沙盘栏，放着全程的图片：没有沙盘的按钮和题记。
+  // 首页旁边的绢上是人物页用的那个沙盘栏，摆着第一位可以点进去的人物的全程沙盘，看的是头一节。
   await expect(stagePane(page)).toHaveCount(1);
-  await expectStill(page);
-  await expect(stagePane(page).locator('.names-switch, .stage-foot, .stage-host')).toHaveCount(0);
+  expect(await expectRoute(page)).toBe(true);
+  await expect(stagePane(page).locator('.stage-reset')).toHaveText('回到全程');
+  // 题签脚上的印通到这位人物的各站
+  const openId = await page.locator('a.card[data-available="true"]').first().getAttribute('data-figure-id');
+  const sealLinks = await stagePane(page).locator('.strip-seal').evaluateAll((seals) => seals.map((seal) => `${seal.getAttribute('href')} ${seal.getAttribute('data-stop-id')}`));
+  expect(sealLinks.length).toBeGreaterThan(0);
+  for (const link of sealLinks) expect(link).toBe(`#/${openId}/${link.split(' ')[1]} ${link.split(' ')[1]}`);
 
   // 卡片后面是通到“来源”页的链接
   await expect(page.locator('.home .stop-nav a')).toHaveText('来源');
@@ -196,7 +205,7 @@ test('首页 → 人物页 → 一站：小注、原文、凭据、下一站和�
   await expect(title).toBeFocused();
   expect(await page.title()).toContain(await title.innerText());
   await expect(page.locator('.figure-intro p').first()).toBeVisible();
-  await expectStill(page);
+  await expectRoute(page);
 
   const items = page.locator('.stop-item');
   const stopCount = await items.count();
@@ -332,7 +341,7 @@ test('首页 → 人物页 → 一站：小注、原文、凭据、下一站和�
   // ---- 回到目录
   await page.locator('.stop-nav-list').click();
   await expect(page).toHaveURL(new RegExp(`#/${figureId}$`));
-  await expectStill(page);
+  await expectRoute(page);
   await page.goBack();
   await expect(page.locator('.stop-page')).toHaveAttribute('data-stop-text', 'written');
 
@@ -435,9 +444,11 @@ test('凭据、讲解员面板里面的东西点开才取：一点就开，里�
   expect(asked.filter((item) => item === 'GuideBody')).toHaveLength(2);
 });
 
-test('人物页的沙盘栏：一张定格图和图下面的字，没有沙盘的按钮；宽屏的版面', async ({ page }) => {
-  await openFirstFigure(page);
-  const hasStill = await expectStill(page);
+test('人物页的沙盘栏：摆着全程沙盘，看的是头一节，中间的按钮是“回到全程”；站的题签带着印，和目录里是同一个字、同一个地址；今名换题签上的字；按一方印就到那一站；宽屏的版面', async ({ page }) => {
+  const figureId = await openFirstFigure(page);
+  expect(await expectRoute(page), '人物页上该摆着全程沙盘').toBe(true);
+  const route = routeOnDisk(figureId)!;
+  const whole = route.sections[0];
   const pane = stagePane(page);
 
   // 宽屏：文字栏 440 到 500px，沙盘栏占满旁边，文字滚动时它不动。
@@ -451,53 +462,77 @@ test('人物页的沙盘栏：一张定格图和图下面的字，没有沙盘�
   expect((await pane.boundingBox())!.y).toBeCloseTo(0, 0);
   await page.evaluate(() => window.scrollTo(0, 0));
 
-  // 这里没有沙盘，也就没有古名今名、回到这一节、收起这几个按钮，没有题记。
-  await expect(pane).not.toHaveAttribute('data-stage-section');
-  await expect(pane.locator('.names-switch')).toHaveCount(0);
-  await expect(pane.locator('.stage-reset')).toHaveCount(0);
-  await expect(pane.locator('.stage-fold')).toHaveCount(0);
-  await expect(pane.locator('.stage-host')).toHaveCount(0);
-  await expect(pane.locator('.stage-caption')).toHaveCount(0);
+  // 和一站的沙盘是同一种栏：古名今名、中间的按钮、题记；看的是头一节（全程），按钮下面没有那一行话。
+  await expect(pane).toHaveAttribute('data-stage-section', whole.heading);
+  await expect(pane.locator('.stage-caption')).toHaveAttribute('data-section', whole.heading);
+  await expect(pane.locator('.names-switch button')).toHaveCount(2);
+  await expect(pane.locator('.stage-reset')).toHaveText('回到全程');
+  await expect(pane.locator('.stage-notice')).toHaveCount(0);
+  await expect(pane.locator('.stage-still-line')).toHaveCount(0);
+  expect((await stripsOnStage(page)).map((strip) => strip.id)).toEqual(whole.strips);
 
-  if (hasStill) {
-    // 有定格图：图读得出来，有给看不见图的人的一句话；题记、如实的说明、用了谁的数据都不空。
-    const img = pane.locator('.stage-still img');
-    await expect(img).toBeVisible();
-    await expect(img).toHaveAttribute('alt', /.+/);
-    await expect.poll(() => img.evaluate((el: HTMLImageElement) => el.complete && el.naturalWidth > 0)).toBe(true);
-    // 图的宽高写在页面上，和图片文件一样：图还没下载完，地方就照这个比例留好了，下面的字不会被挤着跳一下。
-    const written = await img.evaluate((el: HTMLImageElement) => ({ width: Number(el.getAttribute('width')), height: Number(el.getAttribute('height')), naturalWidth: el.naturalWidth, naturalHeight: el.naturalHeight }));
-    expect(written.width).toBe(written.naturalWidth);
-    expect(written.height).toBe(written.naturalHeight);
-    await expect(pane.locator('.stage-still-caption')).not.toBeEmpty();
-    await expect(pane.locator('.stage-still-note')).not.toBeEmpty();
-    await expect(pane.locator('.stage-still-credit')).not.toBeEmpty();
-    await expect(pane.locator('.stage-still-line')).toHaveCount(0);
-    // 图不出沙盘栏的左右。
-    const imgBox = (await img.boundingBox())!;
-    expect(imgBox.x).toBeGreaterThanOrEqual(paneBox.x);
-    expect(imgBox.x + imgBox.width).toBeLessThanOrEqual(paneBox.x + paneBox.width + 1);
-  } else {
-    // 这位人物还没有定格图：只有一句话。
-    test.info().annotations.push({ type: '说明', description: '这位人物还没有定格图，只查了那一句话' });
-    await expect(pane.locator('.stage-still-line')).toHaveText(NO_ROUTE);
-    await expect(pane.locator('.stage-still')).toHaveCount(0);
+  // 各站目录照旧；站的题签带着印：每一站都有，和目录里那一行是同一个字、同一个地址，写好了的才是实心的。
+  const stops = await page.locator('.stop-item').evaluateAll((items) =>
+    items.map((item) => ({ id: item.getAttribute('data-stop-id') ?? '', href: item.getAttribute('href'), seal: item.querySelector('.stop-number')?.textContent ?? '', written: item.getAttribute('data-stop-status') === 'complete' })),
+  );
+  expect(stops.length).toBeGreaterThan(1);
+  const seals = await pane.locator('.strip-seal').evaluateAll((items) =>
+    items.map((item) => ({ id: item.getAttribute('data-stop-id') ?? '', href: item.getAttribute('href'), seal: item.textContent ?? '', filled: item.getAttribute('data-filled') === 'true', here: item.getAttribute('data-here') })),
+  );
+  expect(new Set(seals.map((seal) => seal.id)), '每一站都有印').toEqual(new Set(stops.map((stop) => stop.id)));
+  for (const seal of seals) {
+    const stop = stops.find((item) => item.id === seal.id)!;
+    expect({ href: seal.href, seal: seal.seal, filled: seal.filled, here: seal.here }, `“${seal.id}”的印`).toEqual({ href: stop.href, seal: stop.seal, filled: stop.written, here: 'false' });
   }
 
-  // 各站目录照旧。
-  expect(await page.locator('.stop-item').count()).toBeGreaterThan(1);
+  // 今名：这一节的题签里有写了今天的名字的，换过去以后每一条都是今天的叫法；记到换页以后。
+  const names = (mode: 'ancient' | 'modern'): string[] =>
+    whole.strips.map((id) => {
+      const strip = route.strips.find((item) => item.id === id)!;
+      return mode === 'modern' && strip.modern ? strip.modern : strip.text;
+    });
+  expect(names('modern')).not.toEqual(names('ancient'));
+  const startWith = async (mode: 'ancient' | 'modern'): Promise<boolean[]> => (await stripsOnStage(page)).map((strip, i) => strip.text.startsWith(names(mode)[i]));
+  expect(await startWith('ancient')).toEqual(whole.strips.map(() => true));
+  await pane.locator('.names-switch button').nth(1).click();
+  await expect.poll(() => startWith('modern')).toEqual(whole.strips.map(() => true));
+
+  // 按一方印：到那一站。挑一站没有自己的沙盘的：还是这一座全程沙盘（做个记号），滑到它的来路；中间的按钮换成“回到这一段”。
+  const target = stops.find((stop) => sceneOnDisk(figureId, stop.id) === null);
+  expect(target, '要有一站还没有自己的沙盘').toBeDefined();
+  if (!target) return;
+  await fakeStage(page).evaluate((el) => el.setAttribute('data-same-table', 'yes'));
+  await pane.locator(`.strip-seal[data-stop-id="${target.id}"]`).first().click();
+  await expect(page).toHaveURL(new RegExp(`#/${figureId}/${target.id}$`));
+  await expect(page.locator('.stop-page')).toHaveAttribute('data-stop-id', target.id);
+  await expect(pane).toHaveAttribute('data-stage-section', roadOf(route, target.id)!);
+  await expect(fakeStage(page)).toHaveAttribute('data-same-table', 'yes');
+  await expect(fakeStage(page)).toHaveAttribute('data-fake-animated', 'true');
+  await expect(fakeStage(page)).toHaveAttribute('data-fake-names', 'modern');
+  await expect(pane.locator('.stage-reset')).toHaveText('回到这一段');
+  // 这一节看的是这一站的来路：只有它的印带着圈
+  expect(await pane.locator('.strip-seal[data-here="true"]').evaluateAll((items) => items.map((item) => item.getAttribute('data-stop-id')))).toEqual([target.id]);
+
+  // 回人物页：还是这一座，滑回头一节。
+  await page.goBack();
+  await expect(page).toHaveURL(new RegExp(`#/${figureId}$`));
+  await expect(pane).toHaveAttribute('data-stage-section', whole.heading);
+  await expect(fakeStage(page)).toHaveAttribute('data-same-table', 'yes');
+  await expect(pane.locator('.stage-reset')).toHaveText('回到全程');
 });
 
-test('人物页没有定格图时：一句话，各站目录照旧', async ({ page }) => {
+test('人物页还没有全程沙盘时（?route=none）：一句话，没有沙盘的按钮和凭据那一行，各站目录照旧', async ({ page }) => {
   const figureId = await openFirstFigure(page);
   await page.goto('about:blank');
-  await page.goto(fakeUrl(`#/${figureId}`, '&still=none'));
+  await page.goto(fakeUrl(`#/${figureId}`, '&route=none'));
   await expect(page.locator('.stop-item').first()).toBeVisible();
 
-  expect(await expectStill(page)).toBe(false);
+  expect(await expectRoute(page)).toBe(false);
   const pane = stagePane(page);
   await expect(pane.locator('.stage-still-line')).toHaveText(NO_ROUTE);
-  await expect(pane.locator('.stage-still')).toHaveCount(0);
+  await expect(pane.locator('.stage-host')).toHaveCount(0);
+  await expect(pane.locator('.stage-caption')).toHaveCount(0);
+  await expect(page.locator('details.provenance')).toHaveCount(0);
   await expect(pane.locator('.names-switch')).toHaveCount(0);
   await expect(pane.locator('.stage-reset')).toHaveCount(0);
 
@@ -861,6 +896,21 @@ test('凭据里有“沙盘上的东西”一栏：按类别列出来，后面�
   const register = provenance.locator('.scene-register');
   await expect(register).toBeVisible();
   await expect(register.locator('h3')).toHaveText('沙盘上的东西');
+  // 它接在正文的凭据后面：顶上有一道线。人物页上它前面什么也没有（全程沙盘的那一行凭据）：顶上不空一截、不画线。
+  const topOf = (el: Locator) => el.evaluate((node) => `${getComputedStyle(node).borderTopWidth} ${getComputedStyle(node).marginTop}`);
+  await expect.poll(async () => (await topOf(register)).split(' ')[0]).toBe('1px');
+  const figureId = new URL(page.url()).hash.split('/')[1];
+  if (routeOnDisk(figureId)) {
+    await page.goto(fakeUrl(`#/${figureId}`));
+    await page.locator('details.provenance summary').click();
+    const alone = page.locator('details.provenance .scene-register');
+    await expect(alone).toBeVisible();
+    await expect(page.locator('details.provenance .provenance-item')).toHaveCount(0);
+    await expect.poll(() => topOf(alone)).toBe('0px 0px');
+    await page.goBack();
+    await provenance.locator('summary').click();
+    await expect(register).toBeVisible();
+  }
 
   // 每一组的名字是五类之一，不重复；每一项有名字和依据。
   const groups = register.locator('.scene-register-group[data-class]');
@@ -900,11 +950,17 @@ test('凭据里有“沙盘上的东西”一栏：按类别列出来，后面�
   expect(await provenance.locator('.provenance-group').count()).toBeGreaterThan(0);
 });
 
-test('还没有沙盘的站：放定格图和一句话，正文照常读', async ({ page }) => {
+test('写好了正文、还没有自己的沙盘的站：沙盘栏里是全程沙盘上到这一站去的来路，按钮下面一行话；正文照常读', async ({ page }) => {
   const figureId = await openFirstFigure(page);
   const stopId = await firstWrittenStopWithoutScene(page, figureId);
   test.skip(stopId === null, '写好的站都有沙盘了');
-  // 这一站没有沙盘是不用等就知道的：沙盘栏从头到尾不该说过“沙盘正在摆出来”。从现在起盯着。
+  if (stopId === null) return;
+  const route = routeOnDisk(figureId)!;
+  const road = roadOf(route, stopId);
+  expect(road, '全程沙盘上要有到这一站去的那一节').not.toBeNull();
+  // 人物页上已经摆着全程沙盘：进这一站用的还是它（做个记号）。沙盘栏从头到尾不该说过“沙盘正在摆出来”，也不该回到“正在摆”的样子。从现在起盯着。
+  expect(await expectRoute(page)).toBe(true);
+  await fakeStage(page).evaluate((el) => el.setAttribute('data-same-table', 'yes'));
   await page.evaluate(() => {
     const target = window as Window & { __saidLoading?: boolean };
     target.__saidLoading = false;
@@ -918,21 +974,22 @@ test('还没有沙盘的站：放定格图和一句话，正文照常读', async
   await expect(page.locator('.stop-page')).toHaveAttribute('data-stop-scene', 'none');
 
   const pane = stagePane(page);
-  const hasStill = await expectStill(page);
-  await expect(pane.locator('.stage-still-line')).toHaveText(hasStill ? NO_SCENE : NO_SCENE_ALONE);
+  await expect(pane).toHaveAttribute('data-stage-section', road!);
+  await expect(pane).toHaveAttribute('data-stage-level', 'route');
+  await expect(pane.locator('.stage-caption')).toHaveAttribute('data-section', road!);
+  await expect(fakeStage(page)).toHaveAttribute('data-same-table', 'yes');
+  await expect(fakeStage(page)).toHaveAttribute('data-fake-animated', 'true');
   expect(await page.evaluate(() => (window as Window & { __saidLoading?: boolean }).__saidLoading)).toBe(false);
-  if (hasStill) {
-    await expect(pane.locator('.stage-still img')).toBeVisible();
-    await expect(pane.locator('.stage-still-note')).not.toBeEmpty();
-    await expect(pane.locator('.stage-still-credit')).not.toBeEmpty();
-  }
-  await expect(pane.locator('.names-switch')).toHaveCount(0);
-  await expect(pane.locator('.stage-reset')).toHaveCount(0);
-  await expect(pane.locator('.stage-caption')).toHaveCount(0);
-  // 这一栏里没有可按的东西，标题后面也就没有“到沙盘”那一步。
-  await expect(page.locator('.skip-to-stage')).toHaveCount(0);
+  // 按钮下面的一行话：这一站的沙盘还没做好，摆着的是来路。它后面没有按钮。
+  await expect(pane.locator('.stage-notice p')).toHaveText(ROAD_NOTICE);
+  await expect(pane.locator('.stage-notice button')).toHaveCount(0);
+  await expect(pane.locator('.stage-reset')).toHaveText('回到这一段');
+  expect((await stripsOnStage(page)).map((strip) => strip.id)).toEqual(route.sections.find((section) => section.heading === road)!.strips);
+  expect(await pane.locator('.strip-seal[data-here="true"]').evaluateAll((items) => items.map((item) => item.getAttribute('data-stop-id')))).toEqual([stopId]);
+  // 沙盘栏里有可按的东西：标题后面有“到沙盘”那一步。
+  await expect(page.locator('.skip-to-stage')).toHaveCount(1);
 
-  // 正文、小注、凭据、换站都照常；凭据里没有“沙盘上的东西”。
+  // 正文、小注、凭据、换站都照常；凭据里没有“沙盘上的东西”（那是全程沙盘的，在人物页上）。
   await expect(page.locator('.text-section').first()).toBeVisible();
   await page.locator('.note-term').first().click();
   await expect(page.locator('.note').first()).toBeVisible();
@@ -940,17 +997,19 @@ test('还没有沙盘的站：放定格图和一句话，正文照常读', async
   await expect(page.locator('.provenance-item').first()).toBeVisible();
   await expect(page.locator('.scene-register')).toHaveCount(0);
   await page.evaluate(() => window.scrollTo(0, 900));
-  await expectStill(page);
+  // 读到后面，沙盘还是那一节：全程沙盘不跟着这一站的正文走
+  await expect(pane).toHaveAttribute('data-stage-section', road!);
   await expect(page.locator('.stop-nav-list')).toBeVisible();
 
-  // 没有定格图时只说前半句。
+  // 这位人物还没有全程沙盘（?route=none）：一句话。
   await page.goto('about:blank');
-  await page.goto(fakeUrl(`#/${figureId}/${stopId}`, '&still=none'));
-  expect(await expectStill(page)).toBe(false);
-  await expect(stagePane(page).locator('.stage-still-line')).toHaveText(NO_SCENE_ALONE);
+  await page.goto(fakeUrl(`#/${figureId}/${stopId}`, '&route=none'));
+  expect(await expectRoute(page)).toBe(false);
+  await expect(stagePane(page).locator('.stage-still-line')).toHaveText(NO_ROUTE);
+  await expect(page.locator('.skip-to-stage')).toHaveCount(0);
 });
 
-test('还没写的站：有抬头和一句话，沙盘栏放定格图', async ({ page }) => {
+test('还没写的站：有抬头和一句话；沙盘栏里是全程沙盘上到这一站去的来路，按钮下面没有那一行话，这句话在正文那一栏里', async ({ page }) => {
   const figureId = await openFirstFigure(page);
   const outline = page.locator('.stop-item[data-stop-status="outline"]').first();
   test.skip((await outline.count()) === 0, '各站都写好了');
@@ -982,8 +1041,30 @@ test('还没写的站：有抬头和一句话，沙盘栏放定格图', async ({
   await expect(dock.locator('button')).toHaveCount(0);
   await expect(dock.locator('a')).toHaveCount(expected.length);
 
-  const hasStill = await expectStill(page);
-  await expect(stagePane(page).locator('.stage-still-line')).toHaveText(hasStill ? NO_SCENE : NO_SCENE_ALONE);
+  expect(await expectRoute(page)).toBe(true);
+  const route = routeOnDisk(figureId)!;
+  const road = roadOf(route, stopId);
+  expect(road, '全程沙盘上要有到这一站去的那一节').not.toBeNull();
+  await expect(stagePane(page)).toHaveAttribute('data-stage-section', road!);
+  await expect(stagePane(page).locator('.stage-notice')).toHaveCount(0);
+  await expect(stagePane(page).locator('.stage-reset')).toHaveText('回到这一段');
+  // 头一站没有来路（他是从这里出发的）：正文那一栏说的是出发的路；别的站说来路。两种都到页面上看一遍。
+  await expect(page.locator('.not-written')).toHaveText(at === 0 ? NOT_WRITTEN_FIRST : NOT_WRITTEN_ROAD);
+  await page.goBack();
+  await expect(page.locator('.stop-item').first()).toBeVisible();
+  const outlines = await page.locator('.stop-item[data-stop-status="outline"]').evaluateAll((items) => items.map((item) => item.getAttribute('data-stop-id') ?? ''));
+  const other = outlines.find((id) => (order.indexOf(id) === 0) !== (at === 0));
+  if (other) {
+    await page.goto(fakeUrl(`#/${figureId}/${other}`));
+    expect(await expectRoute(page)).toBe(true);
+    await expect(page.locator('.not-written')).toHaveText(order.indexOf(other) === 0 ? NOT_WRITTEN_FIRST : NOT_WRITTEN_ROAD);
+  } else console.log(`还没写的站只有${at === 0 ? '头一站' : '不是头一站的'}：正文那一栏的另一句没有看到`);
+
+  // 这位人物还没有全程沙盘（?route=none）：正文那一栏只说前半句。
+  await page.goto('about:blank');
+  await page.goto(fakeUrl(`#/${figureId}/${stopId}`, '&route=none'));
+  expect(await expectRoute(page)).toBe(false);
+  await expect(page.locator('.not-written')).toHaveText(NOT_WRITTEN);
 });
 
 test('沙盘起不来：一句话和“再试一次”，题记和说明还在，照常阅读', async ({ page }) => {
@@ -1118,12 +1199,16 @@ test('从目录进一站再回目录：沙盘摆出来，离开时拿走', async
   // 一路点进来的，第一次摆放也不滑。
   await expect(fakeStage(page)).toHaveAttribute('data-fake-animated', 'false');
 
-  // 回到人物页：沙盘拿走，换成定格图。
+  // 回到人物页：这一站的沙盘拿走，摆上全程沙盘，看的是头一节（不是哪一站的来路）；中间的按钮是“回到全程”。
   await page.locator('.stop-nav-list').click();
   await expect(page).toHaveURL(new RegExp(`#/${figureId}$`));
-  await expectStill(page);
-  await expect(fakeStage(page)).toHaveCount(0);
-  await expect(page.locator('.strip')).toHaveCount(0);
+  expect(await expectRoute(page)).toBe(true);
+  const route = routeOnDisk(figureId)!;
+  await expect(stagePane(page)).toHaveAttribute('data-stage-section', route.sections[0].heading);
+  await expect(stagePane(page).locator('.stage-reset')).toHaveText('回到全程');
+  // 新摆的一座：直接摆到位，不滑
+  await expect(fakeStage(page)).toHaveAttribute('data-fake-animated', 'false');
+  expect((await stripsOnStage(page)).map((strip) => strip.id)).toEqual(route.sections[0].strips);
 });
 
 // 窗口不到 960 像素宽、或者是竖着的（高不小于宽）时，沙盘在上、文字在下。标准的画面里这样排的是竖着拿的平板（768×1024），
@@ -1344,10 +1429,12 @@ test.describe('竖着拿的平板（768×1024）', () => {
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   });
 
-  test('窄屏：没摆沙盘时（定格图、起不来）沙盘栏不钉在顶上，跟着页面滚走', async ({ page }) => {
+  test('窄屏：没摆沙盘时（没有全程沙盘、起不来）沙盘栏不钉在顶上，跟着页面滚走', async ({ page }) => {
     const { figureId, stopId } = await findStopWithScene(page);
-    // 人物页：定格图或一句话。
-    await expectStill(page);
+    // 人物页，当作还没有全程沙盘：一句话。
+    await page.goto('about:blank');
+    await page.goto(fakeUrl(`#/${figureId}`, '&route=none'));
+    expect(await expectRoute(page)).toBe(false);
     expect(await stagePane(page).evaluate((el) => getComputedStyle(el).position)).not.toBe('sticky');
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 

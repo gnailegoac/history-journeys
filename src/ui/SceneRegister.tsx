@@ -4,10 +4,10 @@
 
 import { useMemo } from 'react';
 import { sceneRegister } from '../domain';
-import type { SceneRegister as Register, Source, StopScene } from '../domain';
+import type { SceneRegister as Register, Source, TableScene } from '../domain';
 import { REGISTER_TEXT } from './foldText';
 
-export function SceneRegister({ scene, sources }: { scene: StopScene; sources: Source[] }) {
+export function SceneRegister({ scene, sources }: { scene: TableScene; sources: Source[] }) {
   const register = useMemo(() => registerOf(scene, sources), [scene, sources]);
   if (!register) return null;
   const groups = register.groups.filter((group) => group.entries.length > 0);
@@ -75,7 +75,7 @@ function Cites({ cites }: { cites: string[] }) {
 }
 
 // 这一栏拼不出来时不印它，正文和别的凭据照常。
-function registerOf(scene: StopScene, sources: Source[]): Register | null {
+function registerOf(scene: TableScene, sources: Source[]): Register | null {
   try {
     return sceneRegister(scene, sources);
   } catch (error) {

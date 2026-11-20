@@ -3,7 +3,7 @@
 
 import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
-import { expectStageAt, expectStill, fakeUrl, firstStopWithScene, firstWrittenStop, foldBodiesReady, headingsOf, openFirstFigure, sceneOnDisk, scrollToSection, shoot, stagePane } from './helpers';
+import { expectStageAt, expectRoute, fakeUrl, firstStopWithScene, firstWrittenStop, foldBodiesReady, headingsOf, openFirstFigure, sceneOnDisk, scrollToSection, shoot, stagePane } from './helpers';
 import { PANE_QUERIES, expectPane, stopUrl } from './paneHelpers';
 
 const env = (globalThis as { process?: { env: Record<string, string | undefined> } }).process?.env ?? {};
@@ -17,7 +17,7 @@ async function openStop(page: Page, figureId: string, stopId: string): Promise<s
   await expect(page.locator('.text-section').first()).toBeVisible();
   const scene = sceneOnDisk(figureId, stopId);
   if (!scene) {
-    await expectStill(page);
+    await expectRoute(page);
     return [];
   }
   const headings = headingsOf(scene);
@@ -32,7 +32,7 @@ test('宽屏：首页、人物页、站点页、读到后面的小节、点开�
   await shoot(page, { path: `${DIR}/home-1440.png` });
 
   const figureId = await openFirstFigure(page);
-  await expectStill(page);
+  await expectRoute(page);
   await shoot(page, { path: `${DIR}/figure-1440.png` });
 
   const stopId = await firstWrittenStop(page);

@@ -19,7 +19,7 @@ export type StageTier = 'full' | 'reduced';
 
 /**
  * 要摆出来的一座沙盘：站点沙盘，或者全程沙盘。两种的样子一样，只差 kind 和场景是哪一层的。
- * 现在只有立体的沙盘程序（src/stage/three）摆得了全程沙盘，从沙盘测试页上看；定格图、页面和替身还只认站点沙盘。
+ * 立体的沙盘程序、定格图、两个替身和页面，两种都认。
  */
 export type StageTable = StopTable | RouteTable;
 
@@ -219,7 +219,7 @@ export interface StageView {
   destroy(): void;
 }
 
-/** 一座站点沙盘。 */
+/** 一座挂在页面上的沙盘，能照小节摆（站点沙盘和全程沙盘都是它）。 */
 export interface StopStageView extends StageView {
   /**
    * 镜头去某一小节，沙盘换成那一节的样子（水位、哪些东西已经有了、摆哪几条题签）。section 是小节标题。
@@ -242,5 +242,5 @@ export interface StageEngine {
    * 同一个 StageEngine 一次只有一座沙盘是活的（共用一块画布）：前一座还没有 destroy 就再摆一座，
    * 前一座从此不再画，并通过 onLost 通知页面（还没摆好的那一座则是 ready 拒绝）。页面应当先 destroy 前一座。
    */
-  create(container: HTMLElement, table: StopTable, options: StageOptions): StopStageView;
+  create(container: HTMLElement, table: StageTable, options: StageOptions): StopStageView;
 }

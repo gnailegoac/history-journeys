@@ -4,11 +4,11 @@
 
 import { expect } from '@playwright/test';
 import type { Locator, Page } from '@playwright/test';
-import type { SceneStrip, StopScene } from '../../src/domain/scene';
+import type { RouteScene, SceneStrip, StopScene } from '../../src/domain/scene';
 import type { StageReadout, StageTier } from '../../src/stage/types';
 import { fileSize, readBytes } from '../support/readBytes';
 
-/** 带沙盘替身的地址。extra 是另外要带的参数，如 "&still=none"。 */
+/** 带沙盘替身的地址。extra 是另外要带的参数，如 "&route=none"。 */
 export function fakeUrl(hash: string, extra = ''): string {
   return `/?stage=fake${extra}${hash}`;
 }
@@ -107,12 +107,26 @@ export async function openFigureWithTable(page: Page, url: string): Promise<{ fi
   return { figureId, found: await firstStopWithScene(page, figureId) };
 }
 
-/** 等沙盘栏放的是定格图（或者一句话），不是沙盘。返回有没有图。 */
-export async function expectStill(page: Page): Promise<boolean> {
-  await expect(stagePane(page)).toHaveAttribute('data-stage-state', 'still');
-  const box = page.locator('.stage-still-box');
-  await expect(box).not.toHaveAttribute('data-still', 'loading');
-  return (await box.getAttribute('data-still')) === 'shown';
+/**
+ * 等沙盘栏定下来，摆的不是哪一站自己的沙盘：摆好了全程沙盘（人物页、首页、没有自己的沙盘的站），
+ * 或者说了那一句“全程沙盘还没接进来”。返回摆的是不是全程沙盘。
+ */
+export async function expectRoute(page: Page): Promise<boolean> {
+  const pane = stagePane(page);
+  const now = async (): Promise<string> => `${await pane.getAttribute('data-stage-state')} ${await pane.getAttribute('data-stage-level')}`;
+  await expect.poll(now, { message: '沙盘栏里该摆好全程沙盘，或者说一句“还没接进来”' }).toMatch(/^(ready route|still null)$/);
+  return (await now()) === 'ready route';
+}
+
+/** content/ 里这位人物的全程沙盘的场景；没有是 null。 */
+export function routeOnDisk(figureId: string): RouteScene | null {
+  const scene = sceneOnDisk(figureId, 'route') as StopScene | RouteScene | null;
+  return scene && scene.level === 'route' ? scene : null;
+}
+
+/** 全程沙盘上到这一站去的那一节叫什么；没有这一节是 null。 */
+export function roadOf(route: RouteScene, stopId: string): string | null {
+  return route.sections.find((section) => section.stop === stopId)?.heading ?? null;
 }
 
 /** 从首页进入第一位可以打开的人物，返回他的 id。 */

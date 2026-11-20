@@ -1,4 +1,4 @@
-// 读取场景的单元测试：hasStopTable、loadStopTable、loadRouteStill，对着真实的 content/ 目录。
+// 读取场景的单元测试：hasStopTable、loadStopTable、loadRouteTable，对着真实的 content/ 目录。
 // 这里只管“读得对不对”；场景本身合不合规格由 npm run validate 管。
 // 工具做出来的两样（先画好的地面 baked/、每一小节的定格图 stills/）磁盘上可以还没有：
 // 有就查带没带上、带得对不对，没有就查没带；“在、不在、清单在而图不齐”这几种情形另用编出来的几张表测。
@@ -6,7 +6,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { BakedGroundManifest } from '../../src/domain/bakedGround';
 import type { StopScene } from '../../src/domain/scene';
-import { hasStopTable, loadRouteStill, loadStopTable, pickStopTable } from '../../src/domain/sceneContent';
+import { hasStopTable, loadRouteTable, loadStopTable, pickStopTable, routeTableOf } from '../../src/domain/sceneContent';
 import type { MadeFiles } from '../../src/domain/sceneContent';
 import type { StillManifest, StillShape, StillShot } from '../../src/domain/stills';
 import type { Figure } from '../../src/domain/types';
@@ -322,64 +322,38 @@ describe('pickStopTable：工具做出来的两样，在、不在、清单在而
   });
 });
 
-describe('loadRouteStill', () => {
-  /** 一位只有抬头的人物，routeStill 另给。 */
-  const figureWith = (id: string, routeStill?: Figure['routeStill']): Figure => ({
-    id,
-    name: '某人',
-    era: '某代',
-    years: '1000–1060',
-    tagline: '',
-    intro: [],
-    overview: { center: [110, 30], distanceKm: 1000 },
-    stops: [],
-    legs: [],
-    ...(routeStill ? { routeStill } : {}),
-  });
-  const words = { width: 1404, height: 1171, alt: '一句给看不见图的人的话', caption: '图下面的题记', note: '如实的说明', credit: '用了谁的数据' };
-
-  it('figure.json 没有写 routeStill 时返回 null', async () => {
-    expect(await loadRouteStill(figureWith('su-shi'))).toBeNull();
+describe('loadRouteTable', () => {
+  it('苏轼的全程沙盘读得出来：场景写着 level 是 route，和磁盘上的文件一样；地形文件的网址不是空的', async () => {
+    const table = await loadRouteTable('su-shi');
+    expect(table).not.toBeNull();
+    expect(table?.scene.level).toBe('route');
+    expect(table?.scene).toEqual(json(`${ROOT}/su-shi/scenes/route.json`));
+    expect(table?.terrainUrl).toContain('route.terrain');
   });
 
-  it('写了 routeStill、图片文件却不在 stills/ 里时返回 null', async () => {
-    expect(await loadRouteStill(figureWith('su-shi', { file: 'no-such-picture.jpg', ...words }))).toBeNull();
-    expect(await loadRouteStill(figureWith('no-such-figure', { file: 'route.jpg', ...words }))).toBeNull();
-    // 别的文件夹里的图不算。
-    expect(await loadRouteStill(figureWith('su-shi', { file: '../images/no-such-picture.jpg', ...words }))).toBeNull();
+  it('和 loadStopTable 是同一种读法：先画好的地面、定格图，磁盘上有才带上', async () => {
+    const table = await loadRouteTable('su-shi');
+    expect(table?.ground !== undefined).toBe(paths.has(`${ROOT}/su-shi/baked/route.json`));
+    expect(table?.stills !== undefined).toBe(paths.has(`${ROOT}/su-shi/stills/route.json`));
+    if (table?.stills) expect(Object.keys(table.stills.urls)).toHaveLength(table.stills.manifest.stills.length);
   });
 
-  it('磁盘上的每位人物：写了 routeStill 而且图片在，就读得出网址和图旁边的字；不然是 null', async () => {
+  it('没有这位人物是 null；磁盘上的每位人物：有 scenes/route.json 才读得出来', async () => {
+    expect(await loadRouteTable('no-such-figure')).toBeNull();
     expect(figuresOnDisk.length).toBeGreaterThan(0);
     for (const figure of figuresOnDisk) {
-      const still = await loadRouteStill(figure);
-      const written = figure.routeStill;
-      const there = written !== undefined && paths.has(`${ROOT}/${figure.id}/stills/${written.file}`);
-      expect(still !== null, figure.id).toBe(there);
-      if (!still || !written) continue;
-      expect(still.url).not.toBe('');
-      expect(still).toEqual({ url: still.url, width: written.width, height: written.height, alt: written.alt, caption: written.caption, note: written.note, credit: written.credit });
-      expect(still.width).toBeGreaterThan(0);
-      expect(still.height).toBeGreaterThan(0);
+      expect((await loadRouteTable(figure.id)) !== null, figure.id).toBe(paths.has(`${ROOT}/${figure.id}/scenes/route.json`));
     }
   });
-
-  it('stills/ 里有的图片都读得出网址，图旁边的字原样带出来；每一站定格图的清单不是图片，读不出来', async () => {
-    // 现在 stills/ 里要是还没有图片，这一条就只是空转；有了图片以后它才真的在查。
-    let pictures = 0;
-    for (const path of paths) {
-      const match = /^\/content\/figures\/([^/]+)\/stills\/([^/]+)$/.exec(path);
-      if (!match) continue;
-      const still = await loadRouteStill(figureWith(match[1], { file: match[2], ...words }));
-      if (/\.json$/.test(match[2])) {
-        expect(still, path).toBeNull();
-        continue;
-      }
-      pictures += 1;
-      expect(still, path).not.toBeNull();
-      expect(still?.url).toContain(match[2].replace(/\.[^.]+$/, ''));
-      expect(still).toMatchObject(words);
-    }
-    expect(pictures, '苏轼的 stills/ 里至少有人物页的那一张').toBeGreaterThan(0);
+  it('做过先画好的地面的全程沙盘，地面这一次没带上来（清单那一小段没取到）：算没读成，不是“没有地面”——全程沙盘的地面不能现画；没做过的、带上来了的，照常', async () => {
+    const table = await loadRouteTable('su-shi');
+    expect(table).not.toBeNull();
+    const { ground: _ground, ...bare } = table!;
+    expect(() => routeTableOf(bare, true)).toThrow();
+    expect(routeTableOf(bare, false)).toBe(bare);
+    if (table!.ground) expect(routeTableOf(table, true)).toBe(table);
+    // 不是全程沙盘的、没有的：null，不管做没做过地面
+    expect(routeTableOf(null, true)).toBeNull();
+    expect(routeTableOf(await loadStopTable('su-shi', 'xuzhou'), true)).toBeNull();
   });
 });

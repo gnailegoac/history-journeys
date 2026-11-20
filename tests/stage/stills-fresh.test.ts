@@ -175,8 +175,11 @@ describe.each(tables)('$figureId/$stopId：照磁盘上现在的文件算“照�
 
   it('场景里只改依据、题记、题签上的字：不算旧', () => {
     const now = madeFromNow(figureId, stopId);
-    const scene = JSON.parse(sceneText()) as { things: { basis: string }[]; sections: { line: string }[]; strips: { text: string }[] };
-    scene.things[0].basis += '（补一句）';
+    const scene = JSON.parse(sceneText()) as { things?: { basis: string }[]; roads?: { journeys: { parts: { basis: string }[] }[] }; sections: { line: string }[]; strips: { text: string }[] };
+    // 改一句依据：站点沙盘上是头一样摆件的，全程沙盘上（没有摆件）是头一趟路头一截的
+    const grounded = scene.things?.[0] ?? scene.roads?.journeys[0]?.parts[0];
+    expect(grounded, `${figureId}/${stopId}：场景里要有一样带依据的东西`).toBeDefined();
+    grounded!.basis += '（补一句）';
     scene.sections[0].line += '！';
     scene.strips[0].text = '改';
     expect(pictureKey(scene)).toBe(now.madeFrom.scene);

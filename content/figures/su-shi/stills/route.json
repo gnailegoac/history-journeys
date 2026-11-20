@@ -1,0 +1,1342 @@
+{
+  "tool": 1,
+  "made": {
+    "tier": "full",
+    "three": "0.187.0",
+    "background": "#c5b189",
+    "fitMarginPx": 12,
+    "maxFit": 2.5
+  },
+  "madeFrom": {
+    "scene": "fffdbc06876655cb",
+    "terrain": "64009eea961fbfcc",
+    "ground": "c3101f648ddeff83",
+    "program": "3ed6e61f16e368e4"
+  },
+  "shapes": {
+    "wide": {
+      "window": [
+        1440,
+        900
+      ],
+      "pane": [
+        939,
+        900
+      ],
+      "insets": [
+        62,
+        0,
+        130,
+        0
+      ],
+      "extra": 130.5,
+      "pixelRatio": 1.5
+    },
+    "narrow": {
+      "window": [
+        768,
+        1024
+      ],
+      "pane": [
+        768,
+        572
+      ],
+      "insets": [
+        54,
+        0,
+        131,
+        0
+      ],
+      "extra": 96,
+      "pixelRatio": 2
+    }
+  },
+  "stills": [
+    {
+      "section": "全程",
+      "shape": "wide",
+      "file": "route-1-wide.jpg",
+      "width": 1800,
+      "height": 1350,
+      "bytes": 224884,
+      "quality": 82,
+      "key": "0a8af030329fa49b",
+      "raw": "d9c9fe0620deeec1",
+      "pose": {
+        "target": [
+          0,
+          19.9,
+          1293.3
+        ],
+        "position": [
+          0,
+          36100.6,
+          31568.6
+        ],
+        "fov": 18
+      },
+      "fit": 0.75,
+      "reach": [
+        445.5,
+        341.2
+      ],
+      "northDeg": 0,
+      "pxPerMetre": 0.000353,
+      "anchors": [
+        {
+          "id": "s-meizhou",
+          "x": 0.27142,
+          "y": 0.33111,
+          "visible": true
+        },
+        {
+          "id": "s-hangzhou-all",
+          "x": 0.71387,
+          "y": 0.32797,
+          "visible": true
+        },
+        {
+          "id": "s-mizhou-all",
+          "x": 0.67409,
+          "y": 0.15926,
+          "visible": true
+        },
+        {
+          "id": "s-xuzhou",
+          "x": 0.62419,
+          "y": 0.21183,
+          "visible": true
+        },
+        {
+          "id": "s-bianjing",
+          "x": 0.55237,
+          "y": 0.19805,
+          "visible": true
+        },
+        {
+          "id": "s-huangzhou",
+          "x": 0.57063,
+          "y": 0.32764,
+          "visible": true
+        },
+        {
+          "id": "s-huizhou",
+          "x": 0.56634,
+          "y": 0.57029,
+          "visible": true
+        },
+        {
+          "id": "s-changhua",
+          "x": 0.40489,
+          "y": 0.69201,
+          "visible": true
+        },
+        {
+          "id": "s-dajiang",
+          "x": 0.49215,
+          "y": 0.33206,
+          "visible": true
+        },
+        {
+          "id": "s-sea",
+          "x": 0.4333,
+          "y": 0.67621,
+          "visible": true
+        }
+      ]
+    },
+    {
+      "section": "全程",
+      "shape": "narrow",
+      "file": "route-1-narrow.jpg",
+      "width": 1920,
+      "height": 1144,
+      "bytes": 162121,
+      "quality": 86,
+      "key": "b534e8ed1eeec257",
+      "raw": "a7a6ae8c48c5594d",
+      "pose": {
+        "target": [
+          0,
+          19.9,
+          1160.3
+        ],
+        "position": [
+          0,
+          43440.4,
+          37594.5
+        ],
+        "fov": 18
+      },
+      "fit": 0.9026,
+      "reach": [
+        232.5,
+        181.5
+      ],
+      "northDeg": 0,
+      "pxPerMetre": 0.000186,
+      "anchors": [
+        {
+          "id": "s-meizhou",
+          "x": 0.34801,
+          "y": 0.32847,
+          "visible": true
+        },
+        {
+          "id": "s-hangzhou-all",
+          "x": 0.64226,
+          "y": 0.3258,
+          "visible": true
+        },
+        {
+          "id": "s-mizhou-all",
+          "x": 0.61668,
+          "y": 0.18239,
+          "visible": true
+        },
+        {
+          "id": "s-xuzhou",
+          "x": 0.58304,
+          "y": 0.22731,
+          "visible": true
+        },
+        {
+          "id": "s-bianjing",
+          "x": 0.53504,
+          "y": 0.21556,
+          "visible": true
+        },
+        {
+          "id": "s-huangzhou",
+          "x": 0.54698,
+          "y": 0.32552,
+          "visible": true
+        },
+        {
+          "id": "s-huizhou",
+          "x": 0.54366,
+          "y": 0.52802,
+          "visible": true
+        },
+        {
+          "id": "s-changhua",
+          "x": 0.43775,
+          "y": 0.62797,
+          "visible": true
+        },
+        {
+          "id": "s-dajiang",
+          "x": 0.49478,
+          "y": 0.32925,
+          "visible": true
+        },
+        {
+          "id": "s-sea",
+          "x": 0.45631,
+          "y": 0.61505,
+          "visible": true
+        }
+      ]
+    },
+    {
+      "section": "出川",
+      "shape": "wide",
+      "file": "route-2-wide.jpg",
+      "width": 1800,
+      "height": 1350,
+      "bytes": 298402,
+      "quality": 78,
+      "key": "83237eed228b9896",
+      "raw": "260b431565c679f3",
+      "pose": {
+        "target": [
+          -1972.9,
+          115.3,
+          -2181.8
+        ],
+        "position": [
+          -1972.9,
+          15221.5,
+          12406
+        ],
+        "fov": 18
+      },
+      "fit": 1,
+      "reach": [
+        391.8,
+        182.4
+      ],
+      "northDeg": 0,
+      "pxPerMetre": 0.000791,
+      "anchors": [
+        {
+          "id": "s-meizhou",
+          "x": 0.18341,
+          "y": 0.56436,
+          "visible": true
+        },
+        {
+          "id": "s-bianjing",
+          "x": 0.82538,
+          "y": 0.26384,
+          "visible": true
+        },
+        {
+          "id": "s-min",
+          "x": 0.17918,
+          "y": 0.58562,
+          "visible": true
+        },
+        {
+          "id": "s-sanxia",
+          "x": 0.60172,
+          "y": 0.50827,
+          "visible": true
+        },
+        {
+          "id": "s-dajiang-w",
+          "x": 0.32756,
+          "y": 0.63602,
+          "visible": true
+        },
+        {
+          "id": "s-huanghe",
+          "x": 0.75014,
+          "y": 0.26181,
+          "visible": true
+        }
+      ]
+    },
+    {
+      "section": "出川",
+      "shape": "narrow",
+      "file": "route-2-narrow.jpg",
+      "width": 1920,
+      "height": 1144,
+      "bytes": 275379,
+      "quality": 78,
+      "key": "73e57032b915abc3",
+      "raw": "68b232012b85e097",
+      "pose": {
+        "target": [
+          -1972.9,
+          115.3,
+          -2181.8
+        ],
+        "position": [
+          -1972.9,
+          15221.5,
+          12406
+        ],
+        "fov": 18
+      },
+      "fit": 1,
+      "reach": [
+        249,
+        115.9
+      ],
+      "northDeg": 0,
+      "pxPerMetre": 0.000503,
+      "anchors": [
+        {
+          "id": "s-meizhou",
+          "x": 0.24849,
+          "y": 0.53483,
+          "visible": true
+        },
+        {
+          "id": "s-bianjing",
+          "x": 0.75849,
+          "y": 0.23431,
+          "visible": true
+        },
+        {
+          "id": "s-min",
+          "x": 0.24513,
+          "y": 0.55609,
+          "visible": true
+        },
+        {
+          "id": "s-sanxia",
+          "x": 0.58081,
+          "y": 0.47874,
+          "visible": true
+        },
+        {
+          "id": "s-dajiang-w",
+          "x": 0.363,
+          "y": 0.60649,
+          "visible": true
+        },
+        {
+          "id": "s-huanghe",
+          "x": 0.69872,
+          "y": 0.23228,
+          "visible": true
+        }
+      ]
+    },
+    {
+      "section": "到杭州",
+      "shape": "wide",
+      "file": "route-3-wide.jpg",
+      "width": 1800,
+      "height": 1350,
+      "bytes": 224634,
+      "quality": 82,
+      "key": "a17ad364b710133c",
+      "raw": "8794c79d261417f6",
+      "pose": {
+        "target": [
+          3017.2,
+          6.9,
+          -2746.1
+        ],
+        "position": [
+          3017.2,
+          10426.7,
+          8044
+        ],
+        "fov": 18
+      },
+      "fit": 1,
+      "reach": [
+        337.9,
+        249.1
+      ],
+      "northDeg": 0,
+      "pxPerMetre": 0.001108,
+      "anchors": [
+        {
+          "id": "s-bianjing",
+          "x": 0.22075,
+          "y": 0.25665,
+          "visible": true
+        },
+        {
+          "id": "s-hangzhou",
+          "x": 0.73524,
+          "y": 0.6676,
+          "visible": true
+        },
+        {
+          "id": "s-huai",
+          "x": 0.36966,
+          "y": 0.45696,
+          "visible": true
+        },
+        {
+          "id": "s-dajiang-e",
+          "x": 0.51814,
+          "y": 0.58932,
+          "visible": true
+        },
+        {
+          "id": "s-huanghe-n",
+          "x": 0.25672,
+          "y": 0.18544,
+          "visible": true
+        }
+      ]
+    },
+    {
+      "section": "到杭州",
+      "shape": "narrow",
+      "file": "route-3-narrow.jpg",
+      "width": 1920,
+      "height": 1144,
+      "bytes": 271478,
+      "quality": 86,
+      "key": "b248c6fb6491b926",
+      "raw": "6a4dabfa49e72a41",
+      "pose": {
+        "target": [
+          3017.2,
+          6.9,
+          -2746.1
+        ],
+        "position": [
+          3017.2,
+          10426.7,
+          8044
+        ],
+        "fov": 18
+      },
+      "fit": 1,
+      "reach": [
+        214.7,
+        158.3
+      ],
+      "northDeg": 0,
+      "pxPerMetre": 0.000704,
+      "anchors": [
+        {
+          "id": "s-bianjing",
+          "x": 0.27815,
+          "y": 0.22712,
+          "visible": true
+        },
+        {
+          "id": "s-hangzhou",
+          "x": 0.68689,
+          "y": 0.63807,
+          "visible": true
+        },
+        {
+          "id": "s-huai",
+          "x": 0.39645,
+          "y": 0.42743,
+          "visible": true
+        },
+        {
+          "id": "s-dajiang-e",
+          "x": 0.51441,
+          "y": 0.55979,
+          "visible": true
+        },
+        {
+          "id": "s-huanghe-n",
+          "x": 0.30672,
+          "y": 0.15591,
+          "visible": true
+        }
+      ]
+    },
+    {
+      "section": "到密州",
+      "shape": "wide",
+      "file": "route-4-wide.jpg",
+      "width": 1800,
+      "height": 1350,
+      "bytes": 216718,
+      "quality": 82,
+      "key": "0f8eca8d42327b80",
+      "raw": "13eb9da6846ce3ac",
+      "pose": {
+        "target": [
+          3595,
+          3.3,
+          -3093.2
+        ],
+        "position": [
+          3595,
+          10423.1,
+          7696.9
+        ],
+        "fov": 18
+      },
+      "fit": 1,
+      "reach": [
+        210.1,
+        245.5
+      ],
+      "northDeg": 0,
+      "pxPerMetre": 0.001108,
+      "anchors": [
+        {
+          "id": "s-hangzhou",
+          "x": 0.64044,
+          "y": 0.7259,
+          "visible": true
+        },
+        {
+          "id": "s-mizhou",
+          "x": 0.52481,
+          "y": 0.18942,
+          "visible": true
+        },
+        {
+          "id": "s-dajiang-e",
+          "x": 0.42181,
+          "y": 0.64478,
+          "visible": true
+        },
+        {
+          "id": "s-huai-e",
+          "x": 0.48417,
+          "y": 0.42379,
+          "visible": true
+        }
+      ]
+    },
+    {
+      "section": "到密州",
+      "shape": "narrow",
+      "file": "route-4-narrow.jpg",
+      "width": 1920,
+      "height": 1144,
+      "bytes": 247719,
+      "quality": 86,
+      "key": "fb97d0b07396957f",
+      "raw": "66b69aa7799d43dd",
+      "pose": {
+        "target": [
+          3595,
+          3.3,
+          -3093.2
+        ],
+        "position": [
+          3595,
+          10423.1,
+          7696.9
+        ],
+        "fov": 18
+      },
+      "fit": 1,
+      "reach": [
+        133.5,
+        156
+      ],
+      "northDeg": 0,
+      "pxPerMetre": 0.000704,
+      "anchors": [
+        {
+          "id": "s-hangzhou",
+          "x": 0.61157,
+          "y": 0.69637,
+          "visible": true
+        },
+        {
+          "id": "s-mizhou",
+          "x": 0.51971,
+          "y": 0.15989,
+          "visible": true
+        },
+        {
+          "id": "s-dajiang-e",
+          "x": 0.43788,
+          "y": 0.61525,
+          "visible": true
+        },
+        {
+          "id": "s-huai-e",
+          "x": 0.48742,
+          "y": 0.39426,
+          "visible": true
+        }
+      ]
+    },
+    {
+      "section": "到徐州",
+      "shape": "wide",
+      "file": "route-5-wide.jpg",
+      "width": 1800,
+      "height": 1350,
+      "bytes": 229286,
+      "quality": 82,
+      "key": "d4aa73aa1e581269",
+      "raw": "ed19ea243cd167dc",
+      "pose": {
+        "target": [
+          2452.3,
+          5.6,
+          -3786.5
+        ],
+        "position": [
+          2452.3,
+          10425.5,
+          7003.6
+        ],
+        "fov": 18
+      },
+      "fit": 1,
+      "reach": [
+        246.8,
+        218.1
+      ],
+      "northDeg": 0,
+      "pxPerMetre": 0.001108,
+      "anchors": [
+        {
+          "id": "s-mizhou",
+          "x": 0.69503,
+          "y": 0.27648,
+          "visible": true
+        },
+        {
+          "id": "s-xuzhou",
+          "x": 0.5306,
+          "y": 0.43919,
+          "visible": true
+        },
+        {
+          "id": "s-bianjing",
+          "x": 0.29435,
+          "y": 0.39523,
+          "visible": true
+        },
+        {
+          "id": "s-huanghe-n",
+          "x": 0.33008,
+          "y": 0.31698,
+          "visible": true
+        },
+        {
+          "id": "s-liangshan",
+          "x": 0.44305,
+          "y": 0.3145,
+          "visible": true
+        },
+        {
+          "id": "s-si",
+          "x": 0.4854,
+          "y": 0.36405,
+          "visible": true
+        },
+        {
+          "id": "s-bian",
+          "x": 0.43107,
+          "y": 0.4511,
+          "visible": true
+        }
+      ]
+    },
+    {
+      "section": "到徐州",
+      "shape": "narrow",
+      "file": "route-5-narrow.jpg",
+      "width": 1920,
+      "height": 1144,
+      "bytes": 268132,
+      "quality": 86,
+      "key": "400f9c7bb1b4758c",
+      "raw": "1d7a62a3f7d1e80f",
+      "pose": {
+        "target": [
+          2452.3,
+          5.6,
+          -3786.5
+        ],
+        "position": [
+          2452.3,
+          10425.5,
+          7003.6
+        ],
+        "fov": 18
+      },
+      "fit": 1,
+      "reach": [
+        156.8,
+        138.6
+      ],
+      "northDeg": 0,
+      "pxPerMetre": 0.000704,
+      "anchors": [
+        {
+          "id": "s-mizhou",
+          "x": 0.65494,
+          "y": 0.24695,
+          "visible": true
+        },
+        {
+          "id": "s-xuzhou",
+          "x": 0.52431,
+          "y": 0.40966,
+          "visible": true
+        },
+        {
+          "id": "s-bianjing",
+          "x": 0.33662,
+          "y": 0.3657,
+          "visible": true
+        },
+        {
+          "id": "s-huanghe-n",
+          "x": 0.36501,
+          "y": 0.28745,
+          "visible": true
+        },
+        {
+          "id": "s-liangshan",
+          "x": 0.45475,
+          "y": 0.28497,
+          "visible": true
+        },
+        {
+          "id": "s-si",
+          "x": 0.4884,
+          "y": 0.33452,
+          "visible": true
+        },
+        {
+          "id": "s-bian",
+          "x": 0.44524,
+          "y": 0.42157,
+          "visible": true
+        }
+      ]
+    },
+    {
+      "section": "到汴京",
+      "shape": "wide",
+      "file": "route-6-wide.jpg",
+      "width": 1800,
+      "height": 1350,
+      "bytes": 228691,
+      "quality": 82,
+      "key": "60f10eac1b78150b",
+      "raw": "a3a562955b238698",
+      "pose": {
+        "target": [
+          2973.9,
+          6.3,
+          -2977.6
+        ],
+        "position": [
+          2973.9,
+          10426.2,
+          7812.5
+        ],
+        "fov": 18
+      },
+      "fit": 1,
+      "reach": [
+        332.7,
+        158.6
+      ],
+      "northDeg": 0,
+      "pxPerMetre": 0.001108,
+      "anchors": [
+        {
+          "id": "s-xuzhou",
+          "x": 0.4508,
+          "y": 0.32713,
+          "visible": true
+        },
+        {
+          "id": "s-bianjing",
+          "x": 0.22428,
+          "y": 0.2863,
+          "visible": true
+        },
+        {
+          "id": "s-huzhou",
+          "x": 0.72918,
+          "y": 0.63709,
+          "visible": true
+        },
+        {
+          "id": "s-bian",
+          "x": 0.35467,
+          "y": 0.33817,
+          "visible": true
+        },
+        {
+          "id": "s-huai-e",
+          "x": 0.58052,
+          "y": 0.40785,
+          "visible": true
+        },
+        {
+          "id": "s-dajiang-e",
+          "x": 0.52557,
+          "y": 0.62636,
+          "visible": true
+        }
+      ]
+    },
+    {
+      "section": "到汴京",
+      "shape": "narrow",
+      "file": "route-6-narrow.jpg",
+      "width": 1920,
+      "height": 1144,
+      "bytes": 273545,
+      "quality": 86,
+      "key": "6f552df47fb7d9b3",
+      "raw": "1ce9acb508188f26",
+      "pose": {
+        "target": [
+          2973.9,
+          6.3,
+          -2977.6
+        ],
+        "position": [
+          2973.9,
+          10426.2,
+          7812.5
+        ],
+        "fov": 18
+      },
+      "fit": 1,
+      "reach": [
+        211.4,
+        100.8
+      ],
+      "northDeg": 0,
+      "pxPerMetre": 0.000704,
+      "anchors": [
+        {
+          "id": "s-xuzhou",
+          "x": 0.46091,
+          "y": 0.2976,
+          "visible": true
+        },
+        {
+          "id": "s-bianjing",
+          "x": 0.28095,
+          "y": 0.25677,
+          "visible": true
+        },
+        {
+          "id": "s-huzhou",
+          "x": 0.68207,
+          "y": 0.60756,
+          "visible": true
+        },
+        {
+          "id": "s-bian",
+          "x": 0.38454,
+          "y": 0.30864,
+          "visible": true
+        },
+        {
+          "id": "s-huai-e",
+          "x": 0.56397,
+          "y": 0.37832,
+          "visible": true
+        },
+        {
+          "id": "s-dajiang-e",
+          "x": 0.52031,
+          "y": 0.59683,
+          "visible": true
+        }
+      ]
+    },
+    {
+      "section": "到黄州",
+      "shape": "wide",
+      "file": "route-7-wide.jpg",
+      "width": 1800,
+      "height": 1350,
+      "bytes": 260971,
+      "quality": 82,
+      "key": "6b8da37343da46bb",
+      "raw": "96e30bd170326611",
+      "pose": {
+        "target": [
+          1332.9,
+          8.5,
+          -2748.5
+        ],
+        "position": [
+          1332.9,
+          10428.4,
+          8041.6
+        ],
+        "fov": 18
+      },
+      "fit": 1,
+      "reach": [
+        303.5,
+        198.3
+      ],
+      "northDeg": 0,
+      "pxPerMetre": 0.001108,
+      "anchors": [
+        {
+          "id": "s-bianjing",
+          "x": 0.46877,
+          "y": 0.25719,
+          "visible": true
+        },
+        {
+          "id": "s-huangzhou",
+          "x": 0.52101,
+          "y": 0.66706,
+          "visible": true
+        },
+        {
+          "id": "s-huai",
+          "x": 0.63501,
+          "y": 0.45754,
+          "visible": true
+        },
+        {
+          "id": "s-dajiang",
+          "x": 0.24705,
+          "y": 0.68254,
+          "visible": true
+        }
+      ]
+    },
+    {
+      "section": "到黄州",
+      "shape": "narrow",
+      "file": "route-7-narrow.jpg",
+      "width": 1920,
+      "height": 1144,
+      "bytes": 265495,
+      "quality": 82,
+      "key": "22802bd517003311",
+      "raw": "d9265d9a24674cb9",
+      "pose": {
+        "target": [
+          1332.9,
+          8.5,
+          -2748.5
+        ],
+        "position": [
+          1332.9,
+          10428.4,
+          8041.6
+        ],
+        "fov": 18
+      },
+      "fit": 1,
+      "reach": [
+        192.9,
+        126
+      ],
+      "northDeg": 0,
+      "pxPerMetre": 0.000704,
+      "anchors": [
+        {
+          "id": "s-bianjing",
+          "x": 0.47519,
+          "y": 0.22766,
+          "visible": true
+        },
+        {
+          "id": "s-huangzhou",
+          "x": 0.51669,
+          "y": 0.63753,
+          "visible": true
+        },
+        {
+          "id": "s-huai",
+          "x": 0.60726,
+          "y": 0.42801,
+          "visible": true
+        },
+        {
+          "id": "s-dajiang",
+          "x": 0.29905,
+          "y": 0.65301,
+          "visible": true
+        }
+      ]
+    },
+    {
+      "section": "再到杭州",
+      "shape": "wide",
+      "file": "route-8-wide.jpg",
+      "width": 1800,
+      "height": 1350,
+      "bytes": 231599,
+      "quality": 82,
+      "key": "9f055bb81eed1f97",
+      "raw": "7b602a1416623989",
+      "pose": {
+        "target": [
+          3017.2,
+          6.9,
+          -2746.1
+        ],
+        "position": [
+          3017.2,
+          10426.7,
+          8044
+        ],
+        "fov": 18
+      },
+      "fit": 1,
+      "reach": [
+        337.9,
+        185
+      ],
+      "northDeg": 0,
+      "pxPerMetre": 0.001108,
+      "anchors": [
+        {
+          "id": "s-bianjing",
+          "x": 0.22075,
+          "y": 0.25665,
+          "visible": true
+        },
+        {
+          "id": "s-hangzhou",
+          "x": 0.73524,
+          "y": 0.6676,
+          "visible": true
+        },
+        {
+          "id": "s-bian",
+          "x": 0.3497,
+          "y": 0.30745,
+          "visible": true
+        },
+        {
+          "id": "s-huai-e",
+          "x": 0.57299,
+          "y": 0.37567,
+          "visible": true
+        },
+        {
+          "id": "s-dajiang-e",
+          "x": 0.51814,
+          "y": 0.58932,
+          "visible": true
+        }
+      ]
+    },
+    {
+      "section": "再到杭州",
+      "shape": "narrow",
+      "file": "route-8-narrow.jpg",
+      "width": 1920,
+      "height": 1144,
+      "bytes": 278585,
+      "quality": 86,
+      "key": "bd8d174e4f4a9c5b",
+      "raw": "34927b2b1cc0db91",
+      "pose": {
+        "target": [
+          3017.2,
+          6.9,
+          -2746.1
+        ],
+        "position": [
+          3017.2,
+          10426.7,
+          8044
+        ],
+        "fov": 18
+      },
+      "fit": 1,
+      "reach": [
+        214.7,
+        117.6
+      ],
+      "northDeg": 0,
+      "pxPerMetre": 0.000704,
+      "anchors": [
+        {
+          "id": "s-bianjing",
+          "x": 0.27815,
+          "y": 0.22712,
+          "visible": true
+        },
+        {
+          "id": "s-hangzhou",
+          "x": 0.68689,
+          "y": 0.63807,
+          "visible": true
+        },
+        {
+          "id": "s-bian",
+          "x": 0.38059,
+          "y": 0.27792,
+          "visible": true
+        },
+        {
+          "id": "s-huai-e",
+          "x": 0.55799,
+          "y": 0.34614,
+          "visible": true
+        },
+        {
+          "id": "s-dajiang-e",
+          "x": 0.51441,
+          "y": 0.55979,
+          "visible": true
+        }
+      ]
+    },
+    {
+      "section": "到惠州、儋州",
+      "shape": "wide",
+      "file": "route-9-wide.jpg",
+      "width": 1800,
+      "height": 1350,
+      "bytes": 204011,
+      "quality": 82,
+      "key": "32c20cdd5f55f090",
+      "raw": "46be861579c23af0",
+      "pose": {
+        "target": [
+          709,
+          33.2,
+          -229.8
+        ],
+        "position": [
+          709,
+          39867.6,
+          33195.1
+        ],
+        "fov": 18
+      },
+      "fit": 1,
+      "reach": [
+        170.1,
+        259.1
+      ],
+      "northDeg": 0,
+      "pxPerMetre": 0.00032,
+      "anchors": [
+        {
+          "id": "s-dingzhou",
+          "x": 0.52856,
+          "y": 0.18877,
+          "visible": true,
+          "out": [
+            0.273748,
+            -0.961801
+          ]
+        },
+        {
+          "id": "s-bianjing",
+          "x": 0.51786,
+          "y": 0.28503,
+          "visible": true
+        },
+        {
+          "id": "s-huizhou",
+          "x": 0.52735,
+          "y": 0.63636,
+          "visible": true
+        },
+        {
+          "id": "s-changhua",
+          "x": 0.3779,
+          "y": 0.75008,
+          "visible": true
+        },
+        {
+          "id": "s-taihang",
+          "x": 0.50203,
+          "y": 0.22191,
+          "visible": true
+        },
+        {
+          "id": "s-bian",
+          "x": 0.55684,
+          "y": 0.30163,
+          "visible": true
+        },
+        {
+          "id": "s-dajiang-e",
+          "x": 0.60783,
+          "y": 0.38663,
+          "visible": true
+        },
+        {
+          "id": "s-pengli",
+          "x": 0.57137,
+          "y": 0.44539,
+          "visible": true
+        },
+        {
+          "id": "s-dayu",
+          "x": 0.524,
+          "y": 0.56228,
+          "visible": true
+        },
+        {
+          "id": "s-sea",
+          "x": 0.4041,
+          "y": 0.73534,
+          "visible": true
+        }
+      ]
+    },
+    {
+      "section": "到惠州、儋州",
+      "shape": "narrow",
+      "file": "route-9-narrow.jpg",
+      "width": 1920,
+      "height": 1144,
+      "bytes": 185934,
+      "quality": 86,
+      "key": "5c1212c519f7cee4",
+      "raw": "15c5bfc7183d8153",
+      "pose": {
+        "target": [
+          709,
+          33.2,
+          -229.8
+        ],
+        "position": [
+          709,
+          39867.6,
+          33195.1
+        ],
+        "fov": 18
+      },
+      "fit": 1,
+      "reach": [
+        108.1,
+        164.7
+      ],
+      "northDeg": 0,
+      "pxPerMetre": 0.000203,
+      "anchors": [
+        {
+          "id": "s-dingzhou",
+          "x": 0.52269,
+          "y": 0.15924,
+          "visible": true,
+          "out": [
+            0.273748,
+            -0.961801
+          ]
+        },
+        {
+          "id": "s-bianjing",
+          "x": 0.51419,
+          "y": 0.2555,
+          "visible": true
+        },
+        {
+          "id": "s-huizhou",
+          "x": 0.52173,
+          "y": 0.60683,
+          "visible": true
+        },
+        {
+          "id": "s-changhua",
+          "x": 0.403,
+          "y": 0.72055,
+          "visible": true
+        },
+        {
+          "id": "s-taihang",
+          "x": 0.50161,
+          "y": 0.19238,
+          "visible": true
+        },
+        {
+          "id": "s-bian",
+          "x": 0.54516,
+          "y": 0.2721,
+          "visible": true
+        },
+        {
+          "id": "s-dajiang-e",
+          "x": 0.58566,
+          "y": 0.3571,
+          "visible": true
+        },
+        {
+          "id": "s-pengli",
+          "x": 0.5567,
+          "y": 0.41586,
+          "visible": true
+        },
+        {
+          "id": "s-dayu",
+          "x": 0.51907,
+          "y": 0.53275,
+          "visible": true
+        },
+        {
+          "id": "s-sea",
+          "x": 0.42381,
+          "y": 0.70581,
+          "visible": true
+        }
+      ]
+    }
+  ]
+}

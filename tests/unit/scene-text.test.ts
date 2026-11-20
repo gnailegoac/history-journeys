@@ -602,7 +602,8 @@ describe('全程沙盘：沙盘旁边的说明（sectionInfo）', () => {
       date: '示例三年春',
       line: '从北都往西南，到示例城。',
       note: {
-        short: '南溪、新渠、镜湖的西南角等 5 样是示意；平地抹平；山高夸大 12 到 25 倍；河和路都画宽了',
+        // 到这一站去的路里没有整截示意的：常印着的一句不点名字，只说一共几样（点出来的只会是别处的水）；展开的那一句照旧点名字
+        short: '5 样是示意；平地抹平；山高夸大 12 到 25 倍；河和路都画宽了',
         brief: '5 样是示意；平地抹平；山高夸大 12 到 25 倍；河画宽了',
         lines: ['南溪、新渠、镜湖的西南角、大泽、东边的海岸是示意。', RECIPE_NOTE, '从北都来的路是照《行记》画的。', '北都在这块沙盘的北边外面。', SIZES],
       },
@@ -615,14 +616,40 @@ describe('全程沙盘：沙盘旁边的说明（sectionInfo）', () => {
     expect(['全程', '到示例城', '到南山口', '到东港'].map(count)).toEqual([7, 5, 6, 7]);
   });
 
-  it('explain 点到的一趟路，它的各截排在最前面；按正文摆的那一截不算示意，写了 unsure 才算一部分示意', () => {
+  it('看来路的一节：到这一站去的路里整截示意的排在最前面，再是水，再是别的（不看 explain）；按正文摆的那一截不算示意，写了 unsure 才算一部分示意', () => {
     expect(sectionInfo(routeWith(), '到南山口').note.lines[0]).toBe('示例四年示例城到南山口的水路、南溪、新渠、镜湖的西南角、大泽等 6 样是示意。');
-    expect(sectionInfo(routeWith(), '到东港').note.lines[0]).toBe('示例五年溪口到东港的水路、镜湖的西南角、东边的海岸、南溪、新渠等 7 样是示意。');
+    // 这一节的 explain 还点了裁掉的角和抹成海的地方：裁掉的角照样排在水里，抹成海的地方照样排在最后，不提到前面
+    expect(sectionInfo(routeWith(), '到东港').note.lines[0]).toBe('示例五年溪口到东港的水路、南溪、新渠、镜湖的西南角、大泽等 7 样是示意。');
+    // 来路里只有一部分是示意的那一截（写了 unsure）不提前：排在水的后面，和别的路在一起
     const partly = routeWith((s) => (s.roads.journeys[2].parts[0].unsure = '过山的山口'));
-    expect(sectionInfo(partly, '到东港').note.lines[0]).toBe('示例五年溪口到东港的水路、镜湖的西南角、东边的海岸、南溪，还有示例五年南山口到溪口的路的过山的山口，等 8 样是示意。');
-    expect(sectionInfo(partly, '到东港').note.short).toBe('示例五年南山口到溪口的路的细节等 8 样是示意；平地抹平；山高夸大 12 到 25 倍；河和路都画宽了');
+    expect(sectionInfo(partly, '到东港').note.lines[0]).toBe('示例五年溪口到东港的水路、南溪、新渠、镜湖的西南角、大泽等 8 样是示意。');
+    expect(sectionInfo(partly, '到东港').note.short).toBe('示例五年溪口到东港的水路、南溪、新渠等 8 样是示意；平地抹平；山高夸大 12 到 25 倍；河和路都画宽了');
     // 前一节这趟路还没有画：不算
     expect(sectionInfo(partly, '到南山口').note.brief).toMatch(/^6 样是示意；/);
+    // 这一站的来路里没有整截示意的：从水说起
+    const none = routeWith((s) => s.roads.journeys[2].parts.forEach((part) => (part.class = 'text')));
+    expect(sectionInfo(none, '到东港').note.lines[0]).toMatch(/^南溪、新渠、镜湖的西南角、大泽、/);
+    // ……而常印着的那一句这时不点名字，只说一共几样；来路里有整截示意的一节照旧点三样
+    expect(sectionInfo(none, '到东港').note.short).toMatch(/^\d+ 样是示意；平地抹平；/);
+    expect(sectionInfo(routeWith(), '到东港').note.short).toMatch(/^示例五年溪口到东港的水路、南溪、新渠等 7 样是示意；/);
+    // 头一节（全程）照旧：explain 点到的在前
+    const whole = routeWith((s) => (s.sections[0].explain = ['j-pass']));
+    expect(sectionInfo(whole, '全程').note.lines[0]).toMatch(/^示例四年示例城到南山口的水路、/);
+  });
+
+  it('“还有”后面的名字是数字打头的，前面空一格；别的名字不空', () => {
+    // 全程那一节照 explain 的先后：点到的一趟路里只有一部分示意的那一截，接在“还有”后面
+    const digits = routeWith((s) => {
+      s.sections[0].explain = ['j-port'];
+      s.roads.journeys[2].parts[0].name = '1097 年南山口到溪口的路';
+      s.roads.journeys[2].parts[0].unsure = '过山的山口';
+    });
+    expect(sectionInfo(digits, '全程').note.lines[0]).toContain('，还有 1097 年南山口到溪口的路的过山的山口，');
+    const words = routeWith((s) => {
+      s.sections[0].explain = ['j-port'];
+      s.roads.journeys[2].parts[0].unsure = '过山的山口';
+    });
+    expect(sectionInfo(words, '全程').note.lines[0]).toContain('，还有示例五年南山口到溪口的路的过山的山口，');
   });
 
   it('展开的说明：一趟路各截的 note 按先后，裁掉的角、抹成海的地方、没有画的东西（用 why）、地形，都印；同一句话只印一遍', () => {

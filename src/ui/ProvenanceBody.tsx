@@ -2,14 +2,14 @@
 // 这一站有沙盘时，后面再接一栏“沙盘上的东西”。
 // 这一段程序不随页面一打开就下载：读者点开“凭据”才取（Provenance.tsx）。
 
-import type { StopContent, StopScene } from '../domain';
+import type { StopContent, TableScene } from '../domain';
 import { SceneRegister } from './SceneRegister';
 import { BASIS_LABEL } from './foldText';
 
 interface Props {
-  content: StopContent;
-  /** 这一站的沙盘的场景；没有沙盘时为 null。 */
-  scene: StopScene | null;
+  content: Pick<StopContent, 'provenance' | 'sources'>;
+  /** 这一站的沙盘的场景（人物页上是全程沙盘的）；没有沙盘时为 null。 */
+  scene: TableScene | null;
 }
 
 export function ProvenanceBody({ content, scene }: Props) {

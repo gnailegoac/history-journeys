@@ -22,7 +22,7 @@
 import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
 import type { StageTier } from '../../src/stage/types';
-import { expectRealTable, expectStill, firstWrittenStopWithoutScene, foldBodiesReady, openFigureWithTable, realUrl, shoot, stagePane } from './helpers';
+import { expectRealTable, firstWrittenStopWithoutScene, foldBodiesReady, openFigureWithTable, realUrl, shoot, stagePane } from './helpers';
 
 const env = (globalThis as { process?: { env: Record<string, string | undefined> } }).process?.env ?? {};
 const DIR = env.SHOTS_DIR ?? 'tests/shots/real';
@@ -64,9 +64,8 @@ async function shootStates(page: Page, size: { width: number; height: number }):
   // 首页（绢上的全程图片取到了再拍）
   await page.goto(url('#/'));
   await expect(page.locator('.card').first()).toBeVisible();
-  if (await expectStill(page)) {
-    await expect.poll(() => page.locator('.stage-still img').evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth > 0)).toBe(true);
-  }
+  // 绢上的全程沙盘摆好了再拍（只放图片的那一种：等图片显出来）
+  await paneSettled();
   await snap('home');
 
   // “来源”页：从首页卡片后面的链接点进去。里面的东西是点进去才取的，两栏还要读内容：都到了再拍
@@ -80,7 +79,7 @@ async function shootStates(page: Page, size: { width: number; height: number }):
 
   const { figureId, found } = await openFigureWithTable(page, url('#/'));
   // 人物页的各站目录：在第一屏下面，滚到“各站目录”那个标题拍
-  await expectStill(page);
+  await paneSettled();
   await page.getByRole('heading', { name: '各站目录' }).evaluate((heading) => heading.scrollIntoView({ block: 'start' }));
   // 鼠标挪到角上：不然它正好停在哪一站上，那一站的名字就是“鼠标移上去”的红色
   await page.mouse.move(1, 1);
@@ -157,7 +156,7 @@ async function shootStates(page: Page, size: { width: number; height: number }):
     await page.goto('about:blank');
     await page.goto(url(`#/${figureId}/${noTable}`));
     await expect(page.locator('.text-section').first()).toBeVisible();
-    await expectStill(page);
+    await paneSettled();
     await snap('state-no-table');
   }
 
@@ -166,7 +165,7 @@ async function shootStates(page: Page, size: { width: number; height: number }):
     await page.goto('about:blank');
     await page.goto(url(`#/${figureId}/${notWritten}`));
     await expect(page.locator('.not-written')).toBeVisible();
-    await expectStill(page);
+    await paneSettled();
     await snap('state-not-written');
   }
 

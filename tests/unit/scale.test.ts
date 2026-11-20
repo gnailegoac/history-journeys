@@ -22,10 +22,14 @@ describe('fitScale', () => {
     expect(fitScale({ px: 100, label: '100 米' }, 56)).toEqual({ px: 50, label: '50 米' });
     // 1 公里 100 像素：500 米 50（公里换成米）。
     expect(fitScale({ px: 100, label: '1 公里' }, 56)).toEqual({ px: 50, label: '500 米' });
+    // 全程沙盘上一段是几百公里。500 公里 130 像素：200 公里 52。1000 公里 140 像素：200 公里 28（500 公里 70 还是太长）。
+    expect(fitScale({ px: 130, label: '500 公里' }, 56)).toEqual({ px: 52, label: '200 公里' });
+    expect(fitScale({ px: 140, label: '1000 公里' }, 56)).toEqual({ px: 28, label: '200 公里' });
   });
 
   it('沙盘程序报的每一种比例尺（那一段在 56 到 140 像素之间），换出来的都不超过 56 像素，也不会短得看不见', () => {
-    const lengths = [10, 20, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000, 50000, 100000];
+    // 沙盘程序挑的那一串（src/stage/scale.ts 的 SCALE_LENGTHS）：最后三个是全程沙盘用的
+    const lengths = [10, 20, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000, 50000, 100000, 200000, 500000, 1000000];
     for (const metres of lengths) {
       for (const px of [57, 70, 96, 120, 140]) {
         const label = metres < 1000 ? `${metres} 米` : `${metres / 1000} 公里`;

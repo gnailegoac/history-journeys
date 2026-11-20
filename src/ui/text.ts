@@ -53,16 +53,17 @@ export const STAGE_TEXT = {
   tryTable: '试试立体的沙盘',
   askedLine: '设备慢的话，可以换回图片。',
   backToStills: '换回图片',
-  /** 人物页上还没有全程沙盘的定格图。 */
+  /** 这位人物还没有全程沙盘。（这一次没读出来说的是 failed 那一句，带“再试一次”。） */
   noRoute: '全程沙盘还没接进来。',
-  /** 这一站还没有沙盘：有定格图时请读者先看它，没有时只说前半句。 */
-  noScene: '这一站的沙盘还没做好，先看全程。',
-  noSceneAlone: '这一站的沙盘还没做好。',
-  stillLoading: '加载中…',
+  /** 写好了正文、还没有自己的沙盘的一站：按钮下面的一行话。摆着的是全程沙盘，看的是到这一站去的那一节。 */
+  roadNotice: '这一站的沙盘还没做好，沙盘上是到这一站的来路。',
   namesGroup: '地名',
   ancient: '古名',
   modern: '今名',
   reset: '回到这一节',
+  /** 全程沙盘上中间的那个按钮：人物页上，和没有自己的沙盘的一站上。 */
+  resetWhole: '回到全程',
+  resetRoad: '回到这一段',
   fold: '收起沙盘',
   unfold: '展开沙盘',
   north: '北',
@@ -117,6 +118,8 @@ function kaiLabels(): string[] {
     STAGE_TEXT.ancient,
     STAGE_TEXT.modern,
     STAGE_TEXT.reset,
+    STAGE_TEXT.resetWhole,
+    STAGE_TEXT.resetRoad,
     STAGE_TEXT.fold,
     STAGE_TEXT.unfold,
     STAGE_TEXT.retry,

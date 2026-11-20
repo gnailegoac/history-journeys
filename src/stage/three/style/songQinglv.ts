@@ -190,14 +190,17 @@ const ROUTE: RouteStyle = {
     steep: [0.22, 0.6],
     patch: 0.24,
   },
-  // 路：颜色、宽度、虚线的长短都是定稿的样张的（scene/routetable.js 的 STYLE）。样张近看时把线加粗四成半，这里不分远近，一个宽度
+  // 路：墨线、刚走的路的颜色和虚线的长短是定稿的样张的（scene/routetable.js 的 STYLE）。宽度比样张远看时的粗：样张的 1.45、1.75、0.95 像素
+  // 在电脑的大沙盘栏上太细，这里是 1.8、2.4、1.4，垫底的浅色线照着加宽。不分远近，一个宽度。
+  // 走过的路是淡了的墨线：下面不垫浅色线（垫了，远看是一条白线），颜色比样张的深一些，在平地上、在河边上认得出是旧墨，不是河。
   roads: {
     lines: {
-      ink: { colour: '#3a2d24', opacity: 0.92, widthPx: 1.45 },
-      now: { colour: '#b03a2a', opacity: 1, widthPx: 1.75 },
-      past: { colour: '#8d7d64', opacity: 0.9, widthPx: 0.95 },
+      ink: { colour: '#3a2d24', opacity: 0.92, widthPx: 1.8 },
+      now: { colour: '#b03a2a', opacity: 1, widthPx: 2.4 },
+      past: { colour: '#665645', opacity: 0.8, widthPx: 1.4 },
     },
-    halo: { colour: '#f4ecd6', opacity: 0.62, widthPx: 3.3 },
+    halo: { colour: '#f4ecd6', opacity: 0.62, widthPx: 4.5 },
+    haloUnder: ['ink', 'now'],
     dashPx: [7, 5.5],
     reducedExtraPx: 0.3,
     liftM: 14,

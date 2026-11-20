@@ -1,24 +1,27 @@
-// 首页：一页纸（网站的名字、一句话、人物卡片、“来源”），旁边的绢上摆着一位人物的全程图片。
-// 版面和人物页是同一种：宽屏上纸在左、绢在右；别的窗口上绢在上（不钉着，跟着页面滚走，最高半个屏幕）、纸在下。
-// 绢上的那一块就是人物页用的沙盘栏（StagePane），放的是第一位可以点进去的人物的那张全程图片，和人物页上同一张、同一句题记。
-// 重做顺序第 5 步把全程沙盘接到首页：到时候只换下面那一个 <StagePane>（交给它一座沙盘），版面不用动。
+// 首页：一页纸（网站的名字、一句话、人物卡片、“来源”），旁边的绢上摆着一位人物的全程沙盘。
+// 版面和人物页是同一种：宽屏上纸在左、绢在右；别的窗口上绢在上、纸在下。
+// 绢上的那一块就是人物页用的沙盘栏（StagePane），交给它的是第一位可以点进去的人物的全程沙盘和各站的印，和人物页上是同一座。
 
-import { useEffect } from 'react';
-import { figureHref, sourcesHref } from '../app/router';
+import { useEffect, useState } from 'react';
+import { figureHref, sourcesHref, stopHref } from '../app/router';
 import { useLoaded } from '../app/useLoaded';
-import { loadFigure, loadFigureCards } from '../domain';
+import { loadFigure, loadFigureCards, stopMarks } from '../domain';
 import type { FigureCard } from '../domain';
 import { StagePane } from './StagePane';
-import { pickRouteStill } from './stageEngineSource';
+import { pickRouteTable } from './stageEngineSource';
 import { NOT_WRITTEN, SITE_LINE, SITE_TITLE, SOURCES_LABEL, START_READING } from './text';
+
+const LOADING = { state: 'loading' } as const;
 
 export function HomePage() {
   const cards = useLoaded('cards', loadFigureCards);
-  // 第一位可以点进去的人物：绢上放他的全程图片。名单还没读出来的时候 id 是空的，先等着。
+  // 第一位可以点进去的人物：绢上摆他的全程沙盘。名单还没读出来的时候 id 是空的，先等着。
   const id = (cards.state === 'ready' && cards.value.find((card) => card.available)?.id) || '';
-  const picture = useLoaded(id, async () => {
+  // again：全程沙盘没读出来时，读者点“再试一次”的次数，每点一次重读一遍。
+  const [again, setAgain] = useState(0);
+  const found = useLoaded(`${id}#${again}`, async () => {
     const figure = id ? await loadFigure(id) : null;
-    return figure ? pickRouteStill(figure) : null;
+    return figure ? { route: await pickRouteTable(id), marks: stopMarks(figure, (stop) => stopHref(id, stop)) } : null;
   });
 
   useEffect(() => {
@@ -55,8 +58,15 @@ export function HomePage() {
         </div>
       </main>
 
-      {/* 绢上的那一块。第 5 步：这里换成摆着全程沙盘的 StagePane。 */}
-      <StagePane onStopPage={false} table={{ state: 'loading' }} section={null} still={cards.state === 'loading' ? cards : picture} onReloadTable={() => {}} />
+      {/* 绢上的那一块：和人物页上一样的全程沙盘，看的是头一节（全程）。 */}
+      <StagePane
+        onStopPage={false}
+        table={LOADING}
+        section={null}
+        route={cards.state === 'loading' || found.state !== 'ready' ? (found.state === 'error' ? found : LOADING) : { state: 'ready', value: found.value?.route ?? null }}
+        marks={found.state === 'ready' ? found.value?.marks : undefined}
+        onReloadTable={() => setAgain((count) => count + 1)}
+      />
     </div>
   );
 }

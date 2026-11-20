@@ -12,7 +12,7 @@ import type { Page } from '@playwright/test';
 import type { StillManifest, StillShape } from '../../src/domain/stills';
 import { fileSize, readBytes } from '../support/readBytes';
 import { SHAPE_PLANS, readPaneLayout, sameLayout, shapeSpec, shotViewport, type PaneLayout } from '../support/stillsTool';
-import { fakeUrl, sceneOnDisk, stagePane } from './helpers';
+import { fakeUrl, openFirstFigure, routeOnDisk, sceneOnDisk, stagePane } from './helpers';
 
 const env = (globalThis as { process?: { env: Record<string, string | undefined> } }).process?.env ?? {};
 
@@ -45,14 +45,14 @@ function manifestOnDisk(figureId: string, stopId: string): StillManifest | null 
   return JSON.parse(new TextDecoder().decode(readBytes(path))) as StillManifest;
 }
 
-/** 在这种形状照着拍的窗口上打开这一站，等沙盘的替身摆好，量版面（连着两次量到一样才算数）。 */
-async function measure(page: Page, shape: StillShape, figureId: string, stopId: string): Promise<PaneLayout> {
+/** 在这种形状照着拍的窗口上打开这一站（stopId 写 null 是人物页：全程沙盘的定格图是在它上面拍的），等沙盘的替身摆好，量版面（连着两次量到一样才算数）。 */
+async function measure(page: Page, shape: StillShape, figureId: string, stopId: string | null): Promise<PaneLayout> {
   const [width, height] = SHAPE_PLANS[shape].window;
   // 和工具一样：先把窗口定成这么大，再从头打开这一站（不是在已经打开的页面上改窗口的大小）
   await page.goto('about:blank');
   await page.setViewportSize({ width, height });
   await page.emulateMedia({ reducedMotion: 'reduce' });
-  await page.goto(fakeUrl(`#/${figureId}/${stopId}`));
+  await page.goto(fakeUrl(stopId === null ? `#/${figureId}` : `#/${figureId}/${stopId}`));
   await expect(stagePane(page)).toHaveAttribute('data-stage-state', 'ready');
   let last: PaneLayout | null = null;
   for (let tries = 0; tries < 40; tries++) {
@@ -105,6 +105,31 @@ test('定格图是照现在的版面拍的：沙盘栏的大小、四边留的�
     return;
   }
   const hint = '版面和拍定格图的时候不一样了。运行 STILLS_OUT=content/figures npm run stills 重拍（见 README），再提交。';
+  for (const shape of SHAPES) {
+    expect(shapeSpec(shape, layouts[shape]), `${shape}：${hint}`).toEqual(manifest.shapes[shape]);
+  }
+  expect(manifest.made.background.toLowerCase(), `沙盘栏的底色：${hint}`).toBe(layouts.wide.background);
+});
+
+test('全程沙盘的定格图也是照现在的版面拍的：人物页上沙盘栏的大小、四边留的空、底色，和它的清单里记的一样', async ({ page }) => {
+  // 全程沙盘的定格图是在人物页上拍的（tests/tools/make-stills.spec.ts）。上面那一项量的是一站的页面：只挪了人物页的版面
+  //（它的沙盘栏上面多一行话、正文那一栏宽了）的话，那一项照旧通过，全程的十八张图却不是照新版面拍的了——图片会摆偏，换成立体的沙盘时跳一下。
+  const figureId = await openFirstFigure(page);
+  test.skip(routeOnDisk(figureId) === null, '这位人物还没有全程沙盘');
+  if (routeOnDisk(figureId) === null) return;
+  const manifest = manifestOnDisk(figureId, 'route');
+  if (env.CI) expect(manifest, `发布流程里 ${figureId} 的全程沙盘没有定格图的清单（content/figures/${figureId}/stills/route.json）`).not.toBeNull();
+  const layouts = { wide: await measure(page, 'wide', figureId, null), narrow: await measure(page, 'narrow', figureId, null) };
+  await expect(stagePane(page)).toHaveAttribute('data-stage-level', 'route');
+  for (const shape of SHAPES) {
+    const layout = layouts[shape];
+    console.log(`${figureId} 的全程沙盘 ${shape}：沙盘栏 ${layout.pane.join(' × ')}，四边留 ${layout.insets.join('、')}（上、右、下、左），底色 ${layout.background}`);
+  }
+  if (!manifest) {
+    console.log(`${figureId} 的全程沙盘还没有定格图的清单：只查了量得出来。`);
+    return;
+  }
+  const hint = '人物页的版面和拍全程沙盘的定格图的时候不一样了。运行 STILLS_OUT=content/figures npm run stills 重拍（见 README），再提交。';
   for (const shape of SHAPES) {
     expect(shapeSpec(shape, layouts[shape]), `${shape}：${hint}`).toEqual(manifest.shapes[shape]);
   }

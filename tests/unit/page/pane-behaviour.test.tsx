@@ -52,7 +52,7 @@ async function mount(search: string) {
   let reloads = 0;
   const render = () =>
     act(async () => {
-      root.render(<StagePane onStopPage table={{ state: 'ready', value: table }} section={section} still={{ state: 'ready', value: null }} onReloadTable={() => (reloads += 1)} />);
+      root.render(<StagePane onStopPage table={{ state: 'ready', value: table }} section={section} route={{ state: 'ready', value: null }} onReloadTable={() => (reloads += 1)} />);
     });
   await render();
 
@@ -539,7 +539,7 @@ describe('沙盘栏 + 替身 + 题签层', () => {
     doc.body.appendChild(container);
     const root = createRoot(container as any);
     await act(async () => {
-      root.render(<StagePane onStopPage table={{ state: 'loading' }} section={null} still={{ state: 'ready', value: null }} onReloadTable={() => {}} />);
+      root.render(<StagePane onStopPage table={{ state: 'loading' }} section={null} route={{ state: 'ready', value: null }} onReloadTable={() => {}} />);
     });
     const pane = () => container.querySelector('.stage-pane')!;
     expect(attr(pane(), 'data-stage-state')).toBe('loading');
@@ -553,7 +553,7 @@ describe('沙盘栏 + 替身 + 题签层', () => {
     // 数据读出来了、沙盘接着摆：那一秒半不从头数，已经等够了，沙盘还没画面，那句话接着说。
     win.location.search = '?stage=fake&readygap=600';
     await act(async () => {
-      root.render(<StagePane onStopPage table={{ state: 'ready', value: table }} section={null} still={{ state: 'ready', value: null }} onReloadTable={() => {}} />);
+      root.render(<StagePane onStopPage table={{ state: 'ready', value: table }} section={null} route={{ state: 'ready', value: null }} onReloadTable={() => {}} />);
     });
     await settle(100);
     expect(attr(pane(), 'data-stage-state')).toBe('loading');
@@ -561,6 +561,18 @@ describe('沙盘栏 + 替身 + 题签层', () => {
     for (let i = 0; i < 200 && attr(pane(), 'data-stage-state') !== 'ready'; i += 1) await settle(20);
     expect(attr(pane(), 'data-stage-state')).toBe('ready');
     expect(container.querySelector('.stage-loading')).toBeNull();
+    // 换一座数据早就读好的沙盘（读者从一站回到人物页就是这样）：那一秒半从现在数起，不从上一座的数据开始读的时候数起。
+    // 上一座是三秒多以前开始读的；这一座 600 毫秒摆好，一路上那句话一次都不该出现。
+    await act(async () => {
+      root.render(<StagePane onStopPage table={{ state: 'ready', value: { ...table, key: 'f/other' } }} section={null} route={{ state: 'ready', value: null }} onReloadTable={() => {}} />);
+    });
+    let saidAgain = false;
+    for (let i = 0; i < 200 && attr(pane(), 'data-stage-state') !== 'ready'; i += 1) {
+      saidAgain ||= container.querySelector('.stage-loading') !== null;
+      await settle(20);
+    }
+    expect(attr(pane(), 'data-stage-state')).toBe('ready');
+    expect(saidAgain).toBe(false);
     await act(async () => root.unmount());
   });
 

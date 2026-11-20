@@ -302,7 +302,8 @@ describe('做全程沙盘的文件的工具自己（用编出来的小数据，�
     // 用校验器的合格样本里那座小的全程沙盘（600 × 400 公里，四条路）
     const FIXTURE = 'tests/content/fixtures/good/figures/demo/scenes/';
 
-    it('图的大小是地面的一格三个点；每条路、每个地名点、每样水、每个抹成海的圈各有一行；彩色的 PNG 读回来一个字节不差', () => {
+    // 这两项各要把样本的全程沙盘算一遍、画一张图：这台机器上单跑 1.4 秒，同别的测试一起跑 3.5 秒；发布流程的机器慢一倍，所以各给 30 秒。
+    it('图的大小是地面的一格三个点；每条路、每个地名点、每样水、每个抹成海的圈各有一行；彩色的 PNG 读回来一个字节不差', { timeout: 30_000 }, () => {
       const { map, scene } = routeMapOf(FIXTURE);
       const coords = routeCoords(scene.frame);
       const nx = Math.round((coords.x1 - coords.x0) / 20) + 1;
@@ -328,7 +329,7 @@ describe('做全程沙盘的文件的工具自己（用编出来的小数据，�
       expect(back.pixels).toEqual(map.pixels);
     });
 
-    it('一条路画实线还是虚线：有“按正文摆的”一截走到它（正着、倒着都算）就是实线；路有多少公里照沙盘的投影量', () => {
+    it('一条路画实线还是虚线：有“按正文摆的”一截走到它（正着、倒着都算）就是实线；路有多少公里照沙盘的投影量', { timeout: 30_000 }, () => {
       const { scene } = routeMapOf(FIXTURE);
       expect(scene.roads.ways.map((way) => waySolid(scene, way.id))).toEqual([true, false, true, false]);
       const coords = routeCoords(scene.frame);

@@ -11,9 +11,9 @@ import type { RouteScene, StopScene, TableScene } from '../../src/domain/scene';
 import type { Figure, FigureCard, StopExtras, StopMeta } from '../../src/domain/types';
 import { MADE_FILES_PENDING } from '../support/pendingTables';
 import { checkRouteScene, checkRouteShape, checkStopPlaces, isRouteLevel } from './routeRules';
-import { checkBakedGround, checkRouteStill, checkScene, checkSceneShape, checkSectionStills, MADE_FILES_REQUIRED } from './sceneRules';
+import { checkBakedGround, checkScene, checkSceneShape, checkSectionStills, MADE_FILES_REQUIRED } from './sceneRules';
 import type { FileKeys, Measured, MeasuredPictures, SceneStop } from './sceneRules';
-import { anything, bool, checkShape, has, list, lngLatProblem, number, object, oneOf, optional, readJson, text, violation } from './shape';
+import { anything, bool, checkShape, has, list, lngLatProblem, number, object, oneOf, readJson, text, violation } from './shape';
 import type { ContentFiles, FileSizes, PictureSizes, Violation } from './shape';
 
 export { lngLatProblem };
@@ -36,7 +36,7 @@ export const RULE_NAMES = [
   '零件',
   '小节',
   '题签',
-  '人物页的定格图',
+  '全程沙盘',
   '先画好的地面',
   '每一小节的定格图',
   '随站的字体',
@@ -120,7 +120,7 @@ export function checkIndex(files: ContentFiles): Violation[] {
     if (card.available && !has(files, `figures/${card.id}/figure.json`)) {
       out.push(violation(0, file, `[${i}].available`, `“${card.name}”标了可以点进去，但没有 figures/${card.id}/figure.json`));
     } else if (card.available && !has(files, `figures/${card.id}/scenes/${ROUTE_SCENE_ID}.json`)) {
-      // 规则 16 的后半句：可以点进去的人物要有全程沙盘（人物页上摆的就是它）
+      // 规则 16：可以点进去的人物要有全程沙盘（人物页上摆的就是它）
       out.push(violation(16, file, `[${i}].available`, `“${card.name}”标了可以点进去，但没有全程沙盘的场景文件 figures/${card.id}/scenes/${ROUTE_SCENE_ID}.json`));
     }
   });
@@ -157,7 +157,6 @@ export function validateFigure(
   out.push(...checkRoute(figure, file));
   out.push(...checkStopFiles(figure, files, dir));
   out.push(...checkFigurePlaceholders(figure, file));
-  out.push(...checkRouteStill(figure, file, dir, files, sizes, pictures));
   for (const stop of figure.stops) {
     if (stop.status === 'complete') out.push(...validateStop(files, dir, stop));
   }
@@ -539,7 +538,6 @@ const FIGURE = object({
     }),
   ),
   legs: list(object({ from: text, to: text, via: list(object({ name: text, lngLat: coordinate })) })),
-  routeStill: optional(object({ file: text, width: number, height: number, alt: text, caption: text, note: text, credit: text })),
 });
 
 const EXTRAS = object({

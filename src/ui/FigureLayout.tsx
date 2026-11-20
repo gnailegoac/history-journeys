@@ -1,19 +1,20 @@
 // 人物页和它的各站共用的版面：一栏文字，一栏沙盘。
-// 人物页上沙盘栏放全程沙盘的定格图；进了一站，摆这一站的沙盘，镜头跟着读到的小节走。
+// 人物页上沙盘栏摆全程沙盘；进了一站，摆这一站的沙盘，镜头跟着读到的小节走；这一站还没有自己的沙盘时，
+// 摆的还是全程沙盘，看的是到这一站去的来路。
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
-import { figureHref, homeHref } from '../app/router';
+import { figureHref, homeHref, stopHref } from '../app/router';
 import { useLoaded } from '../app/useLoaded';
 import type { Loaded as LoadedValue } from '../app/useLoaded';
-import { hasStopTable, loadFigure, loadStopTable } from '../domain';
+import { hasStopTable, loadFigure, loadStopTable, stopMarks } from '../domain';
 import type { Figure } from '../domain';
 import type { StopTable } from '../stage/types';
 import { FigureContents } from './FigureContents';
 import { PageTitle } from './PageTitle';
 import { StagePane } from './StagePane';
 import { StopPage } from './StopPage';
-import { pickRouteStill } from './stageEngineSource';
+import { pickRouteTable } from './stageEngineSource';
 import { SITE_TITLE, pageTitle } from './text';
 
 interface Props {
@@ -53,7 +54,7 @@ function Loaded({ figure, stopId }: { figure: Figure; stopId: string | null }) {
   const stopKey = stop ? stop.id : null;
 
   // 这一站的沙盘：场景和地形文件的网址；做过先画好的地面、每一小节的定格图的，读取的时候一并带了上来，原样交给沙盘栏。
-  // 还没有场景文件的站是 null，这一点不用等就知道，沙盘栏一上来就放定格图，不先说一句“沙盘正在摆出来”。
+  // 还没有场景文件的站是 null，这一点不用等就知道，沙盘栏一上来就摆全程沙盘。
   // attempt 是读者点“再试一次”的次数：没读出来时，每点一次重读一遍。
   const [attempt, setAttempt] = useState(0);
   const tableKey = stopKey ? `${figureId}/${stopKey}` : '';
@@ -66,10 +67,16 @@ function Loaded({ figure, stopId }: { figure: Figure; stopId: string | null }) {
     // found 里是 scene、terrainUrl，有的话还有 ground（先画好的地面）和 stills（每一小节的定格图）
     return { state: 'ready', value: found ? { kind: 'stop', key: tableKey, ...found } : null };
   }, [hasTable, loaded, tableKey]);
-  const reloadTable = useCallback(() => setAttempt((count) => count + 1), []);
-
-  // 全程沙盘的定格图，一位人物一张。
-  const still = useLoaded(figureId, () => pickRouteStill(figure));
+  // 全程沙盘，一位人物一座，只读一次：人物页和没有自己的沙盘的各站用的是同一座。每一站的印（第几站、通到哪）从 figure.json 里拼。
+  // 没读出来时，读者点“再试一次”也重读一遍（again 是点的次数）。
+  const [again, setAgain] = useState(0);
+  const route = useLoaded(`${figureId}#${again}`, () => pickRouteTable(figureId));
+  // “再试一次”重读的是没读出来的那一座。
+  const reloadTable = useCallback(() => (table.state === 'error' ? setAttempt : setAgain)((count) => count + 1), [table.state]);
+  const marks = useMemo(() => stopMarks(figure, (id) => stopHref(figureId, id)), [figure, figureId]);
+  const routeScene = route.state === 'ready' && route.value ? route.value.scene : null;
+  // 这一站没有自己的沙盘，而全程沙盘上有到这一站去的那一节：正文那一栏可以说“沙盘上是到这一站的来路”。
+  const road = !hasTable && !!routeScene?.sections.some((s) => s.stop === stopKey);
 
   // 读者读到了哪一小节。记着是哪一站的：换了站，上一站的不算；离开又回到同一站，也从头算。
   const [reading, setReading] = useState<{ stopId: string; section: string } | null>(null);
@@ -98,13 +105,22 @@ function Loaded({ figure, stopId }: { figure: Figure; stopId: string | null }) {
             )}
           </nav>
 
-          {!stopId && <FigureContents figure={figure} />}
-          {stopId && stop && <StopPage key={stop.id} figure={figure} stop={stop} table={table} onSection={onSection} />}
+          {!stopId && <FigureContents figure={figure} route={routeScene} />}
+          {stopId && stop && <StopPage key={stop.id} figure={figure} stop={stop} table={table} road={road} onSection={onSection} />}
           {stopId && !stop && <MissingStop figure={figure} />}
         </div>
       </main>
 
-      <StagePane onStopPage={stop !== null} table={table} section={section} still={still} onReloadTable={reloadTable} />
+      <StagePane
+        onStopPage={stop !== null}
+        table={table}
+        section={section}
+        route={route}
+        stopId={stopKey}
+        marks={marks}
+        written={stop?.status === 'complete'}
+        onReloadTable={reloadTable}
+      />
     </div>
   );
 }

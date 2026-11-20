@@ -33,7 +33,7 @@ import type { Page } from '@playwright/test';
 import { STANDARD_PANES } from '../stage/support/standardPanes';
 import { STRIP_NARROW_BELOW_PX } from '../stage/support/stripSizes';
 import { oldIpadSheet } from '../support/oldIpadSheet';
-import { expectStageAt, expectStill, fakeStage, fakeUrl, firstWrittenStopWithoutScene, fontsReady, headingsOf, openFigureWithTable, scrollToBottom, scrollToSection, stagePane, twoFrames } from './helpers';
+import { expectStageAt, expectRoute, fakeStage, fakeUrl, fontsReady, headingsOf, openFigureWithTable, routeOnDisk, scrollToBottom, scrollToSection, stagePane, twoFrames } from './helpers';
 import { PANE_QUERIES, expectPane, notice, stopUrl } from './paneHelpers';
 
 const WINDOWS = STANDARD_PANES.map((pane) => pane.window);
@@ -273,13 +273,16 @@ test('绢上的字都是墨色，和绢比不低于 6 比 1；纸条上的字不
     await look(`${where}，画面断了`, 4);
   }
 
-  // 人物页上的全程图片：题记、说明、出处直接落在绢上
+  // 人物页上的全程沙盘（替身）：按钮、题记那一条的配法和一站的沙盘是同一套
   await page.goto('about:blank');
   await page.setViewportSize(WINDOWS[0]);
   const { figureId } = await openFigureWithTable(page, fakeUrl('#/'));
   await page.goto('about:blank');
   await page.goto(fakeUrl(`#/${figureId}`));
-  if (await expectStill(page)) await look('人物页的全程图片', 3);
+  // 这位人物有全程沙盘，人物页上就该摆着它：摆不出来算没通过，不是“没有就不看”
+  const routeShown = await expectRoute(page);
+  expect(routeShown, '人物页上摆着全程沙盘').toBe(routeOnDisk(figureId) !== null);
+  if (routeShown) await look('人物页的全程沙盘', 3);
 
   console.log(['沙盘栏里见到的每一种配法（字的颜色、垫在下面的是谁、对比）：', ...[...seen].sort().map(([pair, ratio]) => `  ${ratio} 比 1　${pair}`)].join('\n'));
 
@@ -701,71 +704,6 @@ test('四种标准的窗口上，每一小节：题记那一条是不透明的�
     expect(note.tapHeight, `${where}：“说明”按钮能点的地方`).toBeGreaterThanOrEqual(44);
   }
   console.log(['题记那一条，四种标准的窗口上每一小节：', ...rows].join('\n'));
-});
-
-test('人物页上的全程图片：电脑和横着拿的平板上，图片、题记、说明、出处都在栏里，不用在栏里滚；图片没有被压扁', async ({ page }) => {
-  test.setTimeout(120_000);
-  const { figureId } = await openFigureWithTable(page, fakeUrl('#/'));
-  const noTable = await firstWrittenStopWithoutScene(page, figureId);
-  /** 沙盘栏里那张图片和它下面的字量一遍。 */
-  const measure = async (): Promise<{ paneHeight: number; content: number; creditBottom: number; ratio: number; natural: number; imageWidth: number; boxWidth: number; pinned: boolean; shape: string }> => {
-    await expect.poll(() => page.locator('.stage-still img').evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth > 0)).toBe(true);
-    await fontsReady(page);
-    return page.evaluate(() => {
-      const pane = document.querySelector<HTMLElement>('.stage-pane')!;
-      const img = document.querySelector<HTMLImageElement>('.stage-still img')!;
-      const credit = document.querySelector('.stage-still-credit')!;
-      const box = document.querySelector<HTMLElement>('.stage-still-box')!;
-      const image = img.getBoundingClientRect();
-      const boxStyle = getComputedStyle(box);
-      return {
-        paneHeight: pane.clientHeight,
-        content: pane.scrollHeight,
-        creditBottom: credit.getBoundingClientRect().bottom - pane.getBoundingClientRect().top,
-        ratio: image.width / image.height,
-        natural: img.naturalWidth / img.naturalHeight,
-        imageWidth: image.width,
-        boxWidth: box.clientWidth - parseFloat(boxStyle.paddingLeft) - parseFloat(boxStyle.paddingRight),
-        pinned: getComputedStyle(pane).position === 'sticky',
-        // 页面自己说的排法：wide 是横排（文字在左、沙盘在右），narrow 是竖排（沙盘在上）
-        shape: getComputedStyle(pane).getPropertyValue('--stage-shape').trim(),
-      };
-    });
-  };
-  for (const size of WINDOWS) {
-    const where = nameOf(size);
-    await page.goto('about:blank');
-    await page.setViewportSize(size);
-    await page.goto(fakeUrl(`#/${figureId}`));
-    test.skip(!(await expectStill(page)), '人物页上还没有全程的图片');
-    const got = await measure();
-    expect(Math.abs(got.ratio - got.natural), `${where}：图片的宽高比（原来是 ${got.natural.toFixed(3)}，现在 ${got.ratio.toFixed(3)}）`).toBeLessThan(0.01);
-    // 横排的版面：窗口 960 像素宽以上、而且横着（宽比高大）。竖着拿的大平板（1024 × 1366）够宽，可它是竖着的，是竖排
-    const sideBySide = size.width >= 960 && size.width > size.height;
-    expect(got.shape, `${where}：页面说的排法`).toBe(sideBySide ? 'wide' : 'narrow');
-    if (sideBySide) {
-      // 横排的版面：沙盘栏占满一边，和窗口一样高；里面的东西都看得见，不用滚
-      expect(got.pinned).toBe(true);
-      expect(got.content, `${where}：沙盘栏里的东西有 ${got.content} 高，栏只有 ${got.paneHeight} 高，要在栏里滚才看得全`).toBeLessThanOrEqual(got.paneHeight);
-      expect(got.creditBottom, `${where}：出处的最后一行`).toBeLessThanOrEqual(got.paneHeight);
-    } else {
-      // 竖排的版面：图片在上面跟着页面滚走（不钉着），和栏一样宽
-      expect(got.pinned, `${where}：人物页上沙盘栏不钉在顶上`).toBe(false);
-      expect(got.imageWidth, `${where}：图片的宽`).toBeCloseTo(got.boxWidth, 0);
-    }
-    console.log(`人物页 ${where}：沙盘栏 ${got.paneHeight} 高，里面的东西 ${got.content} 高，出处的下边在 ${Math.round(got.creditBottom)}；图片 ${Math.round(got.imageWidth)} 宽（放图片的地方 ${Math.round(got.boxWidth)} 宽）`);
-  }
-  // 写好了正文、还没有沙盘的一站：图片上面多一句话。电脑上也都在栏里
-  if (noTable) {
-    await page.goto('about:blank');
-    await page.setViewportSize(WINDOWS[0]);
-    await page.goto(fakeUrl(`#/${figureId}/${noTable}`));
-    if (await expectStill(page)) {
-      const got = await measure();
-      expect(got.content, `还没有沙盘的一站（${noTable}），${nameOf(WINDOWS[0])}：沙盘栏里的东西有 ${got.content} 高，栏只有 ${got.paneHeight} 高`).toBeLessThanOrEqual(got.paneHeight);
-      console.log(`还没有沙盘的一站（${noTable}）${nameOf(WINDOWS[0])}：沙盘栏 ${got.paneHeight} 高，里面的东西 ${got.content} 高`);
-    }
-  }
 });
 
 test('“老平板”的替身（样式表照 iPadOS 15 的读法改过）：三种平板的窗口上，沙盘栏的大小和留的空、题记的排法、字的大小都和别的浏览器一样', async ({ page }) => {

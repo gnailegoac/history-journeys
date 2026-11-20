@@ -1,9 +1,10 @@
 // 首页和“来源”页的行为：用假 DOM（miniDom.ts）在 Node 里连同 content/ 里真的内容跑一遍。
-// 不看版面和样式（那是 tests/e2e 的事）。要对的东西都从真的文件读：卡片照 index.json，图片和题记照 figure.json，
+// 不看版面和样式（那是 tests/e2e 的事）。要对的东西都从真的文件读：卡片照 index.json，绢上的沙盘照 scenes/route.json，
 // 字体照 src/fonts/shipped.ts，地形和水的每一行照每个场景文件的 credits，图片照每一站的 images，许可全文照 public/licences/。
 import { readdirSync } from 'node:fs';
-import { describe, expect, it } from 'vitest';
-import type { Figure, FigureCard, StopExtras, StopScene } from '../../../src/domain';
+import { describe, expect, it, vi } from 'vitest';
+import { stopHref } from '../../../src/app/router';
+import type { Figure, FigureCard, RouteScene, StopExtras, StopScene } from '../../../src/domain';
 import { SHIPPED_FONTS } from '../../../src/fonts/shipped';
 import { LIBRARY_LICENCES, SOURCES_TEXT } from '../../../src/ui/sourcesText';
 import { KAI_LABELS, SITE_LINE, SITE_TITLE } from '../../../src/ui/text';
@@ -13,6 +14,19 @@ import { installMiniDom, MiniElement } from './miniDom';
 
 const doc = installMiniDom('?stage=fake');
 const win = (globalThis as any).window;
+
+// 全程沙盘读不出来的情形：__routeFails 是接下来还要读不出来几次（平常是 0，照常读）。
+vi.mock('../../../src/ui/stageEngineSource', async (original) => {
+  const actual = await original<typeof import('../../../src/ui/stageEngineSource')>();
+  return {
+    ...actual,
+    pickRouteTable: (figureId: string) => {
+      if (!((globalThis as any).__routeFails > 0)) return actual.pickRouteTable(figureId);
+      (globalThis as any).__routeFails -= 1;
+      return Promise.reject(new Error('这一次没读出来'));
+    },
+  };
+});
 
 const { act } = await import('react');
 const { createRoot } = await import('react-dom/client');
@@ -115,39 +129,50 @@ describe('首页', () => {
     await page.unmount();
   });
 
-  it('绢上的那一块就是人物页的沙盘栏：放着第一位可以点进去的人物的全程图片，和人物页上是同一张、同一句题记；没有图片时是一句话', { timeout: 30_000 }, async () => {
+  it('绢上的那一块就是人物页的沙盘栏：摆着第一位可以点进去的人物的全程沙盘，看的是头一节，印通到他的各站；没有全程沙盘时是一句话', { timeout: 30_000 }, async () => {
     const figure = figures[0];
-    expect(figure.routeStill, '第一位可以点进去的人物要有全程的图片，这一项才查得到东西').toBeDefined();
-    const still = figure.routeStill!;
+    const route = readJson<RouteScene>(`content/figures/${figure.id}/scenes/route.json`);
     const page = await mount('?stage=fake', 'home');
-    await waitFor(() => attr(page.q('.stage-still-box'), 'data-still') === 'shown');
+    await waitFor(() => attr(page.q('.stage-pane'), 'data-stage-state') === 'ready');
     const pane = page.q('.stage-pane')!;
     expect(page.all('.stage-pane')).toHaveLength(1);
     expect(pane.localName).toBe('section');
-    expect(attr(pane, 'data-stage-state')).toBe('still');
-    expect(attr(pane, 'data-stage-picture')).toBe('still');
-    // 不钉在顶上（跟着页面滚走），没有沙盘的按钮和题记
-    expect(pane.className).toBe('stage-pane');
-    expect(page.q('.names-switch')).toBeNull();
-    expect(page.q('.stage-foot')).toBeNull();
-    const img = page.q('.stage-still img')!;
-    expect(attr(img, 'src')).toBeTruthy();
-    expect(attr(img, 'alt')).toBe(still.alt);
-    expect([Number(attr(img, 'width')), Number(attr(img, 'height'))]).toEqual([still.width, still.height]);
-    expect(page.q('.stage-still-caption')!.textContent).toBe(still.caption);
-    expect(page.q('.stage-still-note')!.textContent).toBe(still.note);
-    expect(page.q('.stage-still-credit')!.textContent).toBe(still.credit);
+    expect(attr(pane, 'data-stage-level')).toBe('route');
+    expect(attr(pane, 'data-stage-section')).toBe(route.sections[0].heading);
+    expect(attr(page.q('.stage-caption'), 'data-section')).toBe(route.sections[0].heading);
+    expect(page.q('.stage-reset')!.textContent).toBe('回到全程');
+    expect(page.all('.stage-host .strip').map((el) => attr(el, 'data-strip-id'))).toEqual(route.sections[0].strips);
+    // 印通到这位人物的那一站
+    const seals = page.all('.strip-seal');
+    expect(new Set(seals.map((seal) => attr(seal, 'data-stop-id')))).toEqual(new Set(figure.stops.map((stop) => stop.id)));
+    for (const seal of seals) expect(attr(seal, 'href')).toBe(stopHref(figure.id, attr(seal, 'data-stop-id')!));
     expect(page.q('.stage-still-line')).toBeNull();
     await page.unmount();
 
-    // 当作这位人物还没有全程的图片（?still=none）：一句话，没有图
-    const none = await mount('?stage=fake&still=none', 'home');
-    await waitFor(() => attr(none.q('.stage-still-box'), 'data-still') === 'none');
-    expect(none.q('.stage-still')).toBeNull();
+    // 当作这位人物还没有全程沙盘（?route=none）：一句话，没有沙盘
+    const none = await mount('?stage=fake&route=none', 'home');
+    await waitFor(() => none.q('.stage-still-line') !== null);
+    expect(attr(none.q('.stage-pane'), 'data-stage-state')).toBe('still');
+    expect(none.q('.fake-stage')).toBeNull();
     expect(none.q('.stage-still-line')!.textContent).toBe('全程沙盘还没接进来。');
     // 那页纸照常
     expect(none.all('.cards .card')).toHaveLength(cards.length);
     await none.unmount();
+  });
+
+  it('全程沙盘这一次没读出来：说“沙盘没能摆出来”，带“再试一次”，不说“还没接进来”；再试读出来了就摆上；那页纸照常', { timeout: 30_000 }, async () => {
+    (globalThis as any).__routeFails = 1;
+    const page = await mount('?stage=fake', 'home');
+    await waitFor(() => attr(page.q('.stage-pane'), 'data-stage-state') === 'failed');
+    expect(page.q('.stage-message p')!.textContent).toBe('沙盘没能摆出来，正文可以照常读。');
+    expect(page.q('.stage-still-line')).toBeNull();
+    expect(page.all('.cards .card')).toHaveLength(cards.length);
+    expect(page.q('.stage-retry')!.textContent).toBe('再试一次');
+    await act(async () => page.q('.stage-retry')!.click());
+    await waitFor(() => attr(page.q('.stage-pane'), 'data-stage-state') === 'ready');
+    expect(attr(page.q('.stage-pane'), 'data-stage-level')).toBe('route');
+    expect(page.all('.strip-seal').length).toBeGreaterThan(0);
+    await page.unmount();
   });
 });
 
@@ -209,17 +234,22 @@ describe('“来源”页', () => {
     await page.unmount();
   });
 
-  it('地形和水：每位可以点进去的人物的全程图片、他每一座沙盘写的每一行都在，一模一样的只印一遍；图片：每一站正文里的每一张都在', { timeout: 30_000 }, async () => {
+  it('地形和水：每位可以点进去的人物的全程沙盘（只印署名的半句）、他每一站的沙盘写的每一行都在，说过的只印一遍；图片：每一站正文里的每一张都在', { timeout: 30_000 }, async () => {
     // 要有的每一行，从文件里读
     const lines: string[] = [];
     const pictures: { stop: string; picture: StopExtras['images'][number] }[] = [];
     let sceneFiles = 0;
     for (const figure of figures) {
-      if (figure.routeStill) lines.push(figure.routeStill.credit);
-      for (const path of jsonIn(`content/figures/${figure.id}/scenes`)) {
-        // 全程沙盘的场景文件先不算：人物页上现在摆的还是那张全程图片（它的来源就是上面那一行）；
-        // 沙盘接进人物页的那一步，“来源”页改成读它的 credits，这一行跟着拿掉
-        if (path.endsWith('/route.json')) continue;
+      // 全程沙盘的出处排在最前面，只印头一个分号前面署名的半句（后半句说的“上面的说明”在这一页上没有）
+      const routeFile = `content/figures/${figure.id}/scenes/route.json`;
+      const scenes = jsonIn(`content/figures/${figure.id}/scenes`);
+      expect(scenes, figure.id).toContain(routeFile);
+      for (const line of readJson<RouteScene>(routeFile).credits) {
+        expect(line, '全程沙盘的出处要有分号后面的半句，这一项才查得到“只印前半句”').toContain('；');
+        lines.push(`${line.split('；')[0]}。`);
+      }
+      for (const path of scenes) {
+        if (path === routeFile) continue;
         sceneFiles++;
         lines.push(...readJson<StopScene>(path).credits);
       }
@@ -230,7 +260,7 @@ describe('“来源”页', () => {
     // 说过的不再印：一模一样的一行，和“分号前面的半句，前面哪一行就是这样开头的”的一行（同一份数据在沙盘的凭据里又署了一遍）
     const wanted: string[] = [];
     for (const line of lines) if (!wanted.some((seen) => seen.startsWith(line.split('；')[0]))) wanted.push(line);
-    // 现在的内容里正有这样的一行（徐州的沙盘和全程的图片用的是同一份地形）：页面上少了它，可它署的名一个字不少地在前面那一行里
+    // 现在的内容里正有这样的一行（徐州的沙盘和全程沙盘用的是同一份地形）：页面上少了它，可它署的名一个字不少地在前面那一行里
     const dropped = lines.filter((line) => !wanted.includes(line));
     expect(dropped.length, '内容里要有一行说过的出处，这一项才查得到东西').toBeGreaterThan(0);
     for (const line of dropped) expect(wanted.some((seen) => seen.startsWith(line.split('；')[0])), line).toBe(true);

@@ -22,6 +22,7 @@ import { expect, test } from '@playwright/test';
 import type { Browser, Page } from '@playwright/test';
 import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { contentKey } from '../../src/domain/contentKey';
+import { ROUTE_SCENE_ID } from '../../src/domain/scene';
 import type { StopScene } from '../../src/domain/scene';
 import { stripTexts } from '../../src/domain/sceneText';
 import type { StillManifest, StillShape, StillShapeSpec, StillShot } from '../../src/domain/stills';
@@ -193,7 +194,8 @@ async function measureLayout(browser: Browser, baseURL: string, shape: StillShap
   const context = await browser.newContext({ baseURL, viewport: { width, height }, deviceScaleFactor: 1, reducedMotion: 'reduce' });
   try {
     const page = await context.newPage();
-    await page.goto(`/?stage=fake#/${figureId}/${stopId}`);
+    // 全程沙盘摆在人物页上（“route”这个名字不许站用），站点沙盘摆在它那一站的页面上
+    await page.goto(stopId === ROUTE_SCENE_ID ? `/?stage=fake#/${figureId}` : `/?stage=fake#/${figureId}/${stopId}`);
     await expect(page.locator('.stage-pane'), `${figureId}/${stopId} 在 ${width} × ${height} 的窗口上，沙盘的替身没有摆好`).toHaveAttribute('data-stage-state', 'ready', { timeout: 120_000 });
     // 连着两次量到一样的数才算数（页面刚摆好时题记的高还可能再变一下；开发服务第一次还可能重新加载一次页面）
     let last: PaneLayout | null = null;

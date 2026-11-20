@@ -797,71 +797,19 @@
   height: 1.5rem;
 }
 
-/* ---------------------------------------------------------------- 定格图 */
+/* ---------------------------------------------------------------- 没有沙盘可摆 */
 
-/* 人物页上的全程图片（还有“这一站的沙盘还没做好”时垫着的那一张）：摆在绢上，一圈细线的框。
-   题记是楷体，下面的说明和出处是绢上的墨色。 */
-.stage-still-box {
-  padding: var(--gap-3) var(--page-pad) var(--gap-4);
-}
-
+/* 这位人物还没有全程沙盘（或者它没读出来）时的那一句话：印在绢上，四边留空。 */
 .stage-still-line {
+  padding: var(--gap-3) var(--page-pad) var(--gap-4);
   color: var(--color-ink);
   font-size: var(--size-ui);
   line-height: 1.7;
 }
 
-.stage-still-line + .stage-still {
-  margin-top: var(--gap-2);
-}
-
-.stage-still img {
-  display: block;
-  width: 100%;
-  height: auto;
-  border: 1px solid var(--color-line-on-silk);
-}
-
-.stage-still figcaption {
-  margin-top: var(--gap-2);
-  line-height: 1.6;
-}
-
-.stage-still-caption {
-  color: var(--color-ink);
-  font-family: var(--font-kai);
-  font-size: var(--size-reading);
-}
-
-.stage-still-note,
-.stage-still-credit {
-  margin-top: var(--gap-1);
-  color: var(--color-ink-on-silk);
-}
-
-.stage-still-note {
-  font-size: var(--size-fine);
-}
-
-.stage-still-credit {
-  font-size: var(--size-small);
-}
-
 @media (min-width: 960px) and (orientation: landscape) {
-  .stage-still-box {
-    max-width: 64rem;
-    margin: 0 auto;
+  .stage-still-line {
     padding: var(--gap-5);
-  }
-
-  /* 图片最高到“栏高减 16rem”：电脑上（1440 × 900）图片下面的题记、三行说明、两行出处就都在栏里，不用在栏里往下滚；
-     图片上面多一句“这一站的沙盘还没做好，先看全程。”的时候也放得下。
-     图片照原来的比例缩，窄了就摆在中间。栏窄的时候（横着拿的平板）图片本来就矮，这一条碰不到它。 */
-  .stage-still img {
-    width: auto;
-    max-width: 100%;
-    max-height: calc(var(--stage-pane-h) - 16rem);
-    margin: 0 auto;
   }
 
   .stage-message {

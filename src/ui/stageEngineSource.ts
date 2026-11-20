@@ -6,18 +6,15 @@
 //   ?sectionstills=fake-fail   一个图片取不到的替身
 //   ?sectionstills=none        当作这座沙盘没有定格图（用真的沙盘程序时也一样）
 // 用沙盘的替身（?stage=fake…）时，不写 sectionstills 就当作没有定格图：原有的测试看的都是“没有定格图”时的页面。
-// （不叫 stills，是因为下面已经有一个 ?still=none，管的是人物页那一张全程的图。）
 // 另外两个只给自动测试用的开关也放在这里：
-//   ?still=none   当作这位人物还没有定格图
+//   ?route=none   当作这位人物还没有全程沙盘
 //   ?debug=1      把沙盘的读数挂在 window.__stageReadout 上（量三角形数用），并在沙盘栏里印一行画质和快慢的读数
 // 还有一个指定画质的开关，自动测试、拍图片和在平板上试的时候用：
 //   ?tier=full | reduced | still   完整的一档、减配的一档、只放图片
 
-import { loadRouteStill } from '../domain';
-import type { Figure } from '../domain';
+import { loadRouteTable } from '../domain';
 import { loadStageEngine, probeWebgl, stillEngine } from '../stage';
-import type { StageEngine, StageTier, StopTable } from '../stage/types';
-import type { RouteStillInfo } from './RouteStill';
+import type { RouteTable, StageEngine, StageTable, StageTier } from '../stage/types';
 
 function query(name: string): string | null {
   return new URLSearchParams(window.location.search).get(name);
@@ -51,7 +48,7 @@ export async function pickStageEngine(): Promise<StageEngine> {
  * 这座沙盘每一小节的图片由谁来放。没有图片（或者按要求当作没有）时是 null，这一点不用等就知道；
  * 有的话返回一个函数，叫它才去取放图片的程序（真的那个是页面自带的，马上就有；替身要现取）。
  */
-export function pickStillEngine(table: StopTable): (() => Promise<StageEngine>) | null {
+export function pickStillEngine(table: StageTable): (() => Promise<StageEngine>) | null {
   const choice = query('sectionstills');
   if (choice === 'none') return null;
   if (choice === 'fake' || choice === 'fake-fail') {
@@ -64,10 +61,10 @@ export function pickStillEngine(table: StopTable): (() => Promise<StageEngine>) 
   return () => Promise.resolve(stillEngine);
 }
 
-/** 人物页的定格图；这位人物还没有时是 null。 */
-export async function pickRouteStill(figure: Figure): Promise<RouteStillInfo | null> {
-  if (query('still') === 'none') return null;
-  return loadRouteStill(figure);
+/** 这位人物的全程沙盘；还没有（或者地址里写了 ?route=none）时是 null。 */
+export async function pickRouteTable(figureId: string): Promise<RouteTable | null> {
+  const found = query('route') === 'none' ? null : await loadRouteTable(figureId);
+  return found && { kind: 'route', key: `${figureId}/route`, ...found };
 }
 
 /**

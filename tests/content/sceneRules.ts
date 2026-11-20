@@ -1,5 +1,5 @@
 // 场景数据的校验规则：docs/data-spec.md 的规则 10 到 18，加上场景文件的“格式”（比别的文件查得严：不认识的字段通不过）。
-// 规则 10 到 15 查手写的场景文件，规则 16 查人物页的定格图，规则 17、18 查工具做出来的文件（先画好的地面、每一小节的定格图）。
+// 规则 10 到 15 查手写的场景文件，规则 17、18 查工具做出来的文件（先画好的地面、每一小节的定格图）。规则 16（可以点进去的人物要有全程沙盘）在 rules.ts。
 // 全是纯函数：输入是读进内存的场景和它那一站的几样东西，输出是不合规格的地方。不读磁盘，也不依赖测试框架。
 //
 // 零件认哪些参数、位置怎么写、能摆在什么上面，都照 src/domain/sceneKinds.ts 里的几张表查，这里不另写一份；
@@ -15,18 +15,18 @@ import { DRESSING_KINDS, DRESSING_PARAMS, DRESSING_WHERE, THING_HOSTS, THING_KIN
 import type { FrameCoords } from '../../src/domain/sceneGeo';
 import { existsAt, sectionInfo } from '../../src/domain/sceneText';
 import type { StillManifest, StillShape } from '../../src/domain/stills';
-import type { Figure, LngLat } from '../../src/domain/types';
+import type { LngLat } from '../../src/domain/types';
 import { gridOf } from '../../src/stage/ground/grid';
 import { COLOUR_PSNR_MIN, COLOUR_PSNR_MIN_ROUTE, PICTURE_EDGE_MAX, STILL_MAX_BYTES, TABLE_FILES_MAX_BYTES, edgeTooLong, kilobytes, megabytes, psnrTooLow, stillTooBig, tableFiles } from './budgetRules';
 import { anything, bool, checkShape, has, list, lngLat, number, numberIn, object, oneOf, optional, readJson, record, strict, tagged, text, union, violation } from './shape';
-import type { ContentFiles, FileSizes, PictureSizes, Shape, Violation } from './shape';
+import type { ContentFiles, FileSizes, Shape, Violation } from './shape';
 
 /**
  * 地形文件最大多少字节（规则 10）：1.5 MB。和“一座沙盘的文件合计”（规则 17）是同一个数：
  * 地形文件自己不能超过它，连同先画好的两张图加起来也不能超过它。
  */
 export const TERRAIN_MAX_BYTES = TABLE_FILES_MAX_BYTES;
-// 人物页的定格图最大多少字节（规则 16）：300 KB。这个数写在 budgetRules.ts（各处共用一份），这里照旧给出来。
+// 一张定格图最大多少字节（规则 18）：300 KB。这个数写在 budgetRules.ts（各处共用一份），这里照旧给出来。
 export { STILL_MAX_BYTES };
 /** 题记最多多少个字（规则 14）。 */
 export const LINE_MAX = 40;
@@ -859,44 +859,6 @@ export function insideRing(p: XZ, ring: XZ[]): boolean {
     if (zi > p[1] !== zj > p[1] && p[0] < ((xj - xi) * (p[1] - zi)) / (zj - zi) + xi) inside = !inside;
   }
   return inside;
-}
-
-// ---------------------------------------------------------------- 规则 16 人物页的定格图
-
-const STILL_FIELD_NAMES = { alt: '给看不见图的人的一句话', caption: '图下面的题记', note: '如实的说明', credit: '用了谁的数据' };
-
-/**
- * 规则 16 人物页的定格图：figure.json 写了 routeStill 时，图片文件在 stills/ 里，不超过 300 KB；
- * width、height 是正整数，和图片文件的宽高一样；alt、caption、note、credit 都填写。
- * dir 是这位人物的文件夹，如 figures/su-shi。pictures 是量好的图片宽高；没有给的图片不对宽高。
- */
-export function checkRouteStill(figure: Figure, file: string, dir: string, files: ContentFiles, sizes: FileSizes = {}, pictures: PictureSizes = {}): Violation[] {
-  const still = figure.routeStill;
-  if (!still) return [];
-  const out: Violation[] = [];
-  const bad = (field: string, problem: string) => out.push(violation(16, file, `routeStill.${field}`, problem));
-
-  const path = `${dir}/stills/${still.file}`;
-  if (still.file.trim() === '') bad('file', '定格图没有填文件名');
-  else if (/[\\/]/.test(still.file)) bad('file', `只写文件名（现在是“${still.file}”）；图片放在 stills/ 里`);
-  else if (!has(files, path)) bad('file', `定格图 stills/${still.file} 不存在`);
-  else if (sizes[path] !== undefined && stillTooBig(sizes[path])) bad('file', `定格图有 ${kilobytes(sizes[path])}，不能超过 300 KB`);
-
-  // 页面靠这两个数在图片下载完之前把地方留出来，写错了图会被拉扁或者挤着下面的字跳一下。
-  const whole = (['width', 'height'] as const).filter((key) => {
-    const ok = Number.isInteger(still[key]) && still[key] > 0;
-    if (!ok) bad(key, `定格图的 ${key}（图片有多${key === 'width' ? '宽' : '高'}，像素）要写一个正整数，现在是 ${still[key]}`);
-    return ok;
-  });
-  const real = pictures[path];
-  if (whole.length === 2 && real && (real.width !== still.width || real.height !== still.height)) {
-    bad(real.width !== still.width ? 'width' : 'height', `图片文件是 ${real.width} × ${real.height} 像素，这里写的是 ${still.width} × ${still.height}`);
-  }
-
-  for (const key of ['alt', 'caption', 'note', 'credit'] as const) {
-    if (still[key].trim() === '') bad(key, `定格图的 ${key}（${STILL_FIELD_NAMES[key]}）没有填写`);
-  }
-  return out;
 }
 
 // ---------------------------------------------------------------- 工具做出来的文件：规则 17、18 共用的

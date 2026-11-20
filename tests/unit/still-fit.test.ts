@@ -15,7 +15,7 @@
 
 import { PerspectiveCamera } from 'three';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { SceneSection, SceneStrip } from '../../src/domain/scene';
+import type { RouteScene, SceneSection, SceneStrip } from '../../src/domain/scene';
 import type { StillManifest, StillShape, StillShapeSpec } from '../../src/domain/stills';
 import { placeStrips, sideOfSlot } from '../../src/stage/overlay/placeStrips';
 import type { StripInput, StripLayer } from '../../src/stage/overlay/types';
@@ -845,6 +845,20 @@ describe('定格图的沙盘（engine.ts）', () => {
     expect(images.requests).toEqual([fixtureStillUrl(1, 'wide'), fixtureStillUrl(2, 'wide'), fixtureStillUrl(2, 'wide')]);
     await view.showSection(FIRST, { animate: false });
     expect(images.requests.slice(3)).toEqual([fixtureStillUrl(1, 'wide')]);
+  });
+
+  it('全程沙盘不先取后一节的那一张（它的小节不是照着正文往下读的）；要到哪一节，到时候才取', async () => {
+    const images = fakeImages();
+    const p = fakePane(940, 900, 'wide');
+    const table = fixtureStillTable();
+    // 同一份假清单、同样两节，场景写成全程沙盘的（定格图只认 level；全程沙盘多出来的两种水这里是空的）
+    const scene = { ...table.scene, level: 'route', water: { ...table.scene.water, lakes: [], washes: [] } } as unknown as RouteScene;
+    const view = createStillEngine(images.parts).create(p.container, { ...table, kind: 'route', scene }, OPTIONS);
+    await view.ready;
+    expect(images.requests).toEqual([fixtureStillUrl(1, 'wide')]);
+    await view.showSection(SECOND, { animate: false });
+    expect(images.requests).toEqual([fixtureStillUrl(1, 'wide'), fixtureStillUrl(2, 'wide')]);
+    view.destroy();
   });
 
   it('先取的那一张取不到不算事：不通知，也不影响现在这一张', async () => {

@@ -148,7 +148,7 @@ describe('场景里决定画面的那一部分的记号（pictureKey）', () => 
 
   it('content/ 里真的场景文件：算得出记号，改一个镜头的数就变，改一句依据不变', () => {
     // 两层的沙盘都查（全程沙盘写着 "level": "route"）：记号是同一个函数算的，去掉的也是同样那几种字段。
-    // 全程沙盘的定格图还没有拍（等人物页接上它）：这里只管“算得出、该变的变、不该变的不变”，清单新不新由 stills-fresh 到时候查。
+    // 这里只管“算得出、该变的变、不该变的不变”；两座沙盘的清单新不新由 stills-fresh 查。
     const paths = Object.keys(realScenes);
     expect(paths.filter((path) => realScenes[path].level === 'route').length).toBeGreaterThan(0);
     expect(paths.filter((path) => realScenes[path].level !== 'route').length).toBeGreaterThan(0);
@@ -166,6 +166,9 @@ describe('场景里决定画面的那一部分的记号（pictureKey）', () => 
         reworded.roads.journeys[0].parts[0].note = '改一句说明';
         reworded.roads.journeys[0].name += '改';
         reworded.strips[0].modern = '改';
+        // 全程沙盘自己的出处和“用了谁的数据”：改一条的写法、添一条，十八张图都不该算成旧的
+        reworded.sources[0].cite += '（改了写法）';
+        reworded.credits.push('再加一条');
       } else reworded.things[0].basis += '（补一句）';
       reworded.sections[0].line += '！';
       reworded.strips[0].text = '改';

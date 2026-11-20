@@ -1,5 +1,5 @@
-// 读取 content/ 目录里的场景数据：一站的沙盘（场景文件和地形文件的网址，加上工具照着它做出来的两样——
-// 先画好的地面、每一小节的定格图），人物页的定格图。
+// 读取 content/ 目录里的场景数据：一站的沙盘、一位人物的全程沙盘（场景文件和地形文件的网址，加上工具照着它做出来的两样——
+// 先画好的地面、每一小节的定格图）。
 // 加一站的沙盘只加内容文件，这里不用改。
 //
 // 场景文件只用 import.meta.glob<StopScene>(...) 读，不直接 import 那个 JSON
@@ -11,11 +11,10 @@
 // 工具做的两样可以没有：还没做的沙盘照样摆得出来（地面打开时现画，没有定格图）。清单在、它写的图片却不齐时，
 // 这一样就当作没有——宁可不用，也不拿半套去用。它们齐不齐、对不对得上，由 npm run validate 的规则 17、18 管。
 
-import type { StopTable } from '../stage/types';
+import type { RouteTable, StopTable } from '../stage/types';
 import type { BakedGroundManifest } from './bakedGround';
-import type { StopScene } from './scene';
+import type { StopScene, TableScene } from './scene';
 import type { StillManifest } from './stills';
-import type { Figure } from './types';
 
 const ROOT = '/content/figures';
 
@@ -55,7 +54,7 @@ export interface MadeFiles {
 
 /**
  * 这一站有没有场景文件。不用等：有哪些场景文件，程序打包的时候就知道了。
- * 页面用它决定沙盘栏一上来放什么：有，才说“沙盘正在摆出来”；没有，直接放定格图。
+ * 页面用它决定沙盘栏一上来放什么：有，摆这一站的沙盘；没有，摆全程沙盘上到这一站去的来路。
  */
 export function hasStopTable(figureId: string, stopId: string): boolean {
   return `${ROOT}/${figureId}/scenes/${stopId}.json` in sceneFiles;
@@ -145,13 +144,23 @@ async function pickStills(made: MadeFiles, dir: string, stopId: string): Promise
   }
 }
 
-/** 人物页的定格图：图片的网址和图旁边的字。figure.json 没有写 routeStill、或图片文件不在时返回 null。 */
-export async function loadRouteStill(
-  figure: Figure,
-): Promise<{ url: string; width: number; height: number; alt: string; caption: string; note: string; credit: string } | null> {
-  const still = figure.routeStill;
-  if (!still) return null;
-  const url = (await loadFileUrls()).stills[`${ROOT}/${figure.id}/stills/${still.file}`];
-  if (!url) return null;
-  return { url, width: still.width, height: still.height, alt: still.alt, caption: still.caption, note: still.note, credit: still.credit };
+/** 一位人物的全程沙盘读出来的样子：RouteTable（src/stage/types.ts）里由内容决定的那几样。 */
+export type RouteTableContent = Pick<RouteTable, 'scene' | 'terrainUrl' | 'ground' | 'stills'>;
+
+/**
+ * 一位人物的全程沙盘（scenes/route.json，“route”这个名字不许站用）：和一站的沙盘是同一种读法，带的也是同样几样。
+ * 这位人物还没有全程沙盘、那个文件写的不是全程沙盘、或者它写的地形文件不在时返回 null。
+ */
+export async function loadRouteTable(figureId: string): Promise<RouteTableContent | null> {
+  return routeTableOf(await loadStopTable(figureId, 'route'), `${ROOT}/${figureId}/baked/route.json` in bakedManifests);
+}
+
+/**
+ * 读出来的是不是一座全程沙盘。baked：这座沙盘做过先画好的地面（清单在）。全程沙盘的地面不能打开时现画，
+ * 清单在、地面却没带上来（清单那一小段这一次没取到），就算这一次没读成：页面说一句，读者可以再试一次。
+ */
+export function routeTableOf(found: { scene: TableScene; ground?: unknown } | null, baked: boolean): RouteTableContent | null {
+  if (found?.scene.level !== 'route') return null;
+  if (baked && !found.ground) throw new Error('baked');
+  return found as RouteTableContent;
 }

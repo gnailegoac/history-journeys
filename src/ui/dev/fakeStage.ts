@@ -23,9 +23,8 @@
 // 降到底（连减配也嫌慢），support() 就回答 too-slow，页面换成图片。
 
 import { sectionHeadings, stripTexts } from '../../domain';
-import { mountStrips } from '../../stage/overlay';
-import type { StripSpec } from '../../stage/overlay';
-import type { NamesMode, StageEngine, StageInsets, StageOptions, StageTier, StageViewInfo, StopStageView, StopTable } from '../../stage/types';
+import { mountStrips, sectionStripSpecs } from '../../stage/overlay';
+import type { NamesMode, StageEngine, StageInsets, StageOptions, StageTier, StageViewInfo, StageTable, StopStageView } from '../../stage/types';
 import '../../styles/fake-stage.css';
 
 /** 换小节时滑多久（毫秒）。比“一个小节要连着当上多久才算数”长，测试才碰得到“途中又来新指令”。 */
@@ -100,10 +99,9 @@ function createFailedView(): StopStageView {
   };
 }
 
-function createFakeView(container: HTMLElement, table: StopTable, options: StageOptions): StopStageView {
+function createFakeView(container: HTMLElement, table: StageTable, options: StageOptions): StopStageView {
   const { scene } = table;
   const headings = sectionHeadings(scene);
-  const sides = new Map(scene.strips.map((strip) => [strip.id, strip.side]));
   const movedListeners = new Set<(moved: boolean) => void>();
   const lostListeners = new Set<() => void>();
   const slowListeners = new Set<() => void>();
@@ -185,7 +183,7 @@ function createFakeView(container: HTMLElement, table: StopTable, options: Stage
     title.textContent = `沙盘的替身（自动测试用，不是真的沙盘）：${current ?? ''}`;
     const texts = current === undefined ? [] : stripTexts(scene, current, namesMode);
     stripIds = texts.map((text) => text.id);
-    strips.set(texts.map((text): StripSpec => ({ id: text.id, text: text.text, tone: text.tone, side: sides.get(text.id) })));
+    strips.set(current === undefined ? [] : sectionStripSpecs(scene, current, texts, options.marks));
     placeStrips();
   }
 

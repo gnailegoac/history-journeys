@@ -3,10 +3,11 @@
 //
 // 一、首页，四种标准的窗口上：一页纸和绢上的那一块。
 //     宽屏（窗口 960 像素以上宽，而且横着）：纸在左，宽是窗口的 46%（最窄 464、最宽 640 像素），和屏幕一样高；绢在右，占满剩下的，
-//     钉着不动，图片、题记、说明、出处都在屏幕里。别的窗口：绢在上，和窗口一样宽，最高半个屏幕，不钉着（跟着页面滚走），
-//     图片下面只有题记；纸在下。网站的名字是楷体，一行；内容里的每一张卡片都在，名字竖着写；可以点进去的是链接，
-//     写着“从第一站读起”，点了进人物页；还没写的不是链接，标着“还没写”，点了哪也不去。图片没有被压扁，
-//     和人物页上是同一张、同一句题记。页面不比窗口宽。
+//     钉着不动。别的窗口：绢在上，和窗口一样宽，钉在顶上，高是屏幕的 56%（和人物页一样）；纸在下。
+//     绢上摆的是第一位可以点进去的人物的全程沙盘，和人物页上是同一栏、同一座：看的是“全程”那一节，按钮是“古名、今名”“回到全程”，
+//     下面是同一条题记；栏多大就是 tests/stage/support/standardPanes.ts 的 HOME_PANES 里写的；按一方印，就到那一站。
+//     网站的名字是楷体，一行；内容里的每一张卡片都在，名字竖着写；可以点进去的是链接，
+//     写着“从第一站读起”，点了进人物页；还没写的不是链接，标着“还没写”，点了哪也不去。页面不比窗口宽。
 //     （能点的东西够不够 44 像素见方在 tests/e2e/leaf.spec.ts：首页和“来源”页都在那里一个一个点。）
 // 二、“来源”页：一页纸独自立在绢上（最宽 640 像素，和屏幕一样高），没有沙盘栏。标题和四个小标题是楷体，字是宋体 17 像素。
 //     两套字体各一条，名字、版本就是 shipped.ts 里的；每位可以点进去的人物的全程图片、每一座沙盘写的每一行都在，不重复；
@@ -22,9 +23,9 @@ import type { Page } from '@playwright/test';
 import type { Figure, FigureCard, StopExtras } from '../../src/domain/types';
 import { SHIPPED_FONTS } from '../../src/fonts/shipped';
 import { LIBRARY_LICENCES, SOURCES_TEXT } from '../../src/ui/sourcesText';
-import { STANDARD_PANES } from '../stage/support/standardPanes';
+import { HOME_PANES, STANDARD_PANES } from '../stage/support/standardPanes';
 import { readBytes } from '../support/readBytes';
-import { expectStageAt, expectStill, fakeUrl, fontsReady, headingsOf, sceneOnDisk } from './helpers';
+import { expectStageAt, expectRoute, fakeUrl, fontsReady, headingsOf, routeOnDisk, sceneOnDisk, stagePane } from './helpers';
 
 const utf8 = new TextDecoder();
 const readJson = <T,>(path: string): T => JSON.parse(utf8.decode(readBytes(path))) as T;
@@ -49,21 +50,20 @@ async function openAt(page: Page, size: { width: number; height: number }, hash:
   await page.goto(fakeUrl(hash));
 }
 
-/** 等绢上的那张图片取到、画出来。 */
-async function pictureShown(page: Page): Promise<void> {
-  expect(await expectStill(page), '绢上该放着全程的图片').toBe(true);
-  await expect.poll(() => page.locator('.stage-still img').evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth > 0), { message: '全程的图片没有取到' }).toBe(true);
+/** 等绢上的全程沙盘（替身）摆好。 */
+async function tableShown(page: Page): Promise<void> {
+  expect(await expectRoute(page), '绢上该摆着全程沙盘').toBe(true);
   await fontsReady(page);
 }
 
-test('首页，四种标准的窗口上：一页纸（网站的名字、一句话、每一张卡片、“来源”）和绢上的全程图片；宽屏上左右排，别的窗口上绢在上、最高半个屏幕', async ({ page }) => {
+test('首页，四种标准的窗口上：一页纸（网站的名字、一句话、每一张卡片、“来源”）和绢上的全程沙盘；宽屏上左右排，别的窗口上绢在上、钉在顶上', async ({ page }) => {
   test.setTimeout(240_000);
   expect(CARDS.length, '内容里的卡片').toBeGreaterThanOrEqual(2);
   expect(OPEN.length, '可以点进去的人物').toBeGreaterThanOrEqual(1);
   expect(CARDS.length - OPEN.length, '内容里要有还没写的人物，才查得到点不了的卡片').toBeGreaterThanOrEqual(1);
-  const still = FIGURES[0].routeStill;
-  expect(still, '第一位可以点进去的人物要有全程的图片').toBeDefined();
-  if (!still) return;
+  const route = routeOnDisk(FIGURES[0].id);
+  expect(route, '第一位可以点进去的人物要有全程沙盘').not.toBeNull();
+  if (!route) return;
 
   const rows: string[] = [];
   for (const size of WINDOWS) {
@@ -71,7 +71,7 @@ test('首页，四种标准的窗口上：一页纸（网站的名字、一句�
     const sideBySide = size.width >= 960 && size.width > size.height;
     await openAt(page, size, '#/');
     await expect(page.locator('.cards .card')).toHaveCount(CARDS.length);
-    await pictureShown(page);
+    await tableShown(page);
 
     const got = await page.evaluate(() => {
       const need = (selector: string): HTMLElement => {
@@ -90,8 +90,6 @@ test('首页，四种标准的窗口上：一页纸（网站的名字、一句�
       const leaf = need('.reading');
       const pane = need('.stage-pane');
       const title = need('.home-title');
-      const img = need('.stage-still img') as HTMLImageElement;
-      const shown = (selector: string): boolean => need(selector).getClientRects().length > 0;
       return {
         layout: Array.from(need('.home-layout').children).map((child) => child.className.split(' ')[0]),
         leaf: box(leaf),
@@ -102,11 +100,14 @@ test('首页，四种标准的窗口上：一页纸（网站的名字、一句�
         shape: getComputedStyle(pane).getPropertyValue('--stage-shape').trim(),
         title: { ...type(title), text: title.textContent, lines: Math.round(title.getBoundingClientRect().height / parseFloat(getComputedStyle(title).lineHeight)) },
         line: { ...type(need('.home-line')), text: need('.home-line').textContent },
-        img: { ...box(img), ratio: img.getBoundingClientRect().width / img.getBoundingClientRect().height, natural: img.naturalWidth / img.naturalHeight, src: img.currentSrc, frame: getComputedStyle(img).borderTopWidth },
-        caption: { ...type(need('.stage-still-caption')), text: need('.stage-still-caption').textContent, ...box(need('.stage-still-caption')) },
-        noteShown: shown('.stage-still-note'),
-        creditShown: shown('.stage-still-credit'),
-        creditBottom: shown('.stage-still-credit') ? box(need('.stage-still-credit')).bottom : 0,
+        paneSize: `${pane.offsetWidth} × ${pane.offsetHeight}`,
+        section: pane.getAttribute('data-stage-section'),
+        reset: need('.stage-reset').textContent,
+        strips: Array.from(document.querySelectorAll('.stage-host .strip')).map((strip) => strip.getAttribute('data-strip-id')),
+        seals: Array.from(document.querySelectorAll('.stage-host .strip-seal')).map((seal) => `${seal.getAttribute('data-stop-id')} ${seal.getAttribute('href')}`),
+        shownStrips: Array.from(document.querySelectorAll('.stage-host .strip')).filter((strip) => getComputedStyle(strip).visibility === 'visible').length,
+        controls: [...Array.from(document.querySelectorAll('.stage-pane .names-switch button')).map((button) => button.textContent), need('.stage-reset').textContent],
+        caption: { section: need('.stage-caption').getAttribute('data-section'), line: need('.stage-caption .stage-line').textContent },
         cards: Array.from(document.querySelectorAll<HTMLElement>('.cards .card')).map((card) => {
           const name = card.querySelector<HTMLElement>('.card-name')!;
           const go = card.querySelector<HTMLElement>('.card-go');
@@ -145,33 +146,29 @@ test('首页，四种标准的窗口上：一页纸（网站的名字、一句�
       expect(Math.abs(got.pane.x - got.leaf.width), `${where}：绢紧挨着纸的右边`).toBeLessThan(1);
       expect(Math.abs(got.pane.right - size.width), `${where}：绢占满右边`).toBeLessThan(1);
       expect({ y: got.pane.y, height: got.pane.height, position: got.panePosition }, `${where}：绢上的那一块和屏幕一样高，钉着不动`).toEqual({ y: 0, height: size.height, position: 'sticky' });
-      // 图片、题记、说明、出处都在屏幕里，不用在栏里滚
-      expect(got.noteShown && got.creditShown, `${where}：宽屏上图片下面的说明和出处都印着`).toBe(true);
-      expect(got.creditBottom, `${where}：出处的最后一行在屏幕里`).toBeLessThanOrEqual(size.height);
     } else {
+      // 绢在上：和人物页上一样，沙盘栏钉在顶上，高是屏幕的 56%
       expect({ x: got.pane.x, y: got.pane.y, width: got.pane.width }, `${where}：绢在上，和窗口一样宽`).toEqual({ x: 0, y: 0, width: size.width });
-      expect(got.pane.height, `${where}：绢上的那一块有 ${got.pane.height} 高，不该超过半个屏幕（${size.height / 2}）`).toBeLessThanOrEqual(size.height / 2);
-      expect(got.pane.height, `${where}：绢上的那一块不该矮得看不清图片`).toBeGreaterThan(size.height * 0.3);
-      expect(got.panePosition, `${where}：绢上的那一块不钉在顶上`).not.toBe('sticky');
+      expect(got.panePosition, `${where}：绢上的那一块钉在顶上`).toBe('sticky');
+      expect(Math.abs(got.pane.height - size.height * 0.56), `${where}：绢上的那一块高 ${got.pane.height}，该是屏幕的 56%`).toBeLessThan(1);
       expect(got.leaf.x, `${where}：纸在下，和窗口一样宽`).toBe(0);
       expect(got.leaf.width, `${where}：纸和窗口一样宽`).toBe(size.width);
       expect(Math.abs(got.leaf.y - got.pane.bottom), `${where}：纸紧接在绢的下面`).toBeLessThan(1);
       // 头一张卡片的上边在第一屏里：一打开就看得见有卡片
       expect(got.cards[0].top, `${where}：头一张卡片的上边在第一屏里`).toBeLessThan(size.height - 44);
-      // 图片下面只有题记
-      expect({ note: got.noteShown, credit: got.creditShown }, `${where}：绢在上的时候图片下面只印题记`).toEqual({ note: false, credit: false });
     }
 
-    // ---- 图片：就是人物的那张全程图片，没有压扁，带一圈细线的框，整张在绢上那一块里
-    expect(Math.abs(got.img.ratio - got.img.natural), `${where}：图片的宽高比（原来 ${got.img.natural.toFixed(3)}，现在 ${got.img.ratio.toFixed(3)}）`).toBeLessThan(0.01);
-    expect(Math.abs(got.img.natural - still.width / still.height), `${where}：取到的图片就是 figure.json 里写的那一张的比例`).toBeLessThan(0.01);
-    expect(got.img.frame).toBe('1px');
-    expect(got.img.x, `${where}：图片的左边在绢上那一块里`).toBeGreaterThanOrEqual(got.pane.x);
-    expect(got.img.right, `${where}：图片的右边在绢上那一块里`).toBeLessThanOrEqual(got.pane.right);
-    expect(got.img.bottom, `${where}：图片的下边在绢上那一块里`).toBeLessThan(got.pane.bottom);
-    expect(got.img.width, `${where}：图片不该小得看不清`).toBeGreaterThan(300);
-    expect({ text: got.caption.text, family: got.caption.family, colour: got.caption.colour }, `${where}：图片下面的题记`).toEqual({ text: still.caption, family: 'Yanlu Kai', colour: INK });
-    expect(got.caption.bottom, `${where}：题记在绢上那一块里`).toBeLessThanOrEqual(got.pane.bottom);
+    // ---- 绢上摆的是第一位可以点进去的人物的全程沙盘：看的是头一节，印通到他的各站。
+    //      栏多大就是 HOME_PANES 里写的（宽屏上首页那页纸比人物页的宽，栏就窄一些；题签在这样的栏上摆不摆得下，
+    //      tests/stage/route-views.test.ts 照同一份数查）；按钮、题记和人物页上是同一套。
+    const wantedPane = HOME_PANES.find((pane) => pane.window.width === size.width && pane.window.height === size.height)!;
+    expect(got.paneSize, `${where}：绢上的那一块多大`).toBe(`${wantedPane.size.width} × ${wantedPane.size.height}`);
+    expect({ section: got.section, reset: got.reset, strips: got.strips }, `${where}：绢上的全程沙盘`).toEqual({ section: route.sections[0].heading, reset: '回到全程', strips: route.sections[0].strips });
+    expect(got.controls, `${where}：栏上的按钮`).toEqual(['古名', '今名', '回到全程']);
+    expect(got.caption, `${where}：栏下面的题记`).toEqual({ section: route.sections[0].heading, line: route.sections[0].line });
+    expect(got.shownStrips, `${where}：题签都摆出来了`).toBe(route.sections[0].strips.length);
+    expect(got.seals.length, `${where}：站的题签带着印`).toBeGreaterThanOrEqual(FIGURES[0].stops.length);
+    for (const seal of got.seals) expect(FIGURES[0].stops.some((stop) => seal === `${stop.id} #/${FIGURES[0].id}/${stop.id}`), `${where}：印“${seal}”通到他的一站`).toBe(true);
 
     // ---- 那页纸上的字
     expect(got.title, `${where}：网站的名字`).toMatchObject({ family: 'Yanlu Kai', colour: INK, lines: 1 });
@@ -206,13 +203,6 @@ test('首页，四种标准的窗口上：一页纸（网站的名字、一句�
     expect({ text: got.foot.text, href: got.foot.href }, `${where}：卡片后面的链接`).toEqual({ text: '来源', href: '#/sources' });
     expect(got.foot.y, `${where}：“来源”在最后一张卡片下面`).toBeGreaterThan(got.cards[got.cards.length - 1].box.bottom);
 
-    // ---- 绢在上的时候它跟着页面滚走
-    if (!sideBySide) {
-      await page.evaluate(() => window.scrollTo(0, 200));
-      await expect.poll(() => page.locator('.stage-pane').evaluate((el) => el.getBoundingClientRect().top), { message: `${where}：往下滚 200，绢上的那一块跟着走` }).toBe(-200);
-      await page.evaluate(() => window.scrollTo(0, 0));
-    }
-
     // ---- 点还没写的卡片：哪也不去
     const idle = page.locator('.card[data-available="false"]').first();
     await idle.scrollIntoViewIfNeeded();
@@ -222,16 +212,43 @@ test('首页，四种标准的窗口上：一页纸（网站的名字、一句�
     expect(page.url(), `${where}：点了还没写的卡片，地址不该变`).toMatch(/#\/$/);
     await expect(page.locator('.cards .card')).toHaveCount(CARDS.length);
 
-    // ---- 点可以点进去的卡片：进人物页；那里的图片和题记是同一张、同一句
+    // ---- 按绢上的一方印（像手指那样点在印的正中）：到那一站；后退，回到首页，沙盘还是那一节
+    await page.evaluate(() => window.scrollTo(0, 0));
+    //      挑一方正中没有被旁边的印的按处盖住的（全程那一节里有几方印挨得近，按处有相叠的）
+    const sealAt = await page.evaluate(() => {
+      for (const seal of Array.from(document.querySelectorAll<HTMLElement>('.stage-host .strip-seal'))) {
+        const r = seal.getBoundingClientRect();
+        const x = r.x + r.width / 2;
+        const y = r.y + r.height / 2;
+        if (document.elementFromPoint(x, y)?.closest('.strip-seal') === seal) return { stop: seal.getAttribute('data-stop-id') ?? '', x, y };
+      }
+      return null;
+    });
+    expect(sealAt, `${where}：要有一方按得到的印`).not.toBeNull();
+    if (!sealAt) return;
+    const sealStop = sealAt.stop;
+    await page.mouse.click(sealAt.x, sealAt.y);
+    await expect(page, `${where}：按了“${sealStop}”的印`).toHaveURL(new RegExp(`#/${FIGURES[0].id}/${sealStop}$`));
+    await expect(page.locator('.stop-page')).toHaveAttribute('data-stop-id', sealStop);
+    await page.goBack();
+    await expect(page).toHaveURL(/#\/$/);
+    await expect(page.locator('.cards .card')).toHaveCount(CARDS.length);
+    await tableShown(page);
+    await expect(stagePane(page)).toHaveAttribute('data-stage-section', route.sections[0].heading);
+
+    // ---- 点可以点进去的卡片：进人物页；那里摆的是同一位人物的全程沙盘，同一节、同样几条题签
     await page.locator('a.card').first().evaluate((link: HTMLElement) => link.click());
     await expect(page).toHaveURL(new RegExp(`#/${OPEN[0].id}$`));
     await expect(page.locator('.stop-item').first()).toBeVisible();
-    await pictureShown(page);
-    const onFigure = await page.locator('.stage-still').evaluate((el) => ({ src: el.querySelector('img')!.currentSrc, caption: el.querySelector('.stage-still-caption')!.textContent }));
-    expect(onFigure, `${where}：首页绢上的图片和题记，和人物页上是同一张、同一句`).toEqual({ src: got.img.src, caption: got.caption.text });
+    await tableShown(page);
+    const onFigure = await page.evaluate(() => ({
+      section: document.querySelector('.stage-pane')!.getAttribute('data-stage-section'),
+      strips: Array.from(document.querySelectorAll('.stage-host .strip')).map((strip) => strip.getAttribute('data-strip-id')),
+    }));
+    expect(onFigure, `${where}：首页绢上的全程沙盘，和人物页上是同一节、同样几条题签`).toEqual({ section: got.section, strips: got.strips });
 
     rows.push(
-      `  ${where}：${sideBySide ? '左右排' : '绢在上'}；纸 ${Math.round(got.leaf.width)} 宽，绢上的那一块 ${Math.round(got.pane.width)} × ${Math.round(got.pane.height)}；图片 ${Math.round(got.img.width)} × ${Math.round(got.img.height)}；` +
+      `  ${where}：${sideBySide ? '左右排' : '绢在上'}；纸 ${Math.round(got.leaf.width)} 宽，绢上的那一块 ${got.paneSize}；` +
         `网站的名字 ${got.title.size}px 一行；卡片各高 ${got.cards.map((card) => Math.round(card.box.height)).join('、')}`,
     );
   }
@@ -248,7 +265,8 @@ test('“来源”页：一页纸立在绢上；两套字体照 shipped.ts，地
   const pictures: { stop: string; picture: StopExtras['images'][number] }[] = [];
   let scenes = 0;
   for (const figure of FIGURES) {
-    if (figure.routeStill) lines.push(figure.routeStill.credit);
+    // 全程沙盘的出处排在最前面，只印头一个分号前面署名的半句
+    for (const line of routeOnDisk(figure.id)?.credits ?? []) lines.push(line.includes('；') ? `${line.split('；')[0]}。` : line);
     for (const stop of figure.stops) {
       const scene = sceneOnDisk(figure.id, stop.id);
       if (scene) {
@@ -422,7 +440,7 @@ test('“来源”页里面的那一段程序点进去才下载：首页、人�
   // 首页：不取
   await page.goto(fakeUrl('#/'));
   await expect(page.locator('.card').first()).toBeVisible();
-  await expectStill(page);
+  await expectRoute(page);
   await page.waitForTimeout(500);
   expect(asked, '首页上不该取“来源”页里面的那一段程序').toEqual([]);
   // 从首页点进去：取一次
@@ -435,7 +453,7 @@ test('“来源”页里面的那一段程序点进去才下载：首页、人�
   await expect(page.locator('.card').first()).toBeVisible();
   await page.locator('a.card').first().click();
   await expect(page.locator('.stop-item').first()).toBeVisible();
-  await expectStill(page);
+  await expectRoute(page);
   // 从人物页的目录后面点进去
   await page.locator('.figure-page .stop-nav a').click();
   await arrived('从人物页');

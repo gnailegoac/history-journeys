@@ -1,7 +1,7 @@
-/* 首页：一页纸（网站的名字、一句话、人物卡片、“来源”），旁边的绢上摆着一位人物的全程图片。
+/* 首页：一页纸（网站的名字、一句话、人物卡片、“来源”），旁边的绢上摆着一位人物的全程沙盘。
    版面就是人物页的那一种（layout.css 的 .figure-layout、.reading、.stage-pane）：宽屏上纸在左、绢在右，
-   别的窗口上绢在上、纸在下。这里只写首页自己不一样的几处：纸宽一些；绢上的那一块不钉着，最高半个屏幕。
-   绢上的图片、题记用的是人物页的那一套样子（stage.css 的 .stage-still）。 */
+   别的窗口上绢在上、纸在下。这里只写首页自己不一样的几处：纸宽一些（所以宽屏上沙盘栏比人物页上的窄）。
+   绢上的那一块是人物页的沙盘栏（stage.css、layout.css），摆的是同一座全程沙盘；这里没有它自己的样子。 */
 
 /* 宽屏上那一页纸的宽：窗口的 46%，最窄 464px（网站的名字 52px 一个字，七个字一行放得下），最宽 640px。 */
 .home-layout {
@@ -128,29 +128,5 @@ a.card:active {
 @media (hover: hover) {
   a.card:hover {
     box-shadow: inset 0 0 0 1px var(--color-accent), 0 1px 0 var(--color-paper-edge), 0 6px 14px -8px rgb(60 40 10 / 0.35);
-  }
-}
-
-/* ---------------------------------------------------------------- 绢上的那一块（不是宽屏的时候） */
-
-/* 绢在上、纸在下的版面：绢上的那一块跟着页面滚走，最高半个屏幕，好让下面那页纸的标题和头一张卡片露出来。
-   所以图片照比例缩到“半个屏幕减去上下的空和题记”那么高，摆在中间；图片下面只留题记那一句，
-   说明和出处在这里不印（地方不够；点进人物页，同一张图片下面有，出处“来源”页上也有）。
-   宽屏上绢上的那一块和屏幕一样高，样子和人物页上一样，三样都印。 */
-@media not all and (min-width: 960px) and (orientation: landscape) {
-  .home-layout .stage-still img {
-    width: auto;
-    max-width: 100%;
-    max-height: calc(50vh - 6.5rem);
-    margin: 0 auto;
-  }
-
-  .home-layout .stage-still-caption {
-    text-align: center;
-  }
-
-  .home-layout .stage-still-note,
-  .home-layout .stage-still-credit {
-    display: none;
   }
 }

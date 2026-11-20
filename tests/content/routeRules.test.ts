@@ -28,6 +28,21 @@ import {
   routeFrameBox,
 } from './routeRules';
 import { RULE_NAMES, RULES_CHECKED_ELSEWHERE, formatViolation, validateContent } from './rules';
+
+/** 表里的这几座沙盘里，先画好的地面的清单和定格图的清单都已经在 content/ 里的。key 是“人物/场景文件的名字”。 */
+function madeButStillPending(keys: readonly string[]): string[] {
+  const there = (path: string): boolean => {
+    try {
+      return fileSize(path) > 0;
+    } catch {
+      return false;
+    }
+  };
+  return keys.filter((key) => {
+    const [figure, name] = key.split('/');
+    return there(`content/figures/${figure}/baked/${name}.json`) && there(`content/figures/${figure}/stills/${name}.json`);
+  });
+}
 import type { ContentFiles } from './rules';
 import { bakedPictureSize, checkBakedGround, TERRAIN_MAX_BYTES } from './sceneRules';
 import type { FileSizes } from './shape';
@@ -122,12 +137,12 @@ describe('两份样本', () => {
     expect(validateContent(noStills, SIZES, PICTURES, KEYS, true, [...PENDING, 'demo/river'])).toEqual([]);
   });
 
-  it('规则 16 的后半句：卡片标了可以点进去的人物要有 scenes/route.json；没标的不要求', () => {
+  it('规则 16：卡片标了可以点进去的人物要有 scenes/route.json；没标的不要求', () => {
     expect(all(GOOD).filter((line) => line.startsWith('16 '))).toEqual([]);
     // 拿掉全程沙盘的场景文件：正好报这一处（地形文件和“今天的海岸、湖、河”还在，没有人读它们）
     expect(all(without(ROUTE))).toEqual(['16 figures/index.json › [0].available']);
     expect(formatViolation(validateContent(without(ROUTE), SIZES, {}, {}, false)[0])).toBe(
-      '【规则 16 人物页的定格图】content/figures/index.json › [0].available：“示例先生”标了可以点进去，但没有全程沙盘的场景文件 figures/demo/scenes/route.json',
+      '【规则 16 全程沙盘】content/figures/index.json › [0].available：“示例先生”标了可以点进去，但没有全程沙盘的场景文件 figures/demo/scenes/route.json',
     );
     // 第二张卡片没有标可以点进去，它什么文件也没有：不报
     expect(JSON.parse(GOOD['figures/index.json'])[1].available).toBe(false);
@@ -139,6 +154,13 @@ describe('两份样本', () => {
     // 做一座新沙盘的那几天里这张表里有它的名字；做完要拿掉。这一条在表不空的时候提醒一句，不算不通过。
     if (MADE_FILES_PENDING.length > 0) console.warn(`[内容校验] 这几座沙盘的先画好的地面和定格图还没有做：${MADE_FILES_PENDING.join('、')}`);
     for (const key of MADE_FILES_PENDING) expect(key).toMatch(/^[^/]+\/[^/]+$/);
+  });
+
+  it('表里的沙盘，那两样不能都已经做好了放在 content/ 里：都做好了就得把名字拿掉', () => {
+    // 名字留在表里的话，“定格图旧不旧”那一项不再查它，做地面、拍定格图的两个工具也跳过它，校验又不报——改了镜头也没有东西会红。
+    expect(madeButStillPending(['su-shi/route']), 'content/ 里苏轼的全程沙盘那两样都在：这一条才查得到东西').toEqual(['su-shi/route']);
+    expect(madeButStillPending(['su-shi/no-such-table'])).toEqual([]);
+    expect(madeButStillPending(MADE_FILES_PENDING), '这几座沙盘先画好的地面和定格图都已经在 content/ 里了，把它们从 tests/support/pendingTables.ts 的表里拿掉').toEqual([]);
   });
 
   it('出错的样本里，规则 10 到 15 和规则 20 在全程沙盘上都查出了问题；每一处都说得出是哪条规则、哪个字段', () => {
@@ -828,7 +850,6 @@ describe('数据规格里全程沙盘的那个最小的例子', () => {
 
     const stop = (id: string, lngLat: LngLat) => ({ ...(JSON.parse(GOOD[FIGURE]) as Figure).stops[1], id, place: { id, ancient: id, modern: id, lngLat } });
     const figure: Figure = { ...(JSON.parse(GOOD[FIGURE]) as Figure), id: 'sample', stops: [stop('mizhou', [119.4, 36.0]), stop('xuzhou', [117.185, 34.262])], legs: [{ from: 'mizhou', to: 'xuzhou', via: [] }] };
-    delete figure.routeStill;
     const today = {
       type: 'FeatureCollection',
       features: [{ type: 'Feature', properties: { kind: 'river', name: 'Chang Jiang' }, geometry: { type: 'LineString', coordinates: [[116.0, 29.8], [117.5, 30.8], [118.8, 32.1]] } }, { type: 'Feature', properties: { kind: 'river', name: 'Yangtze' }, geometry: { type: 'LineString', coordinates: [[118.8, 32.1], [121.0, 31.8]] } }],

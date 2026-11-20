@@ -67,10 +67,11 @@ describe('两份样本', () => {
     expect(all(GOOD)).toEqual([]);
   });
 
-  it('出错的样本里，十六条规则和格式都查出了问题', () => {
+  it('出错的样本里，前十五条规则和格式都查出了问题（规则 16 在 routeRules.test.ts 里查）', () => {
     const rules = new Set(validateContent(BAD).map((v) => v.rule));
-    expect([...rules].sort((a, b) => a - b)).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]);
-    expect(validateContent(BAD)).toHaveLength(120);
+    expect([...rules].sort((a, b) => a - b)).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]);
+    // 人物页那张定格图的三处（文件不在、alt 和 note 没填）跟着 routeStill 一起拿掉了：原来 120 处
+    expect(validateContent(BAD)).toHaveLength(117);
     // 其中格式和前九条的（两个场景文件的格式、坐标和占位算在里面）：
     expect(validateContent(BAD).filter((v) => v.rule <= 9)).toHaveLength(56);
   });

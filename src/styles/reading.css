@@ -447,6 +447,13 @@ details[open] > summary .fold-mark :first-child {
   border-top: 1px solid var(--color-line);
 }
 
+/* 前面没有正文的凭据时（人物页上全程沙盘的那一行），这一栏就是头一样东西：上面不空一截、不画那道线。 */
+.scene-register:first-child {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
+}
+
 .scene-register h3 {
   margin-top: 0;
 }

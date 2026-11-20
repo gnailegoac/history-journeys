@@ -250,7 +250,6 @@ function madeUpSite(change: (site: SiteText) => void = () => {}): SiteText {
     overview: { center: [117, 34], distanceKm: 100 },
     stops: [meta('s1', '甲站：头一站', '甲站'), meta('s2', '乙站：后一站', '乙站')],
     legs: [{ from: 's1', to: 's2', via: [] }],
-    routeStill: { file: 'route.jpg', width: 10, height: 10, alt: '替', caption: '题', note: '注', credit: '谢' },
   };
   const content = (stopId: string, over: Partial<StopContent>): StopContent => ({ stopId, notes: [], originals: [], images: [], sources: [], provenance: [], sampleQuestions: [], sections: [], imageUrls: {}, ...over });
   const site: SiteText = {
@@ -426,7 +425,7 @@ describe('数字：哪些字归哪一组（编出来的一位人物）', () => {
 
   it('楷体的一组：界面上列着的字、类别名、人物的名字、站名、小节标题、小注的标题、题记、空格', () => {
     const plan = planFonts(madeUpSite());
-    expect(has(plan, 'kai', '楷签 真的今天位置按正文摆示意点缀某人甲站：头一乙后起初来未辰题')).toBe(true);
+    expect(has(plan, 'kai', '楷签 真的今天位置按正文摆示意点缀某人甲站：头一乙后起初来未辰')).toBe(true);
     // 正文、卡片上的一句、图片的题记不是楷体
     expect(hasNone(plan, 'kai', '午共引卡片上句地许')).toBe(true);
     // 省略号：哪儿也没写着，工具自己添的。一行楷体的字被截掉时，浏览器在行尾添的那个省略号要有楷体的字形可用
@@ -449,15 +448,15 @@ describe('数字：哪些字归哪一组（编出来的一位人物）', () => {
     expect(has(plan, 'song', '午共引宙荒')).toBe(true); // 正文
     expect(has(plan, 'song', '戌')).toBe(true); // 原文的标题
     expect(has(plan, 'song', '天地许')).toBe(true); // 图片的题记、作者、许可
-    expect(has(plan, 'song', '某代卡片上的一句话他是谁概要虚岁三十古地（今）注谢')).toBe(true);
+    expect(has(plan, 'song', '某代卡片上的一句话他是谁概要虚岁三十古地（今）')).toBe(true);
     expect(fileOf(plan, 'song').range).toBe(false);
     expect(fileOf(plan, 'song').first).toBe(true);
   });
 
   it('点开才看得见的一组：小注、原文、凭据、示例问题、图片的 alt；已经在看得见的那一组里的不重复放', () => {
     const plan = planFonts(madeUpSite());
-    expect(has(plan, 'song-more', '申洪酉日亥白玄黄宇宿替')).toBe(true);
-    expect(hasNone(plan, 'song', '申洪酉日亥白玄黄宇宿替')).toBe(true);
+    expect(has(plan, 'song-more', '申洪酉日亥白玄黄宇宿')).toBe(true);
+    expect(hasNone(plan, 'song', '申洪酉日亥白玄黄宇宿')).toBe(true);
     // “荒”在甲站的小注里，也在乙站的正文里：算看得见的
     expect(hasNone(plan, 'song-more', '荒共')).toBe(true);
     const both = new Set([...fileOf(plan, 'song').characters, ...fileOf(plan, 'song-more').characters]);

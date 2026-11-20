@@ -3,7 +3,7 @@
 //
 // 每一行从哪里来，页面自己不另记一份，免得和随站发的东西对不上：
 //   字体      两套字体的名字、哪一版、网站、许可全文的地址：src/fonts/shipped.ts（做字体的工具写的）。
-//   地形和水  内容里的原话：每位可以点进去的人物的全程图片的 credit，他每一座沙盘的 credits；说过的不再印一遍（见 uniqueLines）。
+//   地形和水  内容里的原话：每位可以点进去的人物的全程沙盘的 credits，他每一站的沙盘的 credits；说过的不再印一遍（见 uniqueLines）。
 //   图片      每一站正文里的图片：是哪一站的、题记、作者、许可、出处的地址（那一站的 images）。
 //   程序      两个程序库的许可全文：public/licences/ 里的两个文件。
 // 四份许可全文是网站自己带着的文本文件，链接直接打开它们。“字体的网站”“图片出处”是通到别的网站的平常链接，
@@ -16,7 +16,7 @@
 // 所以这里要用的钩子直接从 react 引；读内容的函数（src/domain）、shipped.ts、sourcesText.ts 不用 react，可以引。
 
 import { useEffect, useState } from 'react';
-import { loadFigure, loadFigureCards, loadStop, loadStopTable } from '../domain';
+import { loadFigure, loadFigureCards, loadRouteTable, loadStop, loadStopTable } from '../domain';
 import type { StopImage } from '../domain';
 import { SHIPPED_FONTS } from '../fonts/shipped';
 import { LIBRARY_LICENCES, SOURCES_TEXT } from './sourcesText';
@@ -50,7 +50,8 @@ async function loadFromContent(): Promise<FromContent> {
   for (const card of await loadFigureCards()) {
     const figure = card.available ? await loadFigure(card.id) : null;
     if (!figure) continue;
-    if (figure.routeStill) lines.push(figure.routeStill.credit);
+    // 全程沙盘的出处排在最前面，只印头一个分号前面署名的半句：后半句（“裁剪和修整见上面的说明”）是说给凭据里的读者听的
+    for (const line of (await loadRouteTable(figure.id))?.scene.credits ?? []) lines.push(line.includes('；') ? `${line.split('；')[0]}。` : line);
     const stops = await Promise.all(
       figure.stops.map((stop) => Promise.all([loadStopTable(figure.id, stop.id), stop.status === 'complete' ? loadStop(figure.id, stop.id) : null, stop.shortTitle] as const)),
     );

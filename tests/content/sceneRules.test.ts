@@ -13,7 +13,6 @@ import { describe, expect, it } from 'vitest';
 import type { BakedGroundManifest } from '../../src/domain/bakedGround';
 import type { StopScene } from '../../src/domain/scene';
 import type { StillManifest } from '../../src/domain/stills';
-import type { Figure } from '../../src/domain/types';
 import { FIXTURE_HEADINGS, fixtureScene, fixtureSources } from '../support/fixtureScene';
 import { fileSize, readBytes } from '../support/readBytes';
 import { PICTURE_EDGE_MAX, TABLE_FILES_MAX_BYTES } from './budgetRules';
@@ -22,7 +21,7 @@ import { formatViolation, RULE_NAMES, validateContent as validateAll } from './r
 import type { ContentFiles } from './rules';
 import { bakedPictureSize, checkBakedGround, checkScene, checkSceneShape, checkSectionStills, MADE_FILES_REQUIRED, STILL_MAX_BYTES, TERRAIN_MAX_BYTES, textWidth, unsureProblem, WORDS_MAX } from './sceneRules';
 import type { Measured } from './sceneRules';
-import type { FileSizes, PictureSizes, Violation } from './shape';
+import type { FileSizes, Violation } from './shape';
 
 const texts = import.meta.glob<string>('./fixtures/**/*.{json,md}', { query: '?raw', import: 'default', eager: true });
 // 两份样本里另有全程沙盘的文件（scenes/route.*）：它们在 routeRules.test.ts 里查。这里不带它们，下面各条数的还是站点沙盘和别的文件。
@@ -38,12 +37,10 @@ const fixture = (name: string): ContentFiles => toContentFiles(`./fixtures/${nam
 const GOOD = fixture('good');
 const BAD = fixture('bad');
 
-const FIGURE = 'figures/demo/figure.json';
 const STOP = 'figures/demo/stops/river.json';
 const BODY = 'figures/demo/stops/river.md';
 const SCENE = 'figures/demo/scenes/river.json';
 const TERRAIN = 'figures/demo/scenes/river.terrain.bin';
-const STILL = 'figures/demo/stills/route.svg';
 const BAD_SCENE = 'figures/broken/scenes/a.json';
 const BAD_FORMAT = 'figures/broken/scenes/c.json';
 /** 这位人物的文件夹，和工具照着他的沙盘做出来的文件。 */
@@ -87,7 +84,6 @@ function edit<T>(path: string, change: (data: T) => void): ContentFiles {
   return { ...GOOD, [path]: JSON.stringify(data) };
 }
 const editScene = (change: (scene: StopScene) => void) => edit<StopScene>(SCENE, change);
-const editFigure = (change: (figure: Figure) => void) => edit<Figure>(FIGURE, change);
 
 /** 合格样本改一处以后，这个场景文件查出来的全部问题，写成“规则号 字段”。别的文件有问题也算进来，写全。 */
 function sceneProblems(change: (scene: StopScene) => void): string[] {
@@ -124,9 +120,8 @@ describe('两份样本', () => {
   it('合格的样本带着沙盘、定格图和工具做出来的两样，量了文件大小，一处问题也没有', () => {
     expect(GOOD[SCENE]).toContain('"stopId": "river"');
     // stills/ 和 baked/ 里的文件都量了大小（清单也量了，用不着）
-    expect(Object.keys(SIZES).sort()).toEqual([TERRAIN, STILL, BAKED, COLOUR, FIELDS, STILLS, ...SHOTS].sort());
+    expect(Object.keys(SIZES).sort()).toEqual([TERRAIN, BAKED, COLOUR, FIELDS, STILLS, ...SHOTS].sort());
     expect(SIZES[TERRAIN]).toBe(128);
-    expect(SIZES[STILL]).toBe(fileSize('tests/content/fixtures/good/figures/demo/stills/route.svg'));
     expect(all(GOOD)).toEqual([]);
     // 量到的宽高、是哪一种图片、文件的记号都交进去，也一处没有；“每座沙盘都要有这两样”的开关开着也一样
     expect(validateContent(GOOD, SIZES, PICTURES, KEYS, true)).toEqual([]);
@@ -135,9 +130,9 @@ describe('两份样本', () => {
     expect(validateContent(GOOD)).toEqual([]);
   });
 
-  it('出错的样本里，规则 10 到 16 都查出了问题', () => {
+  it('出错的样本里，规则 10 到 15 都查出了问题（规则 16 在 routeRules.test.ts 里查）', () => {
     const rules = new Set(validateContent(BAD).map((v) => v.rule));
-    for (const rule of [10, 11, 12, 13, 14, 15, 16]) expect(rules.has(rule), `规则 ${rule} ${RULE_NAMES[rule]}`).toBe(true);
+    for (const rule of [10, 11, 12, 13, 14, 15]) expect(rules.has(rule), `规则 ${rule} ${RULE_NAMES[rule]}`).toBe(true);
   });
 
   it('几组测试共用的小沙盘（tests/support/fixtureScene.ts）合乎格式和规则 10 到 15', () => {
@@ -1074,64 +1069,7 @@ describe('规则 15 题签', () => {
   });
 });
 
-describe('规则 16 人物页的定格图', () => {
-  it('合格的样本通过', () => {
-    expect(JSON.parse(GOOD[FIGURE]).routeStill.file).toBe('route.svg');
-    expect(all(GOOD).filter((line) => line.startsWith('16 '))).toEqual([]);
-  });
-
-  it('出错的样本：图片文件不存在，alt 和 note 没有填', () => {
-    expect(fields(BAD, 16, 'figures/broken/figure.json')).toEqual(['routeStill.file', 'routeStill.alt', 'routeStill.note']);
-  });
-
-  it('没有写 routeStill 是合格的', () => {
-    expect(all(editFigure((f) => delete f.routeStill))).toEqual([]);
-  });
-
-  it('图片文件不在 stills/ 里', () => {
-    expect(all(without(STILL))).toEqual([`16 ${FIGURE} › routeStill.file`]);
-    expect(all(editFigure((f) => (f.routeStill!.file = 'Route.svg')))).toEqual([`16 ${FIGURE} › routeStill.file`]);
-    expect(all(editFigure((f) => (f.routeStill!.file = '')))).toEqual([`16 ${FIGURE} › routeStill.file`]);
-    // 放在 images/ 里的不算。
-    expect(all(editFigure((f) => (f.routeStill!.file = '../images/boat.svg')))).toEqual([`16 ${FIGURE} › routeStill.file`]);
-  });
-
-  it('图片超过 300 KB', () => {
-    const found = validateContent(GOOD, { ...SIZES, [STILL]: STILL_MAX_BYTES + 1 });
-    expect(found.map((v) => `${v.rule} ${v.file} › ${v.field}｜${v.problem}`)).toEqual([`16 ${FIGURE} › routeStill.file｜定格图有 301 KB，不能超过 300 KB`]);
-    expect(all(GOOD, { ...SIZES, [STILL]: STILL_MAX_BYTES })).toEqual([]);
-  });
-
-  it('alt、caption、note、credit 哪个没填都不行', () => {
-    for (const key of ['alt', 'caption', 'note', 'credit'] as const) {
-      expect(all(editFigure((f) => (f.routeStill![key] = '  '))), key).toEqual([`16 ${FIGURE} › routeStill.${key}`]);
-    }
-  });
-
-  it('缺字段是格式问题', () => {
-    const files = edit<{ routeStill: { credit?: string } }>(FIGURE, (figure) => delete figure.routeStill.credit);
-    expect(all(files)).toEqual([`0 ${FIGURE} › routeStill.credit`]);
-    const noWidth = edit<{ routeStill: { width?: number } }>(FIGURE, (figure) => delete figure.routeStill.width);
-    expect(all(noWidth)).toEqual([`0 ${FIGURE} › routeStill.width`]);
-  });
-
-  it('width、height 是正整数', () => {
-    expect(all(editFigure((f) => (f.routeStill!.width = 0)))).toEqual([`16 ${FIGURE} › routeStill.width`]);
-    expect(all(editFigure((f) => (f.routeStill!.height = -90)))).toEqual([`16 ${FIGURE} › routeStill.height`]);
-    expect(all(editFigure((f) => (f.routeStill!.height = 90.5)))).toEqual([`16 ${FIGURE} › routeStill.height`]);
-  });
-
-  it('width、height 要和图片文件的宽高一样（量得出宽高的图片才对）', () => {
-    const measured = (width: number, height: number): PictureSizes => ({ [STILL]: { width, height } });
-    const problems = (pictures: PictureSizes) => validateContent(GOOD, SIZES, pictures).map((v) => `${v.rule} ${v.file} › ${v.field}｜${v.problem}`);
-    expect(problems(measured(160, 90))).toEqual([]);
-    expect(problems(measured(320, 180))).toEqual([`16 ${FIGURE} › routeStill.width｜图片文件是 320 × 180 像素，这里写的是 160 × 90`]);
-    expect(problems(measured(160, 100))).toEqual([`16 ${FIGURE} › routeStill.height｜图片文件是 160 × 100 像素，这里写的是 160 × 90`]);
-    // 样本里的图是 SVG，量不出宽高：不给就不对。
-    expect(toPictureSizes('./fixtures/good/', paths, () => new ArrayBuffer(0))).toEqual({});
-    expect(problems({})).toEqual([]);
-  });
-
+describe('图片文件的宽高（规则 17、18 对图片用）', () => {
   it('从图片文件的开头读出宽高：PNG 和 JPEG 读得出，别的读不出', () => {
     const bytes = (...values: number[]) => new Uint8Array(values).buffer;
     // PNG：8 个字节的开头，IHDR 的长度和名字，然后是宽 300、高 200。
@@ -1419,9 +1357,8 @@ describe('规则 18 每一小节的定格图', () => {
     expect(problems(none)).toEqual(['没有这个文件：“river”的沙盘还没有每一小节的定格图；运行 STILLS_OUT=content/figures npm run stills（见 README），再提交']);
   });
 
-  it('有图没有清单：这几张图对不上；人物页的那一张不算', () => {
+  it('有图没有清单：这几张图对不上', () => {
     expect(stills(without(STILLS), MEASURED, false)).toEqual([...SHOTS].sort().map((path) => `18 ${path.slice(DIR.length + 1)}`));
-    expect(GOOD[STILL]).toBeDefined();
   });
 
   it('清单不是合法的 JSON 算格式问题', () => {
@@ -1498,8 +1435,8 @@ describe('规则 18 每一小节的定格图', () => {
   it('stills/ 里以“<站>-”开头的图片都要在清单里', () => {
     expect(stills(withFile('figures/demo/stills/river-4-wide.jpg', ''))).toEqual(['18 stills/river-4-wide.jpg']);
     expect(stills(withFile('figures/demo/stills/river-1-wide.png', ''))).toEqual(['18 stills/river-1-wide.png']);
-    // 人物页的那一张、别的站的、不是图片的，不归这一站管
-    expect(stills({ ...GOOD, 'figures/demo/stills/route.jpg': '', 'figures/demo/stills/lake-1-wide.jpg': '', 'figures/demo/stills/river-notes.txt': '' })).toEqual([]);
+    // 别的站的、不是图片的，不归这一站管
+    expect(stills({ ...GOOD, 'figures/demo/stills/lake-1-wide.jpg': '', 'figures/demo/stills/river-notes.txt': '' })).toEqual([]);
   });
 
   it('清单写的一张图不在', () => {
@@ -1612,16 +1549,12 @@ describe('规则 9 没有占位：场景文件里的文字也查', () => {
   it('查不到的事直接写“没有查到”，不算占位', () => {
     expect(sceneProblems((s) => (s.things[0].basis = '城墙的位置没有查到，是自己定的。'))).toEqual([]);
   });
-
-  it('人物页定格图的字里留了占位', () => {
-    expect(all(editFigure((f) => (f.routeStill!.note = '（待核）')))).toEqual([`9 ${FIGURE} › routeStill.note`]);
-  });
 });
 
 describe('报告的写法', () => {
   it('规则的名字有二十一个：格式，加上二十条（19 是随站的字体，不归内容校验查；20 是站的位置）', () => {
     expect(RULE_NAMES).toHaveLength(21);
-    expect(RULE_NAMES.slice(10)).toEqual(['场景文件', '范围', '类别和依据', '零件', '小节', '题签', '人物页的定格图', '先画好的地面', '每一小节的定格图', '随站的字体', '站的位置']);
+    expect(RULE_NAMES.slice(10)).toEqual(['场景文件', '范围', '类别和依据', '零件', '小节', '题签', '全程沙盘', '先画好的地面', '每一小节的定格图', '随站的字体', '站的位置']);
   });
 
   it('场景的问题也写成一句话：哪条规则、哪个文件、哪个字段、哪里不对', () => {

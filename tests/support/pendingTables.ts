@@ -10,7 +10,7 @@
 // 只有常数和两个只算数的函数：校验、两个工具（一个在 vitest 里跑，一个在 Playwright 里跑）都引它。
 
 /** 这两样还没有做出来的沙盘。 */
-export const MADE_FILES_PENDING: readonly string[] = ['su-shi/route'];
+export const MADE_FILES_PENDING: readonly string[] = [];
 
 /** 这座沙盘是不是在那张表里。key 是“人物/场景文件的名字”。 */
 export function isPending(key: string, pending: readonly string[] = MADE_FILES_PENDING): boolean {

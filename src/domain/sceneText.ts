@@ -230,9 +230,11 @@ export function sectionInfo(scene: TableScene, heading: string): SectionInfo {
   lines.push(`${relief.full}；${sizes.full}`);
 
   // 常印着的一句：示意的点三样的名字；名字长得两行放不下，就少点几样。
+  // 全程沙盘上看来路的一节，到这一站去的路里没有整截示意的：点出来的只会是别处的水，这一节的画面上不一定找得到，所以只说一共几样。
   const rest = [RECIPE_SAY[recipe.kind].short, relief.short];
   let short = '';
-  for (let shown = UNSURE_SHOWN_SHORT; shown >= 0; shown -= 1) {
+  const stop = 'stop' in section ? section.stop : undefined;
+  for (let shown = stop && !ownSchematic(scene, stop).length ? 0 : UNSURE_SHOWN_SHORT; shown >= 0; shown -= 1) {
     short = [unsureShort(unsure, shown), ...rest, sizes.short].join('；');
     if (short.length <= NOTE_SHORT_MAX) break;
   }
@@ -316,9 +318,15 @@ interface Unsure {
   brief: string;
 }
 
+/** 全程沙盘上到这一站去的路里，整截是示意的那几截。不是全程沙盘、没说是哪一站，就是空的。 */
+function ownSchematic(scene: TableScene, stop: string | undefined): Grounds[] {
+  return scene.level === 'route' && stop ? scene.roads.journeys.filter((journey) => journey.stop === stop).flatMap((journey) => journey.parts.filter((part) => part.class === 'schematic')) : [];
+}
+
 /**
  * 这一小节沙盘上有的东西里，哪些是示意：类别是示意的，和按正文摆、又写了 unsure 的。
  * explain 里点到的排在前面；其余的先是水，再是摆在上面的东西，最后是地形的修整（读的人先看到的在前）。
+ * 全程沙盘上看来路的一节不看 explain：到这一站去的路里整截示意的在最前，再是水，再是别的。
  * 摆件和点缀看 when；远处只算这一节的题签指到的。全程沙盘上，这一节还没有画的路（后面各站的）不算。
  * 地形的整理不列在这里：它自己的那句话紧跟在后面，每一节都有。
  */
@@ -327,8 +335,11 @@ function unsureAt(scene: TableScene, section: Section): Unsure[] {
   const absent = new Set<Grounds>([scene.terrain.recipe, ...notShown(scene, section), ...scene.far.filter((place) => !pointed.has(place.id))]);
   const all = grounded(scene);
   const present = [...all.water, ...all.placed, ...all.terrain].filter((item) => !absent.has(item.grounds));
-  const explained = section.explain.flatMap((id) => present.filter((item) => item.id === id || item.of === id));
-  const ordered = [...explained, ...present.filter((item) => !explained.includes(item))];
+  // 全程沙盘上看来路的一节（写了 stop）：到这一站去的路里整截是示意的排在最前，后面照 present 的先后（水，摆在上面的，地形）。
+  const stop = 'stop' in section ? section.stop : undefined;
+  const own = ownSchematic(scene, stop);
+  const first = stop ? present.filter((item) => own.includes(item.grounds)) : section.explain.flatMap((id) => present.filter((item) => item.id === id || item.of === id));
+  const ordered = [...first, ...present.filter((item) => !first.includes(item))];
 
   const out: Unsure[] = [];
   for (const { name, grounds } of ordered) {
@@ -359,7 +370,8 @@ function unsureSentence(all: Unsure[]): string {
   const parts = shown.filter((item) => !item.whole).map((item) => item.text);
   const more = all.length > shown.length ? `等 ${all.length} 样` : '';
   if (parts.length === 0) return `${names.join('、')}${more}是示意。`;
-  const list = names.length > 0 ? `${names.join('、')}，还有${parts.join('；')}` : parts.join('；');
+  // “还有”后面紧跟着数字打头的名字（“1097 年……的路”）时空一格，和别处数字前后的写法一样
+  const list = names.length > 0 ? `${names.join('、')}，还有${/^\d/.test(parts[0]) ? ' ' : ''}${parts.join('；')}` : parts.join('；');
   if (more !== '') return `${list}，${more}是示意。`;
   return names.length > 0 || parts.length > 1 ? `${list}，都是示意。` : `${list}是示意。`;
 }

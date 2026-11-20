@@ -41,7 +41,7 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { expect, test } from '@playwright/test';
 import type { CDPSession, Page, Route } from '@playwright/test';
-import { expectRealTable, expectStageAt, expectStill, fakeUrl, firstStopWithScene, firstWrittenStop, foldBodiesReady, fontsReady, headingsOf, openFigureWithTable, realUrl, scrollToBottom, scrollToSection, stagePane, stripsOf } from './helpers';
+import { expectRealTable, expectStageAt, expectRoute, fakeUrl, firstStopWithScene, firstWrittenStop, foldBodiesReady, fontsReady, headingsOf, openFigureWithTable, realUrl, routeOnDisk, scrollToBottom, scrollToSection, stagePane, stripsOf } from './helpers';
 import { readBytes } from '../support/readBytes';
 import { SHIPPED_FONTS } from '../../src/fonts/shipped';
 import { SOURCES_TEXT } from '../../src/ui/sourcesText';
@@ -271,7 +271,7 @@ test('走一遍网站：每一个字都是随站的字体画的，楷体的只�
   // ---- 人物页
   await page.goto(fakeUrl(`#/${figureId}`));
   await expect(page.locator('.stop-item').first()).toBeVisible();
-  await expectStill(page);
+  await expectRoute(page);
   await look('人物页', 30);
   const stops = await page.locator('.stop-item').evaluateAll((items) => items.map((item) => ({ id: item.getAttribute('data-stop-id') ?? '', written: item.getAttribute('data-stop-status') === 'complete' })));
   expect(stops.length).toBeGreaterThan(0);
@@ -288,19 +288,22 @@ test('走一遍网站：每一个字都是随站的字体画的，楷体的只�
   expect(await page.locator('.sources a[target="_blank"]').count(), '“来源”页上通到别的网站的链接').toBeGreaterThanOrEqual(2);
 
   // ---- 每一站
+  const hasRoute = routeOnDisk(figureId) !== null;
   for (const stop of stops) {
     await page.goto('about:blank');
     await page.goto(fakeUrl(`#/${figureId}/${stop.id}`));
     await expect(page.locator('.page-title')).toBeVisible();
     if (!stop.written) {
       await expect(page.locator('.not-written')).toBeVisible();
+      // 沙盘栏里是到这一站去的那一节：它的题记只在这一页上印，等它摆好了再看字
+      expect(await expectRoute(page), `${stop.id}：这位人物有全程沙盘，这一页上就该摆着它`).toBe(hasRoute);
       await look(`还没写的一站 ${stop.id}`, 8);
       continue;
     }
     await expect(page.locator('.text-section').first()).toBeVisible();
     const hasTable = found !== null && found.stopId === stop.id;
     if (hasTable) await expectStageAt(page, headingsOf(found.scene)[0]);
-    else await expectStill(page);
+    else expect(await expectRoute(page), `${stop.id}：这位人物有全程沙盘，这一页上就该摆着它`).toBe(hasRoute);
     await look(`${stop.id}，刚打开`, 40);
 
     // 每一条小注、每一篇原文、凭据都点开（在页面里直接点：不让测试工具把钉着的沙盘栏滚来滚去）
@@ -583,6 +586,12 @@ test('第三个字体文件：首页、人物页、还没写的站上不取；�
   const card = page.locator('a.card[data-available="true"]').first();
   await expect(card).toBeVisible();
   const figureId = (await card.getAttribute('data-figure-id'))!;
+  // 首页的绢上摆着全程沙盘（这里是它的图片，上面的题签、下面的题记和立体的那一档是同样的字）：等它摆出来、题签挂上了再数那五秒，
+  // 不然“没有取”说的只是一页还空着的首页。全程沙盘不用点开就看得见的字都在头两个文件里（做字体的工具把它们归在大家共用的那一拨）
+  await expect(stagePane(page)).toHaveAttribute('data-stage-picture', 'still', { timeout: 60_000 });
+  await expect(stagePane(page)).toHaveAttribute('data-stage-level', 'route');
+  await expect.poll(() => page.locator('.stage-pane .strip').evaluateAll((strips) => strips.filter((strip) => getComputedStyle(strip).visibility === 'visible').length), { message: '首页的全程沙盘上题签该挂出来' }).toBeGreaterThan(5);
+  await expect(page.locator('.stage-pane .stage-line')).not.toBeEmpty();
   await fontsReady(page);
   await page.waitForTimeout(5_000);
   expect(fonts.of('yanlu-song-more'), `首页上等了五秒，第三个字体文件不该取（取字体的记录：${fonts.all().join(' ')}）`).toEqual([]);
@@ -681,7 +690,7 @@ test('“来源”页：在首页上等着，第三个字体文件和那一页�
   // 首页（不用沙盘的替身，和上一项一样）：等五秒，都不取
   await page.goto(realUrl('#/', null, '&tier=still'));
   await expect(page.locator('a.card[data-available="true"]').first()).toBeVisible();
-  await expect(page.locator('.stage-still-box')).toHaveAttribute('data-still', 'shown');
+  await expect(stagePane(page)).toHaveAttribute('data-stage-picture', 'still', { timeout: 60_000 });
   await fontsReady(page);
   await page.waitForTimeout(5_000);
   expect(fonts.of('yanlu-song-more'), `首页上等了五秒，第三个字体文件不该取（${fonts.all().join(' ')}）。取的那一刻页面上：${fonts.of('yanlu-song-more').length > 0 ? await whenAsked() : ''}`).toEqual([]);

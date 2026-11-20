@@ -2,14 +2,15 @@
 // 读者点开了才去取：一点就开，里面先是一句“加载中…”，取到了换成内容；没取到说一句话，关上再点开就重取。默认折起。
 
 import { useOnDemand } from '../app/useLoaded';
-import type { StopContent, StopScene } from '../domain';
+import type { StopContent, TableScene } from '../domain';
 import { FoldSummary } from './StopText';
 import { Waiting } from './Waiting';
 
 interface Props {
-  content: StopContent;
-  /** 这一站的沙盘的场景；没有沙盘时为 null。 */
-  scene: StopScene | null;
+  /** 这一站的正文里各句的依据和出处。人物页上那一行只有“沙盘上的东西”：依据是空的，出处是全程沙盘自己的。 */
+  content: Pick<StopContent, 'provenance' | 'sources'>;
+  /** 这一站的沙盘的场景（人物页上是全程沙盘的）；没有沙盘时为 null。 */
+  scene: TableScene | null;
 }
 
 const loadBody = () => import('./ProvenanceBody');

@@ -28,7 +28,7 @@ import type { Page } from '@playwright/test';
 import type { Figure } from '../../src/domain/types';
 import { STANDARD_PANES } from '../stage/support/standardPanes';
 import { readBytes } from '../support/readBytes';
-import { expectStageAt, expectStill, fakeUrl, firstWrittenStopWithoutScene, foldBodiesReady, fontsReady, headingsOf, openFigureWithTable, scrollToBottom } from './helpers';
+import { expectStageAt, expectRoute, fakeUrl, firstWrittenStopWithoutScene, foldBodiesReady, fontsReady, headingsOf, openFigureWithTable, scrollToBottom } from './helpers';
 
 /** 这种窗口上是不是横排的版面（文字在左、沙盘在右）：窗口 960 像素宽以上、而且横着（宽比高大），和 layout.css 的媒体查询是同一句。 */
 const sideBySide = (size: { width: number; height: number }): boolean => size.width >= 960 && size.width > size.height;
@@ -315,7 +315,7 @@ test('四种标准的窗口上：正文那一栏里能点的东西都不小于 4
     // 首页：可以点进去的卡片，卡片后面的“来源”。还没写的卡片不是能点的东西，这里数不到它们
     await openAt(page, size, '#/');
     await expect(page.locator('.card').first()).toBeVisible();
-    await expectStill(page);
+    await expectRoute(page);
     const openCards = await page.locator('a.card').count();
     expect(openCards).toBeGreaterThan(0);
     expect(await page.locator('.reading').locator('a[href], button, summary, [role="button"], [tabindex]').count(), `${nameOf(size)}，首页：那页纸上能点的东西只有可以点进去的卡片和“来源”`).toBe(openCards + 1);
@@ -331,7 +331,7 @@ test('四种标准的窗口上：正文那一栏里能点的东西都不小于 4
     // 人物页：位置那一行、目录里的每一站、目录后面的“来源”
     await openAt(page, size, `#/${figureId}`);
     await expect(page.locator('.stop-item').first()).toBeVisible();
-    await expectStill(page);
+    await expectRoute(page);
     await check('人物页', { a: 1, 'a.stop-item': stops.length, 'a.stop-nav-sources': 1 });
 
     // 有沙盘的一站：小注、原文、凭据都点开
@@ -359,7 +359,7 @@ test('四种标准的窗口上：正文那一栏里能点的东西都不小于 4
     if (noTable) {
       await openAt(page, size, `#/${figureId}/${noTable}`);
       await expect(page.locator('.text-section').first()).toBeVisible();
-      await expectStill(page);
+      await expectRoute(page);
       const openedHere = await openAll();
       await foldBodiesReady(page);
       const credits = await page.locator('.stop-image-credit a').count();

@@ -15,9 +15,8 @@
 // ?sectionstills=fake-fail 是哪一张都取不到。
 
 import { sectionHeadings, stripTexts } from '../../domain';
-import { mountStrips } from '../../stage/overlay';
-import type { StripSpec } from '../../stage/overlay';
-import type { NamesMode, StageEngine, StageInsets, StageOptions, StageViewInfo, StopStageView, StopTable } from '../../stage/types';
+import { mountStrips, sectionStripSpecs } from '../../stage/overlay';
+import type { NamesMode, StageEngine, StageInsets, StageOptions, StageViewInfo, StageTable, StopStageView } from '../../stage/types';
 import '../../styles/fake-stage.css';
 
 /** 定格图的替身报的指北和比例尺。 */
@@ -40,10 +39,9 @@ export function createFakeStillEngine(config: { fail?: boolean } = {}): StageEng
   };
 }
 
-function createFakeStill(container: HTMLElement, table: StopTable, options: StageOptions, allFail: boolean): StopStageView {
+function createFakeStill(container: HTMLElement, table: StageTable, options: StageOptions, allFail: boolean): StopStageView {
   const { scene } = table;
   const headings = sectionHeadings(scene);
-  const sides = new Map(scene.strips.map((strip) => [strip.id, strip.side]));
   const gap = numberParam('stillgap');
   const failing = headings[Math.round(numberParam('stillfail')) - 1];
   const viewListeners = new Set<(info: StageViewInfo) => void>();
@@ -103,7 +101,7 @@ function createFakeStill(container: HTMLElement, table: StopTable, options: Stag
     title.textContent = `定格图的替身（自动测试用，不是真的图片）：${current}`;
     const texts = stripTexts(scene, current, namesMode);
     stripIds = texts.map((text) => text.id);
-    strips.set(texts.map((text): StripSpec => ({ id: text.id, text: text.text, tone: text.tone, side: sides.get(text.id) })));
+    strips.set(sectionStripSpecs(scene, current, texts, options.marks));
     placeStrips();
   }
 

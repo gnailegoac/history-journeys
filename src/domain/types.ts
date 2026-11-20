@@ -59,25 +59,6 @@ export interface Figure {
   stops: StopMeta[];
   /** 相邻两站之间的路。legs[i] 连接 stops[i] 和 stops[i+1]。 */
   legs: Leg[];
-  /**
-   * 人物页上暂时放的一张全程沙盘的定格图和图旁边的字。可以不写；全程沙盘接进人物页以后（第 4 步）去掉。
-   * 说明见 docs/data-spec.md“人物页的定格图（暂时的）”。
-   */
-  routeStill?: {
-    /** 图片文件名，放在 content/figures/<人物>/stills/ 下。 */
-    file: string;
-    /** 图片有多宽、多高（像素）。页面靠这两个数在图片下载完之前先把地方留出来，图出来时下面的字不会被挤着跳一下。 */
-    width: number;
-    height: number;
-    /** 给看不见图的人的一句话。 */
-    alt: string;
-    /** 图下面的一句题记。 */
-    caption: string;
-    /** 如实的说明：地形是今天的，山高夸大多少，哪些河道和海岸是示意、没有核对。 */
-    note: string;
-    /** 用了谁的数据。 */
-    credit: string;
-  };
 }
 
 /** 一站的抬头和地图信息。正文另放在 stops/<id>.md 和 stops/<id>.json；沙盘另放在 scenes/<id>.json。 */

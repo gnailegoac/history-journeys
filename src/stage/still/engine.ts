@@ -10,13 +10,13 @@
 //   样子在 src/styles/still.css。div.still-table 上写着现在摆的是什么，给自动测试看：
 //   data-still-section 哪一小节，data-still-shape 宽的还是窄的（wide、narrow），data-still-insets 照四边各留多少摆的。
 
-import type { NamesMode, StopScene } from '../../domain/scene';
+import type { NamesMode, TableScene } from '../../domain/scene';
 import { stripTexts } from '../../domain/sceneText';
 import type { StillManifest, StillShape, StillShot } from '../../domain/stills';
 import { mountStrips, sectionStripSpecs } from '../overlay';
 import type { StripLayer, StripSpec } from '../overlay/types';
 import { chooseScale } from '../scale';
-import type { StageEngine, StageInsets, StageOptions, StageReadout, StageViewInfo, StopStageView, StopTable } from '../types';
+import type { StageEngine, StageInsets, StageOptions, StageReadout, StageTable, StageViewInfo, StopStageView } from '../types';
 import { anchorsOnPane, edgeFades, fitStill, pickShape, type StillFit, type StillPane } from './fit';
 import '../../styles/still.css';
 
@@ -115,7 +115,7 @@ class StillStopView implements StopStageView {
   readonly ready: Promise<void>;
 
   private readonly container: HTMLElement;
-  private readonly scene: StopScene;
+  private readonly scene: TableScene;
   private readonly manifest: StillManifest;
   private readonly urls: Record<string, string>;
   private readonly parts: StillParts;
@@ -164,13 +164,13 @@ class StillStopView implements StopStageView {
   private readonly viewListeners = new Set<(info: StageViewInfo) => void>();
   private readonly lostListeners = new Set<() => void>();
 
-  constructor(container: HTMLElement, table: StopTable, stills: NonNullable<StopTable['stills']>, options: StageOptions, parts: StillParts) {
+  constructor(container: HTMLElement, table: StageTable, stills: NonNullable<StageTable['stills']>, options: StageOptions, parts: StillParts) {
     this.container = container;
     this.scene = table.scene;
     this.manifest = stills.manifest;
     this.urls = stills.urls;
     this.parts = parts;
-    this.headings = this.scene.sections.map((s) => s.heading);
+    this.headings = table.scene.sections.map((s) => s.heading);
     this.reducedMotion = options.reducedMotion;
     this.namesMode = options.namesMode;
     this.insets = options.insets ?? NO_INSETS;
@@ -411,8 +411,12 @@ class StillStopView implements StopStageView {
     this.imgs[this.top === 0 ? 1 : 0].className = 'still-picture is-idle';
   }
 
-  /** 换好一张以后，把后一节的那一张先取来：读者往下读时不用等。 */
+  /**
+   * 换好一张以后，把后一节的那一张先取来：读者往下读时不用等。
+   * 全程沙盘不先取：它的小节不是照着正文往下读的（人物页一直是头一节，一站的页面只看到这一站去的那一节），先取的那一张多半用不上。
+   */
   private preloadAfter(heading: string, shape: StillShape): void {
+    if (this.scene.level === 'route') return;
     const next = this.headings[this.headings.indexOf(heading) + 1];
     if (next === undefined) return;
     const shot = this.shotOf(next, shape);
@@ -449,7 +453,8 @@ class StillStopView implements StopStageView {
   }
 
   private closestOf(heading: string): number | undefined {
-    return this.scene.sections.find((s) => s.heading === heading)?.camera.closest;
+    const sections: { heading: string; camera: { closest?: number } }[] = this.scene.sections;
+    return sections.find((s) => s.heading === heading)?.camera.closest;
   }
 
   /** 这一节用宽的那一张还是窄的那一张。页面说了就照页面的；没说（开发用的单独一页）就挑摆好以后盖得多的。 */

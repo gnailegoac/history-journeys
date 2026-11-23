@@ -47,9 +47,9 @@ describe('按家分块的零件：登记表', () => {
     }
   });
 
-  it('现在是两家：石和土（崖壁、崖脚的石头），草木（竹、柏）', () => {
+  it('现在是两家：石和土（崖壁、矮土墙、单立的小门、崖脚的石头），草木（竹、柏）', () => {
     expect(FAMILIES.map((family) => [family.name, [...family.holds]])).toEqual([
-      ['rock', ['cliff', 'rocks:shore']],
+      ['rock', ['cliff', 'earth-wall', 'small-gate', 'rocks:shore']],
       ['plants', ['trees:bamboo', 'trees:cypress']],
     ]);
   });

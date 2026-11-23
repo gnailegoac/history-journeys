@@ -39,6 +39,8 @@ const STYLE: GroundStyle = {
     road: '#ecdfbd',
     path: '#c9b184',
     cityGround: '#d3c5a4',
+    court: '#f6f2e6',
+    sprout: '#a9bf7e',
   },
   bands: { foot: [2.4, 8], green: [7, 22], blue: [40, 84], deepBlue: [88, 125] },
 };

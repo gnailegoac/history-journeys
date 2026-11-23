@@ -1,4 +1,5 @@
-// 石和土这一家：崖壁（摆件 cliff），只在水落时露出来的石头（点缀 rocks 的 type: shore）。
+// 石和土这一家：崖壁（摆件 cliff），不闭合的矮土墙（earth-wall），单立的小门（small-gate），
+// 只在水落时露出来的石头（点缀 rocks 的 type: shore）。
 // 按家分块：场景里写到了这两样里的一样，造模型以前才下载这个文件（登记在 src/stage/families.ts，规矩见 ../kit/families.ts）。
 // 只算形状，不碰页面。
 //
@@ -12,11 +13,13 @@ import type { Vec2, Vec3 } from '../../ground/types';
 import type { KitContext } from '../internal';
 import type { Rock } from '../kit/dressing';
 import type { KitFamily } from '../kit/families';
-import { FB } from '../kit/geo';
-import { dressingParams } from '../kit/params';
-import { local } from '../kit/pass';
+import { FB, T, box, prism, segBox } from '../kit/geo';
+import type { Batch } from '../kit/geo';
+import { dressingParams, thingParams } from '../kit/params';
+import { addRoof } from '../kit/parts';
+import { facingRy, groundY, local } from '../kit/pass';
 import type { Pass } from '../kit/pass';
-import { densify, fbm, hex, mix3, mulberry32, smoothstep } from '../kit/util';
+import { densify, fbm, hex, lerp, mix3, mulberry32, smoothstep } from '../kit/util';
 import { meshHeightAt } from '../meshHeight';
 // 这一句只为打包：这一家的程序只在沙盘程序已经下载了以后才取。写了这一句，打包的工具就知道沙盘程序那一块一定在，
 // 两边共用的东西（three 的核心、零件库的批次和小工具）留在那一块里直接用；不写的话，它们会被另拆成一块，
@@ -54,6 +57,11 @@ const FACE_ROWS: { at: number; inM: number; bulge: number }[] = [
 ];
 /** 崖面鼓出凹进最多多少米。 */
 const BULGE_M = 5;
+/**
+ * 崖面的法线往上抬多少（加上这么多倍的“朝上”再归一）：崖面是风化了的土石坡，不是刀切的墙，照着它的天光算多一些。
+ * 崖面背着光（白天、夜里都是），亮不亮全看天光；不抬的话，夜里它是画面上最黑的一块，认不出是石头。
+ */
+export const FACE_LEAN = 1.2;
 
 /** 崖壁的一列：沿线走了多远，崖脚在哪，山在哪一边，崖脚、崖顶的边、崖顶后沿各在哪。 */
 export interface CliffColumn {
@@ -191,26 +199,38 @@ function buildCliff(pass: Pass, thing: SceneThing): void {
     return nrm.getX(0) * want[0] + nrm.getY(0) * want[1] + nrm.getZ(0) * want[2] >= 0;
   };
 
-  /** 崖顶在这一列的颜色：崖顶的边、后沿各一个。 */
-  const crownColours = cols.map((c) => hillColour(ctx, c.crownM, c.crown[0], c.crown[2]));
+  /** 这一列的崖有几成高（两头矮下去的地方不到 1）。 */
+  const tall = (c: CliffColumn): number => smoothstep(0, CLIFF.taperM, Math.min(c.u, cols[last].u - c.u));
+  /**
+   * 崖顶在这一列的颜色：崖顶的边、后沿各一个。两头矮下去的地方，崖顶的边顺着岸斜下来，照山的颜色上是浅色的几块平面，
+   * 和岸对不上；那里掺进石头的颜色，看着是崖慢慢收进岸里。
+   */
+  const crownColours = cols.map((c) => mix3(rock, hillColour(ctx, c.crownM, c.crown[0], c.crown[2]), 0.25 + 0.75 * tall(c)));
   const backColours = cols.map((c) => hillColour(ctx, c.backM, c.back[0], c.back[2]));
 
-  // 崖面：崖脚一带是湿的深色，往上是红褐色的石头，中间一道窄台，最上面一带风化了，颜色接到崖顶
+  // 崖面：崖脚一带是湿的深色，往上是红褐色的石头，中间一道窄台（台口亮一些），最上面一带风化了，颜色接到崖顶。
+  // 几带之间差得多一些，一列一列还有深浅（竖着的石缝）：夜里崖面只有天光，没有明暗，靠这些才看得出是一面石壁
   const facePoint = (r: number, ci: number): { p: Vec3; colour: Vec3 } => {
     const c = cols[ci];
     const row = FACE_ROWS[r];
-    const taper = smoothstep(0, CLIFF.taperM, Math.min(c.u, cols[last].u - c.u));
-    const bulge = (fbm(c.u / 60 + r * 3.1, r * 1.7, 2, 31) - 0.5) * 2 * BULGE_M * row.bulge * taper;
+    const bulge = (fbm(c.u / 60 + r * 3.1, r * 1.7, 2, 31) - 0.5) * 2 * BULGE_M * row.bulge * tall(c);
     const inM = row.inM - bulge;
     const y = c.foot[1] + (c.crown[1] - c.foot[1]) * row.at;
-    const grain = 0.92 + 0.16 * fbm(c.u / 35, r * 2.3, 2, 5);
-    const base: Vec3 = r === 0 ? [deep[0] * 0.82, deep[1] * 0.82, deep[2] * 0.82] : r === 1 ? deep : r === 4 ? mix3(rock, crownColours[ci], 0.6) : rock;
-    const k = r === 3 ? grain * 1.08 : r === 4 ? 1 : grain;
+    const joint = 0.8 + 0.4 * fbm(c.u / 26, 3.3, 2, 5);
+    const base: Vec3 = r === 0 ? [deep[0] * 0.78, deep[1] * 0.78, deep[2] * 0.78] : r === 1 ? deep : r === 4 ? mix3(rock, crownColours[ci], 0.45) : rock;
+    const k = r === 2 ? joint * 0.9 : r === 3 ? joint * 1.15 : r === 4 ? 1 : joint;
     return { p: [c.x + c.nx * inM, y, c.z + c.nz * inM], colour: [base[0] * k, base[1] * k, base[2] * k] };
   };
   let face = sheet(FACE_ROWS.length - 1, last, facePoint, false);
   const mid = cols[last >> 1];
   if (!outward(face, [-mid.nx, 0.2, -mid.nz])) face = sheet(FACE_ROWS.length - 1, last, facePoint, true);
+  // 法线往上抬（见 FACE_LEAN）
+  const nrm = face.attributes.normal;
+  for (let i = 0; i < nrm.count; i++) {
+    const n: Vec3 = [nrm.getX(i), nrm.getY(i) + FACE_LEAN, nrm.getZ(i)];
+    const l = Math.hypot(...n) || 1;
+    nrm.setXYZ(i, n[0] / l, n[1] / l, n[2] / l);
+  }
   B.add('cliff', face);
 
   // 崖顶：从崖顶的边到后沿，一列一格
@@ -250,8 +270,11 @@ function buildCliff(pass: Pass, thing: SceneThing): void {
 
 // ---------------------------------------------------------------- 只在水落时露出来的石头
 
-/** 石头的四种颜色（《东坡志林》：“深浅红黄之色”）：样式里的颜色名。 */
-const SHORE_COLOURS = ['shoreRed', 'shoreYellow', 'shoreBrown', 'shorePale'];
+/**
+ * 石头的三种颜色：样式里的颜色名。只用石头的颜色（红褐、灰褐、深褐）。《东坡志林》写的是“深浅红黄之色”，
+ * 照着上过黄的和浅的：石头在画面上只有十来个像素，那两种看着像花瓣，所以去掉了。
+ */
+const SHORE_COLOURS = ['shoreRed', 'shoreBrown', 'shoreDark'];
 /** 这种石头落在哪一带：地面比最低的水位高出这么多米以上，比平时的水位低这么多米以上。 */
 export const SHORE_ABOVE_LOWEST_M = 0.2;
 export const SHORE_UNDER_NORMAL_M = 1.5;
@@ -271,7 +294,7 @@ function layShore(pass: Pass, rule: SceneDressing): Rock[] {
   const rnd = mulberry32(p.seed ?? 1092);
   const [bx, bz] = local(pass, rule.at);
   const radius = p.radiusM ?? 240;
-  const want = Math.round(p.count ?? 40);
+  const want = Math.round(p.count ?? 20);
   const pale = vertexColour(hex(style.palette.rockPale));
   const rocks: Rock[] = [];
   for (let tries = 0; tries < want * 40 && rocks.length < want; tries++) {
@@ -288,7 +311,8 @@ function layShore(pass: Pass, rule: SceneDressing): Rock[] {
       shape: [rocks.length + 200, 0],
       foot: [x, coords.y(Math.min(h, mesh(x, z))) - 1, z],
       ry: rnd() * 6.28,
-      size: [4 + rnd() * 8.5, 3.3 + rnd() * 3.2, 3 + rnd() * 6],
+      // 半宽、高、半深：宽 16 到 41 米、深 13 到 30 米的扁石头（原来小一半，在画面上只是几个点）
+      size: [8 + rnd() * 12.5, 4.5 + rnd() * 3.5, 6.5 + rnd() * 8.5],
       tint: [want3[0] / pale[0], want3[1] / pale[1], want3[2] / pale[2]],
       detail: false,
     });
@@ -296,8 +320,117 @@ function layShore(pass: Pass, rule: SceneDressing): Rock[] {
   return rocks;
 }
 
+// ---------------------------------------------------------------- 不闭合的矮土墙，单立的小门
+
+/** 矮土墙的尺寸：脚宽、顶宽（米），高（沙盘里的高度：真的一米八），大约多长一段，脚埋多深。 */
+export const EARTH_WALL = { footM: 14, topM: 6, highY: 11, pieceM: 24, underY: 4 };
+
+/** 沿线切出来的一段：两头在哪，是不是篱笆，几成高（0 是塌没了的一段）。 */
+export interface WallPiece {
+  a: Vec2;
+  b: Vec2;
+  fence: boolean;
+  high: number;
+}
+
+/**
+ * 一道矮土墙沿线切成的各段（线是沙盘里的 x、z）。ruined：每段三成半到全高，四段里缺一段上下（至少留一段）；
+ * fence：中间三分之一是篱笆。造土墙和查土墙（tests/stage/huangzhou-figures.test.ts）用的是同一份。
+ */
+export function earthWallPieces(line: Vec2[], ruined: boolean, fence: boolean): WallPiece[] {
+  const lens = line.slice(1).map((q, i) => Math.hypot(q[0] - line[i][0], q[1] - line[i][1]));
+  const total = lens.reduce((sum, l) => sum + l, 0);
+  const n = Math.max(1, Math.round(total / EARTH_WALL.pieceM));
+  /** 沿线走到 d 米的那一点。 */
+  const at = (d: number): Vec2 => {
+    let i = 0;
+    while (i < lens.length - 1 && d > lens[i]) d -= lens[i++];
+    const t = lens[i] > 0 ? Math.min(1, d / lens[i]) : 0;
+    return [lerp(line[i][0], line[i + 1][0], t), lerp(line[i][1], line[i + 1][1], t)];
+  };
+  const rnd = mulberry32(Math.round(Math.abs(line[0][0]) * 7 + Math.abs(line[0][1]) * 13) + 5);
+  const out: WallPiece[] = [];
+  for (let i = 0; i < n; i++) {
+    const mid = (i + 0.5) / n;
+    const gone = rnd() < 0.25;
+    const part = 0.35 + 0.65 * rnd();
+    const isFence = fence && mid > 1 / 3 && mid < 2 / 3;
+    out.push({ a: at((i * total) / n), b: at(((i + 1) * total) / n), fence: isFence, high: isFence || !ruined ? 1 : gone ? 0 : part });
+  }
+  if (out.every((piece) => piece.high === 0)) out[0].high = 0.6;
+  return out;
+}
+
+/** 一段篱笆：隔十来米一根木桩，桩和桩之间一片编起来的矮篱（和单座的屋四周的那种一样的尺寸）。小东西，算细处：远了收掉。 */
+function fenceRun(pass: Pass, B: Batch, a: Vec2, b: Vec2): void {
+  const n = Math.max(1, Math.round(Math.hypot(b[0] - a[0], b[1] - a[1]) / 11));
+  let prev: Vec3 | null = null;
+  for (let i = 0; i <= n; i++) {
+    const x = lerp(a[0], b[0], i / n);
+    const z = lerp(a[1], b[1], i / n);
+    const q: Vec3 = [x, groundY(pass, x, z) - 1, z];
+    B.addDetail('plainTimber', box(1.7, 7.4, 1.7), T(q[0], q[1], q[2]));
+    if (prev) {
+      const from = prev;
+      B.detail([(from[0] + q[0]) / 2, (from[1] + q[1]) / 2, (from[2] + q[2]) / 2], () => B.add('thatch', segBox([from[0], from[1] + 3.4, from[2]], [q[0], q[1] + 3.4, q[2]], 1, 5), null, [0.8, 0.7, 0.58]));
+    }
+    prev = q;
+  }
+}
+
+/**
+ * 不闭合的矮土墙：顺着线一段一段的夯土，每段落在自己脚下的地面上。它不是城墙：不围出一座城，不跟着镜头远近放大。
+ */
+function buildEarthWall(pass: Pass, thing: SceneThing): void {
+  const p = thingParams('earth-wall', thing.params);
+  const line = (thing.line ?? []).map((q) => local(pass, q));
+  if (line.length < 2) return;
+  const B = pass.bucket(thing.when).main;
+  const W = EARTH_WALL;
+  for (const { a, b, fence, high } of earthWallPieces(line, p.ruined ?? false, p.fence ?? false)) {
+    const len = Math.hypot(b[0] - a[0], b[1] - a[1]);
+    if (len < 0.5) continue;
+    if (fence) {
+      fenceRun(pass, B, a, b);
+      continue;
+    }
+    if (high <= 0) continue;
+    const mx = (a[0] + b[0]) / 2;
+    const mz = (a[1] + b[1]) / 2;
+    const mid = groundY(pass, mx, mz);
+    // 脚埋到两头和中间最低的地面以下，顶比中间的地面高出这一段的高度
+    const base = Math.min(groundY(pass, a[0], a[1]), mid, groundY(pass, b[0], b[1])) - W.underY;
+    const top = mid + W.highY * high;
+    const sec: Vec2[] = [
+      [W.footM / 2, base],
+      [W.topM / 2, top],
+      [-W.topM / 2, top],
+      [-W.footM / 2, base],
+    ];
+    const shade = (y: number): number => lerp(0.84, 1, smoothstep(base, top, y));
+    // 塌了的各段之间留一道口子，整的墙各段接上
+    B.add('rammed', prism(sec, len + (p.ruined ? -3 : 1), { shade, topShade: 1.08, uvScale: 30 }), T(mx, 0, mz, Math.atan2(-(b[1] - a[1]), b[0] - a[0])));
+  }
+}
+
+/** 单立的小门的尺寸：门墩宽、高、深，两个门墩之间的口子多宽。 */
+export const SMALL_GATE = { pierW: 9, pierH: 16, pierD: 9, gapM: 14 };
+
+/** 单立的一座小门：两个夯土的门墩，上面一根木过梁、一个小瓦顶。facing 是门朝哪边，路从两个门墩之间过。不靠城墙，不放大。 */
+function buildSmallGate(pass: Pass, thing: SceneThing): void {
+  if (!thing.at) return;
+  const B = pass.bucket(thing.when).main;
+  const [x, z] = local(pass, thing.at);
+  const G = SMALL_GATE;
+  const M = T(x, groundY(pass, x, z) - 2, z, facingRy(thing.facing));
+  const across = G.gapM + 2 * G.pierW;
+  for (const side of [-1, 1]) B.add('rammed', box(G.pierW, G.pierH + 2, G.pierD), M.clone().multiply(T((side * (G.gapM + G.pierW)) / 2, 0, 0)));
+  B.add('plainTimber', box(across + 4, 2.2, 5), M.clone().multiply(T(0, G.pierH + 2, 0)));
+  addRoof(B, M.clone().multiply(T(0, G.pierH + 4.2, 0)), { W: across + 10, D: 15, H: 5, ts: 0, nu: 2, nt: 2, fascia: 0 }, { gableMat: 'rammed' });
+}
+
 export const family: KitFamily = {
-  things: { cliff: buildCliff },
+  things: { cliff: buildCliff, 'earth-wall': buildEarthWall, 'small-gate': buildSmallGate },
   rocks: { shore: layShore },
   materials: ['cliff'],
 };

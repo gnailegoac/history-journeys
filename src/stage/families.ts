@@ -6,8 +6,8 @@
 import type { FamilyEntry } from './three/kit/families';
 
 export const FAMILIES: readonly FamilyEntry[] = [
-  /** 石和土：崖壁，只在水落时露出来的石头。（矮土墙和单立的小门以后也在这一家。） */
-  { name: 'rock', holds: ['cliff', 'rocks:shore'], load: () => import('./three/families/rock') },
+  /** 石和土：崖壁，不闭合的矮土墙，单立的小门，只在水落时露出来的石头。 */
+  { name: 'rock', holds: ['cliff', 'earth-wall', 'small-gate', 'rocks:shore'], load: () => import('./three/families/rock') },
   /** 草木：竹，柏。 */
   { name: 'plants', holds: ['trees:bamboo', 'trees:cypress'], load: () => import('./three/families/plants') },
 ];

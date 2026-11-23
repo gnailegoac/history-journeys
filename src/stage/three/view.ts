@@ -834,7 +834,8 @@ class ThreeStopView implements StopStageView {
       distanceM,
       fit: placed.fit,
       reach: placed.reach,
-      state: { position: pose.position, target: pose.target, fov: pose.fov, levelM, flood, mist: style.mistFor(distanceM) },
+      // 云气：样式照镜头的远近定浓淡；这一节自己写了几成的（记载里那一天没有雾：0）再乘上
+      state: { position: pose.position, target: pose.target, fov: pose.fov, levelM, flood, mist: style.mistFor(distanceM) * (('mist' in section ? section.mist : undefined) ?? 1) },
       // 一种样式白天只有一盏灯，夜里一套、方向跟着这一节写的月亮：只看天色，不看镜头朝哪边、离多远
       light: style.light(('sky' in section ? section.sky : undefined) ?? 'day', 'moon' in section ? section.moon : undefined),
       shadow: shadowBox([pose.target[0], pose.target[2]], distanceM, coords),

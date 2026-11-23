@@ -132,6 +132,8 @@ export function liftClass(thing: SceneThing, scene: StopScene): FigureClass | nu
     case 'bank':
     case 'timber-bank':
     case 'cliff':
+    case 'earth-wall':
+    case 'small-gate':
       return null;
   }
 }

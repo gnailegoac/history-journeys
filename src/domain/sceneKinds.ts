@@ -6,14 +6,14 @@
 // ---------------------------------------------------------------- 摆件
 
 /** 零件库里有的东西。添一种零件要改程序，先添在这里和下面三张表里。 */
-export const THING_KINDS = ['wall', 'gate', 'tower', 'pavilion', 'hall-group', 'house', 'dike', 'bank', 'timber-bank', 'cliff'] as const;
+export const THING_KINDS = ['wall', 'gate', 'tower', 'pavilion', 'hall-group', 'house', 'dike', 'bank', 'timber-bank', 'cliff', 'earth-wall', 'small-gate'] as const;
 export type ThingKind = (typeof THING_KINDS)[number];
 
 /**
  * 只有一部分沙盘用得着的零件：造它的程序不在沙盘程序里，按“家”分块，用到时才下载（登记在 src/stage/families.ts）。
  * 树、石头的 type 里也有这样的（bamboo、cypress、shore），登记在同一处。
  */
-export const FAMILY_THING_KINDS = ['cliff'] as const satisfies readonly ThingKind[];
+export const FAMILY_THING_KINDS = ['cliff', 'earth-wall', 'small-gate'] as const satisfies readonly ThingKind[];
 export type FamilyThingKind = (typeof FAMILY_THING_KINDS)[number];
 
 /** 参数的样子：一个数，是或否，或者几个词里选一个。 */
@@ -34,8 +34,8 @@ export const THING_PARAMS = {
   tower: { storeys: 'number', size: ['small', 'large'], walls: ['plaster', 'yellow-wash'], timber: ['red', 'plain'] },
   /** 亭。 */
   pavilion: { roof: ['tile', 'thatch'] },
-  /** 一组院落：官署、寺。halls：几进；galleries：有没有长廊；enclosed：有没有围墙；terraced：顺着山坡一级一级下来。 */
-  'hall-group': { halls: 'number', galleries: 'boolean', enclosed: 'boolean', terraced: 'boolean' },
+  /** 一组院落：官署、寺。halls：几进；galleries：有没有长廊；enclosed：有没有围墙；terraced：顺着山坡一级一级下来；paleYard：院子的地面画成浅色。 */
+  'hall-group': { halls: 'number', galleries: 'boolean', enclosed: 'boolean', terraced: 'boolean', paleYard: 'boolean' },
   /** 单座的屋。fence：带不带篱笆。 */
   house: { roof: ['tile', 'thatch'], fence: 'boolean' },
   /** 堤。topM：堤顶的海拔（米）。 */
@@ -46,6 +46,10 @@ export const THING_PARAMS = {
   'timber-bank': {},
   /** 崖壁：线是崖脚。 */
   cliff: {},
+  /** 不闭合的矮土墙。ruined：塌了的；fence：中间一段是篱笆。 */
+  'earth-wall': { ruined: 'boolean', fence: 'boolean' },
+  /** 单立的小门。 */
+  'small-gate': {},
 } as const satisfies Record<ThingKind, Record<string, ParamType>>;
 
 /** 各种零件的位置怎么写：point 是一个点（at），line 是一条线（line），ring 是一圈闭合的线（line，最后一点不用重复第一点）。 */
@@ -60,6 +64,8 @@ export const THING_PLACING: Record<ThingKind, 'point' | 'line' | 'ring'> = {
   bank: 'line',
   'timber-bank': 'line',
   cliff: 'line',
+  'earth-wall': 'line',
+  'small-gate': 'point',
 };
 
 /**
@@ -77,6 +83,8 @@ export const THING_HOSTS: Record<ThingKind, readonly ThingKind[]> = {
   bank: ['wall'],
   'timber-bank': [],
   cliff: [],
+  'earth-wall': [],
+  'small-gate': [],
 };
 
 // ---------------------------------------------------------------- 点缀
@@ -90,8 +98,8 @@ export const DRESSING_PARAMS = {
   houses: { density: 'number', lanes: 'boolean', seed: 'number' },
   /** 村子。count：几个。 */
   villages: { count: 'number', seed: 'number' },
-  /** 田。 */
-  fields: { seed: 'number' },
+  /** 田。green：青苗，整块画成草绿色（只给写了 area 的）。 */
+  fields: { seed: 'number', green: 'boolean' },
   /** 树。type：杂树、松、柳、果树、竹、柏（后两种的程序按家分块）。 */
   trees: { type: ['mixed', 'pine', 'willow', 'fruit', 'bamboo', 'cypress'], density: 'number', radiusM: 'number', seed: 'number' },
   /** 船。type：货船还是小船；moored：系着不动。 */

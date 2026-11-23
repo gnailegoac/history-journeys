@@ -68,6 +68,8 @@ const GROUND_COLOURS: Record<GroundColour, string> = {
   road: '#ecdfbd',
   path: '#c9b184',
   cityGround: '#d3c5a4',
+  court: '#f6f2e6',
+  sprout: '#a9bf7e',
 };
 
 /** 测试自己的样式：颜色的名字照样张的 PAL，加上夯土色；数是样张的数。不靠沙盘程序里真的那一份。 */
@@ -98,7 +100,7 @@ const testStyle: StageStyle = {
   ground: { colours: GROUND_COLOURS, bands: { foot: [2.4, 8], green: [7, 22], blue: [40, 84], deepBlue: [88, 125] } },
   // 模型跟着远近怎么变：用真的那一份表
   figure: SONG_QINGLV_FIGURE,
-  stripLift: { wall: 62, gate: 8, tower: 76, pavilion: 30, 'hall-group': 40, house: 14, dike: 30, bank: 6, 'timber-bank': 10, cliff: 100 },
+  stripLift: { wall: 62, gate: 8, tower: 76, pavilion: 30, 'hall-group': 40, house: 14, dike: 30, bank: 6, 'timber-bank': 10, cliff: 100, 'earth-wall': 12, 'small-gate': 24 },
   light: () => ({ dir: [-0.66, 0.6, -0.42], sun: 2.6, sunColor: '#fff4e2', hemi: 1.55, sky: '#fffaf0', ground: '#c4b494' }),
   fogFor: () => [40000, 140000],
   mistFor: () => 1,

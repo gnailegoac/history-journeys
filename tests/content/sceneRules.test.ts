@@ -1630,3 +1630,77 @@ describe('报告的写法', () => {
     }
   });
 });
+
+describe('黄州的城添的几种写法：青苗的田、浅色的院子、照他的话写的远处、小节的云气', () => {
+  /** 合格的样本里一块带范围的修整的那一圈：借来当一块田的范围。 */
+  const someArea = (scene: StopScene): [number, number][] => {
+    const edit = scene.terrain.edits.find((e) => e.id === 'low-field');
+    if (edit?.op !== 'level' || !edit.area) throw new Error('样本里没有 low-field');
+    return edit.area;
+  };
+  const field = (scene: StopScene, withArea: boolean): void => {
+    scene.dressing.push({ id: 'crop', name: '青苗的田', kind: 'fields', ...(withArea ? { area: someArea(scene) } : {}), params: { green: true }, class: 'dressing', basis: '只表示有田。', sourceIds: [] });
+  };
+  const temple = (params: Record<string, boolean>) => (scene: StopScene): void => {
+    const at = scene.things[4].at;
+    if (!at) throw new Error('样本里的亭没有 at');
+    scene.things.push({ id: 'temple', name: '寺', kind: 'hall-group', at, params, class: 'schematic', basis: '只表示有一座寺。', sourceIds: [] });
+  };
+
+  it('青苗的田（fields 的 green）要写 area：写了通过，不写查出来（规则 13）', () => {
+    expect(sceneProblems((s) => field(s, true))).toEqual([]);
+    expect(sceneProblems((s) => field(s, false))).toEqual(['13 dressing[5].params.green']);
+    // green 是“是或否”：写成别的算参数不对
+    expect(sceneProblems((s) => {
+      field(s, true);
+      s.dressing[5].params = { green: 'yes' };
+    })).toEqual(['13 dressing[5].params.green']);
+  });
+
+  it('浅色的院子（hall-group 的 paleYard）：平地上的院落可以写；顺着山坡的（terraced）不能（规则 13）', () => {
+    expect(sceneProblems(temple({ paleYard: true }))).toEqual([]);
+    expect(sceneProblems(temple({ paleYard: true, terraced: false }))).toEqual([]);
+    expect(sceneProblems(temple({ paleYard: true, terraced: true }))).toEqual(['13 things[5].params.paleYard']);
+    // 别的零件不认这个参数
+    expect(sceneProblems((s) => (s.things[4].params = { paleYard: true }))).toEqual(['13 things[4].params.paleYard']);
+  });
+
+  it('新添的两种零件：矮土墙写一条线，小门写一个点；矮土墙不能当城门的城墙', () => {
+    const wall = (scene: StopScene): void => {
+      scene.things.push({ id: 'old-wall', name: '矮土墙', kind: 'earth-wall', line: someArea(scene).slice(0, 2), params: { ruined: true, fence: true }, class: 'schematic', basis: '只表示有一段墙。', sourceIds: [] });
+    };
+    expect(sceneProblems(wall)).toEqual([]);
+    expect(sceneProblems((s) => {
+      wall(s);
+      s.things[5].params = { ruined: 1 };
+    })).toEqual(['13 things[5].params.ruined']);
+    const at = goodScene().things[4].at;
+    expect(sceneProblems((s) => s.things.push({ id: 'door', name: '小门', kind: 'small-gate', at, facing: 90, class: 'schematic', basis: '只表示有一座门。', sourceIds: [] }))).toEqual([]);
+    expect(sceneProblems((s) => s.things.push({ id: 'door', name: '小门', kind: 'small-gate', line: someArea(s).slice(0, 2), class: 'schematic', basis: '只表示有一座门。', sourceIds: [] }))).toEqual(['13 things[5].at', '13 things[5].line']);
+    // 城门的 on 写一道矮土墙：不行，城门只能开在城墙上
+    expect(sceneProblems((s) => {
+      wall(s);
+      s.things[1].on = 'old-wall';
+    })).toEqual(['13 things[1].on']);
+  });
+
+  it('远处照他的话写的那一句（inHisWords）：只能是汉字，2 到 12 个（规则 15）', () => {
+    expect(sceneProblems((s) => (s.far[0].inHisWords = '往东南约三十里'))).toEqual([]);
+    expect(sceneProblems((s) => (s.far[0].inHisWords = '往东'))).toEqual([]);
+    expect(sceneProblems((s) => (s.far[0].inHisWords = '往东南约 30 里'))).toEqual(['15 far[0].inHisWords']);
+    expect(sceneProblems((s) => (s.far[0].inHisWords = '里'))).toEqual(['15 far[0].inHisWords']);
+    expect(sceneProblems((s) => (s.far[0].inHisWords = '往东南方向走上约莫三十多里路'))).toEqual(['15 far[0].inHisWords']);
+    expect(sceneProblems((s) => (s.far[0].inHisWords = '往东南，三十里'))).toEqual(['15 far[0].inHisWords']);
+    // 不是字的算格式不对
+    expect(looseProblems<{ far: { inHisWords: unknown }[] }>((s) => (s.far[0].inHisWords = 30))).toEqual(['0 far[0].inHisWords']);
+  });
+
+  it('小节的云气几成（mist）：0 到 1 之间的数；出了这个范围、不是数，算格式不对', () => {
+    expect(sceneProblems((s) => (s.sections[1].mist = 0))).toEqual([]);
+    expect(sceneProblems((s) => (s.sections[1].mist = 0.5))).toEqual([]);
+    expect(sceneProblems((s) => (s.sections[1].mist = 1))).toEqual([]);
+    expect(sceneProblems((s) => (s.sections[1].mist = 1.2))).toEqual(['0 sections[1].mist']);
+    expect(sceneProblems((s) => (s.sections[1].mist = -0.1))).toEqual(['0 sections[1].mist']);
+    expect(looseProblems<{ sections: { mist: unknown }[] }>((s) => (s.sections[1].mist = 'none'))).toEqual(['0 sections[1].mist']);
+  });
+});

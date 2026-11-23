@@ -174,6 +174,18 @@ function yardOf(thing: SceneThing, coords: FrameCoords): YardBox {
   return { at: coords.toLocal(thing.at as [number, number]), ax, az, back: layout.back, front: layout.front, halfWidth: layout.halfWidth };
 }
 
+/** 地面要画成浅色的院子：写了 paleYard 的院落围墙里面的那一圈，一圈四个角（沙盘里的 x、z）。 */
+export function paleCourts(scene: StopScene, coords: FrameCoords): Vec2[][] {
+  const out: Vec2[][] = [];
+  for (const thing of scene.things) {
+    if (thing.kind !== 'hall-group' || !thing.at || !thingParams('hall-group', thing.params).paleYard) continue;
+    const yard = yardOf(thing, coords);
+    const corner = (x: number, z: number): Vec2 => [yard.at[0] + yard.ax[0] * x + yard.az[0] * z, yard.at[1] + yard.ax[1] * x + yard.az[1] * z];
+    out.push([corner(-yard.halfWidth, yard.back), corner(yard.halfWidth, yard.back), corner(yard.halfWidth, yard.front), corner(-yard.halfWidth, yard.front)]);
+  }
+  return out;
+}
+
 /**
  * 一条大街让开各组院落：穿过围墙里面的那一截去掉，街在离围墙 STREET_OFF_YARD_M 的地方停住；
  * 停在院落正面的那一头，再顺着前墙接到大门口。

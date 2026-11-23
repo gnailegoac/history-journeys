@@ -324,6 +324,8 @@ export interface SceneFarPlace extends Grounds {
   at: LngLat;
   /** 括注，如“今安徽萧县白土镇”。 */
   gloss?: string;
+  /** 只知道当时人说的方向和里数的地方：照他的话写的一句（“往东南约三十里”）。写了就印这一句，不印算出来的方向和公里数。 */
+  inHisWords?: string;
 }
 
 // ---------------------------------------------------------------- 小节
@@ -375,6 +377,8 @@ export interface SceneSection {
   sky?: SceneSky;
   /** 月亮在哪。夜里的小节必须写；白天的不能写。 */
   moon?: SceneMoon;
+  /** 这一节山脚的云气几成：0 到 1。不写是 1（样式定的浓淡）。 */
+  mist?: number;
   /** 这一节摆哪几条题签（题签的 id），一到六条，要紧的在前；摆不下时从后面去掉。 */
   strips: string[];
   /**

@@ -108,6 +108,9 @@ export function paintColour(ground: Ground, style: GroundStyle): { colour: Uint8
     return { wall: c.wall, box: boxOf(c.wall, 120), streets, lanes: [...c.lanes, ...crossAlleys(c)] };
   });
   const fields = ground.fields.map((f) => ({ area: f.area, box: f.area ? boxOf(f.area) : null, seed: f.seed }));
+  // 青苗的田、浅色的院子：场景里写了才有；没有写的沙盘（徐州）这两样都是空的，下面一个点也不多画
+  const sprouts = ground.fields.flatMap((f) => (f.green && f.area ? [{ area: f.area, box: boxOf(f.area), seed: f.seed }] : []));
+  const courts = ground.courts.map((ring) => ({ ring, box: boxOf(ring) }));
 
   /** 这一点在哪条田的规则里：几成（块的边上 40 米以内慢慢淡出），用哪个种子。不在任何一条里是 null。 */
   const fieldAt = (x: number, z: number): { k: number; seed: number } | null => {
@@ -207,7 +210,17 @@ export function paintColour(ground: Ground, style: GroundStyle): { colour: Uint8
       // 田离河岸留出一段；壕这样窄的水道，田一直画到离它十几米的地方
       const plain = (1 - smoothstep(1.2, 3.2, rr)) * smoothstep(10 + 20 * wide, 30 + 60 * wide, e) * (1 - inCity) * smoothstep(30, 110, dOut) * (1 - fade);
       let fieldMask = 0;
-      if (plain > 0.01) {
+      // 青苗的田：这一块整块草绿，田块之间留一道淡的；不看是不是平地（是场景里明写的一块），田边 15 米以内淡出
+      let sprout = 0;
+      for (const f of sprouts) {
+        if (!inBox(x, z, f.box)) continue;
+        const sd = ringSigned(x, z, f.area);
+        if (sd < 0) sprout = smoothstep(0, 15, -sd) * (0.6 + 0.4 * smoothstep(0.02, 0.07, fieldCell(x, z, f.seed).border)) * (1 - fade);
+      }
+      if (sprout > 0) {
+        col = mix3(col, C.sprout, sprout * 0.92);
+        fieldMask = sprout;
+      } else if (plain > 0.01) {
         const rule = fieldAt(x, z);
         if (rule) {
           const fc = fieldCell(x, z, rule.seed);
@@ -230,6 +243,13 @@ export function paintColour(ground: Ground, style: GroundStyle): { colour: Uint8
         for (const l of city.lanes) lane = Math.min(lane, distLine(x, z, l));
         g = mix3(g, C.road, (1 - smoothstep(4, 10, lane)) * 0.55);
         col = mix3(col, g, inCity);
+      }
+
+      // 浅色的院子：围墙里面的地面。离墙 2 米起上色，12 米上足（图是 10 米一格，颜色不漫到墙外）
+      for (const c of courts) {
+        if (!inBox(x, z, c.box)) continue;
+        const sd = ringSigned(x, z, c.ring);
+        if (sd < 0) col = mix3(col, C.court, smoothstep(2, 12, -sd));
       }
 
       // 画心四边留出空绢

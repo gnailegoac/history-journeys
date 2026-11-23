@@ -3,7 +3,7 @@
 // 镜头用 placeCamera，题签指着的点用 screenAnchors，见 view.ts 的 lookFor 和 drawFrame），不要浏览器。
 // content/ 里有几座沙盘就查几座。
 //
-// 查三样：
+// 查四样：
 //   1 每一节的每条题签指着的东西，这一节里有；
 //   2 四种画面（880 × 900 是定稿样张的大小；后面三种是页面上标准的沙盘栏：940 × 900 是电脑，584 × 768 是横着拿的平板，
 //     768 × 573 是竖着拿的平板上面那一块；手机不在标准里，不查），镜头按“画面窄了自己退远”的规矩摆好以后，
@@ -16,6 +16,7 @@
 //     场景里的 distanceM 就是照宽和高差不多的画面定的，这种画面上程序不该再挪它。
 //     设计稿只要求从样张来的五个镜头这样，这里每一节都查，没有例外。
 //     照电脑上的沙盘栏定的镜头（写在 SET_ON_COMPUTER_PANE 里）另查一条：在电脑的沙盘栏上它正好是写的距离，程序不挪它。
+//   4 头一节的镜头不是朝北看的，题记开头先说从哪边往哪边看（“从城的北边往南看：……”），说的和镜头的朝向对得上。
 
 import { PerspectiveCamera } from 'three';
 import { describe, expect, it } from 'vitest';
@@ -107,6 +108,14 @@ function targetWhen(R: RealScene, id: string): { when: When | undefined } | null
   const always = scene.places.some((p) => p.id === id) || scene.water.rivers.some((r) => r.id === id) || scene.water.rapids.some((r) => r.id === id) || scene.far.some((f) => f.id === id);
   return always ? { when: undefined } : null;
 }
+
+/** 八个方向，从正北起顺时针。 */
+const EIGHT = ['北', '东北', '东', '东南', '南', '西南', '西', '西北'] as const;
+const OPPOSITE: Record<string, string> = { 北: '南', 东北: '西南', 东: '西', 东南: '西北', 南: '北', 西南: '东北', 西: '东', 西北: '东南' };
+/** 镜头朝 bearing 看（0 是朝北，顺时针），说成八个方向里的哪一个。 */
+const lookingTowards = (bearing: number): string => EIGHT[Math.round((((bearing % 360) + 360) % 360) / 45) % 8];
+/** 头一节的题记说朝哪边看的写法：“从城的北边往南看：……”（docs/data-spec.md“小节”）。 */
+const FIRST_LINE_LOOKS = /^从[^：，。]{1,8}的(东北|东南|西南|西北|东|南|西|北)边往(东北|东南|西南|西北|东|南|西|北)看：/;
 
 describe.each(realSceneKeys())('%s 的镜头', (key) => {
   it('每一节的每条题签指着的东西，这一节里有', () => {
@@ -223,6 +232,19 @@ describe.each(realSceneKeys())('%s 的镜头', (key) => {
       if (Math.abs(factor - 1) > 0.001) moved.push(`${heading}：电脑的沙盘栏上镜头摆在写的距离的 ${factor.toFixed(4)} 倍`);
     }
     expect(moved).toEqual([]);
+  });
+
+  it('头一节不是朝北看的，题记开头先说从哪边往哪边看，说的和镜头的朝向对得上（朝北看的不用说：全程沙盘和地图都是上北下南）', () => {
+    const first = realScene(key).scene.sections[0];
+    const said = FIRST_LINE_LOOKS.exec(first.line);
+    const looks = lookingTowards(first.camera.bearing);
+    if (looks === '北') {
+      // 朝北看：不要求写；写了就得写对
+      if (said) expect([said[1], said[2]], first.line).toEqual(['南', '北']);
+      return;
+    }
+    expect(said, `${first.heading} 的镜头朝${looks}看，题记“${first.line}”开头要写“从…的${OPPOSITE[looks]}边往${looks}看：”`).not.toBeNull();
+    expect([said?.[1], said?.[2]], first.line).toEqual([OPPOSITE[looks], looks]);
   });
 
   it('把每一节在三种标准的沙盘栏上摆好的数印出来（给看图片的人对照）', () => {

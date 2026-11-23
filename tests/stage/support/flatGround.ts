@@ -115,6 +115,7 @@ export function flatGround(): Ground {
     bankHalf,
     openSeeds: 0,
     lowWaterM: null,
+    courts: [],
     lift: new Float32Array(N),
     hill,
     hillSoft: new Float32Array(hill),

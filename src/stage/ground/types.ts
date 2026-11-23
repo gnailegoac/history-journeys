@@ -96,8 +96,10 @@ export interface Ground {
   reliefTimes: number;
   /** 要画在地面上的路：点缀里写了 line 的 roads。城里的街不在这里，在 cities 的 streets 里。 */
   roads: { type: 'street' | 'road'; line: Vec2[] }[];
-  /** 要画在地面上的田：点缀里的 fields。area 是 null 时是整块沙盘的平地。 */
-  fields: { area: Vec2[] | null; seed: number }[];
+  /** 要画在地面上的田：点缀里的 fields。area 是 null 时是整块沙盘的平地。green 是青苗：这一块整块画成草绿色。 */
+  fields: { area: Vec2[] | null; seed: number; green?: boolean }[];
+  /** 地面要画成浅色的院子：写了 paleYard 的院落围墙里面的那一圈（一圈一个，四个角）。没有就是空的。 */
+  courts: Vec2[][];
 }
 
 /** 在任意一点取地面的数（格子之间按远近匀开）。出了沙盘取边上的值。 */
@@ -154,7 +156,11 @@ export type GroundColour =
   /** 城外的路。 */
   | 'path'
   /** 城里的地面。 */
-  | 'cityGround';
+  | 'cityGround'
+  /** 写明了要浅色的院子的地面。 */
+  | 'court'
+  /** 青苗的田。 */
+  | 'sprout';
 
 /** 地面怎么上色，由时代样式给（src/stage/three/style/）。地面这一边只管照着画。 */
 export interface GroundStyle {

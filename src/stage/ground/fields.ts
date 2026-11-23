@@ -17,7 +17,7 @@ import type { LevelEdit, MoundEdit, StopScene, TerrainRecipe } from '../../domai
 import { frameCoords } from '../../domain/sceneGeo';
 import type { FrameCoords } from '../../domain/sceneGeo';
 import { gauss } from './blur';
-import { cityPlans, wallRings } from './cityPlan';
+import { cityPlans, paleCourts, wallRings } from './cityPlan';
 import type { WallRing } from './cityPlan';
 import { demSampler } from './dem';
 import { paintedFields, paintedRoads, pickVillages } from './dressing';
@@ -151,6 +151,7 @@ export function buildGround(scene: StopScene, dem: Dem): Ground {
     reliefTimes: scene.frame.relief.times,
     roads: paintedRoads(scene, coords),
     fields: paintedFields(scene, coords),
+    courts: paleCourts(scene, coords),
   };
 }
 

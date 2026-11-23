@@ -1011,23 +1011,31 @@ describe('宋代青绿设色：跟镜头有关的几条规矩', () => {
     const day = song.light('day');
     const low = song.light('night', { azimuth: 103, altitude: 12 });
     const high = song.light('night', { azimuth: 130, altitude: 68 });
-    // 负责人看过徐州上试的图以后定的（2026-11-23）：月亮 12 度以下是这一头的数。要改先由负责人定，定了以后这里和样式里的数一起改
+    // 负责人看过徐州上试的图以后定的（2026-11-23）：月亮 12 度以下是这一头的数。要改先由负责人定，定了以后这里和样式里的数一起改。
+    // 同一天看过黄州三夜的样张以后，三种光的颜色换成了冷一点的一套（原来是 #cfdcf2、#b8c8e6、#5f6a7a）：照到月光的平地带一点蓝。
+    // 颜色暗了，两头的强弱照颜色的亮度乘回去（原来是 1.15、1.05 和 0.9、0.75），平地还是原来那么亮（下面那两个 0.26、0.35 没有变）
     expect(low).toEqual({
       dir: moonDir(103, 12),
-      sun: 1.15,
-      sunColor: '#cfdcf2',
-      hemi: 1.05,
-      sky: '#b8c8e6',
-      ground: '#5f6a7a',
+      sun: 1.495,
+      sunColor: '#aac4f3',
+      hemi: 1.344,
+      sky: '#95b3ec',
+      ground: '#42527a',
       fog: '#d5deea',
       mist: '#dfe6ee',
       mistStrength: 0.8,
       sheen: 9.1,
     });
     // 月亮 68 度以上是另一头的数：月光、天光都弱一些。两夜差的是方向、这两样强弱和水面亮几倍，颜色、雾、云气一样
-    expect(high.sun).toBeCloseTo(0.9, 12);
-    expect(high.hemi).toBeCloseTo(0.75, 12);
+    expect(high.sun).toBeCloseTo(1.17, 12);
+    expect(high.hemi).toBeCloseTo(0.96, 12);
     expect({ ...high, dir: low.dir, sheen: low.sheen, sun: low.sun, hemi: low.hemi }).toEqual(low);
+    // 冷的一套：月光、天色、地色都是蓝比红多得多（原来的一套差得少，照出来的平地是暖灰）
+    for (const colour of [low.sunColor, low.sky, low.ground]) expect(parseInt(colour.slice(5, 7), 16) - parseInt(colour.slice(1, 3), 16)).toBeGreaterThanOrEqual(56);
+    // 换颜色的时候平地的亮没有动：和原来那一套（颜色、强弱都是原来的）照在平地上一样亮，差不到百分之一
+    const before = { ...low, sunColor: '#cfdcf2', sky: '#b8c8e6', sun: 1.15, hemi: 1.05 };
+    expect(lightLevel(low) / lightLevel(before)).toBeCloseTo(1, 2);
+    expect(lightLevel(high) / lightLevel({ ...high, sunColor: '#cfdcf2', sky: '#b8c8e6', sun: 0.9, hemi: 0.75 })).toBeCloseTo(1, 2);
     expect(high.dir).toEqual(moonDir(130, 68));
     expect(high.sheen).toBe(0);
     // 黄州七月那一夜（月亮 24 度高）：5.1 倍上下
@@ -1045,16 +1053,16 @@ describe('宋代青绿设色：跟镜头有关的几条规矩', () => {
     const day = song.light('day');
     const at = (altitude: number) => song.light('night', { azimuth: 120, altitude });
     // 两头以外不再变
-    for (const altitude of [5, 8, 12]) expect([at(altitude).sun, at(altitude).hemi]).toEqual([1.15, 1.05]);
+    for (const altitude of [5, 8, 12]) expect([at(altitude).sun, at(altitude).hemi]).toEqual([1.495, 1.344]);
     for (const altitude of [68, 69, 75, 85]) {
-      expect(at(altitude).sun).toBeCloseTo(0.9, 12);
-      expect(at(altitude).hemi).toBeCloseTo(0.75, 12);
+      expect(at(altitude).sun).toBeCloseTo(1.17, 12);
+      expect(at(altitude).hemi).toBeCloseTo(0.96, 12);
     }
     // 中间：照正弦匀，一路往下。正弦走到一半的那个高度（34.6 度上下），两样正好在两头的中间
     const sin = (deg: number) => Math.sin((deg * Math.PI) / 180);
     const half = (Math.asin((sin(12) + sin(68)) / 2) * 180) / Math.PI;
-    expect(at(half).sun).toBeCloseTo((1.15 + 0.9) / 2, 9);
-    expect(at(half).hemi).toBeCloseTo((1.05 + 0.75) / 2, 9);
+    expect(at(half).sun).toBeCloseTo((1.495 + 1.17) / 2, 9);
+    expect(at(half).hemi).toBeCloseTo((1.344 + 0.96) / 2, 9);
     const heights = [12, 20, 24, 30, 40, 51.9, 60, 68];
     heights.slice(1).forEach((h, i) => {
       expect(at(h).sun, `月光，${heights[i]} 度到 ${h} 度`).toBeLessThan(at(heights[i]).sun);

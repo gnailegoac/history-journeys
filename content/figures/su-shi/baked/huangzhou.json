@@ -1,27 +1,27 @@
 {
   "tool": 1,
   "inputs": {
-    "ground": "3bc25831d3fd168d",
+    "ground": "63e52e04e65ecb9a",
     "terrain": "5c8e7b12a9bf6276"
   },
   "pixels": {
-    "colour": "7c89b9b6d39a9ca5",
-    "fields": "47d6b87dea091def"
+    "colour": "1ed0a522f63eca3e",
+    "fields": "6c62a15ac9f693f1"
   },
   "colour": {
     "file": "huangzhou.colour.jpg",
     "width": 901,
     "height": 901,
-    "bytes": 176761,
-    "key": "b9b013c2b6434e0e",
+    "bytes": 176831,
+    "key": "66fcdf3cb1fe2d1d",
     "quality": 0.95,
-    "psnr": 42.43
+    "psnr": 42.41
   },
   "fields": {
     "file": "huangzhou.fields.png",
     "width": 901,
     "height": 901,
-    "bytes": 64076,
-    "key": "836bbf866b67e751"
+    "bytes": 64422,
+    "key": "cfe0b1a9938f9d55"
   }
 }

@@ -31,6 +31,8 @@ const GROUND_COLOURS: Record<GroundColour, string> = {
   road: '#ecdfbd', // 城里的街巷
   path: '#c9b184', // 城外的路
   cityGround: '#d3c5a4',
+  court: '#f6f2e6', // 写明了要浅色的院子：比平地白，夜里是画面上最亮的地面
+  sprout: '#a9bf7e', // 青苗的田：草绿，比山腰的石绿黄、浅
 };
 
 /** 全部颜色。名字照样张的 PAL；rammedEarth、bankEarth 和 fog 是新添的。 */
@@ -70,15 +72,17 @@ const PALETTE: Record<string, string> = {
   rammedEarth: '#bda27a', // 夯土的城墙：比新筑的堤旧一点、灰一点
   bankEarth: '#c2b292', // 墙脚到水边的旧土坡：在平地的茶色和夯土城墙之间，不比城墙亮眼
   fog: '#ece3cf', // 远处的雾（样张里直接写在 sandtable.js 里）
-  // 黄州添的：崖壁的红褐色和崖脚的深色，竹、柏，崖脚石头的四种颜色（“深浅红黄之色”）
-  cliff: '#a4563c',
-  cliffDeep: '#7d4130',
+  // 黄州添的：崖壁的红褐色和崖脚的深色，竹、柏，崖脚石头的三种颜色。
+  // 崖壁的两种颜色写得比白天看到的浅、红：崖面背着光（白天的光从东北来，夜里的月亮在东南），照到它的只有天光，
+  // 夜里的天光偏蓝，红褐色的石头在蓝光底下最吃亏。原来的 #a4563c、#7d4130 在夜里是画面上最黑的一块，认不出是红的。
+  cliff: '#d46242',
+  cliffDeep: '#b6563a',
   bamboo: '#8fae6a',
   cypress: '#2f4f48',
-  shoreRed: '#b0715a',
-  shoreYellow: '#c9a86a',
-  shoreBrown: '#8d6f55',
-  shorePale: '#d9d5c6',
+  // 石头只用石头的颜色（红褐、灰褐、深褐）：原来的黄和浅色，石头小的时候看着像花瓣
+  shoreRed: '#9a5a44',
+  shoreBrown: '#7d6a5c',
+  shoreDark: '#5a4a42',
 };
 
 // ---------------------------------------------------------------- 题签抬多高
@@ -103,6 +107,9 @@ const STRIP_LIFT: Record<ThingKind, number> = {
   'timber-bank': 10,
   // 崖壁：那个点落在崖顶的边上面一点
   cliff: 100,
+  // 矮土墙高 11，小门连瓦顶 22 上下
+  'earth-wall': 12,
+  'small-gate': 24,
 };
 
 /**
@@ -136,11 +143,14 @@ const LIGHT: LightSpec = {
  * 白天平地的亮算 100 的话：月亮 12 度高时平地 26、影子里 20；68 度高时平地 35、影子里 15（都是线性的光；屏幕上看是 54、49、62、42）。
  * fog、mist 是照足了光时的颜色，用的时候按上面的比例压暗；云气夜里淡到八成。
  * 2026-11-23 负责人看过徐州上试的图以后定的；tests/stage/rig.test.ts 里记着，改了那边会不通过。
+ * 同一天看过黄州三夜的样张以后，三种光的颜色换成了冷一点的一套（月光 #aac4f3、天色 #95b3ec、地色 #42527a；
+ * 原来是 #cfdcf2、#b8c8e6、#5f6a7a）：照到月光的平地带一点蓝，原来是暖灰，承天寺那一夜看着像阴天。
+ * 颜色暗了，两头的强弱照颜色的亮度各乘回去（月光 1.30 倍、天光 1.28 倍），平地还是原来那么亮。
  */
 const NIGHT = {
-  sunColor: '#cfdcf2',
-  sky: '#b8c8e6',
-  ground: '#5f6a7a',
+  sunColor: '#aac4f3',
+  sky: '#95b3ec',
+  ground: '#42527a',
   fog: '#d5deea',
   mist: '#dfe6ee',
   mistStrength: 0.8,
@@ -150,7 +160,7 @@ const NIGHT = {
  * 夜里月光（sun）、天光（hemi）的两头：月亮在 low.altitude 度以下用 low 的数，high.altitude 度以上用 high 的数，
  * 中间照月亮高度的正弦匀过去（平地上直接照到的光就是照正弦长的）。
  */
-const NIGHT_ENDS = { low: { altitude: 12, sun: 1.15, hemi: 1.05 }, high: { altitude: 68, sun: 0.9, hemi: 0.75 } };
+const NIGHT_ENDS = { low: { altitude: 12, sun: 1.495, hemi: 1.344 }, high: { altitude: 68, sun: 1.17, hemi: 0.96 } };
 
 /** 月亮 12 度高时，月光直接照到的水面多亮出几倍；月亮再高照 ../rig.ts 的 sheenFor 降下去：24 度高时 5.1 倍，68 度以上没有。 */
 const NIGHT_SHEEN = 9.1;

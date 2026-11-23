@@ -189,6 +189,18 @@ describe('farSay', () => {
     expect(farSay(scene.frame, scene.far[0])).toBe('往西南约 30 公里（今远镇）');
   });
 
+  it('照他的话写的远处（inHisWords）：印他的那一句，不印算出来的方向和公里数；括注照样接在后面', () => {
+    const scene = fixtureScene();
+    const far = farPlace(scene.far[0].at, '今天是哪里没有查到');
+    expect(farSay(scene.frame, { ...far, inHisWords: '往东南约三十里' })).toBe('往东南约三十里（今天是哪里没有查到）');
+    // 坐标再怎么变，印的还是那一句
+    expect(farSay(scene.frame, { ...far, at: [far.at[0] + 0.3, far.at[1]], inHisWords: '往东南约三十里' })).toBe('往东南约三十里（今天是哪里没有查到）');
+    expect(farSay(scene.frame, { ...farPlace(scene.far[0].at), inHisWords: '往东南约三十里' })).toBe('往东南约三十里');
+    expect(farSay(scene.frame, { ...farPlace(scene.far[0].at, '  '), inHisWords: '往东南约三十里' })).toBe('往东南约三十里');
+    // 不写的还是原来的算法
+    expect(farSay(scene.frame, far)).toBe('往西南约 30 公里（今天是哪里没有查到）');
+  });
+
   it('没有括注就不带括号', () => {
     const scene = fixtureScene();
     expect(farSay(scene.frame, farPlace(scene.far[0].at))).toBe('往西南约 30 公里');
@@ -763,7 +775,12 @@ describe('content/ 里真实的场景', () => {
         const journeys = scene.level === 'route' ? scene.roads.journeys : [];
         const most = section.explain.reduce((sum, id) => sum + (journeys.find((journey) => journey.id === id)?.parts.length ?? 1), 0);
         expect(info.note.lines.length, label).toBeLessThanOrEqual(most + 3);
-        for (const far of info.far) expect(far.say, label).toMatch(/^往(东|南|西|北|东南|西南|东北|西北)约 \d+ 公里/);
+        // 远处的那一句：算出来的方向和公里数；写了“照他的话”的（黄州的沙湖：只知道他说的里数），印的就是他的那一句
+        for (const far of info.far) {
+          const words = scene.level === 'route' ? undefined : scene.far.find((place) => place.id === far.id)?.inHisWords;
+          if (words) expect(far.say.startsWith(words), label).toBe(true);
+          else expect(far.say, label).toMatch(/^往(东|南|西|北|东南|西南|东北|西北)约 \d+ 公里/);
+        }
       }
     }
   });

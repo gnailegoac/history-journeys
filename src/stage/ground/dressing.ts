@@ -80,10 +80,11 @@ export function paintedFields(scene: StopScene, coords: FrameCoords): Ground['fi
   const out: Ground['fields'] = [];
   for (const rule of scene.dressing) {
     if (rule.kind !== 'fields') continue;
-    out.push({
-      area: rule.area ? asRing(rule.area.map((p): Vec2 => coords.toLocal(p))) : null,
-      seed: dressingParams('fields', rule.params).seed ?? 0,
-    });
+    const p = dressingParams('fields', rule.params);
+    const field: Ground['fields'][number] = { area: rule.area ? asRing(rule.area.map((q): Vec2 => coords.toLocal(q))) : null, seed: p.seed ?? 0 };
+    // 青苗只认写了 area 的；不写 green 的田和原来一样，连字段都不多
+    if (p.green && field.area) field.green = true;
+    out.push(field);
   }
   return out;
 }

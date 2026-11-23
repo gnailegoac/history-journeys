@@ -28,7 +28,7 @@
 
 import { Group, Mesh, type Scene } from 'three';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { SceneStrip } from '../../src/domain/scene';
+import type { SceneStrip, StopScene } from '../../src/domain/scene';
 import { stripTexts } from '../../src/domain/sceneText';
 import type { StripLayer } from '../../src/stage/overlay/types';
 import type { GroundPaintJob, GroundPaintSource } from '../../src/stage/three/groundPaint';
@@ -185,9 +185,10 @@ function stage(width = 940, height = 900) {
 }
 
 /** 在假的画布上摆一座徐州的沙盘（零件库、上色、地形板都是假的，除非这一项先换成了真的）。 */
-async function openView(s: ReturnType<typeof stage>, options: { section?: string; reducedMotion?: boolean; insets?: StageInsets } = {}): Promise<StopStageView> {
+async function openView(s: ReturnType<typeof stage>, options: { section?: string; reducedMotion?: boolean; insets?: StageInsets; scene?: StopScene } = {}): Promise<StopStageView> {
   const { createStopView } = await import('../../src/stage/three/view');
-  const { scene } = realSceneFile(KEY);
+  // 平时是内容里徐州的那一份；要试场景里的一种写法时，交一份改过的抄件进来
+  const scene = options.scene ?? realSceneFile(KEY).scene;
   const table: StopTable = { kind: 'stop', key: KEY, scene, terrainUrl: 'terrain.bin' };
   const view = createStopView(s.pane, table, { namesMode: 'ancient', reducedMotion: options.reducedMotion ?? false, section: options.section, insets: options.insets, tier: 'full' }, s.host);
   opened.push(view);
@@ -365,6 +366,37 @@ describe('沙盘自己的几条规矩（零件库、上色、地形板是假的�
     expect(s.lastFrame().shadowRadius).toBe(3);
     expect(s.lastFrame().shadowBias).toBe(-0.0002);
     for (const i of [0, 1, 2, 4, 5, 6]) expect(shadowTuning(halves[i]).radius).toBeCloseTo(2.2, 9);
+  });
+
+  it('小节写了云气几成（mist）：这一节的云气照着淡下去，写 0 就一点没有；换回没写的一节，云气和原来一样', { timeout: 60_000 }, async () => {
+    const s = stage(880, 900);
+    // 徐州的场景抄一份：第二节写 0，第三节写 0.5（内容里的那一份不动；黄州“十月，再到赤壁”写的是 0）
+    const copy = structuredClone(scene);
+    copy.sections[1].mist = 0;
+    copy.sections[2].mist = 0.5;
+    const view = await openView(s, { reducedMotion: true, scene: copy });
+    await until(view.ready);
+    /** 画过的云气的材质（每层一个，认它们的两张图和浓淡）现在各有多浓。 */
+    const opacities = (): number[] =>
+      [...s.fake.seen.materials].flatMap((material) => {
+        const u = (material as unknown as { uniforms?: Record<string, { value: unknown }> }).uniforms;
+        return u?.uOpacity && u.uA && u.uB ? [u.uOpacity.value as number] : [];
+      });
+    const R = realScene(KEY);
+    const strength = (i: number): number => style.mistFor(placeCamera(copy.sections[i], copy, R.samplers, R.coords, style, { width: 880, height: 900 }).distanceM);
+    await until(view.showSection(headings[0]));
+    const usual = opacities();
+    expect(usual).toHaveLength(FULL_QUALITY.mistLayers);
+    for (const opacity of usual) expect(opacity).toBeGreaterThan(0);
+    // 写 0 的一节：每一层都是 0
+    await until(view.showSection(headings[1]));
+    expect(opacities()).toEqual(usual.map(() => 0));
+    // 写 0.5 的一节：样式照这一节的远近定的浓淡，再乘一半
+    await until(view.showSection(headings[2]));
+    opacities().forEach((opacity, i) => expect(opacity).toBeCloseTo((usual[i] / strength(0)) * strength(2) * 0.5, 9));
+    // 换回没写的一节：和原来一样
+    await until(view.showSection(headings[0]));
+    expect(opacities()).toEqual(usual);
   });
 
   it('镜头滑动的一路上：每画一帧，把这一帧真的远近（折算过的）告诉零件库；新一节的东西一起步就换上，往远处退也一样', { timeout: 60_000 }, async () => {

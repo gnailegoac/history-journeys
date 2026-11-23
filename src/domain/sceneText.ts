@@ -129,8 +129,13 @@ const COMPASS = ['北', '东北', '东', '东南', '南', '西南', '西', '西�
 function farWords(bearingDeg: number, km: number, gloss: string | undefined): string {
   const direction = COMPASS[Math.round(bearingDeg / 45) % COMPASS.length];
   const rounded = km < 100 ? Math.round(km) : Math.round(km / 5) * 5;
+  return `往${direction}约 ${rounded} 公里${bracketed(gloss)}`;
+}
+
+/** 括注写成“（……）”；没有写、只有空格就是空的。 */
+function bracketed(gloss: string | undefined): string {
   const text = gloss?.trim();
-  return `往${direction}约 ${rounded} 公里${text ? `（${text}）` : ''}`;
+  return text ? `（${text}）` : '';
 }
 
 /**
@@ -138,6 +143,8 @@ function farWords(bearingDeg: number, km: number, gloss: string | undefined): st
  * 方向和距离从沙盘的原点算（src/domain/sceneGeo.ts 的 farEdgePoint）。
  */
 export function farSay(frame: SceneFrame, far: SceneFarPlace): string {
+  // 只知道当时人说的方向和里数的地方：印他的那一句，不印算出来的公里数
+  if (far.inHisWords) return far.inHisWords + bracketed(far.gloss);
   const { bearingDeg, km } = farEdgePoint(frame, far.at);
   return farWords(bearingDeg, km, far.gloss);
 }

@@ -143,8 +143,21 @@ const SCENE: Shape = strict({
     }),
   ),
   strips: list(strict({ id: text, text, modern: optional(text), of: text, at: optional(lngLat), side: optional(oneOf(['above', 'below', 'left', 'right'])) })),
-  far: list(strict({ ...GROUNDS, id: text, name: text, at: lngLat, gloss: optional(text) })),
-  sections: list(strict({ heading: text, date: text, line: text, camera: CAMERA, water: text, sky: optional(oneOf(SCENE_SKIES)), moon: optional(strict({ azimuth: number, altitude: number })), strips: list(text), explain: list(text) })),
+  far: list(strict({ ...GROUNDS, id: text, name: text, at: lngLat, gloss: optional(text), inHisWords: optional(text) })),
+  sections: list(
+    strict({
+      heading: text,
+      date: text,
+      line: text,
+      camera: CAMERA,
+      water: text,
+      sky: optional(oneOf(SCENE_SKIES)),
+      moon: optional(strict({ azimuth: number, altitude: number })),
+      mist: optional(numberIn({ min: 0, max: 1 })),
+      strips: list(text),
+      explain: list(text),
+    }),
+  ),
   notDrawn: list(strict({ id: text, name: text, why: text, sourceIds: list(text) })),
 });
 
@@ -497,6 +510,10 @@ export function checkSceneParts(scene: StopScene, file: string): Violation[] {
       return;
     }
     params(thing.params, THING_PARAMS[thing.kind], `${at}.params`, `${thing.kind} 这种零件`);
+    // 浅色的院子画在平的地面上：顺着山坡的院落一级一级的，画不了
+    if (thing.kind === 'hall-group' && thing.params?.paleYard === true && thing.params.terraced === true) {
+      bad(`${at}.params.paleYard`, `${what}顺着山坡（terraced），不能再写 paleYard：浅色的院子只画在平地上的院落里`);
+    }
 
     const placing = THING_PLACING[thing.kind];
     if (placing === 'point') {
@@ -555,6 +572,8 @@ export function checkSceneParts(scene: StopScene, file: string): Violation[] {
     }
     if (rule.area !== undefined) ring(rule.area, `${at}.area`, `${what}的范围`);
     if (rule.line !== undefined && rule.line.length < 2) bad(`${at}.line`, `${what}沿着的线至少要有两个点`);
+    // 青苗的田只能写在一块地方里：整块沙盘的平地都画成草绿就分不出哪一块是正文写的了
+    if (rule.kind === 'fields' && rule.params?.green === true && rule.area === undefined) bad(`${at}.params.green`, `${what}写了 green（青苗），要写 area：只有明写出范围的一块田可以整块画成草绿色`);
     // “这几处不种”：只有树的规则可以写，写的是修整的 id，那处修整要有自己的一圈范围（area）
     if (rule.except !== undefined) {
       if (rule.kind !== 'trees') bad(`${at}.except`, `${what}是 ${rule.kind}，不能写 except；只有树的规则可以写“这几处不种”`);
@@ -759,6 +778,8 @@ export function checkSceneSections(scene: StopScene, file: string, textHeadings:
 
 /** 只能是汉字，一到七个。 */
 export const HAN = /^\p{Script=Han}{1,7}$/u;
+/** 远处照他的话写的那一句（inHisWords）：只能是汉字，2 到 12 个。 */
+export const IN_HIS_WORDS = /^\p{Script=Han}{2,12}$/u;
 
 /** 题签指的那样东西在沙盘上占的地方：一个点，一条线（closed 是首尾相接的一圈），一片地方，或者哪里都行。 */
 type Place = { is: 'point'; at: LngLat } | { is: 'line'; line: LngLat[]; closed: boolean } | { is: 'area'; ring: LngLat[] } | { is: 'anywhere' };
@@ -800,6 +821,13 @@ export function checkSceneStrips(scene: StopScene, file: string): Violation[] {
         bad(`sections[${j}].strips`, `小节“${section.heading}”摆了${what}（${strip.text}），但它指的“${strip.of}”这一节沙盘上没有`);
       }
     });
+  });
+
+  // 远处照他的话写的那一句：只能是汉字，2 到 12 个（印在沙盘旁边，代替算出来的方向和公里数）
+  scene.far.forEach((far, i) => {
+    if (far.inHisWords !== undefined && !IN_HIS_WORDS.test(far.inHisWords)) {
+      bad(`far[${i}].inHisWords`, `远处“${far.id}”照他的话写的那一句是“${far.inHisWords}”；只能是汉字，2 到 12 个，不带标点、数字和空格（如“往东南约三十里”）`);
+    }
   });
 
   scene.sections.forEach((section, i) => {

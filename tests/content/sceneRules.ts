@@ -143,7 +143,7 @@ const SCENE: Shape = strict({
   ),
   strips: list(strict({ id: text, text, modern: optional(text), of: text, at: optional(lngLat), side: optional(oneOf(['above', 'below', 'left', 'right'])) })),
   far: list(strict({ ...GROUNDS, id: text, name: text, at: lngLat, gloss: optional(text) })),
-  sections: list(strict({ heading: text, date: text, line: text, camera: CAMERA, water: text, sky: optional(oneOf(SCENE_SKIES)), strips: list(text), explain: list(text) })),
+  sections: list(strict({ heading: text, date: text, line: text, camera: CAMERA, water: text, sky: optional(oneOf(SCENE_SKIES)), moon: optional(strict({ azimuth: number, altitude: number })), strips: list(text), explain: list(text) })),
   notDrawn: list(strict({ id: text, name: text, why: text, sourceIds: list(text) })),
 });
 
@@ -165,7 +165,35 @@ export function checkScene(scene: StopScene, file: string, stop: SceneStop, file
     ...checkSceneParts(scene, file),
     ...checkSceneSections(scene, file, stop.headings),
     ...checkSceneStrips(scene, file),
+    ...checkSceneNight(scene, file),
   ];
+}
+
+/** 夜里的月亮最低、最高可以写多少度：再低，影子长得没有边；再高，就在头顶上了。 */
+export const MOON_ALTITUDE = [5, 85] as const;
+
+/**
+ * 规则 21 夜：sky 是 night 的小节必须写 moon，azimuth 在 0 到 360 之间，altitude 在 5 到 85 之间；
+ * sky 不是 night 的小节不能写 moon。
+ */
+export function checkSceneNight(scene: StopScene, file: string): Violation[] {
+  const out: Violation[] = [];
+  const bad = (field: string, problem: string) => out.push(violation(21, file, field, problem));
+  const [low, high] = MOON_ALTITUDE;
+  scene.sections.forEach((section, i) => {
+    const moon = section.moon;
+    if (section.sky !== 'night') {
+      if (moon) bad(`sections[${i}].moon`, `小节“${section.heading}”不是夜里（sky 没有写 night），不能写月亮在哪`);
+      return;
+    }
+    if (!moon) {
+      bad(`sections[${i}].moon`, `小节“${section.heading}”是夜里，要写月亮在哪个方向、离地平线多高（moon 的 azimuth 和 altitude）`);
+      return;
+    }
+    if (!(moon.azimuth >= 0 && moon.azimuth <= 360)) bad(`sections[${i}].moon.azimuth`, `月亮的方向要在 0 到 360 度之间（0 是正北，顺时针），现在是 ${moon.azimuth}`);
+    if (!(moon.altitude >= low && moon.altitude <= high)) bad(`sections[${i}].moon.altitude`, `月亮离地平线的高度要在 ${low} 到 ${high} 度之间，现在是 ${moon.altitude}`);
+  });
+  return out;
 }
 
 /** 格式里要拿两个数比着看的两处：算山的海拔要比算平地的高，土丘的外圈要比内圈大。 */

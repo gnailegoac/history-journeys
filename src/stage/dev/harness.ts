@@ -10,6 +10,10 @@
 // &bare 只留沙盘：不要按钮、不要底下那行字，题签也不显出来（拍定格图用：图上不带字）；
 // &bg=%23ebe3d3 页面的底色（沙盘的画布是透明的，四周露出来的就是它）；
 // &engine=still 不摆立体的沙盘，摆定格图（这一站要已经有定格图），用来在各种窗口大小上看定格图摆得对不对。
+// 试夜色用的三样（只在这一页上有，读者看的页面上没有）：
+// &sky=night&moon=103,12 沙盘摆出来以前，把这座沙盘的每一小节都改成夜里，月亮在方位 103 度、高 12 度的地方（站点沙盘才有）；
+// &nightset=B 夜里的灯换成暗一些的那一套（月光 0.9、天光 0.75；只为和样式里的那一套比着看）；也可以直接写两个数：&nightset=0.3,1.05 是月光、天光各多强；
+// &sheenmoon=12 水面的亮照这个高度的月亮算，灯还照 moon 写的高度（把月亮画高、水面的亮照真的高度算时用）。
 
 import { loadFigure } from '../../domain/content';
 import type { TableScene } from '../../domain/scene';
@@ -17,6 +21,7 @@ import { loadStopTable } from '../../domain/sceneContent';
 import { sectionInfo } from '../../domain/sceneText';
 import { stopMarks } from '../../domain/stopMarks';
 import { loadStageEngine, stillEngine } from '../index';
+import { styleFor } from '../three/style';
 import type { NamesMode, StageInsets, StageTier, StageViewInfo, StopStageView } from '../types';
 
 const params = new URLSearchParams(location.search);
@@ -54,6 +59,38 @@ const background = params.get('bg');
 if (background !== null) {
   if (/^#[0-9a-f]{6}$/i.test(background)) document.body.style.background = background;
   else console.warn(`[沙盘测试页] bg 要写成 #rrggbb，现在是“${background}”，不改底色`);
+}
+
+/** 试夜色用的暗一些的那一套（只在这一页上；样式里用的那一套在 three/style/songQinglv.ts）。 */
+const NIGHT_SET_B = { sun: 0.9, hemi: 0.75 };
+
+/**
+ * 网址上写了 sky=night 和 moon 的话，把这座沙盘的每一小节都改成夜里；写了 nightset=B、sheenmoon 的话，把这种样式夜里的灯也换一下。
+ * 要在沙盘摆出来以前做。写得不对就什么也不改，在控制台里说一句。
+ */
+function tryNight(scene: TableScene): void {
+  if (params.get('sky') !== 'night') return;
+  const [azimuth, altitude] = (params.get('moon') ?? '').split(',').map(Number);
+  if (scene.level === 'route' || !(azimuth >= 0 && azimuth <= 360) || !(altitude > 0 && altitude < 90)) {
+    console.warn('[沙盘测试页] 试夜色要写 sky=night&moon=方位,高度（方位 0 到 360，高度 0 到 90 之间），而且只有站点沙盘能试；这一次不改');
+    return;
+  }
+  for (const section of scene.sections) {
+    section.sky = 'night';
+    section.moon = { azimuth, altitude };
+  }
+  const asked = params.get('nightset');
+  const [sun, hemi] = (asked ?? '').split(',').map(Number);
+  const set = asked === 'B' ? NIGHT_SET_B : sun > 0 && hemi > 0 ? { sun, hemi } : null;
+  const sheenMoon = Number(params.get('sheenmoon'));
+  if (!set && !(sheenMoon > 0)) return;
+  const style = styleFor(scene.style);
+  const usual = style.light;
+  style.light = (sky, moon) => {
+    const light = usual(sky, moon);
+    if (sky !== 'night' || !moon) return light;
+    return { ...light, ...set, ...(sheenMoon > 0 ? { sheen: usual(sky, { ...moon, altitude: sheenMoon }).sheen } : {}) };
+  };
 }
 
 let view: StopStageView | null = null;
@@ -156,6 +193,7 @@ async function mount(): Promise<void> {
   }
   // 读内容的程序还只认站点沙盘（它给的类型写的是站点沙盘的场景）：route.json 读出来其实是全程沙盘，在这里认出来
   const scene = table.scene as TableScene;
+  tryNight(scene);
   describeScene = scene;
   headings = scene.sections.map((s) => s.heading);
   if (!headings.includes(current)) current = headings[0] ?? '';

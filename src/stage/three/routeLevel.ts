@@ -144,11 +144,12 @@ export function routeWater(uniforms: Record<string, IUniform>): Water {
     setPixelRatio(ratio) {
       uniforms.uPx.value = ratio > 0 ? ratio : 1;
     },
+    setSheen() {},
     dispose() {},
   };
 }
 
 /** 云气的替身：全程沙盘不画云气。 */
 export function routeMist(): Mist {
-  return { group: new Group(), setFlood() {}, setStrength() {}, dispose() {} };
+  return { group: new Group(), setFlood() {}, setStrength() {}, setColor() {}, dispose() {} };
 }

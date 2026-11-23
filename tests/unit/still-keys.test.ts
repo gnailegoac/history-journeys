@@ -12,6 +12,7 @@ import packageJson from '../../package.json';
 import { contentKey } from '../../src/domain/contentKey';
 import type { RouteScene, StopScene, TableScene } from '../../src/domain/scene';
 import type { StillManifest } from '../../src/domain/stills';
+import { groundKey } from '../../src/stage/ground/key';
 import { FIT_MARGIN_PX, MAX_FIT } from '../../src/stage/three/rig';
 import type { StageShot } from '../../src/stage/types';
 import { STILL_MAX_BYTES as BUDGET_STILL_MAX_BYTES } from '../content/budgetRules';
@@ -122,6 +123,25 @@ describe('场景里决定画面的那一部分的记号（pictureKey）', () => 
     ['样式', (s) => void ((s as { style: string }).style = 'another-style')],
   ])('改%s：记号变了', (_what, change) => {
     expect(after(change)).not.toBe(base);
+  });
+
+  it('天色和月亮：定格图的记号变，地面的记号不变（夜里的小节要拍定格图，不用另外画地面）', () => {
+    const night = (s: StopScene): void => {
+      s.sections[1].sky = 'night';
+      s.sections[1].moon = { azimuth: 103, altitude: 12 };
+    };
+    expect(after(night)).not.toBe(base);
+    // 同是夜里，月亮换了地方，画面也不一样
+    const moved = after((s) => {
+      night(s);
+      s.sections[1].moon = { azimuth: 130, altitude: 68 };
+    });
+    expect(moved).not.toBe(after(night));
+    expect(moved).not.toBe(base);
+    const scene = fixtureScene();
+    const ground = groundKey(scene);
+    night(scene);
+    expect(groundKey(scene)).toBe(ground);
   });
 
   it('水位的名字、零件参数的名字是作者起的：叫 name、note 也照样算', () => {

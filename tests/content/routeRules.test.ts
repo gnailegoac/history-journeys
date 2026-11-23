@@ -175,7 +175,8 @@ describe('两份样本', () => {
   it('规则的名字：19 是随站的字体（不归内容校验查），20 是站的位置', () => {
     expect(RULE_NAMES[19]).toBe('随站的字体');
     expect(RULE_NAMES[20]).toBe('站的位置');
-    expect(RULE_NAMES).toHaveLength(21);
+    // 后面还有一条：21 是夜（站点沙盘的，tests/content/sceneRules.test.ts）
+    expect(RULE_NAMES).toHaveLength(22);
     expect(RULES_CHECKED_ELSEWHERE).toEqual([19]);
   });
 });

@@ -2,9 +2,10 @@
 // 水纹的那几个函数从水面的着色器里单拿了出来（src/stage/three/water.ts 的 rippleGlsl），全程沙盘的地面也用它。
 // 拿出来以前的原文存了一份（./support/water-shader.stored.glsl）：水面现在拼出来的两段，和存着的逐字对。
 // 站点沙盘的定格图是照这份着色器拍的；这里通不过，就是站点沙盘的水面变了。
+// 做夜里的小节时水面添了三小段（月光照到的水面亮一些）：是另外三个字符串，接在这两段后面，这两段还是逐字一样。
 
 import { describe, expect, it } from 'vitest';
-import { WATER_FRAGMENT, WATER_GLSL, rippleGlsl } from '../../src/stage/three/water';
+import { WATER_FRAGMENT, WATER_GLSL, WATER_SHEEN_GLSL, WATER_SHEEN_KEEP, WATER_SHEEN_LIGHT, rippleGlsl } from '../../src/stage/three/water';
 
 const stored = import.meta.glob<string>('./support/water-shader.stored.glsl', { query: '?raw', import: 'default', eager: true })['./support/water-shader.stored.glsl'];
 const MARK = '\n//// ---- 上面是声明和水纹的函数，下面是换掉 map_fragment 的正文 ----\n';
@@ -20,6 +21,20 @@ describe('水面的着色器', () => {
     const [common, fragment] = stored.split(MARK);
     expect(WATER_GLSL).toBe(common);
     expect(WATER_FRAGMENT).toBe(fragment);
+  });
+
+  it('夜里添的三小段是另外的：不在存着的那两段里，接在它们后面；第三段开头还留着 three 的那一处 #include', () => {
+    // 存着的两段里没有夜里的东西（上一项已经逐字对过；这里说明白是哪几个名字）
+    for (const piece of [WATER_GLSL, WATER_FRAGMENT]) for (const name of ['uSheen', 'wRipple', 'wSide']) expect(piece).not.toContain(name);
+    expect(WATER_SHEEN_GLSL).toBe('uniform float uSheen;\nfloat wRipple;\nfloat wSide;\n');
+    // 记下来的两个数，水面的正文里都有（rp 是水纹，isSide 是切面）：名字改了这里先知道
+    expect(WATER_FRAGMENT).toContain('float rp = ');
+    expect(WATER_FRAGMENT).toContain('float isSide = ');
+    expect(WATER_SHEEN_KEEP.replace(/\s+/g, ' ').trim()).toBe('wRipple = rp; wSide = isSide;');
+    expect(WATER_SHEEN_LIGHT.startsWith('#include <lights_fragment_end>\n')).toBe(true);
+    // uSheen 是 0 的时候乘的正好是 1：式子是“1.0 + uSheen × …”，没有别的项
+    expect(WATER_SHEEN_LIGHT).toContain('reflectedLight.directDiffuse *= 1.0 + uSheen * (0.55 + 0.45 * wRipple) * (1.0 - wSide);');
+    for (const piece of [WATER_SHEEN_GLSL, WATER_SHEEN_KEEP, WATER_SHEEN_LIGHT]) expect(piece.includes('\r')).toBe(false);
   });
 
   it('水纹的函数：不写间隔就是水面用的那一份（8 个页面像素）；写了别的数，只有那一个数不一样', () => {

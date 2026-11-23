@@ -57,6 +57,8 @@ export interface Mist {
   setFlood(flood: number): void;
   /** 浓淡：1 是平常。 */
   setStrength(strength: number): void;
+  /** 云气的颜色（'#rrggbb'），再压暗到几成（1 是不压）。云气不受灯照：夜里不压暗，它就是画面上最亮的东西。 */
+  setColor(hex: string, dim: number): void;
   dispose(): void;
 }
 
@@ -168,6 +170,9 @@ export function buildMist(input: MistInput): Mist {
       mats.forEach((m, i) => {
         m.uniforms.uOpacity.value = layers[i].op * s;
       });
+    },
+    setColor(hex, dim) {
+      for (const m of mats) (m.uniforms.uColor.value as Color).set(hex).multiplyScalar(dim);
     },
     dispose() {
       for (const mesh of group.children) if (mesh instanceof Mesh) mesh.geometry.dispose();

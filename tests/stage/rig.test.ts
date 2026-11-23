@@ -25,6 +25,9 @@ import {
   fitFactor,
   framePoints,
   liftOf,
+  lightDim,
+  lightLevel,
+  moonDir,
   northDeg,
   pixelsPerMetre,
   placeCamera,
@@ -37,6 +40,7 @@ import {
   screenAnchors,
   shadowBox,
   shadowTuning,
+  sheenFor,
   showPoints,
   stripSpots,
   wholeTable,
@@ -977,14 +981,96 @@ describe('宋代青绿设色：跟镜头有关的几条规矩', () => {
     const light = song.light('day');
     // 定下来的方向：东北（从沙盘指向太阳）。这是定过的事：要改先由负责人定，定了以后这一行和样式里的数一起改
     expect(light.dir).toEqual([0.66, 0.6, -0.42]);
-    // 不看镜头：这个函数除了天色不收别的，同一种天色给的总是同一盏
-    expect(song.light.length).toBeLessThanOrEqual(1);
+    // 不看镜头：这个函数除了天色和夜里的月亮不收别的，白天给的总是同一盏
+    expect(song.light.length).toBeLessThanOrEqual(2);
     expect(song.light('day')).toBe(light);
+    // 白天不看月亮；夜里没有写月亮的（校验不许这样写），还是白天的那一盏，不会摆出一盏没有方向的灯
+    expect(song.light('day', { azimuth: 103, altitude: 12 })).toBe(light);
+    expect(song.light('night')).toBe(light);
     expect(light.sun).toBeGreaterThan(0);
     expect(light.hemi).toBeGreaterThan(0);
     for (const colour of [light.sunColor, light.sky, light.ground]) expect(colour).toMatch(/^#[0-9a-f]{6}$/);
     // 影子的虚实和偏移不跟着灯走，按影子罩多大一块来定（shadowTuning）
     expect(Object.keys(light).sort()).toEqual(['dir', 'ground', 'hemi', 'sky', 'sun', 'sunColor']);
+  });
+
+  it('月亮的方向：0 是正北，顺时针；沙盘里北边是 −z，东边是 +x，上是 +y；长度是 1', () => {
+    const near = (got: Vec3, want: Vec3): void => got.forEach((v, i) => expect(v).toBeCloseTo(want[i], 3));
+    near(moonDir(90, 0), [1, 0, 0]);
+    near(moonDir(0, 0), [0, 0, -1]);
+    near(moonDir(180, 0), [0, 0, 1]);
+    near(moonDir(270, 0), [-1, 0, 0]);
+    near(moonDir(37, 90), [0, 1, 0]);
+    // 黄州那三夜里的两个月亮（做黄州以前在徐州的沙盘上试的就是这两个）
+    near(moonDir(103, 12), [0.953, 0.208, 0.22]);
+    near(moonDir(130, 68), [0.287, 0.927, 0.241]);
+    for (const [azimuth, altitude] of [[103, 12], [130, 68], [141, 69], [0, 5], [360, 85]]) expect(Math.hypot(...moonDir(azimuth, altitude))).toBeCloseTo(1, 9);
+  });
+
+  it('夜里的一套灯：月光是冷的、比白天淡，方向照写的月亮；雾色、云气色、云气淡几成、水面亮几倍，只有夜里写', () => {
+    const day = song.light('day');
+    const low = song.light('night', { azimuth: 103, altitude: 12 });
+    const high = song.light('night', { azimuth: 130, altitude: 68 });
+    // 第一次试看用的数（2026-11-23 在徐州的沙盘上试的那一套）。负责人看过图以后定下来的数改在样式里，这里跟着改
+    expect(low).toEqual({
+      dir: moonDir(103, 12),
+      sun: 1.15,
+      sunColor: '#cfdcf2',
+      hemi: 1.05,
+      sky: '#b8c8e6',
+      ground: '#5f6a7a',
+      fog: '#d5deea',
+      mist: '#dfe6ee',
+      mistStrength: 0.8,
+      sheen: sheenFor(2, 12),
+    });
+    // 两夜只差方向和水面亮几倍
+    expect({ ...high, dir: low.dir, sheen: low.sheen }).toEqual(low);
+    expect(high.dir).toEqual(moonDir(130, 68));
+    expect(high.sheen).toBe(sheenFor(2, 68));
+    // 白天的灯没有这四样：白天的雾、云气用样式里平常的颜色，不压暗
+    for (const key of ['fog', 'mist', 'mistStrength', 'sheen']) expect(day).not.toHaveProperty(key);
+    // 比白天暗，可不是黑的：月亮 12 度高时平地是白天的四分之一上下，68 度高时不到一半
+    expect(lightLevel(low)).toBeLessThan(lightLevel(high));
+    expect(lightLevel(high)).toBeLessThan(lightLevel(day));
+    expect(lightDim(low, day)).toBeCloseTo(0.26, 2);
+    expect(lightDim(high, day)).toBeCloseTo(0.46, 2);
+  });
+
+  it('lightLevel、lightDim：直接照到的那一份跟着光的斜度走，天光不跟；白天压暗的几成正好是 1', () => {
+    const day = song.light('day');
+    const flat = { ...day, dir: [0, 1, 0] as Vec3 };
+    const skyOnly = lightLevel({ ...day, sun: 0 });
+    expect(skyOnly).toBeGreaterThan(0);
+    // 光从地平线下面来：只剩天光
+    expect(lightLevel({ ...day, dir: [1, -0.2, 0] })).toBeCloseTo(skyOnly, 12);
+    // 方向不用先归一；斜到 30 度，直接照到的那一份剩一半
+    expect(lightLevel({ ...day, dir: [0, 7, 0] })).toBeCloseTo(lightLevel(flat), 12);
+    const direct = lightLevel(flat) - skyOnly;
+    expect(lightLevel({ ...day, dir: [Math.cos(Math.PI / 6), Math.sin(Math.PI / 6), 0] }) - skyOnly).toBeCloseTo(direct / 2, 12);
+    // 两样强度都加倍，亮也加倍；颜色暗了，亮也少了
+    expect(lightLevel({ ...flat, sun: day.sun * 2, hemi: day.hemi * 2 })).toBeCloseTo(lightLevel(flat) * 2, 12);
+    expect(lightLevel({ ...flat, sunColor: '#808080' })).toBeLessThan(lightLevel(flat));
+    // 白天：灯里没有写夜里的雾色、云气色，压暗的几成正好是 1（不是差不多是 1：雾、云气、木头一点不能动）
+    expect(lightDim(day, day)).toBe(1);
+    expect(lightDim({ ...day, sun: 0.1, hemi: 0.1 }, day)).toBe(1);
+    // 写了其中一样，就照两套灯的亮来比
+    expect(lightDim({ ...day, fog: '#d5deea' }, day)).toBeCloseTo(1, 12);
+    expect(lightDim({ ...day, sun: day.sun / 2, hemi: day.hemi / 2, mist: '#dfe6ee' }, day)).toBeCloseTo(0.5, 12);
+  });
+
+  it('sheenFor：月亮低，水面亮得多；月亮高，几乎不亮；强弱是 0 就是 0', () => {
+    // 强弱 2：12 度高是 4.8 倍，24 度高是 1 倍上下，68 度高几乎没有
+    expect(sheenFor(2, 12)).toBeCloseTo(4.8, 1);
+    expect(sheenFor(2, 24)).toBeCloseTo(1.0, 1);
+    expect(sheenFor(2, 68)).toBeLessThan(0.002);
+    expect(sheenFor(2, 90)).toBeCloseTo(0, 12);
+    expect(sheenFor(0, 12)).toBe(0);
+    expect(sheenFor(4, 12)).toBeCloseTo(sheenFor(2, 12) * 2, 12);
+    // 越高越小，一路往下；很低的月亮不会大得没有边（正弦小于 0.15 时分母不再变小）
+    const heights = [5, 8, 12, 20, 30, 45, 60, 75, 85];
+    heights.slice(1).forEach((h, i) => expect(sheenFor(2, h), `${heights[i]} 度到 ${h} 度`).toBeLessThan(sheenFor(2, heights[i])));
+    expect(sheenFor(2, 5)).toBeLessThan(2 / 0.15);
   });
 
   it('雾：在样张五个镜头的远近上就是样张的数；更远时跟着远近放大', () => {

@@ -30,7 +30,7 @@ import type { LightSpec, ModelSet, StageStyle } from './internal';
 import { buildModels } from './kit';
 import { buildMist, type Mist } from './mist';
 import { pixelRatioFor, qualityFor } from './quality';
-import { centreShift, chooseScale, equivalentDistance, northDeg, pixelsPerMetre, placeCamera, projectSpots, shadowBox, shadowTuning, stripSpots, type StripSpot } from './rig';
+import { centreShift, chooseScale, equivalentDistance, lightDim, northDeg, pixelsPerMetre, placeCamera, projectSpots, shadowBox, shadowTuning, stripSpots, type StripSpot } from './rig';
 import { Sequencer, mixState, type Glide, type TableState } from './sequencer';
 import { styleFor } from './style';
 import { buildTable, type Stand } from './table';
@@ -137,6 +137,7 @@ interface Built {
   samplers: GroundSamplers;
   water: Water;
   mist: Mist;
+  stand: Stand;
   models: ModelSet;
   strips: StripLayer;
 }
@@ -239,6 +240,8 @@ class ThreeStopView implements StopStageView {
   /** 现在用的灯、影子罩的那一块（用来看要不要换）。 */
   private lightKey = '';
   private boxKey = '';
+  /** 现在这套灯要云气淡到几成（白天是 1）。 */
+  private mistTimes = 1;
   /** 光从哪边来：从沙盘指向太阳，长度为 1。 */
   private readonly sunDir = new Vector3(0, 1, 0);
   private lastInfo: StageViewInfo | null = null;
@@ -583,7 +586,7 @@ class ThreeStopView implements StopStageView {
       const strips = mountStrips(this.container);
       this.keep(() => strips.destroy());
 
-      const built: Built = { renderer, world, camera, controls, sun, hemi, fog, samplers, water, mist, models, strips };
+      const built: Built = { renderer, world, camera, controls, sun, hemi, fog, samplers, water, mist, stand, models, strips };
       this.built = built;
       this.applySize(renderer, camera);
 
@@ -824,8 +827,8 @@ class ThreeStopView implements StopStageView {
       fit: placed.fit,
       reach: placed.reach,
       state: { position: pose.position, target: pose.target, fov: pose.fov, levelM, flood, mist: style.mistFor(distanceM) },
-      // 一种样式只有一盏灯：只看天色，不看镜头朝哪边、离多远
-      light: style.light(('sky' in section ? section.sky : undefined) ?? 'day'),
+      // 一种样式白天只有一盏灯，夜里一套、方向跟着这一节写的月亮：只看天色，不看镜头朝哪边、离多远
+      light: style.light(('sky' in section ? section.sky : undefined) ?? 'day', 'moon' in section ? section.moon : undefined),
       shadow: shadowBox([pose.target[0], pose.target[2]], distanceM, coords),
     };
   }
@@ -847,6 +850,15 @@ class ThreeStopView implements StopStageView {
       hemi.groundColor.set(L.ground);
       hemi.intensity = L.hemi;
       this.sunDir.set(...L.dir).normalize();
+      // 不受灯照的几样跟着灯走：远处的雾、山脚的云气、座子木头上的反光按光的强弱压暗（白天是 1，一点不动）；
+      // 夜里云气淡一些；月光直接照到的水面亮一些
+      const dim = lightDim(L, this.style.light('day'));
+      const palette = this.style.palette;
+      b.fog.color.set(L.fog ?? palette.fog).multiplyScalar(dim);
+      b.mist.setColor(L.mist ?? palette.mist, dim);
+      this.mistTimes = L.mistStrength ?? 1;
+      b.water.setSheen(L.sheen ?? 0);
+      b.stand.setDim(dim);
     }
     this.lightKey = lightKey;
     this.boxKey = boxKey;
@@ -884,7 +896,7 @@ class ThreeStopView implements StopStageView {
     b.water.setLevel(state.levelM);
     b.water.setFlood(state.flood);
     b.mist.setFlood(state.flood);
-    b.mist.setStrength(state.mist);
+    b.mist.setStrength(state.mist * this.mistTimes);
   }
 
   /** 场景里的这几条题签，按 ids 的先后；重复的、找不到的不算（和 stripTexts 一样）。 */

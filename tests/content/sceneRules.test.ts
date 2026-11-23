@@ -19,7 +19,7 @@ import { PICTURE_EDGE_MAX, TABLE_FILES_MAX_BYTES } from './budgetRules';
 import { pictureSize, toContentFiles, toFileKeys, toFileSizes, toPictureSizes } from './files';
 import { formatViolation, RULE_NAMES, validateContent as validateAll } from './rules';
 import type { ContentFiles } from './rules';
-import { bakedPictureSize, checkBakedGround, checkScene, checkSceneShape, checkSectionStills, MADE_FILES_REQUIRED, STILL_MAX_BYTES, TERRAIN_MAX_BYTES, textWidth, unsureProblem, WORDS_MAX } from './sceneRules';
+import { bakedPictureSize, checkBakedGround, checkScene, checkSceneNight, checkSceneShape, checkSectionStills, MADE_FILES_REQUIRED, MOON_ALTITUDE, STILL_MAX_BYTES, TERRAIN_MAX_BYTES, textWidth, unsureProblem, WORDS_MAX } from './sceneRules';
 import type { Measured } from './sceneRules';
 import type { FileSizes, Violation } from './shape';
 
@@ -235,7 +235,14 @@ describe('场景文件的格式：字段齐全、类型对、没有不认识的�
       '0 water.levels.values.flood',
     ]);
     expect(looseProblems<{ water: { rivers: { kind: string }[] } }>((scene) => (scene.water.rivers[1].kind = 'canal'))).toEqual(['0 water.rivers[1].kind']);
-    expect(looseProblems<{ sections: { sky: string }[] }>((scene) => (scene.sections[1].sky = 'night'))).toEqual(['0 sections[1].sky']);
+    expect(looseProblems<{ sections: { sky: string }[] }>((scene) => (scene.sections[1].sky = 'dusk'))).toEqual(['0 sections[1].sky']);
+    // 月亮写的不是两个数、多写了一样，都是格式不对
+    expect(looseProblems<{ sections: { sky: string; moon: unknown }[] }>((scene) => Object.assign(scene.sections[1], { sky: 'night', moon: { azimuth: '103', altitude: 12 } }))).toEqual([
+      '0 sections[1].moon.azimuth',
+    ]);
+    expect(looseProblems<{ sections: { sky: string; moon: unknown }[] }>((scene) => Object.assign(scene.sections[1], { sky: 'night', moon: { azimuth: 103, altitude: 12, phase: 0.9 } }))).toEqual([
+      '0 sections[1].moon.phase',
+    ]);
     expect(looseProblems<{ strips: { side: string }[] }>((scene) => (scene.strips[1].side = 'east'))).toEqual(['0 strips[1].side']);
     expect(looseProblems<{ terrain: { recipe: { kind: string } } }>((scene) => (scene.terrain.recipe.kind = 'flat'))).toEqual(['0 terrain.recipe.kind']);
     expect(looseProblems<{ terrain: { edits: { mode: string }[] } }>((scene) => (scene.terrain.edits[0].mode = 'fill'))).toEqual(['0 terrain.edits[0].mode']);
@@ -1551,10 +1558,49 @@ describe('规则 9 没有占位：场景文件里的文字也查', () => {
   });
 });
 
+describe('规则 21 夜', () => {
+  const night = (moon?: { azimuth: number; altitude: number }) => (scene: StopScene) => {
+    scene.sections[1].sky = 'night';
+    if (moon) scene.sections[1].moon = moon;
+  };
+
+  it('夜里的小节写了月亮在哪，方向和高度都在范围里：通过；两头的数也算在范围里', () => {
+    expect(sceneProblems(night({ azimuth: 103, altitude: 12 }))).toEqual([]);
+    expect(sceneProblems(night({ azimuth: 0, altitude: MOON_ALTITUDE[0] }))).toEqual([]);
+    expect(sceneProblems(night({ azimuth: 360, altitude: MOON_ALTITUDE[1] }))).toEqual([]);
+    expect(MOON_ALTITUDE).toEqual([5, 85]);
+  });
+
+  it('夜里的小节没有写月亮：查出来，说的是哪一节', () => {
+    expect(sceneProblems(night())).toEqual(['21 sections[1].moon']);
+    const found = checkSceneNight({ ...goodScene(), sections: goodScene().sections.map((s, i) => (i === 1 ? { ...s, sky: 'night' as const } : s)) }, SCENE);
+    expect(found).toHaveLength(1);
+    expect(found[0].problem).toContain(goodScene().sections[1].heading);
+    expect(formatViolation(found[0])).toContain('【规则 21 夜】');
+  });
+
+  it('白天的小节（没写 sky，或者写的是 day）写了月亮：查出来', () => {
+    expect(sceneProblems((scene) => (scene.sections[0].moon = { azimuth: 103, altitude: 12 }))).toEqual(['21 sections[0].moon']);
+    expect(sceneProblems((scene) => Object.assign(scene.sections[2], { sky: 'day', moon: { azimuth: 103, altitude: 12 } }))).toEqual(['21 sections[2].moon']);
+  });
+
+  it('月亮的方向不在 0 到 360 之间、高度不在 5 到 85 之间：各查出各的', () => {
+    expect(sceneProblems(night({ azimuth: -1, altitude: 12 }))).toEqual(['21 sections[1].moon.azimuth']);
+    expect(sceneProblems(night({ azimuth: 361, altitude: 12 }))).toEqual(['21 sections[1].moon.azimuth']);
+    expect(sceneProblems(night({ azimuth: 103, altitude: 4.9 }))).toEqual(['21 sections[1].moon.altitude']);
+    expect(sceneProblems(night({ azimuth: 103, altitude: 85.1 }))).toEqual(['21 sections[1].moon.altitude']);
+    expect(sceneProblems(night({ azimuth: 400, altitude: 90 }))).toEqual(['21 sections[1].moon.azimuth', '21 sections[1].moon.altitude']);
+  });
+
+  it('合格的样本和 content/ 里现在的沙盘都没有夜里的小节：这条规则在它们上面什么也不报', () => {
+    expect(checkSceneNight(goodScene(), SCENE)).toEqual([]);
+  });
+});
+
 describe('报告的写法', () => {
-  it('规则的名字有二十一个：格式，加上二十条（19 是随站的字体，不归内容校验查；20 是站的位置）', () => {
-    expect(RULE_NAMES).toHaveLength(21);
-    expect(RULE_NAMES.slice(10)).toEqual(['场景文件', '范围', '类别和依据', '零件', '小节', '题签', '全程沙盘', '先画好的地面', '每一小节的定格图', '随站的字体', '站的位置']);
+  it('规则的名字有二十二个：格式，加上二十一条（19 是随站的字体，不归内容校验查；20 是站的位置；21 是夜）', () => {
+    expect(RULE_NAMES).toHaveLength(22);
+    expect(RULE_NAMES.slice(10)).toEqual(['场景文件', '范围', '类别和依据', '零件', '小节', '题签', '全程沙盘', '先画好的地面', '每一小节的定格图', '随站的字体', '站的位置', '夜']);
   });
 
   it('场景的问题也写成一句话：哪条规则、哪个文件、哪个字段、哪里不对', () => {

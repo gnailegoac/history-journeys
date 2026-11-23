@@ -158,10 +158,15 @@ function woodTexture(): CanvasTexture {
   return tex(c);
 }
 
+/** 紫檀木头上的环境反光，白天的强弱。 */
+const WOOD_SHINE = 0.55;
+
 export interface Stand {
   group: Group;
   /** 紫檀的材质：要一点环境反光，由 view.ts 给它配环境贴图。 */
   wood: MeshStandardMaterial;
+  /** 木头上的反光压暗到几成（1 是白天）：反光来自环境贴图，灯暗了它不会跟着暗。 */
+  setDim(dim: number): void;
   dispose(): void;
 }
 
@@ -219,7 +224,7 @@ export function buildTable(coords: FrameCoords, palette: Record<string, string>)
     }
     acc += len;
   }
-  const wood = new MeshStandardMaterial({ color: palette.sandal, map: woodTexture(), roughness: 0.5, metalness: 0.0, envMapIntensity: 0.55 });
+  const wood = new MeshStandardMaterial({ color: palette.sandal, map: woodTexture(), roughness: 0.5, metalness: 0.0, envMapIntensity: WOOD_SHINE });
   const frame = new Mesh(fb.geo(), wood);
   frame.castShadow = true;
   frame.receiveShadow = true;
@@ -283,6 +288,9 @@ export function buildTable(coords: FrameCoords, palette: Record<string, string>)
   return {
     group,
     wood,
+    setDim(dim) {
+      wood.envMapIntensity = WOOD_SHINE * dim;
+    },
     dispose() {
       wood.envMap = null;
       disposeTree(group);

@@ -6,7 +6,7 @@
 // 远近：模型放大多少、题签跟着抬多高，看的是“折算过的远近 D”（equivalentDistance），不是镜头离多少米——
 // 同一个镜头，画面矮了东西就小，D 就大。
 
-import { MathUtils, Vector3, type Camera, type PerspectiveCamera } from 'three';
+import { Color, MathUtils, Vector3, type Camera, type PerspectiveCamera } from 'three';
 import type { RouteScene, RouteSection, SceneCamera, SceneRapids, SceneSection, SceneStrip, SceneThing, StopScene, TableScene, ThingKind } from '../../domain/scene';
 import { farEdgePoint, type FrameCoords } from '../../domain/sceneGeo';
 import { stripPoint } from '../../domain/sceneStripPoint';
@@ -15,7 +15,7 @@ import { gateSeats } from '../ground';
 import type { GroundSamplers, Vec2, Vec3 } from '../ground/types';
 import type { StripInput } from '../overlay/types';
 import type { StageInsets } from '../types';
-import type { FigureClass, StageStyle } from './internal';
+import type { FigureClass, LightSpec, StageStyle } from './internal';
 import { equivalentDistance, figureGroups, figureNow, figureTimes, liftClass, type FigureGroup } from './kit/figure';
 import { distSeg } from './kit/util';
 import { STAND_REACH, STAND_REACH_Y } from './table';
@@ -306,6 +306,48 @@ export function shadowBox(targetXZ: Vec2, distanceM: number, coords: FrameCoords
 export function shadowTuning(halfM: number): { radius: number; bias: number; normalBias: number } {
   const t = MathUtils.smoothstep(halfM, 1250, 3300);
   return { radius: 3 - 0.8 * t, bias: -0.0002 - 0.0004 * t, normalBias: 0.6 + t };
+}
+
+// ---------------------------------------------------------------- 夜里的光
+
+/**
+ * 月亮在天上的哪里，写成从沙盘指向月亮的方向 [x 东, y 上, z 南]（长度是 1）。azimuth：0 是正北，顺时针；altitude：离地平线多高。都是度。
+ * 沙盘里北边是 −z，所以正北的月亮是 [0, 0, −1]。
+ */
+export function moonDir(azimuth: number, altitude: number): Vec3 {
+  const a = MathUtils.degToRad(azimuth);
+  const h = MathUtils.degToRad(altitude);
+  return [Math.sin(a) * Math.cos(h), Math.sin(h), -Math.cos(a) * Math.cos(h)];
+}
+
+/** 一种颜色（'#rrggbb'）有多亮：按线性的光算，白是 1。 */
+function luminance(hex: string): number {
+  const c = new Color(hex);
+  return 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b;
+}
+
+/** 这一套灯照在空旷的平地上有多亮：直接照到的那一份（光越斜越少），加上天光。只用来比两套灯，单位没有意思。 */
+export function lightLevel(light: LightSpec): number {
+  const [x, y, z] = light.dir;
+  return (light.sun * luminance(light.sunColor) * Math.max(y, 0)) / Math.hypot(x, y, z) + light.hemi * luminance(light.sky);
+}
+
+/**
+ * 不受灯照的几样（远处的雾、山脚的云气、座子木头上的反光）要跟着压暗到几成：这一套灯照在平地上的亮，比白天那一套的。
+ * 灯里没有写夜里的雾色、云气色的（白天），就是 1：一点不动。
+ */
+export function lightDim(light: LightSpec, day: LightSpec): number {
+  return light.fog || light.mist ? lightLevel(light) / lightLevel(day) : 1;
+}
+
+/**
+ * 月光直接照到的水面多亮出几倍：strength × (1 − s)³ ÷ max(s, 0.15)，s 是月亮高度的正弦。
+ * 月亮低的时候大（光贴着水面来，水面反得多），高的时候几乎是 0。altitude 是月亮真的高度（度）：
+ * 灯画得比它高的时候（山画高了，影子要短一些），这里还是照真的算。
+ */
+export function sheenFor(strength: number, altitude: number): number {
+  const s = Math.sin(MathUtils.degToRad(altitude));
+  return (strength * (1 - s) ** 3) / Math.max(s, 0.15);
 }
 
 // ---------------------------------------------------------------- 题签指着的那一点

@@ -16,6 +16,7 @@
 import {
   BufferAttribute,
   BufferGeometry,
+  Color,
   DataTexture,
   Group,
   InstancedBufferGeometry,
@@ -194,10 +195,11 @@ describe.each(realSceneKeys())('%s 的预算', (key) => {
     }
   });
 
-  // 水面的着色器是拿 three 的 Lambert 那一套、照四处“#include”的位置改出来的（src/stage/three/water.ts）。
+  // 水面的着色器是拿 three 的 Lambert 那一套、照五处“#include”的位置改出来的（src/stage/three/water.ts）。
   // 哪一处在 three 里换了名字，改就落空，而且不出错：声明加进去了、正文没换上，编译照样过，水面成了一张白板。
+  // 第五处是做夜里的小节时添的（lights_fragment_end：灯都算完以后，把月光直接照到的那一份乘亮）：它落空的话夜里的水面不亮，也不出错。
   // 模型和地形板的着色器各有各的查法（kit.test.ts、ground-paint.test.ts），这一项查水面的。
-  it('水面的着色器：three 的那四处接口都在，四处都改上了', { timeout: 120_000 }, async () => {
+  it('水面的着色器：three 的那五处接口都在，五处都改上了', { timeout: 120_000 }, async () => {
     const t = await table();
     const materials: Material[] = [];
     t.water.group.traverse((object) => {
@@ -211,6 +213,9 @@ describe.each(realSceneKeys())('%s 的预算', (key) => {
     expect(count(lib.vertexShader, '#include <begin_vertex>')).toBe(1);
     expect(count(lib.fragmentShader, '#include <common>')).toBe(1);
     expect(count(lib.fragmentShader, '#include <map_fragment>')).toBe(1);
+    expect(count(lib.fragmentShader, '#include <lights_fragment_end>')).toBe(1);
+    // 乘的是 three 记“灯直接照到的那一份”的那个数：它在 Lambert 的着色器里还叫这个名字，而且是在第五处后面才加进最后的颜色里
+    expect(lib.fragmentShader.indexOf('reflectedLight.directDiffuse +')).toBeGreaterThan(lib.fragmentShader.indexOf('#include <lights_fragment_end>'));
     for (const material of materials) {
       expect(material.type).toBe('MeshLambertMaterial');
       const shader = { name: material.type, uniforms: UniformsUtils.clone(lib.uniforms), vertexShader: lib.vertexShader, fragmentShader: lib.fragmentShader };
@@ -233,7 +238,27 @@ describe.each(realSceneKeys())('%s 的预算', (key) => {
       const water = shader.fragmentShader.slice(shader.fragmentShader.indexOf('float whash('), shader.fragmentShader.indexOf('diffuseColor.a = a * mix('));
       expect(count(water, 'fwidth('), '水面的着色器里量像素的地方多了或者少了：新添的也要乘 uPx').toBe(5);
       expect(count(water, '* uPx;')).toBe(3);
+      // 夜里添的：声明在水纹的函数后面；水纹和“是不是切面”记下来的那两句紧跟在水面的正文后面（还在它那一对花括号里，rp、isSide 认得）；
+      // 乘亮的那一句紧跟在 three 把灯算完的地方后面，那一处的 #include 还留着（只留一次）
+      const source = shader.fragmentShader;
+      expect(source).toContain('uniform float uSheen;\nfloat wRipple;\nfloat wSide;\n');
+      expect(source.indexOf('uniform float uSheen;')).toBeGreaterThan(source.indexOf('float ripples('));
+      expect(source).toMatch(/diffuseColor\.a = a \* mix\(0\.8, 0\.95, dk\);\s+wRipple = rp;\s+wSide = isSide;/);
+      expect(count(source, '#include <lights_fragment_end>')).toBe(1);
+      expect(source).toMatch(/#include <lights_fragment_end>\s+reflectedLight\.directDiffuse \*= 1\.0 \+ uSheen \* \(0\.55 \+ 0\.45 \* wRipple\) \* \(1\.0 - wSide\);/);
+      expect(count(source, 'uSheen')).toBe(2);
     }
+    // 月光照到的水面多亮出几倍：不说是 0（白天：乘的正好是 1，画面不变）；说了，两片水面都跟着
+    const sheens = (): number[] => materials.map((material) => {
+      const shader = { name: material.type, uniforms: UniformsUtils.clone(lib.uniforms), vertexShader: lib.vertexShader, fragmentShader: lib.fragmentShader };
+      (material.onBeforeCompile as (parameters: unknown, renderer: unknown) => void)(shader, null);
+      return (shader.uniforms as Record<string, { value: unknown }>).uSheen.value as number;
+    });
+    expect(sheens()).toEqual([0, 0]);
+    t.water.setSheen(4.8);
+    expect(sheens()).toEqual([4.8, 4.8]);
+    t.water.setSheen(0);
+    expect(sheens()).toEqual([0, 0]);
     // 不说像素比是 1（像素比 1 的屏幕上画面和以前一样）；说了，两片水面都跟着；说 0 或者不是数，当 1
     const ratios = (): number[] => materials.map((material) => {
       const shader = { name: material.type, uniforms: UniformsUtils.clone(lib.uniforms), vertexShader: lib.vertexShader, fragmentShader: lib.fragmentShader };
@@ -249,6 +274,38 @@ describe.each(realSceneKeys())('%s 的预算', (key) => {
     expect(ratios()).toEqual([1, 1]);
     t.water.setPixelRatio(Number.NaN);
     expect(ratios()).toEqual([1, 1]);
+  });
+
+  // 云气和座子木头上的反光都不受灯照：夜里要有人把它们压暗（view.ts 的 applyLight 照 rig.ts 的 lightDim 给的几成来压）。
+  it('云气换颜色、压暗：每一层都跟着，压的是线性的光；压到 1 就是原来的颜色。座子的木头：反光跟着压，压到 1 是白天的 0.55', { timeout: 120_000 }, async () => {
+    const t = await table();
+    const style = styleFor(t.R.scene.style);
+    for (const tier of TIERS) {
+      const colours = (): Color[] => {
+        const found: Color[] = [];
+        t.mists[tier].group.traverse((object) => {
+          if (object instanceof Mesh) found.push((object.material as ShaderMaterial).uniforms.uColor.value as Color);
+        });
+        return found;
+      };
+      expect(colours()).toHaveLength(QUALITY[tier].mistLayers);
+      const usual = new Color(style.palette.mist);
+      for (const colour of colours()) expect(colour.equals(usual)).toBe(true);
+      t.mists[tier].setColor('#dfe6ee', 0.25);
+      const night = new Color('#dfe6ee');
+      for (const colour of colours()) {
+        expect(colour.r).toBeCloseTo(night.r * 0.25, 6);
+        expect(colour.g).toBeCloseTo(night.g * 0.25, 6);
+        expect(colour.b).toBeCloseTo(night.b * 0.25, 6);
+      }
+      t.mists[tier].setColor(style.palette.mist, 1);
+      for (const colour of colours()) expect(colour.equals(usual)).toBe(true);
+    }
+    expect(t.stand.wood.envMapIntensity).toBe(0.55);
+    t.stand.setDim(0.26);
+    expect(t.stand.wood.envMapIntensity).toBeCloseTo(0.143, 6);
+    t.stand.setDim(1);
+    expect(t.stand.wood.envMapIntensity).toBe(0.55);
   });
 
   it(`减配的一档：每一节、从近到远，一个画面的三角形数不超过 ${withCommas(TRIANGLES_MAX)}，而且比完整的一档少`, { timeout: 120_000 }, async () => {

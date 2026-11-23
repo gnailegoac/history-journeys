@@ -326,8 +326,16 @@ export interface SceneFarPlace extends Grounds {
 
 // ---------------------------------------------------------------- 小节
 
-export const SCENE_SKIES = ['day'] as const; // 夜、雨、雪做黄州时再加
+export const SCENE_SKIES = ['day', 'night'] as const; // 雨、雪没有做
 export type SceneSky = (typeof SCENE_SKIES)[number];
+
+/** 夜里的小节，月亮在天上的哪里。 */
+export interface SceneMoon {
+  /** 月亮在哪个方向：0 是正北，顺时针，度。 */
+  azimuth: number;
+  /** 离地平线多高，度。 */
+  altitude: number;
+}
 
 export interface SceneCamera {
   /** 镜头对准哪。 */
@@ -363,6 +371,8 @@ export interface SceneSection {
   water: string;
   /** 天色。不写是白天。 */
   sky?: SceneSky;
+  /** 月亮在哪。夜里的小节必须写；白天的不能写。 */
+  moon?: SceneMoon;
   /** 这一节摆哪几条题签（题签的 id），一到六条，要紧的在前；摆不下时从后面去掉。 */
   strips: string[];
   /**

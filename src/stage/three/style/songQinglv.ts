@@ -1,11 +1,12 @@
 // 宋代青绿设色（'song-qinglv'）这一种时代样式：颜色、山上的分带、模型跟着远近怎么变、题签抬多高、灯、雾。
 // 颜色和数大多是从样张搬来的（spikes/art-direction/b/scene/ 里 config.js 的 PAL、sandtable.js 的灯和各个镜头的雾），没有改。
 // 样张里没有、这里新定的只有四样：夯土色、墙脚土坡的颜色、雾的颜色单列出来、题签的抬高。
-// 模型跟着远近怎么变的那张表在 ./songQinglvFigure.ts。灯只有一盏，不看镜头。
+// 模型跟着远近怎么变的那张表在 ./songQinglvFigure.ts。灯白天只有一盏，夜里一套（方向跟着月亮），都不看镜头。
 
-import type { ThingKind } from '../../../domain/scene';
+import type { SceneMoon, SceneSky, ThingKind } from '../../../domain/scene';
 import type { GroundColour, Vec2 } from '../../ground/types';
 import type { FigureClass, LightSpec, RouteStyle, StageStyle } from '../internal';
+import { moonDir, sheenFor } from '../rig';
 import { SONG_QINGLV_FIGURE } from './songQinglvFigure';
 
 // ---------------------------------------------------------------- 颜色
@@ -117,6 +118,30 @@ const LIGHT: LightSpec = {
   ground: '#c4b494',
 };
 
+/**
+ * 夜里的一套：月光是冷的、淡的，天光补得多（夜色不黑到看不清地形），方向照这一小节写的月亮。
+ * 白天平地的亮算 100 的话：月亮 12 度高时平地 26、影子里 20；68 度高时平地 46（都是线性的光；屏幕上看是 54、49、70）。
+ * fog、mist 是照足了光时的颜色，用的时候按上面的比例压暗；云气夜里淡到八成。
+ * 这是第一次试看用的数（在徐州的沙盘上试的），负责人看过图以后再定；tests/stage/rig.test.ts 里记着，改了那边会不通过。
+ */
+const NIGHT = {
+  sun: 1.15,
+  sunColor: '#cfdcf2',
+  hemi: 1.05,
+  sky: '#b8c8e6',
+  ground: '#5f6a7a',
+  fog: '#d5deea',
+  mist: '#dfe6ee',
+  mistStrength: 0.8,
+};
+
+/** 月光直接照到的水面多亮出几倍，照 ../rig.ts 的 sheenFor 算时用的强弱：月亮 12 度高时是 4.8 倍，68 度高时几乎没有。 */
+const NIGHT_SHEEN = 2;
+
+function light(sky: SceneSky, moon?: SceneMoon): LightSpec {
+  return sky === 'night' && moon ? { ...NIGHT, dir: moonDir(moon.azimuth, moon.altitude), sheen: sheenFor(NIGHT_SHEEN, moon.altitude) } : LIGHT;
+}
+
 // ---------------------------------------------------------------- 雾
 
 /** 样张五个镜头的远近和它们各自的雾：[镜头多远, 雾从多远起, 到多远全白]，米。 */
@@ -219,7 +244,7 @@ export const songQinglv: StageStyle = {
   figure: SONG_QINGLV_FIGURE,
   stripLift: STRIP_LIFT,
   stripLiftByClass: STRIP_LIFT_BY_CLASS,
-  light: () => LIGHT,
+  light,
   fogFor,
   mistFor,
   route: ROUTE,

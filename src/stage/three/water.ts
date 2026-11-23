@@ -10,6 +10,7 @@
 //   原来像素比不同的屏幕上水纹落在不同的地方，立体的沙盘接替定格图（宽的照 1.5 拍、窄的照 2 拍）的那一下，白线会跳。
 // 又后来：水纹的那几个函数单拿出来（rippleGlsl），全程沙盘的地面也用它（那里的海和湖是画在地面上的，见 terrainMesh.ts）。
 //   水面自己拼出来的着色器一个字也没有变（tests/stage/water-shader.test.ts 拿存着的一份原文对）。
+// 做夜里的小节时添了一样：月光直接照到的水面亮一些（setSheen；见 WATER_SHEEN_GLSL 那三小段）。原来的两段没有动，白天的画面也没有变。
 // 水是一整片平面，哪里有水由“水位 − 地面高”决定，所以水位一抬，河就漫成一片。
 // 颜色是淡花青，上面有细的白色水纹；岸边留一道白。
 
@@ -148,6 +149,22 @@ export const WATER_FRAGMENT = /* glsl */ `
         `;
 
 /**
+ * 夜里添的三小段：月光直接照到的水面亮一些（uSheen，白天是 0，那时乘的正好是 1，画面一点不变）。
+ * 上面两段的原文不动（定格图是照它们拍的，tests/stage/water-shader.test.ts 拿存着的一份对），这三段接在它们后面：
+ * 声明；把水纹和“是不是切面”记到两个全局的数里；three 把灯都算完以后（lights_fragment_end），把直接照到的那一份乘上去。
+ * 只乘直接照到的那一份：影子里没有，白天没有；有水纹的地方亮得多一点。不看镜头，也不看月亮在哪边——是一片匀匀的亮，不是一道光。
+ */
+export const WATER_SHEEN_GLSL = /* glsl */ `uniform float uSheen;
+float wRipple;
+float wSide;
+`;
+export const WATER_SHEEN_KEEP = /* glsl */ `wRipple = rp;
+        wSide = isSide;
+        `;
+export const WATER_SHEEN_LIGHT = /* glsl */ `#include <lights_fragment_end>
+        reflectedLight.directDiffuse *= 1.0 + uSheen * (0.55 + 0.45 * wRipple) * (1.0 - wSide);`;
+
+/**
  * 水纹怎么摆。水纹要顺着画面横着走：镜头朝东或朝西看（朝向离正东、正西不到 45 度）时转九十度。
  * 贴近了看（不到 3000 米）水纹密一点。这是样张各个镜头的数归出来的规矩。
  */
@@ -188,6 +205,8 @@ export interface Water {
    * 像素比是 1 的时候画面和不说一样。
    */
   setPixelRatio(ratio: number): void;
+  /** 月光直接照到的水面多亮出几倍（灯里的 sheen）。白天是 0。 */
+  setSheen(sheen: number): void;
   dispose(): void;
 }
 
@@ -261,6 +280,7 @@ export function buildWater(input: WaterInput): Water {
     uDense: { value: 0.5 },
     uRipRot: { value: new Vector2(1, 0) },
     uPx: { value: 1 },
+    uSheen: { value: 0 },
   });
   const uniforms = makeUniforms(false);
   const dryUniforms = makeUniforms(true);
@@ -300,8 +320,9 @@ export function buildWater(input: WaterInput): Water {
         .replace('#include <common>', '#include <common>\nvarying vec3 vWPos;')
         .replace('#include <begin_vertex>', '#include <begin_vertex>\nvWPos = (modelMatrix * vec4(transformed, 1.0)).xyz;');
       sh.fragmentShader = sh.fragmentShader
-        .replace('#include <common>', '#include <common>\n' + WATER_GLSL)
-        .replace('#include <map_fragment>', WATER_FRAGMENT);
+        .replace('#include <common>', '#include <common>\n' + WATER_GLSL + WATER_SHEEN_GLSL)
+        .replace('#include <map_fragment>', WATER_FRAGMENT + WATER_SHEEN_KEEP)
+        .replace('#include <lights_fragment_end>', WATER_SHEEN_LIGHT);
     };
     return mat;
   };
@@ -348,6 +369,10 @@ export function buildWater(input: WaterInput): Water {
       const px = ratio > 0 ? ratio : 1;
       uniforms.uPx.value = px;
       dryUniforms.uPx.value = px;
+    },
+    setSheen(sheen) {
+      uniforms.uSheen.value = sheen;
+      dryUniforms.uSheen.value = sheen;
     },
     dispose() {
       geo.dispose();

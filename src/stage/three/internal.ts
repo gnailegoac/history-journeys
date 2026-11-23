@@ -5,7 +5,7 @@
 // 模型只有一套，跟着远近在显卡上变（FigureStyle）；一种样式一盏灯（StageStyle.light）；画质两档（Quality）。
 
 import type { Group } from 'three';
-import type { SceneSky, SceneStyleId, StopScene, ThingKind } from '../../domain/scene';
+import type { SceneMoon, SceneSky, SceneStyleId, StopScene, ThingKind } from '../../domain/scene';
 import type { FrameCoords } from '../../domain/sceneGeo';
 import type { Ground, GroundSamplers, GroundStyle, Vec3 } from '../ground/types';
 import type { StageTier } from '../types';
@@ -30,7 +30,7 @@ export interface Quality {
   mistLayers: number;
 }
 
-/** 一盏太阳光加一份天光。一种样式只有一盏，不看镜头。影子的虚实和偏移不在这里：由 rig.ts 的 shadowTuning 按影子罩多大一块来定。 */
+/** 一盏太阳光（夜里是月光）加一份天光。一种样式白天只有一盏，夜里一套，不看镜头。影子的虚实和偏移不在这里：由 rig.ts 的 shadowTuning 按影子罩多大一块来定。 */
 export interface LightSpec {
   /** 光从哪边来：从沙盘指向太阳的方向，[x, y, z]，不用先归一。 */
   dir: Vec3;
@@ -41,6 +41,14 @@ export interface LightSpec {
   hemi: number;
   sky: string;
   ground: string;
+  /**
+   * 下面四样夜里才写。fog、mist：远处的雾、山脚的云气各是什么颜色（照足了光时的颜色，用的时候再按光的强弱压暗，见 rig.ts 的 lightDim）；
+   * mistStrength：云气淡到几成；sheen：月光直接照到的水面多亮出几倍（已经按月亮的高矮算好，见 rig.ts 的 sheenFor）。
+   */
+  fog?: string;
+  mist?: string;
+  mistStrength?: number;
+  sheen?: number;
 }
 
 /**
@@ -171,8 +179,8 @@ export interface StageStyle {
    * 墙顶上的棚子也是一种“屋”，可它只有地上的茅屋一半高。
    */
   stripLiftByClass?: Partial<Record<FigureClass, number>>;
-  /** 这种样式的灯。只看天色，不看镜头。 */
-  light(sky: SceneSky): LightSpec;
+  /** 这种样式的灯。只看天色（夜里再看月亮在哪），不看镜头。 */
+  light(sky: SceneSky, moon?: SceneMoon): LightSpec;
   /** 远处的雾从多远开始、到多远全白：[近, 远]，米。 */
   fogFor(distanceM: number): [number, number];
   /** 山脚的云气浓淡：1 是平常，0 是没有。 */

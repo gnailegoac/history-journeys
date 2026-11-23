@@ -1638,6 +1638,18 @@ describe('修整压出来的宽水面（openWater）和最低的水位露出来�
     for (const v of g.villages) expect(pond.at.edge(v.x, v.z), `村子 (${v.x}, ${v.z})`).toBeGreaterThan(0);
   });
 
+  it('壕这样窄的水道不会被别处的宽水面改成“宽的河”：有了压出来的水面，壕里和壕边的格子还是原来的数', () => {
+    // 壕的格子也比平时的水位低；宽水面的那一遍量岸要是把它们也换了，壕的岸就一块一块地成了大河的留白和水纹
+    let narrow = 0;
+    eachCell(plain, (k) => {
+      if (plain.bankHalf[k] !== M.moatWidth / 2 || plain.edge[k] > OPEN_SEED_OUTSIDE_M) return;
+      narrow++;
+      expect(g.bankHalf[k], `第 ${k} 格的半宽`).toBe(M.moatWidth / 2);
+      expect(g.edge[k], `第 ${k} 格到岸多远`).toBe(plain.edge[k]);
+    });
+    expect(narrow).toBeGreaterThan(100);
+  });
+
   it('上色：水面里面是水底的淡花青，岸边留白；没有比平时低的水位时，滩和深处一个颜色', () => {
     const paint = paintGround(g, STYLE);
     const deep = pixel(paint, g, -1100, -700);

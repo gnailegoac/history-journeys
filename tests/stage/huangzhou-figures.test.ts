@@ -27,6 +27,7 @@ import { describe, expect, it } from 'vitest';
 import { Color, InstancedMesh, Matrix4, Mesh, PerspectiveCamera, Vector3 } from 'three';
 import type { BufferGeometry, DataTexture, Object3D, ShaderMaterial } from 'three';
 import type { SceneThing } from '../../src/domain/scene';
+import { sectionInfo } from '../../src/domain/sceneText';
 import { paintColour, yardLayout } from '../../src/stage/ground';
 import type { Vec2 } from '../../src/stage/ground/types';
 import { CLIFF, EARTH_WALL, FACE_LEAN, SHORE_ABOVE_LOWEST_M, SHORE_UNDER_NORMAL_M, SMALL_GATE, cliffColumns, earthWallPieces, family as rockFamily } from '../../src/stage/three/families/rock';
@@ -212,6 +213,27 @@ describe('黄州的崖壁（赤壁）', () => {
     }
     expect(FACE_LEAN).toBeGreaterThanOrEqual(1);
     expect(lowestUp).toBeGreaterThan(0.6);
+    // 崖面朝着河：每一个三角形（照顶点的先后算出来的那一面）都背着它那一列的山。法线抬过，上面那一条查不出铺反了的面
+    const at = face.attributes.position;
+    // 交给零件库以后面是摊开的：每三个顶点一个三角形（有顶点先后表的话照表读）
+    const tri = face.index;
+    const corner = (k: number): number => (tri ? tri.getX(k) : k);
+    const corners = tri ? tri.count : at.count;
+    const point = (i: number): [number, number, number] => [at.getX(i), at.getY(i), at.getZ(i)];
+    const nearest = (p: [number, number, number]) => cols.reduce((best, c) => (Math.hypot(c.x - p[0], c.z - p[2]) < Math.hypot(best.x - p[0], best.z - p[2]) ? c : best), cols[0]);
+    let facing = 0;
+    for (let t = 0; t < corners; t += 3) {
+      const [a, b, c] = [point(corner(t)), point(corner(t + 1)), point(corner(t + 2))];
+      const u = [b[0] - a[0], b[1] - a[1], b[2] - a[2]];
+      const v = [c[0] - a[0], c[1] - a[1], c[2] - a[2]];
+      const n = [u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2], u[0] * v[1] - u[1] * v[0]];
+      const col = nearest(a);
+      // 两头矮下去的几列不看（崖只有半米高，面几乎是躺着的）
+      if (Math.min(col.u, cols[cols.length - 1].u - col.u) < CLIFF.taperM) continue;
+      expect(n[0] * -col.nx + n[2] * -col.nz, `第 ${t / 3} 个三角形`).toBeGreaterThan(0);
+      facing++;
+    }
+    expect(facing).toBeGreaterThan(20);
     // 几带：崖脚一带最深，中间那道台口最亮；最亮的一带比最深的一带亮出一半以上（顶点上的颜色，线性的光）
     const pos = face.attributes.position;
     const col = face.attributes.color;
@@ -690,6 +712,8 @@ describe('黄州：矮土墙和东门', () => {
 
   it('场景里有五段矮土墙和夏澳边的一道矮土堤，一座小门；它们不是城墙：不围出一座城', () => {
     expect(walls.map((t) => t.id).sort()).toEqual(['camp-ruin-east', 'camp-ruin-south', 'wall-east-north', 'wall-east-south', 'wall-south', 'xiaao-dike']);
+    // 只有夏澳边的那道土堤是半高的
+    expect(walls.filter((t) => t.params?.low === true).map((t) => t.id)).toEqual(['xiaao-dike']);
     expect(gate.kind).toBe('small-gate');
     expect(scene.things.some((t) => t.kind === 'wall')).toBe(false);
     expect(ground.cities).toEqual([]);
@@ -752,6 +776,9 @@ describe('黄州：矮土墙和东门', () => {
         const over = top - coords.y(samplers.height(cx, cz));
         expect(over, wall.id).toBeLessThanOrEqual(EARTH_WALL.highY + 0.5);
         expect(over, wall.id).toBeGreaterThan(EARTH_WALL.highY * 0.3);
+        // 写了 low 的只有一半高（夏澳边的土堤：原来在近看的一节里立得同屋子一般高）
+        if (wall.params?.low === true) expect(over, wall.id).toBeLessThanOrEqual(EARTH_WALL.highY * 0.5 + 0.5);
+        else if (wall.params?.ruined !== true) expect(over, wall.id).toBeGreaterThan(EARTH_WALL.highY * 0.9);
         // 不归类：不跟着远近放大
         const fig = g.attributes.aFig;
         for (let i = 0; i < fig.count; i++) expect(fig.getX(i)).toBe(0);
@@ -868,9 +895,11 @@ describe('黄州：镜头、题签和题记（第 3 步 U4，对着图片定下�
     expect(style.light('night', nights[0].moon).sheen ?? 0).toBeGreaterThan(5);
     // 十月和承天寺两夜月亮在 68 度以上：水面不加亮，月光用高的那一头的数（平地才不会比七月那一夜亮出一截）
     for (const night of nights.slice(1)) expect(night.moon.altitude).toBeGreaterThanOrEqual(68);
-    // 题记里说的和这一夜的月亮对得上：七月那一节说月亮已经升到东边的山上，不说“刚出来”
-    expect(sectionOf(JULY).line).toContain('月亮已经升到东边的山上');
-    expect(sectionOf(JULY).line).not.toMatch(/刚|正在/);
+    // 题记里说的和这一夜的月亮对得上：七月那一节说月光从东边的山上照过来（月亮已经升起来了，不说“刚出来”）。
+    // 说月光，不说月亮：沙盘上不画月亮，说“月亮在东边的山上”，孩子会去找（第 3 步收尾时改的）
+    expect(sectionOf(JULY).line).toContain('月光从东边的山上照过来');
+    expect(sectionOf(JULY).line).not.toMatch(/刚|正在|月亮/);
+    for (const night of nights) expect(sectionOf(night.heading).line, night.heading).not.toContain('月亮');
   });
 
   it('头一节的题记先说从哪边往哪边看：这座沙盘是从北往南看的，城在画面里大江的这一边，和正文“黄州在大江北岸”、和全程沙盘“上北下南”都反着', () => {
@@ -894,26 +923,82 @@ describe('黄州：镜头、题签和题记（第 3 步 U4，对着图片定下�
     expect(lingao.y).toBeGreaterThan(free.top + height * 0.25);
     expect(lingao.y).toBeLessThan(free.top + height * 0.75);
     expect(Math.abs(lingao.x - pane.size.width / 2)).toBeLessThan(pane.size.width * 0.2);
+    // 收尾时又拉近了（1,500 米）：这一节写的是 1080 年，东坡的田（1081 年才有）哪一种栏上都不在画面里；
+    // 承天寺那座白院子不在电脑和横着拿的平板的画面里（竖着拿的平板上只在左边露一个角）
+    expect(view.section.camera.distanceM).toBe(1500);
+    const plot = scene.dressing.find((d) => d.id === 'fields-dongpo')?.area as [number, number][];
+    for (const corner of plot) {
+      const p = view.at(corner);
+      expect(p.x < 0 || p.x > pane.size.width || p.y > pane.size.height || p.y < 0, `田的一角在画面里：${p.x.toFixed(0)}, ${p.y.toFixed(0)}`).toBe(true);
+    }
+    const temple = view.at(atOf('chengtian'));
+    expect(temple.x, '承天寺的正中').toBeLessThan(pane.name === '768 × 573' ? 0 : -150);
   });
 
-  it('“寒食，沙湖”一节：夏澳里的船都在临皋亭的亭子左边（照镜头的左右量，离亭子 40 米以上），不在亭子屋顶的正后面', { timeout: 30_000 }, async () => {
-    const section = sectionOf('寒食，沙湖');
+  it('“寒食，沙湖”一节和“一天一百五十钱”是同一个镜头（三种标准的栏上一模一样）：两节一比，看得出水涨到了亭子脚下；沙湖只在题记下面说，沙盘上不立题签', () => {
+    const spring = sectionOf('寒食，沙湖');
+    const winter = sectionOf('一天一百五十钱');
+    // 镜头：对准的点、远近、倾角、朝向都一样（要看的点多一样门外的船：两节里船都在）
+    const { mustShow: springShows, ...springCamera } = spring.camera;
+    const { mustShow: winterShows, ...winterCamera } = winter.camera;
+    expect(springCamera).toEqual(winterCamera);
+    expect(winterShows).toEqual(['lingao']);
+    expect(springShows).toEqual(['lingao', 'boats-lingao']);
+    for (const pane of THREE_PANES) {
+      const a = placeCamera(winter, scene, samplers, coords, style, pane.size, pane.insets);
+      const b = placeCamera(spring, scene, samplers, coords, style, pane.size, pane.insets);
+      expect(b.fit, pane.name).toBe(a.fit);
+      expect(b.pose, pane.name).toEqual(a.pose);
+    }
+    // 水一高一平：门前的滩冬天是干的，寒食前后在水下（huangzhou-ground.test.ts 查着哪一档有水）
+    expect(levels[winter.water]).toBe(levels.normal);
+    expect(levels[spring.water]).toBe(highest);
+    // 沙湖：只在题记下面那一行说（farLine），这一节没有它的题签，场景里也不再有这条题签；题记下面印的还是他的那句话
+    expect(spring.farLine).toEqual(['shahu']);
+    expect(spring.strips).toEqual(['t-lingao', 't-dajiang-lingao']);
+    expect(scene.strips.some((strip) => strip.of === 'shahu')).toBe(false);
+    expect(sectionInfo(scene, spring.heading).far).toEqual([{ id: 'shahu', name: '沙湖', say: '往东南约三十里（今天是哪里没有查到）' }]);
+  });
+
+  it('船：夏澳里的三条在近看临皋亭的两节里不摆（在画面边上切掉一半，或者同亭子的屋顶叠在一起）；临皋亭下的两条在水落的两节里不摆（从屋后看过去认不出是船）；别的小节都在', { timeout: 30_000 }, async () => {
     const models = buildModels(ctxOf());
     await models.prepare(R.headings);
-    models.apply(section.heading, levels[section.water], section.camera.distanceM);
+    const shown = (heading: string, rule: string): number => {
+      const section = sectionOf(heading);
+      models.apply(section.heading, levels[section.water], section.camera.distanceM);
+      models.group.updateMatrixWorld(true);
+      return instancesOf(models.group, 'boats').filter((b) => b.rule === rule && b.visible).length;
+    };
+    for (const heading of R.headings) {
+      const near = heading === '一天一百五十钱' || heading === '寒食，沙湖';
+      const low = levels[sectionOf(heading).water] === lowest;
+      expect(shown(heading, 'boats-xiaao'), `${heading}：夏澳里的船`).toBe(near ? 0 : 3);
+      expect(shown(heading, 'boats-lingao'), `${heading}：临皋亭下的船`).toBe(low ? 0 : 2);
+    }
+  });
+
+  it('七月那一夜崖下的船在崖的影子外面：离崖脚的线比崖和山的影子长，又不出崖自己那么长的一段（还算“在赤壁下”）', { timeout: 30_000 }, async () => {
+    const july = sectionOf(JULY);
+    const models = buildModels(ctxOf());
+    await models.prepare(R.headings);
+    models.apply(july.heading, levels[july.water], july.camera.distanceM);
     models.group.updateMatrixWorld(true);
-    const boats = instancesOf(models.group, 'boats').filter((b) => b.rule === 'boats-xiaao' && b.visible);
-    expect(boats).toHaveLength(3);
-    const [px, pz] = coords.toLocal(atOf('lingao-pavilion'));
-    // 朝 bearing 看的时候，右手边是 (cos b, sin b)（沙盘里东是 +x，南是 +z）；往前是 (sin b, −cos b)
-    const b = (section.camera.bearing * Math.PI) / 180;
-    const sides = boats.map((boat) => (boat.at.x - px) * Math.cos(b) + (boat.at.z - pz) * Math.sin(b));
-    const behind = boats.map((boat) => (boat.at.x - px) * Math.sin(b) - (boat.at.z - pz) * Math.cos(b));
-    console.log(`  “寒食，沙湖”：夏澳里的船在亭子的 ${sides.map((s) => (s < 0 ? '左 ' : '右 ') + Math.abs(s).toFixed(0)).join('、')} 米，往后 ${behind.map((s) => s.toFixed(0)).join('、')} 米`);
-    // 原来镜头朝东南（135 度）看，夏澳正好在亭子的正后面，三条船画在亭子的屋顶上（船在亭子左右 60 米以内、后面一百来米）
-    for (const side of sides) expect(side).toBeLessThan(-40);
-    // 远处的题签还在画面上头：沙湖在亭子的左前方，不出三种标准的栏（另有 scene-cameras、still-fit 查着）
-    expect(section.camera.mustShow).toEqual(['lingao', 'boats-lingao', 'shahu']);
+    const boats = instancesOf(models.group, 'boats').filter((b) => b.rule === 'boat-chibi' && b.visible);
+    expect(boats).toHaveLength(1);
+    const foot = (thingOf('chibi').line ?? []).map((p) => coords.toLocal(p));
+    let cliffLong = 0;
+    for (let i = 1; i < foot.length; i++) cliffLong += Math.hypot(foot[i][0] - foot[i - 1][0], foot[i][1] - foot[i - 1][1]);
+    const off = Math.min(...foot.map((p) => Math.hypot(p[0] - boats[0].at.x, p[1] - boats[0].at.z)));
+    // 影子多长：赤壁所在的山顶到水面的高（沙盘里的高度，夸大过的）除以月亮高度的正切；山顶在崖脚的线往里一百来米，这里不减，留作余量
+    const mound = scene.terrain.edits.find((e) => e.id === 'cliff-hill');
+    if (mound?.op !== 'mound') throw new Error('没有赤壁所在的山');
+    const [mx, mz] = coords.toLocal(mound.at);
+    const over = (samplers.height(mx, mz) - levels[july.water]) * scene.frame.relief.times;
+    const shadow = over / Math.tan(((july.moon?.altitude ?? 90) * Math.PI) / 180) - Math.min(...foot.map((p) => Math.hypot(p[0] - mx, p[1] - mz)));
+    console.log(`  “赤壁”：船离崖脚的线 ${off.toFixed(0)} 米；山顶比水面高 ${over.toFixed(0)}（沙盘里的高度），影子伸出崖脚的线 ${shadow.toFixed(0)} 米；崖长 ${cliffLong.toFixed(0)} 米`);
+    // 原来船离崖脚 120 来米，整条在影子里：船身 44、影子里的水 73，要找才看得见
+    expect(off).toBeGreaterThan(shadow);
+    expect(off).toBeLessThan(cliffLong);
   });
 
   it.each(THREE_PANES)('$name：两节赤壁里“大江”的题签挂在它那一点的下面，那一点比崖脚的石滩低（更靠近镜头）：题签不站在石滩和石头上', (pane) => {
@@ -954,8 +1039,93 @@ describe('黄州：镜头、题签和题记（第 3 步 U4，对着图片定下�
     expect(roofPx).toBeGreaterThanOrEqual(20);
   });
 
-  it('“东坡”一节比 U3 留下的近一些（2,800 米）；“承天寺”一节院子、寺和江边的临皋亭在一个画面里，两条题签各指各的', () => {
-    expect(sectionOf('东坡').camera.distanceM).toBe(2800);
+  it('“东坡”一节只立“东坡”“雪堂”两条题签，比原来近（2,400 米）；竖着拿的平板上赤壁的红崖不在画面里，横着拿的平板上州衙整个在画面外', () => {
+    const section = sectionOf('东坡');
+    expect(section.camera.distanceM).toBe(2400);
+    expect(section.strips).toEqual(['t-dongpo', 't-xuetang']);
+    expect(section.camera.mustShow).toEqual(['fields-dongpo', 'xuetang']);
+    const [upright, sideways] = [THREE_PANES[2], THREE_PANES[1]];
+    // 崖脚的线上每个点，和它往里（往东）60 米的地方，都在竖着拿的平板的画面左边以外 20 像素
+    const cliffView = screenOf('东坡', upright);
+    for (const p of thingOf('chibi').line ?? []) {
+      for (const eastM of [0, 60]) {
+        const at = cliffView.at([p[0] + eastM / 96000, p[1]]);
+        expect(at.x, `崖脚的线往里 ${eastM} 米`).toBeLessThan(-20);
+      }
+    }
+    // 州衙：正中和东墙都在横着拿的平板的画面左边以外
+    const yamenView = screenOf('东坡', sideways);
+    const yamen = atOf('yamen');
+    expect(yamenView.at([yamen[0] + 55 / 96000, yamen[1]]).x).toBeLessThan(-60);
+  });
+
+  it('“黄州”的题签指着州衙（这座城没有城墙可指），愿意摆在它的右边；“承天寺”的题签愿意摆在寺的右边，不往上站到临皋亭上', () => {
+    const town = scene.strips.find((s) => s.id === 't-huangzhou');
+    expect(town?.of).toBe('yamen');
+    expect(town?.side).toBe('right');
+    expect(scene.strips.find((s) => s.id === 't-chengtian')?.side).toBe('right');
+    // 立着“黄州”的小节里州衙都在（它没有写 when）
+    expect(thingOf('yamen').when).toBeUndefined();
+    expect(scene.sections.filter((s) => s.strips.includes('t-huangzhou')).map((s) => s.heading)).toEqual(['到黄州', '这个地方', '要走了']);
+    // 它指着州衙那座殿的东头（离正中二十来米，还在殿上）：“要走了”一节从殿的背后近看，题签挂在右边，不压殿的屋顶；
+    // 远看的两节里这二十来米不到四个像素
+    if (!town?.at) throw new Error('“黄州”的题签没有写 at');
+    const yamen = atOf('yamen');
+    const [ax, az] = coords.toLocal(town.at);
+    const [yx, yz] = coords.toLocal(yamen);
+    expect(Math.hypot(ax - yx, az - yz)).toBeLessThan(30);
+    for (const pane of THREE_PANES) {
+      const near = screenOf('要走了', pane);
+      expect(near.at(town.at).x - near.at(yamen).x, pane.name).toBeGreaterThan(8);
+      for (const heading of ['到黄州', '这个地方']) {
+        const far = screenOf(heading, pane);
+        expect(Math.hypot(far.at(town.at).x - far.at(yamen).x, far.at(town.at).y - far.at(yamen).y), `${heading} ${pane.name}`).toBeLessThan(4);
+      }
+    }
+  });
+
+  it('“承天寺”的题签指着寺的北头（还在院墙里面），挂在右边：三种栏上那一点都在殿的正中右边 25 个像素以外，题签不压殿的屋顶', () => {
+    const strip = scene.strips.find((s) => s.id === 't-chengtian');
+    if (!strip?.at) throw new Error('“承天寺”的题签没有写 at');
+    expect(strip.side).toBe('right');
+    // 指着的那一点在寺的院墙里面：引线的头落在寺上，不落在墙外的空地上
+    const [px, pz] = coords.toLocal(strip.at);
+    const ring = yardRing(thingOf('chengtian'));
+    const insideRing = ring.reduce((inside, a, i) => {
+      const b = ring[(i + 1) % ring.length];
+      return (a[1] > pz) !== (b[1] > pz) && px < ((b[0] - a[0]) * (pz - a[1])) / (b[1] - a[1]) + a[0] ? !inside : inside;
+    }, false);
+    expect(insideRing).toBe(true);
+    for (const pane of THREE_PANES) {
+      const view = screenOf('承天寺', pane);
+      const hall = view.at(atOf('chengtian'));
+      const dot = view.at(strip.at);
+      console.log(`  ${pane.name}：“承天寺”题签指的点在殿正中的右边 ${(dot.x - hall.x).toFixed(0)} 像素，高低差 ${(dot.y - hall.y).toFixed(0)}`);
+      expect(dot.x - hall.x, pane.name).toBeGreaterThan(25);
+      expect(Math.abs(dot.y - hall.y), pane.name).toBeLessThan(12);
+    }
+  });
+
+  it('“寒食，沙湖”一节“大江”的题签指着敞开的江面，不指在门外那两条船上：三种栏上离船的那条线都在 40 个像素以外', () => {
+    const strip = scene.strips.find((s) => s.id === 't-dajiang-lingao');
+    const boats = scene.dressing.find((d) => d.id === 'boats-lingao');
+    if (!strip?.at || !boats?.line) throw new Error('没有“大江”的题签或者门外的船');
+    for (const pane of THREE_PANES) {
+      const view = screenOf('寒食，沙湖', pane);
+      const dot = view.at(strip.at);
+      // 船摆在那条线上：线的两头和正中
+      const [a, b] = boats.line;
+      const along: [number, number][] = [a, [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2], b];
+      const nearest = Math.min(...along.map((p) => Math.hypot(view.at(p).x - dot.x, view.at(p).y - dot.y)));
+      console.log(`  ${pane.name}：“大江”题签指的点离门外的船最近 ${nearest.toFixed(0)} 像素；在画面的 ${dot.x.toFixed(0)}, ${dot.y.toFixed(0)}`);
+      expect(nearest, pane.name).toBeGreaterThan(40);
+      // 还在画面里，右边留得下题签的一半宽
+      expect(dot.x, pane.name).toBeLessThan(pane.size.width - 16);
+      expect(dot.x, pane.name).toBeGreaterThan(0);
+    }
+  });
+
+  it('“承天寺”一节院子、寺和江边的临皋亭在一个画面里，两条题签各指各的', () => {
     const night = sectionOf('承天寺');
     expect(night.camera.mustShow).toEqual(['chengtian', 'lingao']);
     expect(night.strips).toEqual(['t-chengtian', 't-lingao']);

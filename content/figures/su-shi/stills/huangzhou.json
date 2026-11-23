@@ -8,10 +8,10 @@
     "maxFit": 2.5
   },
   "madeFrom": {
-    "scene": "ba9831b4cc59d15b",
+    "scene": "73ac07c37ca665db",
     "terrain": "5c8e7b12a9bf6276",
-    "ground": "01265703ec55bec1",
-    "program": "231e5a2f674f064e"
+    "ground": "ef133045c759e977",
+    "program": "e6e399073c1982fe"
   },
   "shapes": {
     "wide": {
@@ -58,10 +58,10 @@
       "file": "huangzhou-1-wide.jpg",
       "width": 1800,
       "height": 1350,
-      "bytes": 127876,
+      "bytes": 127829,
       "quality": 82,
-      "key": "39939f664af5d315",
-      "raw": "93429c8d526c6fa5",
+      "key": "856a2fcafd62c46f",
+      "raw": "ea5493afd6e46617",
       "pose": {
         "target": [
           -160.1,
@@ -85,9 +85,13 @@
       "anchors": [
         {
           "id": "t-huangzhou",
-          "x": 0.48318,
-          "y": 0.48188,
-          "visible": true
+          "x": 0.48712,
+          "y": 0.48214,
+          "visible": true,
+          "foot": [
+            0.48713,
+            0.48644
+          ]
         },
         {
           "id": "t-bianjing",
@@ -107,10 +111,10 @@
       "file": "huangzhou-1-narrow.jpg",
       "width": 1920,
       "height": 1144,
-      "bytes": 120146,
+      "bytes": 120111,
       "quality": 86,
-      "key": "40b7b18232c1c9d5",
-      "raw": "5af3e503fd08acd3",
+      "key": "9baa3ec8f16608d1",
+      "raw": "7a240a4747bdfc11",
       "pose": {
         "target": [
           -159.7,
@@ -134,9 +138,13 @@
       "anchors": [
         {
           "id": "t-huangzhou",
-          "x": 0.48666,
-          "y": 0.45237,
-          "visible": true
+          "x": 0.48978,
+          "y": 0.45263,
+          "visible": true,
+          "foot": [
+            0.4898,
+            0.45693
+          ]
         },
         {
           "id": "t-bianjing",
@@ -156,10 +164,10 @@
       "file": "huangzhou-2-wide.jpg",
       "width": 1800,
       "height": 1350,
-      "bytes": 198611,
+      "bytes": 198546,
       "quality": 82,
-      "key": "9c0823c80a5fb8c8",
-      "raw": "d28720f14ab18f55",
+      "key": "52e6135b2a1cb2c2",
+      "raw": "3cf4eb3a56340070",
       "pose": {
         "target": [
           383.9,
@@ -183,9 +191,13 @@
       "anchors": [
         {
           "id": "t-huangzhou",
-          "x": 0.62744,
-          "y": 0.70929,
-          "visible": true
+          "x": 0.63952,
+          "y": 0.71375,
+          "visible": true,
+          "foot": [
+            0.63925,
+            0.72058
+          ]
         },
         {
           "id": "t-dajiang",
@@ -227,10 +239,10 @@
       "file": "huangzhou-2-narrow.jpg",
       "width": 1920,
       "height": 1144,
-      "bytes": 227760,
+      "bytes": 227555,
       "quality": 86,
-      "key": "b5c5a7d7d47c90c6",
-      "raw": "7a6376c8d1d3a0c3",
+      "key": "210440bf49bf8012",
+      "raw": "5bbdc4558eab3e86",
       "pose": {
         "target": [
           383.9,
@@ -254,9 +266,13 @@
       "anchors": [
         {
           "id": "t-huangzhou",
-          "x": 0.60124,
-          "y": 0.67976,
-          "visible": true
+          "x": 0.61095,
+          "y": 0.68044,
+          "visible": true,
+          "foot": [
+            0.61063,
+            0.69105
+          ]
         },
         {
           "id": "t-dajiang",
@@ -298,39 +314,39 @@
       "file": "huangzhou-3-wide.jpg",
       "width": 1800,
       "height": 1350,
-      "bytes": 179162,
+      "bytes": 159482,
       "quality": 82,
-      "key": "95d0f32438b76db8",
-      "raw": "221e16311cfe5b77",
+      "key": "9871e158044f0c4b",
+      "raw": "f6e7cab9b1ca768e",
       "pose": {
         "target": [
-          182.4,
-          -53.2,
-          -854.3
+          134.4,
+          -13.5,
+          -943.1
         ],
         "position": [
-          908.3,
-          801.9,
-          -3088.6
+          569.9,
+          499.5,
+          -2283.6
         ],
         "fov": 21
       },
       "fit": 1,
       "reach": [
-        0,
-        40
+        121,
+        42.8
       ],
       "northDeg": 162,
-      "pxPerMetre": 0.971193,
+      "pxPerMetre": 1.618655,
       "anchors": [
         {
           "id": "t-lingao",
-          "x": 0.50004,
-          "y": 0.41774,
+          "x": 0.39917,
+          "y": 0.41471,
           "visible": true,
           "foot": [
-            0.50004,
-            0.4476
+            0.39982,
+            0.46314
           ]
         }
       ]
@@ -341,39 +357,39 @@
       "file": "huangzhou-3-narrow.jpg",
       "width": 1920,
       "height": 1144,
-      "bytes": 214376,
+      "bytes": 172649,
       "quality": 86,
-      "key": "21b60199df690d5c",
-      "raw": "a3edc047c5323a5b",
+      "key": "bf7a79bef80f30f5",
+      "raw": "332745161a360eec",
       "pose": {
         "target": [
-          182.4,
-          -53.2,
-          -854.3
+          134.4,
+          -13.5,
+          -943.1
         ],
         "position": [
-          908.3,
-          801.9,
-          -3088.6
+          569.9,
+          499.5,
+          -2283.6
         ],
         "fov": 21
       },
       "fit": 1,
       "reach": [
-        0,
-        26.6
+        76.9,
+        27.2
       ],
       "northDeg": 162,
-      "pxPerMetre": 0.617247,
+      "pxPerMetre": 1.028745,
       "anchors": [
         {
           "id": "t-lingao",
-          "x": 0.50003,
-          "y": 0.38625,
+          "x": 0.41989,
+          "y": 0.38512,
           "visible": true,
           "foot": [
-            0.50003,
-            0.41807
+            0.42042,
+            0.43361
           ]
         }
       ]
@@ -384,52 +400,46 @@
       "file": "huangzhou-4-wide.jpg",
       "width": 1800,
       "height": 1350,
-      "bytes": 230006,
+      "bytes": 198196,
       "quality": 82,
-      "key": "b8ad689520ebd362",
-      "raw": "9c752bd932443327",
+      "key": "e5b1b7f99d3f7781",
+      "raw": "e2d291614a6f7453",
       "pose": {
         "target": [
-          595.1,
+          710.2,
           39.6,
-          -1819.6
+          -1797.4
         ],
         "position": [
-          -250.5,
-          1354.1,
-          503.6
+          -14.5,
+          1166.3,
+          193.9
         ],
         "fov": 21
       },
       "fit": 1,
       "reach": [
-        300.3,
-        105.2
+        156.3,
+        135.1
       ],
       "northDeg": -20,
-      "pxPerMetre": 0.867137,
+      "pxPerMetre": 1.011659,
       "anchors": [
         {
           "id": "t-dongpo",
-          "x": 0.53724,
-          "y": 0.52627,
+          "x": 0.44058,
+          "y": 0.54842,
           "visible": true
         },
         {
           "id": "t-xuetang",
-          "x": 0.52933,
-          "y": 0.39081,
+          "x": 0.4393,
+          "y": 0.38837,
           "visible": true,
           "foot": [
-            0.52919,
-            0.41427
+            0.43962,
+            0.41569
           ]
-        },
-        {
-          "id": "t-huangzhou",
-          "x": 0.24978,
-          "y": 0.38106,
-          "visible": true
         }
       ]
     },
@@ -439,52 +449,46 @@
       "file": "huangzhou-4-narrow.jpg",
       "width": 1920,
       "height": 1144,
-      "bytes": 226645,
+      "bytes": 215618,
       "quality": 86,
-      "key": "d04c5a1d4d8286ed",
-      "raw": "cc6d26dde3c75de5",
+      "key": "06cca019e5f0bfca",
+      "raw": "219c4f9c650fdc7c",
       "pose": {
         "target": [
-          595.1,
+          710.2,
           39.6,
-          -1819.6
+          -1797.4
         ],
         "position": [
-          -250.5,
-          1354.1,
-          503.6
+          -14.5,
+          1166.3,
+          193.9
         ],
         "fov": 21
       },
       "fit": 1,
       "reach": [
-        190.8,
-        66.9
+        99.3,
+        85.8
       ],
       "northDeg": -20,
-      "pxPerMetre": 0.551114,
+      "pxPerMetre": 0.642966,
       "anchors": [
         {
           "id": "t-dongpo",
-          "x": 0.52958,
-          "y": 0.49674,
+          "x": 0.45279,
+          "y": 0.51889,
           "visible": true
         },
         {
           "id": "t-xuetang",
-          "x": 0.52331,
-          "y": 0.35826,
+          "x": 0.45176,
+          "y": 0.35748,
           "visible": true,
           "foot": [
-            0.52319,
-            0.38474
+            0.45203,
+            0.38616
           ]
-        },
-        {
-          "id": "t-huangzhou",
-          "x": 0.30122,
-          "y": 0.35153,
-          "visible": true
         }
       ]
     },
@@ -494,56 +498,46 @@
       "file": "huangzhou-5-wide.jpg",
       "width": 1800,
       "height": 1350,
-      "bytes": 204074,
+      "bytes": 172807,
       "quality": 82,
-      "key": "3ef4a741d22c8a22",
-      "raw": "31f1b6009d9f0641",
+      "key": "d70b7af0156075a6",
+      "raw": "1e892d548c72e73f",
       "pose": {
         "target": [
-          1497.3,
-          1.6,
-          343.9
+          134.4,
+          -13.5,
+          -943.1
         ],
         "position": [
-          -1915.2,
-          1958.6,
-          -5566.6
+          569.9,
+          499.5,
+          -2283.6
         ],
         "fov": 21
       },
       "fit": 1,
       "reach": [
-        286.4,
-        256.8
+        272.6,
+        42.8
       ],
-      "northDeg": -150,
-      "pxPerMetre": 0.341969,
+      "northDeg": 162,
+      "pxPerMetre": 1.618655,
       "anchors": [
         {
           "id": "t-lingao",
-          "x": 0.67625,
-          "y": 0.68436,
+          "x": 0.39917,
+          "y": 0.41471,
           "visible": true,
           "foot": [
-            0.67582,
-            0.70707
+            0.39982,
+            0.46314
           ]
         },
         {
           "id": "t-dajiang-lingao",
-          "x": 0.76375,
-          "y": 0.72473,
+          "x": 0.75565,
+          "y": 0.3829,
           "visible": true
-        },
-        {
-          "id": "t-shahu",
-          "x": 0.33531,
-          "y": 0.18114,
-          "visible": true,
-          "out": [
-            -0.866175,
-            -0.499741
-          ]
         }
       ]
     },
@@ -553,56 +547,46 @@
       "file": "huangzhou-5-narrow.jpg",
       "width": 1920,
       "height": 1144,
-      "bytes": 219532,
+      "bytes": 179846,
       "quality": 86,
-      "key": "f8dbcc7dab7a11c6",
-      "raw": "bc3a99075a3606cb",
+      "key": "81d9f68a1a63ea14",
+      "raw": "47a2561e403493ae",
       "pose": {
         "target": [
-          1497.3,
-          1.6,
-          343.9
+          134.4,
+          -13.5,
+          -943.1
         ],
         "position": [
-          -1915.2,
-          1958.6,
-          -5566.6
+          569.9,
+          499.5,
+          -2283.6
         ],
         "fov": 21
       },
       "fit": 1,
       "reach": [
-        182,
-        163.2
+        173.3,
+        27.2
       ],
-      "northDeg": -150,
-      "pxPerMetre": 0.217341,
+      "northDeg": 162,
+      "pxPerMetre": 1.028745,
       "anchors": [
         {
           "id": "t-lingao",
-          "x": 0.64022,
-          "y": 0.6419,
+          "x": 0.41989,
+          "y": 0.38512,
           "visible": true,
           "foot": [
-            0.63968,
-            0.67754
+            0.42042,
+            0.43361
           ]
         },
         {
           "id": "t-dajiang-lingao",
-          "x": 0.70954,
-          "y": 0.6952,
+          "x": 0.7031,
+          "y": 0.35337,
           "visible": true
-        },
-        {
-          "id": "t-shahu",
-          "x": 0.36916,
-          "y": 0.15161,
-          "visible": true,
-          "out": [
-            -0.866175,
-            -0.499741
-          ]
         }
       ]
     },
@@ -612,10 +596,10 @@
       "file": "huangzhou-6-wide.jpg",
       "width": 1800,
       "height": 1350,
-      "bytes": 146455,
+      "bytes": 146115,
       "quality": 82,
-      "key": "84f6afbbd0de9ac2",
-      "raw": "4b3c7d4c55e8fdd1",
+      "key": "f20fc619719c16e8",
+      "raw": "0608438ba1c7ef71",
       "pose": {
         "target": [
           -28.8,
@@ -632,7 +616,7 @@
       "fit": 1,
       "reach": [
         140.9,
-        102.1
+        143.7
       ],
       "northDeg": -100,
       "pxPerMetre": 0.638943,
@@ -661,10 +645,10 @@
       "file": "huangzhou-6-narrow.jpg",
       "width": 1920,
       "height": 1144,
-      "bytes": 152854,
+      "bytes": 152805,
       "quality": 86,
-      "key": "b7b66424ba9675ca",
-      "raw": "8ba93575d135237d",
+      "key": "a3e33b357cc84a75",
+      "raw": "52a833deb27cfdc2",
       "pose": {
         "target": [
           -28.8,
@@ -681,7 +665,7 @@
       "fit": 1,
       "reach": [
         89.5,
-        64.9
+        91.3
       ],
       "northDeg": -100,
       "pxPerMetre": 0.406084,
@@ -710,10 +694,10 @@
       "file": "huangzhou-7-wide.jpg",
       "width": 1800,
       "height": 1350,
-      "bytes": 143225,
+      "bytes": 142144,
       "quality": 82,
-      "key": "717a8fc0e6df031d",
-      "raw": "380ed417bb9dfdb0",
+      "key": "bec255b170947ab6",
+      "raw": "99e3a450c30392cc",
       "pose": {
         "target": [
           -28.8,
@@ -730,7 +714,7 @@
       "fit": 1,
       "reach": [
         140.9,
-        102.1
+        143.7
       ],
       "northDeg": -100,
       "pxPerMetre": 0.638943,
@@ -759,10 +743,10 @@
       "file": "huangzhou-7-narrow.jpg",
       "width": 1920,
       "height": 1144,
-      "bytes": 153876,
+      "bytes": 152555,
       "quality": 86,
-      "key": "4b866e83db89a220",
-      "raw": "3f97ae7bf3040b48",
+      "key": "a927b09c673e4976",
+      "raw": "108086f78ceda222",
       "pose": {
         "target": [
           -28.8,
@@ -779,7 +763,7 @@
       "fit": 1,
       "reach": [
         89.5,
-        64.9
+        91.3
       ],
       "northDeg": -100,
       "pxPerMetre": 0.406084,
@@ -808,10 +792,10 @@
       "file": "huangzhou-8-wide.jpg",
       "width": 1800,
       "height": 1350,
-      "bytes": 126501,
+      "bytes": 126315,
       "quality": 82,
-      "key": "3bef5a924e4f5f85",
-      "raw": "d61669278822cb46",
+      "key": "8177f31fdb08923b",
+      "raw": "a8f60151318b7278",
       "pose": {
         "target": [
           575.9,
@@ -835,12 +819,12 @@
       "anchors": [
         {
           "id": "t-chengtian",
-          "x": 0.5,
-          "y": 0.42375,
+          "x": 0.53809,
+          "y": 0.4238,
           "visible": true,
           "foot": [
-            0.5,
-            0.46222
+            0.53775,
+            0.46227
           ]
         },
         {
@@ -861,10 +845,10 @@
       "file": "huangzhou-8-narrow.jpg",
       "width": 1920,
       "height": 1144,
-      "bytes": 147454,
+      "bytes": 146473,
       "quality": 86,
-      "key": "73c1bd5a1e0af888",
-      "raw": "65fefe2970b7d585",
+      "key": "dd9b77bfcda0d254",
+      "raw": "5a9be7d194d4685b",
       "pose": {
         "target": [
           575.9,
@@ -888,12 +872,12 @@
       "anchors": [
         {
           "id": "t-chengtian",
-          "x": 0.5,
-          "y": 0.39422,
+          "x": 0.53026,
+          "y": 0.39427,
           "visible": true,
           "foot": [
-            0.5,
-            0.43269
+            0.52999,
+            0.43274
           ]
         },
         {
@@ -914,10 +898,10 @@
       "file": "huangzhou-9-wide.jpg",
       "width": 1800,
       "height": 1350,
-      "bytes": 170162,
+      "bytes": 169600,
       "quality": 82,
-      "key": "7d6e200cb78abd64",
-      "raw": "b7fa7881599bb6e4",
+      "key": "5a1f138a722a7f78",
+      "raw": "5026bbbc538c2510",
       "pose": {
         "target": [
           -220.8,
@@ -961,9 +945,13 @@
         },
         {
           "id": "t-huangzhou",
-          "x": 0.35999,
-          "y": 0.52712,
-          "visible": true
+          "x": 0.38962,
+          "y": 0.47365,
+          "visible": true,
+          "foot": [
+            0.38997,
+            0.50773
+          ]
         }
       ]
     },
@@ -973,10 +961,10 @@
       "file": "huangzhou-9-narrow.jpg",
       "width": 1920,
       "height": 1144,
-      "bytes": 198724,
+      "bytes": 198659,
       "quality": 86,
-      "key": "0f5ed47b3c068ac6",
-      "raw": "58d053f2b4c443df",
+      "key": "6532d2ded149433b",
+      "raw": "9beb89b1b854d831",
       "pose": {
         "target": [
           -220.8,
@@ -1020,9 +1008,13 @@
         },
         {
           "id": "t-huangzhou",
-          "x": 0.38877,
-          "y": 0.49759,
-          "visible": true
+          "x": 0.41231,
+          "y": 0.44412,
+          "visible": true,
+          "foot": [
+            0.41258,
+            0.4782
+          ]
         }
       ]
     }

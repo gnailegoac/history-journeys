@@ -31,7 +31,7 @@ const GROUND_COLOURS: Record<GroundColour, string> = {
   road: '#ecdfbd', // 城里的街巷
   path: '#c9b184', // 城外的路
   cityGround: '#d3c5a4',
-  court: '#f6f2e6', // 写明了要浅色的院子：比平地白，夜里是画面上最亮的地面
+  court: '#eee9de', // 写明了要浅色的院子：比平地白，夜里是画面上最亮的地面（原来是 #f6f2e6：白天近看时它成了画面里最白最大的一块，抢了要看的东西）
   sprout: '#a9bf7e', // 青苗的田：草绿，比山腰的石绿黄、浅
 };
 

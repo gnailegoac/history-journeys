@@ -193,10 +193,11 @@ function buildCliff(pass: Pass, thing: SceneThing): void {
   const rock = hex(palette.cliff);
   const deep = hex(palette.cliffDeep);
   const B = pass.bucket(thing.when).main;
-  // 一张面铺出来朝哪边，看头一格：朝外的那一面要对着河（崖面）、对着天（崖顶）
-  const outward = (g: THREE.BufferGeometry, want: Vec3): boolean => {
+  // 一张面铺出来朝哪边，看中间一列的顶点（两头的崖矮到半米，那里的法线靠不住）：朝外的那一面要对着河（崖面）、对着天（崖顶）
+  const middle = last >> 1;
+  const outward = (g: THREE.BufferGeometry, want: Vec3, i = middle): boolean => {
     const nrm = g.attributes.normal;
-    return nrm.getX(0) * want[0] + nrm.getY(0) * want[1] + nrm.getZ(0) * want[2] >= 0;
+    return nrm.getX(i) * want[0] + nrm.getY(i) * want[1] + nrm.getZ(i) * want[2] >= 0;
   };
 
   /** 这一列的崖有几成高（两头矮下去的地方不到 1）。 */
@@ -222,8 +223,9 @@ function buildCliff(pass: Pass, thing: SceneThing): void {
     return { p: [c.x + c.nx * inM, y, c.z + c.nz * inM], colour: [base[0] * k, base[1] * k, base[2] * k] };
   };
   let face = sheet(FACE_ROWS.length - 1, last, facePoint, false);
-  const mid = cols[last >> 1];
-  if (!outward(face, [-mid.nx, 0.2, -mid.nz])) face = sheet(FACE_ROWS.length - 1, last, facePoint, true);
+  const mid = cols[middle];
+  // 崖面看的是中间一列、中间一排的那个顶点
+  if (!outward(face, [-mid.nx, 0.2, -mid.nz], 2 * (last + 1) + middle)) face = sheet(FACE_ROWS.length - 1, last, facePoint, true);
   // 法线往上抬（见 FACE_LEAN）
   const nrm = face.attributes.normal;
   for (let i = 0; i < nrm.count; i++) {
@@ -400,7 +402,7 @@ function buildEarthWall(pass: Pass, thing: SceneThing): void {
     const mid = groundY(pass, mx, mz);
     // 脚埋到两头和中间最低的地面以下，顶比中间的地面高出这一段的高度
     const base = Math.min(groundY(pass, a[0], a[1]), mid, groundY(pass, b[0], b[1])) - W.underY;
-    const top = mid + W.highY * high;
+    const top = mid + W.highY * high * (p.low ? 0.5 : 1);
     const sec: Vec2[] = [
       [W.footM / 2, base],
       [W.topM / 2, top],

@@ -10,9 +10,9 @@ import { contentKey } from '../../src/domain/contentKey';
  *   basis、sourceIds、unsure、note  依据的那一组（class 不去：点缀按不按数目减，要看它）
  *   credits、notDrawn              用了谁的数据，没有画的东西
  *   date、explain                  小节的时间，说明先讲哪几样
- *   name、gloss                    给读者看的名字和括注
+ *   name、gloss、inHisWords        给读者看的名字和括注；远处照当时人的话写的那一句（只印在题记下面，题签摆在哪看的是坐标）
  */
-const DROPPED = new Set(['basis', 'sourceIds', 'unsure', 'note', 'credits', 'notDrawn', 'date', 'explain', 'name', 'gloss']);
+const DROPPED = new Set(['basis', 'sourceIds', 'unsure', 'note', 'credits', 'notDrawn', 'date', 'explain', 'name', 'gloss', 'inHisWords']);
 
 /** 题签上只有这两个字段不管画面：当时的名字，今天的名字。别的（指着哪样东西、指在哪一点、摆在哪一边）都留着。 */
 const DROPPED_ON_STRIPS = new Set(['text', 'modern']);

@@ -26,7 +26,7 @@
 // 照哪一档摆、画质的数从哪里读、试画和滑动怎么量、太慢了怎么通知页面，在 view-tier.test.ts 里查。
 // 假的渲染器、画布、零件库、题签层、document 和 fetch 在 ./support/fakeRenderer.ts，别的测试文件也能用。
 
-import { Group, Mesh, type Scene } from 'three';
+import { type Color, Group, Mesh, type Scene } from 'three';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { SceneStrip, StopScene } from '../../src/domain/scene';
 import { stripTexts } from '../../src/domain/sceneText';
@@ -34,6 +34,7 @@ import type { StripLayer } from '../../src/stage/overlay/types';
 import type { GroundPaintJob, GroundPaintSource } from '../../src/stage/three/groundPaint';
 import { FULL_QUALITY, createHost } from '../../src/stage/three/host';
 import type { KitContext, ModelSet } from '../../src/stage/three/internal';
+import { type KitFamily, provideFamilies } from '../../src/stage/three/kit/families';
 import { MIST_TRIANGLES_PER_LAYER } from '../../src/stage/three/mist';
 import { centredView, equivalentDistance, northDeg, pixelsPerMetre, placeCamera, poseAt, poseOn, screenAnchors, shadowBox, shadowTuning, showPoints } from '../../src/stage/three/rig';
 import { styleFor } from '../../src/stage/three/style';
@@ -397,6 +398,172 @@ describe('沙盘自己的几条规矩（零件库、上色、地形板是假的�
     // 换回没写的一节：和原来一样
     await until(view.showSection(headings[0]));
     expect(opacities()).toEqual(usual);
+    // 写 0 的一节整层不画（场景里依次是：地形板、水、云气、小模型、座子），别的小节照旧画
+    const mistGroup = (): { visible: boolean } => {
+      const world = s.fake.lastWorld();
+      if (!world) throw new Error('一帧也没有画');
+      return world.children[2];
+    };
+    expect(mistGroup().visible).toBe(true);
+    await until(view.showSection(headings[1]));
+    expect(mistGroup().visible).toBe(false);
+    await until(view.showSection(headings[2]));
+    expect(mistGroup().visible).toBe(true);
+  });
+
+  it('夜里的小节：白天 → 夜里 → 白天，水面的亮、云气和雾的颜色、座子木头的反光跟着灯换过去，再一样不差地换回来', { timeout: 60_000 }, async () => {
+    const s = stage(880, 900);
+    // 徐州的场景抄一份，第二节改成夜里（月亮在东偏南 111 度、高 24 度：黄州“赤壁”那一夜的数）
+    const copy = structuredClone(scene);
+    copy.sections[1].sky = 'night';
+    copy.sections[1].moon = { azimuth: 111, altitude: 24 };
+    const view = await openView(s, { reducedMotion: true, scene: copy });
+    await until(view.ready);
+    type Uniforms = Record<string, { value: unknown }>;
+    const uniformsOf = (pick: (u: Uniforms) => boolean): Uniforms[] =>
+      [...s.fake.seen.materials].flatMap((material) => {
+        const u = (material as unknown as { uniforms?: Uniforms }).uniforms;
+        return u && pick(u) ? [u] : [];
+      });
+    const water: Uniforms[] = [];
+    /** 这一刻不受灯照的几样各是什么数。 */
+    const read =(): { sheen: number[]; mist: number[]; fog: number; wood: number[] } => {
+      const world = s.fake.lastWorld();
+      if (!world?.fog) throw new Error('一帧也没有画，或者场景里没有雾');
+      const wood: number[] = [];
+      world.children[4].traverse((node) => {
+        const material = (node as Mesh).material as { envMapIntensity?: number; envMap?: unknown } | undefined;
+        if (material?.envMap && typeof material.envMapIntensity === 'number') wood.push(material.envMapIntensity);
+      });
+      // 水面的那几个数是拼着色器的时候才交出去的：照 three 的做法叫一次，拿到的就是水面自己存着的那一份
+      if (water.length === 0) {
+        world.children[1].traverse((node) => {
+          const material = (node as Mesh).material as { onBeforeCompile?: (shader: { uniforms: Uniforms; vertexShader: string; fragmentShader: string }) => void } | undefined;
+          if (!material?.onBeforeCompile) return;
+          const shader = { uniforms: {} as Uniforms, vertexShader: '', fragmentShader: '' };
+          material.onBeforeCompile(shader);
+          if ('uSheen' in shader.uniforms) water.push(shader.uniforms);
+        });
+      }
+      return {
+        sheen: water.map((u) => u.uSheen.value as number),
+        mist: uniformsOf((u) => 'uOpacity' in u && 'uA' in u && 'uB' in u).map((u) => (u.uColor.value as Color).getHex()),
+        fog: world.fog.color.getHex(),
+        wood,
+      };
+    };
+    const brightness = (hex: number): number => ((hex >> 16) & 255) + ((hex >> 8) & 255) + (hex & 255);
+    await until(view.showSection(headings[0]));
+    const day = read();
+    // 白天：水面一点不加亮；云气三层、木头的反光都读得到
+    expect(day.sheen.length).toBeGreaterThanOrEqual(1);
+    for (const v of day.sheen) expect(v).toBe(0);
+    expect(day.mist).toHaveLength(FULL_QUALITY.mistLayers);
+    expect(day.wood.length).toBeGreaterThanOrEqual(1);
+    // 夜里：月光直接照到的水面亮一些（样式里这一夜的数），雾、云气、木头的反光都压暗了
+    await until(view.showSection(headings[1]));
+    const night = read();
+    const wanted = style.light('night', copy.sections[1].moon).sheen ?? 0;
+    expect(wanted).toBeGreaterThan(0);
+    for (const v of night.sheen) expect(v).toBe(wanted);
+    expect(brightness(night.fog)).toBeLessThan(brightness(day.fog) * 0.6);
+    night.mist.forEach((hex, i) => expect(brightness(hex)).toBeLessThan(brightness(day.mist[i]) * 0.6));
+    night.wood.forEach((v, i) => expect(v).toBeLessThan(day.wood[i] * 0.6));
+    // 换回白天的一节：四样和头一次读的一个数不差（夜里的亮没有留在白天的水面上）
+    await until(view.showSection(headings[2]));
+    expect(read()).toEqual(day);
+    await until(view.showSection(headings[1]));
+    expect(read()).toEqual(night);
+    await until(view.showSection(headings[0]));
+    expect(read()).toEqual(day);
+  });
+
+  it('按家分块的零件：没写到的不取；写到的造模型以前取到、交给零件库；取不到，沙盘说摆不出来；沙盘关了以后才到的，不造模型，也没有没人管的错', { timeout: 60_000 }, async () => {
+    const withBamboo = structuredClone(scene);
+    withBamboo.dressing.push({ id: 'b', name: '竹', kind: 'trees', at: withBamboo.sections[0].camera.target, params: { type: 'bamboo' }, class: 'dressing', basis: '测试里添的。', sourceIds: [] });
+    const bamboo = { lod: () => 0 } as unknown as NonNullable<KitFamily['trees']>[string];
+    let calls = 0;
+    let settle: { resolve(value: { family: KitFamily }): void; reject(error: Error): void } | null = null;
+    const unhandled: unknown[] = [];
+    const onUnhandled = (reason: unknown): void => void unhandled.push(reason);
+    /** Node 自己的两样（这个项目没有装 Node 的类型声明，只写用到的）：没人管的错的通知，真的走一轮。 */
+    const node = globalThis as unknown as {
+      process: { on(event: 'unhandledRejection', listener: (reason: unknown) => void): void; off(event: 'unhandledRejection', listener: (reason: unknown) => void): void };
+      setImmediate(run: () => void): void;
+    };
+    /** 让没人管的错有机会冒出来：真的走一轮（钟是假的，setImmediate 没有换）。 */
+    const turn = async (): Promise<void> => {
+      await wait(0);
+      await new Promise<void>((done) => node.setImmediate(done));
+    };
+    /** 钟一帧一帧走到“这一家已经去取了”。 */
+    const untilAsked = async (n: number): Promise<void> => {
+      for (let i = 0; i < 2000 && calls < n; i++) await wait(FRAME_MS);
+      expect(calls).toBe(n);
+    };
+    node.process.on('unhandledRejection', onUnhandled);
+    provideFamilies([
+      {
+        name: 'plants',
+        holds: ['trees:bamboo'],
+        load: () => {
+          calls += 1;
+          return new Promise((resolve, reject) => {
+            settle = { resolve, reject };
+          });
+        },
+      },
+    ]);
+    try {
+      // 徐州自己：一家也没写到，一次也不取，零件库拿到的 kit 是空的
+      const plain = await openView(stage(), { reducedMotion: true });
+      await until(plain.ready);
+      expect(calls).toBe(0);
+      expect(kit.contexts).toHaveLength(1);
+      expect(kit.contexts[0].kit).toBeUndefined();
+      plain.destroy();
+
+      // 写了竹的：取到以后才造模型，取到的那一份交给了零件库
+      const good = await openView(stage(), { reducedMotion: true, scene: withBamboo });
+      await untilAsked(1);
+      await wait(500);
+      expect(kit.contexts).toHaveLength(1);
+      settle!.resolve({ family: { trees: { bamboo } } });
+      await until(good.ready);
+      expect(kit.contexts).toHaveLength(2);
+      expect(kit.contexts[1].kit?.trees?.bamboo).toBe(bamboo);
+      good.destroy();
+
+      // 取不到：ready 拒绝，说的就是那一个错；没有造模型
+      const bad = await openView(stage(), { reducedMotion: true, scene: withBamboo });
+      await untilAsked(2);
+      settle!.reject(new Error('这一家没有取到'));
+      await expect(until(bad.ready)).rejects.toThrow('这一家没有取到');
+      expect(kit.contexts).toHaveLength(2);
+      bad.destroy();
+
+      // 刚去取就把沙盘关了（还没有等它），后来取不到：没有没人管的错
+      const early = await openView(stage(), { reducedMotion: true, scene: withBamboo });
+      await untilAsked(3);
+      early.destroy();
+      settle!.reject(new Error('关了以后才知道没有取到'));
+      await turn();
+      expect(unhandled).toEqual([]);
+
+      // 正等着它的时候把沙盘关了，后来取到了：不再造模型
+      const late = await openView(stage(), { reducedMotion: true, scene: withBamboo });
+      await untilAsked(4);
+      await wait(500);
+      late.destroy();
+      settle!.resolve({ family: { trees: { bamboo } } });
+      await turn();
+      await wait(200);
+      expect(kit.contexts).toHaveLength(2);
+      expect(unhandled).toEqual([]);
+    } finally {
+      provideFamilies([]);
+      node.process.off('unhandledRejection', onUnhandled);
+    }
   });
 
   it('镜头滑动的一路上：每画一帧，把这一帧真的远近（折算过的）告诉零件库；新一节的东西一起步就换上，往远处退也一样', { timeout: 60_000 }, async () => {

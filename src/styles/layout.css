@@ -31,6 +31,14 @@ html:has(.figure-layout) {
   }
 }
 
+/* 宽屏上沙盘栏钉在一边，“说明”按钮在栏的底边上，正落在最上面那一条给底下留的空里。焦点在栏里面的时候那一截不算：
+   算上的话，浏览器以为按钮被挡住了，把页面往上滚几百像素——按钮钉着不动，正文却滚到了别的小节，沙盘也跟着换过去。 */
+@media (min-width: 960px) and (orientation: landscape) {
+  html:has(.stage-pane:focus-within) {
+    scroll-padding-bottom: 0;
+  }
+}
+
 .figure-layout {
   display: flex;
   flex-direction: column;

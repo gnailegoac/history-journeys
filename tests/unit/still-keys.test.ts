@@ -159,6 +159,11 @@ describe('场景里决定画面的那一部分的记号（pictureKey）', () => 
     }
     expect(text).not.toContain('"name":');
     expect(text).not.toContain('"text":');
+    // 远处照当时人的话写的那一句（inHisWords）只印在题记下面：改它，记号不变；它的坐标变了，记号变
+    const words = (said: string) => (s: StopScene): void => void (s.far[0].inHisWords = said);
+    expect(after(words('往东南约三十里'))).toBe(base);
+    expect(after(words('往东'))).toBe(base);
+    expect(after((s) => void (s.far[0].at = [s.far[0].at[0] + 0.01, s.far[0].at[1]]))).not.toBe(base);
     expect(parts.things[0].line).toHaveLength(4);
     expect(parts.water.rivers[0].line).toHaveLength(3);
     expect(parts.sections[0]).toEqual({ heading: '起初', camera: fixtureScene().sections[0].camera, water: 'normal', strips: ['s-town', 's-river'] });

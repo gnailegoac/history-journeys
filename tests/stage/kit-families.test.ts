@@ -102,6 +102,32 @@ describe('按家分块的零件：哪座沙盘取哪几家', () => {
     expect(made.triangles()).toBeGreaterThan(1000);
     made.dispose();
   });
+
+  it('缺的是哪一种，各说各的：徐州的场景上只添一样（竹、柏、崖脚的石头、石崖），没有交那一家，说的就是添的那一样', () => {
+    // 黄州的场景上摆件先于点缀，抛出来的总是石崖那一句；树和石头的那两句要单独添一样才走得到
+    const R = realScene('su-shi/xuzhou');
+    const at = R.scene.sections[0].camera.target;
+    const grounds = { class: 'dressing' as const, basis: '测试里添的。', sourceIds: [] };
+    const only: [RegExp, (scene: StopScene) => void][] = [
+      [/bamboo/, (s) => void s.dressing.push({ id: 'only', name: '竹', kind: 'trees', at, params: { type: 'bamboo' }, ...grounds })],
+      [/cypress/, (s) => void s.dressing.push({ id: 'only', name: '柏', kind: 'trees', at, params: { type: 'cypress' }, ...grounds })],
+      [/shore/, (s) => void s.dressing.push({ id: 'only', name: '崖脚的石头', kind: 'rocks', at, params: { type: 'shore' }, ...grounds })],
+      [/cliff/, (s) => void s.things.push({ id: 'only', name: '石崖', kind: 'cliff', line: [at, [at[0] + 0.002, at[1]]], class: 'schematic', basis: '测试里添的。', sourceIds: [] })],
+    ];
+    for (const [name, add] of only) {
+      const scene = structuredClone(R.scene);
+      add(scene);
+      const ctx: KitContext = { scene, ground: R.ground, samplers: R.samplers, coords: R.coords, style: styleFor(scene.style), quality: FULL_QUALITY };
+      expect(() => {
+        const models = buildModels(ctx);
+        for (const heading of R.headings) models.apply(heading, scene.water.levels.values.normal, 9000);
+      }, String(name)).toThrow(name);
+    }
+    // 一样也不添：徐州照旧造得出来
+    const plain = buildModels({ scene: R.scene, ground: R.ground, samplers: R.samplers, coords: R.coords, style: styleFor(R.scene.style), quality: FULL_QUALITY });
+    plain.apply(R.headings[0], R.scene.water.levels.values.normal, 9000);
+    plain.dispose();
+  });
 });
 
 describe('地形板的高度（meshHeight.ts）', () => {

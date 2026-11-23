@@ -247,6 +247,31 @@ describe.each(realSceneKeys())('%s 的镜头', (key) => {
     expect([said?.[1], said?.[2]], first.line).toEqual([OPPOSITE[looks], looks]);
   });
 
+  it('远处都立着题签；只在题记下面说、不立题签的（小节的 farLine），整个 content/ 里只有黄州“寒食，沙湖”的沙湖一处', () => {
+    const R = realScene(key);
+    const pointedBy = (section: SceneSection): (string | undefined)[] => section.strips.map((id) => R.scene.strips.find((strip) => strip.id === id)?.of);
+    const lineOnly: string[] = [];
+    for (const section of R.scene.sections) {
+      for (const id of section.farLine ?? []) {
+        lineOnly.push(`${key}：${section.heading}：${id}`);
+        // 只给照当时人的一句话写的远处用；这一节没有它的题签
+        expect(R.scene.far.find((far) => far.id === id)?.inHisWords, `${section.heading} 的 farLine 里的“${id}”`).toBeTruthy();
+        expect(pointedBy(section), section.heading).not.toContain(id);
+      }
+    }
+    // 这张名单是钉死的：再有一处要用，先想清楚为什么不能立题签，再改这里（docs/data-spec.md“只在题记下面说、不立题签的远处”）
+    expect(lineOnly).toEqual(key === 'su-shi/huangzhou' ? ['su-shi/huangzhou：寒食，沙湖：shahu'] : []);
+    // 别的远处和原来一样严：每一处至少有一节给它立了题签（题签在画面里、摆得下，由上面几条和 scene-strips、still-fit 查），
+    // 没有哪一处远处是“登记了却哪一节也不说”的
+    for (const far of R.scene.far) {
+      const said = R.scene.sections.filter((section) => pointedBy(section).includes(far.id) || (section.farLine ?? []).includes(far.id));
+      expect(said.length, `远处“${far.name}”哪一节也没有说到`).toBeGreaterThan(0);
+      if (!lineOnly.some((item) => item.endsWith(`：${far.id}`))) {
+        expect(R.scene.sections.some((section) => pointedBy(section).includes(far.id)), `远处“${far.name}”没有题签`).toBe(true);
+      }
+    }
+  });
+
   it('把每一节在三种标准的沙盘栏上摆好的数印出来（给看图片的人对照）', () => {
     const R = realScene(key);
     const lines: string[] = [`${key} 每一节的镜头：写的距离的几倍 / 折算过的远近（米）`];

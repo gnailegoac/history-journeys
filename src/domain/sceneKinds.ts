@@ -46,8 +46,8 @@ export const THING_PARAMS = {
   'timber-bank': {},
   /** 崖壁：线是崖脚。 */
   cliff: {},
-  /** 不闭合的矮土墙。ruined：塌了的；fence：中间一段是篱笆。 */
-  'earth-wall': { ruined: 'boolean', fence: 'boolean' },
+  /** 不闭合的矮土墙。ruined：塌了的；fence：中间一段是篱笆；low：只有一半高（水边的矮土堤）。 */
+  'earth-wall': { ruined: 'boolean', fence: 'boolean', low: 'boolean' },
   /** 单立的小门。 */
   'small-gate': {},
 } as const satisfies Record<ThingKind, Record<string, ParamType>>;

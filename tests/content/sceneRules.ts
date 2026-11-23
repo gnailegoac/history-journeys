@@ -39,6 +39,11 @@ export const WORDS_MAX = 50;
 export const STRIP_AT_MAX_M = 300;
 /** 一节最多摆几条题签（规则 15）。 */
 export const STRIPS_MAX = 6;
+/**
+ * 写了崖脚的石头（rocks 的 type: shore）的沙盘，最低的水位至少比平时低多少米（规则 13）：
+ * 石头摆在“比最低的水位高 0.2 米、比平时低 1.5 米”的那一带里（src/stage/three/families/rock.ts 的两个数，测试里对着）。
+ */
+export const SHORE_ROCKS_NEED_M = 1.7;
 
 /** 场景文件对着的那一站：校验场景要用到的几样。 */
 export interface SceneStop {
@@ -155,6 +160,7 @@ const SCENE: Shape = strict({
       moon: optional(strict({ azimuth: number, altitude: number })),
       mist: optional(numberIn({ min: 0, max: 1 })),
       strips: list(text),
+      farLine: optional(list(text)),
       explain: list(text),
     }),
   ),
@@ -514,6 +520,11 @@ export function checkSceneParts(scene: StopScene, file: string): Violation[] {
     if (thing.kind === 'hall-group' && thing.params?.paleYard === true && thing.params.terraced === true) {
       bad(`${at}.params.paleYard`, `${what}顺着山坡（terraced），不能再写 paleYard：浅色的院子只画在平地上的院落里`);
     }
+    // 浅色的院子是画进“先画好的地面”里的，那张地面只有一张、不分小节；它又是“围墙里面的地面”
+    if (thing.kind === 'hall-group' && thing.params?.paleYard === true) {
+      if (thing.when !== undefined) bad(`${at}.params.paleYard`, `${what}写了 when，不能再写 paleYard：浅色的院子画在先画好的地面上，哪一节都在；院落不在的小节里，空地上会剩一块浅色`);
+      if (thing.params.enclosed === false) bad(`${at}.params.paleYard`, `${what}没有围墙（enclosed: false），不能写 paleYard：浅色的院子是围墙里面的地面`);
+    }
 
     const placing = THING_PLACING[thing.kind];
     if (placing === 'point') {
@@ -574,6 +585,19 @@ export function checkSceneParts(scene: StopScene, file: string): Violation[] {
     if (rule.line !== undefined && rule.line.length < 2) bad(`${at}.line`, `${what}沿着的线至少要有两个点`);
     // 青苗的田只能写在一块地方里：整块沙盘的平地都画成草绿就分不出哪一块是正文写的了
     if (rule.kind === 'fields' && rule.params?.green === true && rule.area === undefined) bad(`${at}.params.green`, `${what}写了 green（青苗），要写 area：只有明写出范围的一块田可以整块画成草绿色`);
+    // 竹和柏是细高的苔点：程序只在“一块地方”和“一个点周围”会种细高的；沿一条线、整块沙盘种出来是别的树涂上竹的颜色
+    const slim = rule.kind === 'trees' && (rule.params?.type === 'bamboo' || rule.params?.type === 'cypress');
+    if (slim && rule.area === undefined && rule.at === undefined) {
+      bad(`${at}.params.type`, `${what}是${rule.params?.type === 'bamboo' ? '竹' : '柏'}，位置要写 area（一块地方）或者 at（一个点周围）：沿一条线、摆满整块沙盘时程序种不出细高的竹和柏`);
+    }
+    // 崖脚的石头只摆在“比最低的水位高 0.2 米、比平时的水位低 1.5 米”的那一带里：最低的水位离平时不到 1.7 米，一块也摆不下
+    if (rule.kind === 'rocks' && rule.params?.type === 'shore') {
+      const values = scene.water.levels.values;
+      const lowest = Math.min(...Object.values(values));
+      if (Object.hasOwn(values, 'normal') && values.normal - lowest < SHORE_ROCKS_NEED_M) {
+        bad(`${at}.params.type`, `${what}是崖脚的石头（shore），要有一个比平时的水位低 ${SHORE_ROCKS_NEED_M} 米以上的水位（最低的是 ${lowest}，平时是 ${values.normal}）：石头只摆在水落时露出来的那一带里，没有这样的水位一块也摆不出来`);
+      }
+    }
     // “这几处不种”：只有树的规则可以写，写的是修整的 id，那处修整要有自己的一圈范围（area）
     if (rule.except !== undefined) {
       if (rule.kind !== 'trees') bad(`${at}.except`, `${what}是 ${rule.kind}，不能写 except；只有树的规则可以写“这几处不种”`);
@@ -644,6 +668,7 @@ export function samePoint(a: LngLat, b: LngLat): boolean {
 /**
  * 规则 14 小节：场景的小节和正文的小节一一对上，顺序相同；每节有时间、题记（不超过 40 个字）、镜头、水位；
  * 题签指到远处的小节，题记连同远处的那句话不超过 50 个字宽；
+ * farLine（只在题记下面说、不立题签的远处）里只能是写了 inHisWords 的远处，这一节不能又有它的题签，不能写两遍；
  * 水位的名字在 levels.values 里有，values 里有 normal；when 里写的小节标题都是正文里有的，from 不晚于 until，
  * when 不是空的，城墙、路、田不写 when；explain 至少一样，写的 id 都找得到，点到的东西都有 note；mustShow 写的 id 都找得到。
  * textHeadings 是正文的小节标题；正文读不出来时给 null，对正文的那几处就先不查。
@@ -674,6 +699,12 @@ export function checkSceneSections(scene: StopScene, file: string, textHeadings:
 
   // 水位
   if (!Object.hasOwn(levels, 'normal')) bad('water.levels.values', '必须有 normal（平时的水位）');
+  // 每一个水位都有小节在用：最低的那个决定江底哪里画成沙、崖脚的石头摆在哪，一个哪一节也不用的水位会悄悄改了地面
+  for (const name of Object.keys(levels)) {
+    if (name !== 'normal' && !scene.sections.some((section) => section.water === name)) {
+      bad(`water.levels.values.${name}`, `水位“${name}”没有哪一小节在用：不用的水位去掉（最低的水位决定哪里画成沙，留着它会改了地面）`);
+    }
+  }
 
   // 每一节
   scene.sections.forEach((section, i) => {
@@ -695,6 +726,16 @@ export function checkSceneSections(scene: StopScene, file: string, textHeadings:
     if (!Object.hasOwn(levels, section.water)) {
       bad(`${at}.water`, `小节“${section.heading}”的水位“${section.water}”在 water.levels.values 里没有；有的是：${Object.keys(levels).join('、')}`);
     }
+
+    // 只在题记下面说、不立题签的远处：只给照当时人的一句话写的远处用。坐标确实的远处还是要立题签（题签的规矩一条不松）
+    section.farLine?.forEach((id, j) => {
+      const where = `${at}.farLine[${j}]`;
+      const far = scene.far.find((f) => f.id === id);
+      if (!far) bad(where, `“${id}”不是远处的 id；farLine 里只能写远处`);
+      else if (!far.inHisWords) bad(where, `远处“${id}”没有写 inHisWords：坐标确实的远处要立题签；只有照当时人的一句话写的远处，才可以只在题记下面说`);
+      else if (section.strips.some((stripId) => scene.strips.find((strip) => strip.id === stripId)?.of === id)) bad(where, `远处“${id}”在小节“${section.heading}”里已经有题签了，不用再写进 farLine`);
+      else if (section.farLine?.indexOf(id) !== j) bad(where, `“${id}”在 farLine 里写了两遍`);
+    });
 
     if (section.explain.length === 0) bad(`${at}.explain`, `小节“${section.heading}”的 explain 是空的：旁边的说明先讲哪几样，至少写一样`);
     section.explain.forEach((id, j) => {

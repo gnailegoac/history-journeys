@@ -412,7 +412,8 @@ function carveWater(
 /**
  * 修整把地面压到平时的水位以下的地方也是水：让 edge 认得它。返回“种子”有几格（见 OPEN_SEED_BELOW_M）；
  * 一格也没有时什么也不动。有的时候：比平时的水位低的格子是水，岸在地面和水位相交的地方；
- * 每一格到岸多远（水里是负数）比原来的 edge 小就换上，换了的地方照宽的河上色。
+ * 每一格到岸多远（水里是负数）比原来的 edge 小就换上，换了的地方照宽的河上色；
+ * 画出来的窄水道（半宽不到 100 米的河和壕）里面和岸外 20 米以内不换。
  */
 export function openWater(h: Float32Array, edge: Float32Array, bankHalf: Float32Array, grid: { nx: number; nz: number; cell: number }, normalM: number): number {
   const { nx, nz, cell } = grid;
@@ -467,6 +468,8 @@ export function openWater(h: Float32Array, edge: Float32Array, bankHalf: Float32
     const wet = h[k] < normalM;
     // 离哪条岸都远的干地照旧；水里再远也是水
     if (!wet && d[k] > BANK_REACH_M) continue;
+    // 画出来的窄水道（壕）里面和它的岸边照旧：壕的格子也比水位低，换了它就一块一块地成了宽的河
+    if (bankHalf[k] > 0 && bankHalf[k] < 100 && edge[k] <= OPEN_SEED_OUTSIDE_M) continue;
     const signed = wet ? -Math.min(d[k], BANK_REACH_M) : d[k];
     if (signed < edge[k]) {
       edge[k] = signed;

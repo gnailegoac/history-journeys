@@ -257,6 +257,8 @@ export function sectionInfo(scene: TableScene, heading: string): SectionInfo {
     const say = scene.level === 'route' ? strip?.at && farSayFrom(strip.at, place) : farSay(scene.frame, place);
     if (say) far.push({ id: place.id, name: place.name, say });
   }
+  // 只在这一行说、不立题签的远处（小节的 farLine；全程沙盘没有）
+  for (const place of lineOnly(scene, section)) if (!far.some((done) => done.id === place.id)) far.push({ id: place.id, name: place.name, say: farSay(scene.frame as SceneFrame, place) });
 
   return { section: section.heading, date: section.date, line: section.line, note: { short, brief, lines }, far };
 }
@@ -330,11 +332,17 @@ function ownSchematic(scene: TableScene, stop: string | undefined): Grounds[] {
   return scene.level === 'route' && stop ? scene.roads.journeys.filter((journey) => journey.stop === stop).flatMap((journey) => journey.parts.filter((part) => part.class === 'schematic')) : [];
 }
 
+/** 这一节只在题记下面说、不立题签的远处（小节的 farLine）。 */
+function lineOnly(scene: TableScene, section: Section): SceneFarPlace[] {
+  const ids = 'farLine' in section ? section.farLine : undefined;
+  return ids ? scene.far.filter((place) => ids.includes(place.id)) : [];
+}
+
 /**
  * 这一小节沙盘上有的东西里，哪些是示意：类别是示意的，和按正文摆、又写了 unsure 的。
  * explain 里点到的排在前面；其余的先是水，再是摆在上面的东西，最后是地形的修整（读的人先看到的在前）。
  * 全程沙盘上看来路的一节不看 explain：到这一站去的路里整截示意的在最前，再是水，再是别的。
- * 摆件和点缀看 when；远处只算这一节的题签指到的。全程沙盘上，这一节还没有画的路（后面各站的）不算。
+ * 摆件和点缀看 when；远处只算这一节的题签指到的（只在题记下面说的那种不在沙盘上，不算）。全程沙盘上，这一节还没有画的路（后面各站的）不算。
  * 地形的整理不列在这里：它自己的那句话紧跟在后面，每一节都有。
  */
 function unsureAt(scene: TableScene, section: Section): Unsure[] {

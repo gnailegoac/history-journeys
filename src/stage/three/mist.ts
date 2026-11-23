@@ -170,6 +170,8 @@ export function buildMist(input: MistInput): Mist {
       for (const m of mats) m.uniforms.uMix.value = f;
     },
     setStrength(s) {
+      // 一点没有的时候整层不画（不然三层比沙盘还大的透明面照样每个点读两次图再丢掉）
+      group.visible = s > 0;
       mats.forEach((m, i) => {
         m.uniforms.uOpacity.value = layers[i].op * s;
       });

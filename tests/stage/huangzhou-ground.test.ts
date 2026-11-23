@@ -12,7 +12,11 @@ import { describe, expect, it } from 'vitest';
 import type { LevelEdit } from '../../src/domain/scene';
 import type { LngLat } from '../../src/domain/types';
 import { ringSigned } from '../../src/stage/ground/lines';
-import { cellAt, localRing, realScene, realSceneKeys, wetCell } from './support/realScenes';
+import type { StopScene } from '../../src/domain/scene';
+import { buildFields, readDem } from '../../src/stage/ground';
+import { demSampler } from '../../src/stage/ground/dem';
+import { readBytes } from '../support/readBytes';
+import { cellAt, localRing, realScene, realSceneFile, realSceneKeys, wetCell } from './support/realScenes';
 
 const KEY = 'su-shi/huangzhou';
 
@@ -136,6 +140,9 @@ describe.runIf(realSceneKeys().includes(KEY))('黄州的地面', () => {
     const apron = h([114.8634, 30.4448]);
     expect(apron - values.normal).toBeGreaterThan(0.5);
     expect(values.high - apron).toBeGreaterThan(0.5);
+    // 高水时滩上的水有一米来深：水面岸边那道白只到 1.25 米深为止，水再浅，淹了的滩是一片发白的浅水，
+    // 和平时干着的滩（浅的草色）分不出来——“寒食，沙湖”和“一天一百五十钱”两节比的就是亭子门前这一块
+    expect(values.high - apron).toBeGreaterThan(1);
     const bar = h([114.853, 30.45]);
     expect(bar - values.normal).toBeGreaterThan(0.3);
     expect(values.high - bar).toBeGreaterThan(0.5);
@@ -212,6 +219,87 @@ describe.runIf(realSceneKeys().includes(KEY))('黄州的地面', () => {
       console.log(`黄州“${level}”：连不到江的水，湖荡 ${lake} 格，别处的小水洼 ${apart} 格（一格 20 米见方）`);
       expect(apart, `“${level}”上江和湖荡以外的水洼`).toBeLessThanOrEqual(12);
     }
+  });
+
+  it('“地形的整理”的依据里没有留着“以后再写”的话；里面的数是在摆出来的地面上量的：对岸两座山、城北的山今天多高、摆出来多高，平地垫高、压低了多少', { timeout: 30_000 }, () => {
+    const basis = scene.terrain.recipe.basis;
+    // 整个场景文件里给读者看的话，没有一句是“量过再写进来”这样的待办
+    const texts: string[] = [];
+    const walk = (value: unknown): void => {
+      if (typeof value === 'string') texts.push(value);
+      else if (value && typeof value === 'object') Object.values(value).forEach(walk);
+    };
+    walk(scene);
+    for (const text of texts) expect(text).not.toMatch(/再写进来|量过再写|以后再补|待补/);
+
+    // 今天的高程和只做“整理”（不做修整、不挖河）的地面
+    const { terrainPath } = realSceneFile(KEY);
+    const dem = readDem(scene.terrain, readBytes(terrainPath));
+    const today = demSampler(dem, coords);
+    const bare = buildFields({ ...scene, terrain: { ...scene.terrain, edits: [] }, water: { ...scene.water, rivers: [], rapids: [], dry: [] }, things: [], dressing: [] } as StopScene, dem);
+    const recipe = scene.terrain.recipe;
+    if (recipe.kind !== 'plain-and-hills') throw new Error('黄州的整理不是“平地和山”这一种');
+
+    // 一、山：一圈里今天最高的一点，摆出来最高的一点（修整没有碰这三座山）
+    const peak = (at: LngLat, radiusM: number): { was: number; now: number } => {
+      const [cx, cz] = coords.toLocal(at);
+      let was = -Infinity;
+      let now = -Infinity;
+      for (let k = 0; k < N; k++) {
+        const [x, z] = cellAt(ground, k);
+        if (Math.hypot(x - cx, z - cz) > radiusM) continue;
+        was = Math.max(was, today(x, z));
+        now = Math.max(now, ground.h[k]);
+      }
+      return { was, now };
+    };
+    const east = peak([114.8631, 30.4124], 400);
+    const west = peak([114.8487, 30.413], 400);
+    const north = peak([114.868, 30.466], 600);
+    console.log(`黄州：对岸东边的山 今天 ${east.was.toFixed(1)}、摆出来 ${east.now.toFixed(1)}；西边的山 ${west.was.toFixed(1)}、${west.now.toFixed(1)}；城北的山 ${north.was.toFixed(1)}、${north.now.toFixed(1)}`);
+    expect(basis).toContain(`最高读 ${Math.round(east.was)}、${Math.round(west.was)} 米`);
+    expect(basis).toContain(`摆出来是 ${Math.round(east.now)}、${Math.round(west.now)} 米`);
+    expect(basis).toContain(`城北的山从 ${Math.round(north.was)} 米变成 ${Math.round(north.now)} 米`);
+
+    // 二、平地：离沙盘四边 edgeTaperM 以外、今天低于 plainBelowM 的格子，照今天的高低分三拨
+    const taper = recipe.edgeTaperM;
+    const { westM, eastM, northM, southM } = scene.frame;
+    const low: number[] = [];
+    const high: number[] = [];
+    const after: number[] = [];
+    const slopes: number[] = [];
+    for (let k = 0; k < N; k++) {
+      const [x, z] = cellAt(bare, k);
+      if (x < -westM + taper || x > eastM - taper || z < -northM + taper || z > southM - taper) continue;
+      const t = today(x, z);
+      const d = bare.h[k] - t;
+      if (t >= recipe.plainBelowM && t < recipe.hillAboveM) slopes.push(d);
+      if (t < 15 || t >= recipe.plainBelowM) continue;
+      (t < 22 ? low : high).push(d);
+      after.push(bare.h[k]);
+    }
+    const sorted = (list: number[]): number[] => [...list].sort((a, b) => a - b);
+    const at = (list: number[], p: number): number => sorted(list)[Math.round((list.length - 1) * p)];
+    console.log(`黄州的平地：今天 15 到 22 米的 ${low.length} 格，垫高的中数 ${at(low, 0.5).toFixed(1)}、九成半以内 ${at(low, 0.95).toFixed(1)}；今天 22 到 33 米的 ${high.length} 格，压低的中数 ${(-at(high, 0.5)).toFixed(1)}、最多 ${(-at(high, 0)).toFixed(1)}；整理以后 ${at(after, 0.05).toFixed(1)} 到 ${at(after, 0.95).toFixed(1)}；山坡矮了 ${(-at(slopes, 0.95)).toFixed(1)} 到 ${(-at(slopes, 0.05)).toFixed(1)}`);
+    // “多数垫高一两米，最多六米上下”
+    expect(basis).toContain('多数垫高一两米，最多六米上下');
+    expect(at(low, 0.5)).toBeGreaterThan(1);
+    expect(at(low, 0.5)).toBeLessThan(2);
+    expect(at(low, 0.95)).toBeGreaterThan(5);
+    expect(at(low, 0.95)).toBeLessThan(7);
+    // “多数压低三四米，最多 11 米”
+    expect(basis).toContain('多数压低三四米，最多 11 米');
+    expect(-at(high, 0.5)).toBeGreaterThan(3);
+    expect(-at(high, 0.5)).toBeLessThan(4);
+    expect(Math.round(-at(high, 0))).toBe(11);
+    // “整理以后的平地都在 21 到 24 米之间”（二十格里十九格）
+    expect(basis).toContain('整理以后的平地都在 21 到 24 米之间');
+    expect(Math.round(at(after, 0.05))).toBe(21);
+    expect(Math.round(at(after, 0.95))).toBe(24);
+    // “山坡矮了 7 到 13 米”（今天 33 到 42 米的格子，二十格里十九格）
+    expect(basis).toContain('山坡矮了 7 到 13 米');
+    expect(Math.round(-at(slopes, 0.95))).toBe(7);
+    expect(Math.round(-at(slopes, 0.05))).toBe(13);
   });
 
   it('赤壁所在的山：山顶比平时的水面高 25 到 32 米（史料说“三十米上下”是这座山，不是崖）', () => {

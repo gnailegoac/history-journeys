@@ -113,9 +113,11 @@ export async function openFigureWithTable(page: Page, url: string): Promise<{ fi
  */
 export async function expectRoute(page: Page): Promise<boolean> {
   const pane = stagePane(page);
-  const now = async (): Promise<string> => `${await pane.getAttribute('data-stage-state')} ${await pane.getAttribute('data-stage-level')}`;
+  // 两个属性一次读回来（分两次读，正赶上栏里换沙盘，会读到一半新一半旧）；返回的就是等到的那一次，不再另读一遍
+  let seen = '';
+  const now = async (): Promise<string> => (seen = await pane.evaluate((el) => `${el.getAttribute('data-stage-state')} ${el.getAttribute('data-stage-level')}`));
   await expect.poll(now, { message: '沙盘栏里该摆好全程沙盘，或者说一句“还没接进来”' }).toMatch(/^(ready route|still null)$/);
-  return (await now()) === 'ready route';
+  return seen === 'ready route';
 }
 
 /** content/ 里这位人物的全程沙盘的场景；没有是 null。 */

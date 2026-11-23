@@ -863,6 +863,39 @@ test('用键盘：标题后面有一步“到沙盘”，走到它上面才显�
   expect(await stagePane(page).evaluate((pane) => getComputedStyle(pane, '::after').content)).toBe('none');
 });
 
+test('用键盘走到沙盘栏里的“说明”上（宽屏）：页面不跟着滚，沙盘还在读到的那一节', async ({ page }) => {
+  const { headings } = await openStopWithScene(page);
+  test.skip(headings.length < 3, '这一站的小节太少，测不了');
+  await expectStageAt(page, headings[0]);
+  await scrollToSection(page, headings[1]);
+  await expectStageAt(page, headings[1]);
+  const pane = stagePane(page);
+  const button = pane.locator('.stage-note-button');
+  const before = await page.evaluate(() => window.scrollY);
+  expect(before).toBeGreaterThan(0);
+  // “说明”在栏的底边上，离屏幕的底不到给“问讲解员”那一条留的空：浏览器要是把那一截算上，就会把页面往上滚
+  const box = (await button.boundingBox())!;
+  const viewport = page.viewportSize()!;
+  expect(viewport.height - (box.y + box.height)).toBeLessThan(80);
+  /** 等一会儿（真要滚的话早滚了），页面还在原处，沙盘还在这一节。 */
+  const stayed = async (how: string): Promise<void> => {
+    await page.waitForTimeout(500);
+    expect(await page.evaluate(() => window.scrollY), how).toBe(before);
+    await expect(fakeStage(page)).toHaveAttribute('data-fake-section', headings[1]);
+    await expect(pane.locator('.stage-caption')).toContainText(headings[1]);
+  };
+  // 焦点直接落到它上面
+  await button.focus();
+  await expect(button).toBeFocused();
+  await stayed('焦点落到“说明”上，页面滚了');
+  // 用键盘走开再走回来（Shift+Tab、Tab）
+  await page.keyboard.press('Shift+Tab');
+  await expect(button).not.toBeFocused();
+  await page.keyboard.press('Tab');
+  await expect(button).toBeFocused();
+  await stayed('用 Tab 走到“说明”上，页面滚了');
+});
+
 test('题签指到沙盘外面的远处时，沙盘旁边写着它在哪个方向、多远', async ({ page }) => {
   const { scene, headings } = await openStopWithScene(page);
   const farIds = new Set(scene.far.map((far) => far.id));

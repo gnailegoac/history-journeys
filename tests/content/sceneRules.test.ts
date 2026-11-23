@@ -19,7 +19,8 @@ import { PICTURE_EDGE_MAX, TABLE_FILES_MAX_BYTES } from './budgetRules';
 import { pictureSize, toContentFiles, toFileKeys, toFileSizes, toPictureSizes } from './files';
 import { formatViolation, RULE_NAMES, validateContent as validateAll } from './rules';
 import type { ContentFiles } from './rules';
-import { bakedPictureSize, checkBakedGround, checkScene, checkSceneNight, checkSceneShape, checkSectionStills, MADE_FILES_REQUIRED, MOON_ALTITUDE, STILL_MAX_BYTES, TERRAIN_MAX_BYTES, textWidth, unsureProblem, WORDS_MAX } from './sceneRules';
+import { SHORE_ABOVE_LOWEST_M, SHORE_UNDER_NORMAL_M } from '../../src/stage/three/families/rock';
+import { bakedPictureSize, checkBakedGround, checkScene, checkSceneNight, checkSceneShape, checkSectionStills, MADE_FILES_REQUIRED, MOON_ALTITUDE, SHORE_ROCKS_NEED_M, STILL_MAX_BYTES, TERRAIN_MAX_BYTES, textWidth, unsureProblem, WORDS_MAX } from './sceneRules';
 import type { Measured } from './sceneRules';
 import type { FileSizes, Violation } from './shape';
 
@@ -641,7 +642,12 @@ describe('规则 13 零件', () => {
     expect(sceneProblems((s) => (s.things[0].params = { face: true }))).toEqual(['13 things[0].params.face']);
     // 竹（bamboo）现在有了；棕榈还没有
     expect(sceneProblems((s) => (s.dressing[1].params = { type: 'palm' }))).toEqual(['13 dressing[1].params.type']);
-    expect(sceneProblems((s) => (s.dressing[1].params = { type: 'bamboo' }))).toEqual([]);
+    expect(sceneProblems((s) => {
+      // 样本里这一条树是沿一条线种的；竹要写在一个点周围或者一块地方里（见后面“竹和柏”那一条）
+      delete s.dressing[1].line;
+      s.dressing[1].at = s.things[4].at;
+      s.dressing[1].params = { type: 'bamboo' };
+    })).toEqual([]);
     expect(sceneProblems((s) => (s.dressing[2].params = { count: '3' }))).toEqual(['13 dressing[2].params.count']);
   });
 
@@ -870,8 +876,8 @@ describe('规则 14 小节', () => {
   });
 
   it('水位的名字在 levels.values 里没有', () => {
-    const found = validateContent(editScene((s) => (s.sections[1].water = 'high')), SIZES);
-    expect(found.map((v) => `${v.rule} ${v.field}｜${v.problem}`)).toEqual(['14 sections[1].water｜小节“河上”的水位“high”在 water.levels.values 里没有；有的是：normal、flood']);
+    const found = validateContent(editScene((s) => (s.sections[2].water = 'high')), SIZES);
+    expect(found.map((v) => `${v.rule} ${v.field}｜${v.problem}`)).toEqual(['14 sections[2].water｜小节“渡口”的水位“high”在 water.levels.values 里没有；有的是：normal、flood']);
   });
 
   it('levels.values 里没有 normal', () => {
@@ -1665,6 +1671,58 @@ describe('黄州的城添的几种写法：青苗的田、浅色的院子、照�
     expect(sceneProblems((s) => (s.things[4].params = { paleYard: true }))).toEqual(['13 things[4].params.paleYard']);
   });
 
+  it('浅色的院子画在先画好的地面上，哪一节都在：院落写了 when、或者没有围墙（enclosed: false），都不能写（规则 13）', () => {
+    expect(sceneProblems(temple({ paleYard: true, enclosed: true }))).toEqual([]);
+    expect(sceneProblems(temple({ paleYard: true, enclosed: false }))).toEqual(['13 things[5].params.paleYard']);
+    const later = (params: Record<string, boolean>) => (s: StopScene): void => {
+      temple(params)(s);
+      s.things[5].when = { from: s.sections[1].heading };
+    };
+    expect(sceneProblems(later({ paleYard: true }))).toEqual(['13 things[5].params.paleYard']);
+    // 不写 paleYard 的院落照旧可以写 when、可以没有围墙
+    expect(sceneProblems(later({ enclosed: false }))).toEqual([]);
+  });
+
+  it('竹和柏只在“一块地方”和“一个点周围”种得出细高的：沿一条线、摆满整块沙盘的查出来；别的树照旧（规则 13）', () => {
+    const grove = (type: string, where: 'area' | 'at' | 'line' | 'all') => (s: StopScene): void => {
+      const ring = someArea(s);
+      const place = where === 'area' ? { area: ring } : where === 'at' ? { at: ring[0] } : where === 'line' ? { line: ring.slice(0, 2) } : {};
+      s.dressing.push({ id: 'grove', name: '一片树', kind: 'trees', ...place, params: { type }, class: 'dressing', basis: '只表示有树。', sourceIds: [] });
+    };
+    for (const type of ['bamboo', 'cypress']) {
+      expect(sceneProblems(grove(type, 'area')), type).toEqual([]);
+      expect(sceneProblems(grove(type, 'at')), type).toEqual([]);
+      expect(sceneProblems(grove(type, 'line')), type).toEqual(['13 dressing[5].params.type']);
+      expect(sceneProblems(grove(type, 'all')), type).toEqual(['13 dressing[5].params.type']);
+    }
+    expect(sceneProblems(grove('willow', 'line'))).toEqual([]);
+    expect(sceneProblems(grove('pine', 'all'))).toEqual([]);
+  });
+
+  it('崖脚的石头（rocks 的 shore）要有一个比平时低 1.7 米以上的水位；这个数就是石头那一带的两个门槛加起来（规则 13）', () => {
+    expect(SHORE_ROCKS_NEED_M).toBeCloseTo(SHORE_ABOVE_LOWEST_M + SHORE_UNDER_NORMAL_M, 9);
+    const stones = (lowBy: number | null) => (s: StopScene): void => {
+      s.dressing.push({ id: 'stones', name: '崖脚的石头', kind: 'rocks', at: someArea(s)[0], params: { type: 'shore' }, class: 'dressing', basis: '只表示有石头。', sourceIds: [] });
+      if (lowBy !== null) {
+        s.water.levels.values.low = s.water.levels.values.normal - lowBy;
+        s.sections[0].water = 'low';
+      }
+    };
+    // 样本里最低的水位就是平时的水位：一块也摆不出来
+    expect(sceneProblems(stones(null))).toEqual(['13 dressing[5].params.type']);
+    expect(sceneProblems(stones(1.6))).toEqual(['13 dressing[5].params.type']);
+    expect(sceneProblems(stones(1.7))).toEqual([]);
+    expect(sceneProblems(stones(3))).toEqual([]);
+  });
+
+  it('每一个水位都有小节在用：留着一个哪一节也不用的水位，查出来（规则 14）', () => {
+    expect(sceneProblems((s) => (s.water.levels.values.trial = 10))).toEqual(['14 water.levels.values.trial']);
+    expect(sceneProblems((s) => {
+      s.water.levels.values.trial = 10;
+      s.sections[0].water = 'trial';
+    })).toEqual([]);
+  });
+
   it('新添的两种零件：矮土墙写一条线，小门写一个点；矮土墙不能当城门的城墙', () => {
     const wall = (scene: StopScene): void => {
       scene.things.push({ id: 'old-wall', name: '矮土墙', kind: 'earth-wall', line: someArea(scene).slice(0, 2), params: { ruined: true, fence: true }, class: 'schematic', basis: '只表示有一段墙。', sourceIds: [] });
@@ -1693,6 +1751,43 @@ describe('黄州的城添的几种写法：青苗的田、浅色的院子、照�
     expect(sceneProblems((s) => (s.far[0].inHisWords = '往东南，三十里'))).toEqual(['15 far[0].inHisWords']);
     // 不是字的算格式不对
     expect(looseProblems<{ far: { inHisWords: unknown }[] }>((s) => (s.far[0].inHisWords = 30))).toEqual(['0 far[0].inHisWords']);
+  });
+
+  it('只在题记下面说、不立题签的远处（小节的 farLine）：只能是写了 inHisWords 的远处，这一节不能又有它的题签，不能写两遍（规则 14）', () => {
+    // 样本里的远处“东港”在“渡口”一节立着题签；“上船”一节没有它的题签
+    const inWords = (s: StopScene): void => void (s.far[0].inHisWords = '往东南约三十里');
+    expect(sceneProblems((s) => {
+      inWords(s);
+      s.sections[0].farLine = ['far-port'];
+    })).toEqual([]);
+    // 坐标确实的远处（没有写 inHisWords）：不行，要立题签
+    expect(sceneProblems((s) => (s.sections[0].farLine = ['far-port']))).toEqual(['14 sections[0].farLine[0]']);
+    // 不是远处的 id
+    expect(sceneProblems((s) => {
+      inWords(s);
+      s.sections[0].farLine = ['east-hill'];
+    })).toEqual(['14 sections[0].farLine[0]']);
+    // 这一节已经有它的题签了
+    expect(sceneProblems((s) => {
+      inWords(s);
+      s.sections[2].farLine = ['far-port'];
+    })).toEqual(['14 sections[2].farLine[0]']);
+    // 写了两遍
+    expect(sceneProblems((s) => {
+      inWords(s);
+      s.sections[0].farLine = ['far-port', 'far-port'];
+    })).toEqual(['14 sections[0].farLine[1]']);
+    // 不是名单算格式不对
+    expect(looseProblems<{ sections: { farLine: unknown }[] }>((s) => (s.sections[0].farLine = 'far-port'))).toEqual(['0 sections[0].farLine']);
+  });
+
+  it('矮土墙的 low（只有一半高）：是或者不是；写成别的算规则 13', () => {
+    const dike = (s: StopScene): number => s.things.push({ id: 'low-dike', name: '矮土堤', kind: 'earth-wall', line: someArea(s).slice(0, 2), params: { low: true }, class: 'schematic', basis: '只表示有一道堤。', sourceIds: [] }) - 1;
+    expect(sceneProblems((s) => void dike(s))).toEqual([]);
+    expect(sceneProblems((s) => {
+      const i = dike(s);
+      (s.things[i].params as Record<string, unknown>).low = 'yes';
+    })).toEqual([`13 things[${goodScene().things.length}].params.low`]);
   });
 
   it('小节的云气几成（mist）：0 到 1 之间的数；出了这个范围、不是数，算格式不对', () => {

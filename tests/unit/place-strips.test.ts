@@ -1005,6 +1005,44 @@ const spec = (id: string, text: string, more: Partial<StripSpec> = {}): StripSpe
 const PHONE = { width: 390, height: 337 };
 const PHONE_INSETS: StageInsets = { top: 54, right: 0, bottom: 95, left: 0 };
 
+describe('题签层：只留一条（only）', () => {
+  // 两条指的点挨着：后一条头一个位置被前一条占了，摆在别处
+  const pair = [spec('a', '汴京'), spec('b', '徐州')];
+  const anchors = [at('a', 200, 180), at('b', 212, 180)];
+
+  it('别的都拿掉，留下的那一条还在原处；换成 set 重新换一批的话，它会跳到头一个位置上', () => {
+    const m = mounted();
+    m.layer.set(pair);
+    m.layer.place(anchors, PHONE, PHONE_INSETS);
+    expect(m.shown('b')).toBe(true);
+    const was = m.centre('b');
+
+    m.layer.only?.('b');
+    expect(m.els().map((el) => el.dataset.stripId)).toEqual(['b']);
+    m.layer.place([anchors[1]], PHONE, PHONE_INSETS);
+    expect(m.shown('b')).toBe(true);
+    expect(m.centre('b')).toEqual(was);
+    expect(m.marks()).toEqual({ lines: 1, dots: 1 });
+
+    // 对照：重新换一批（set），它一个人的时候摆在头一个位置上，和原来的不是一处——所以潜的时候不能用 set
+    const fresh = mounted();
+    fresh.layer.set([pair[1]]);
+    fresh.layer.place([anchors[1]], PHONE, PHONE_INSETS);
+    expect(fresh.centre('b')).not.toEqual(was);
+  });
+
+  it('藏着的时候只留一条：下一次 place 照常摆出来', () => {
+    const m = mounted();
+    m.layer.set(pair);
+    m.layer.place(anchors, PHONE, PHONE_INSETS);
+    m.layer.hide();
+    m.layer.only?.('a');
+    m.layer.place([anchors[0]], PHONE, PHONE_INSETS);
+    expect(m.els().map((el) => el.dataset.stripId)).toEqual(['a']);
+    expect(m.shown('a')).toBe(true);
+  });
+});
+
 describe('题签层：摆不下的画一个空心的圈，不写句子（T8）', () => {
   it('摆得下的：字、引线、实心的点都显着，没有圈', () => {
     const m = mounted();

@@ -86,6 +86,11 @@ export interface StripLayer {
   place(anchors: StripInput['anchors'], size: StripInput['size'], insets: StageInsets, opts?: { moving?: boolean }): void;
   /** 先都藏起来（镜头滑动的时候）。下一次 place 再显出来。 */
   hide(): void;
+  /**
+   * 只留这一条，别的都拿掉（全程沙盘潜到一站上空时，留那一站自己的名字）。和 set 不一样的是：它上一次摆在哪还算数，
+   * 下一次 place 先照原来的位置摆——镜头还没有动，名字不该跳一下。
+   */
+  only?(id: string): void;
   /** 重新量每条题签的大小（字体加载好以后）。 */
   remeasure(): void;
   /** 把这一层从容器里拿走。 */

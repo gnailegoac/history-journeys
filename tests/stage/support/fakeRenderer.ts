@@ -343,7 +343,7 @@ export function fakeKit(makeGroup: () => Group, afloat: readonly string[] = []):
 export interface FakeStrips {
   /** 顶替 mountStrips（写在 vi.mock 里）。 */
   mount(): StripLayer;
-  /** 题签层收到的指令，按先后：'set 甲,乙'、'place'、'hide'、'destroy'。连着几次 place 只记一次。 */
+  /** 题签层收到的指令，按先后：'set 甲,乙'、'place'、'hide'、'only 某一条的 id'、'destroy'。连着几次 place 只记一次。 */
   log: string[];
   /** 最近一次换上的那批题签。 */
   specs(): StripSpec[];
@@ -371,6 +371,10 @@ export function fakeStrips(): FakeStrips {
       },
       hide() {
         log.push('hide');
+      },
+      only(id) {
+        specs = specs.filter((s) => s.id === id);
+        log.push(`only ${id}`);
       },
       remeasure() {},
       destroy() {

@@ -55,6 +55,29 @@
   visibility: hidden;
 }
 
+/* 从全程沙盘潜到一站自己的沙盘（StagePane.tsx 写的 data-stage-dive，规矩在 src/ui/dive.ts）：
+   潜到最后三成工夫，放画面的那一块淡进栏的底色里。等 600 毫秒、淡 300 毫秒，加起来是 dive.ts 的 DIVE_MS。
+   照钟点走，不看沙盘画了几帧。不潜了（记号拿掉）马上回来，不慢慢浮上来。 */
+.stage-pane[data-stage-dive] .stage-canvas {
+  opacity: 0;
+  transition: opacity 300ms ease-in 600ms;
+}
+
+/* 潜过来的那一站：头一张图片从底色里浮上来（平常是直接出来）。图片还没到的时候先不显。 */
+.stage-still-host.is-coming {
+  opacity: 0;
+}
+
+.stage-still-host.is-arriving {
+  animation: stage-arrive 320ms ease-out;
+}
+
+@keyframes stage-arrive {
+  from {
+    opacity: 0;
+  }
+}
+
 /* ---------------------------------------------------------------- 几句话 */
 
 /* “正在摆”“没能摆出来”“画面断了”都在 .stage-says 这一块里（它一直在页面上，话是换进去的）。它自己不占地方。 */

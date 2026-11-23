@@ -229,6 +229,16 @@ export interface StopStageView extends StageView {
    * 只有这个小节标题在场景里没有时才拒绝。
    */
   showSection(section: string, opts?: { animate?: boolean }): Promise<void>;
+
+  /**
+   * 全程沙盘才有：镜头从现在的地方（滑到半路、读者拖过以后也一样）潜到一站的上空，对准那一站的地名点。
+   * 用 ms 毫秒，照钟点走，不照画了几帧：慢的设备上是帧少，不是潜得久。镜头先对准那一站（钟点走到六成就对准了），凑近是起步慢、越来越快；
+   * 一起步别的题签都收起来，只留那一站自己的那一条；潜的这一会儿读者的手动不了镜头。
+   * 潜到了，完成为 true。潜不了（还没摆好、嫌慢了、系统说要少动、沙盘上没有这一站）马上完成为 false；
+   * 半路被新的指令顶掉、被读者接过去、画面丢了、关掉了，也完成为 false。从不拒绝。
+   * 潜完以后镜头留在那里：页面接着换到那一站；不换的话，要再叫一次 showSection 才回到原来的小节。
+   */
+  dive?(stop: string, ms: number): Promise<boolean>;
 }
 
 export interface StageEngine {

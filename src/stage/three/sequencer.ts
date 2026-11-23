@@ -145,6 +145,41 @@ export class Sequencer {
   }
 
   /**
+   * 一趟不去哪一小节的滑动（全程沙盘潜到一站上空，见 view.ts 的 dive）：顶掉先前的指令，照钟点一帧一帧走。
+   * plan.frame 收到的是钟点走了几成（0 到 1，没有缓动过）。现在要摆的小节不变。
+   * 走到头完成为 true；被新的指令顶掉、被读者接过去、关掉，完成为 false。第一个画面还没摆、已经关掉：马上完成为 false。
+   */
+  free(plan: Glide): Promise<boolean> {
+    if (this.destroyed || !this.isStarted) return Promise.resolve(false);
+    const operation = this.begin();
+    const startedAt = this.clock.now();
+    let reached = false;
+    operation.gliding = true;
+    const step = (): void => {
+      operation.cancelFrame = null;
+      if (operation.cancelled) return;
+      const k = plan.durationMs > 0 ? Math.min(1, (this.clock.now() - startedAt) / plan.durationMs) : 1;
+      try {
+        plan.frame(k);
+      } catch (error) {
+        console.warn('[沙盘] 镜头滑到一半出错', error);
+        if (this.operation === operation) this.cancel();
+        return;
+      }
+      if (k < 1) {
+        operation.cancelFrame = this.clock.nextFrame(step);
+        return;
+      }
+      reached = true;
+      operation.gliding = false;
+      if (this.operation === operation) this.operation = null;
+      operation.finish();
+    };
+    operation.cancelFrame = this.clock.nextFrame(step);
+    return operation.done.then(() => reached);
+  }
+
+  /**
    * 读者自己动了镜头：正在滑就停在半路，等着那一次的地方照常完成。
    * 返回是不是真的打断了一趟滑动。
    */

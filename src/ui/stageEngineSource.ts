@@ -9,6 +9,9 @@
 // 另外两个只给自动测试用的开关也放在这里：
 //   ?route=none   当作这位人物还没有全程沙盘
 //   ?debug=1      把沙盘的读数挂在 window.__stageReadout 上（量三角形数用），并在沙盘栏里印一行画质和快慢的读数
+// 从全程沙盘到一站自己的沙盘，镜头先潜下去再换页（src/ui/dive.ts）。它的两个开关：
+//   ?dive=none    不潜，一点就换（用哪种沙盘都一样）
+//   ?dive=1       用沙盘的替身时也潜。替身平时不潜：原有的测试看的都是“一点就换”
 // 还有一个指定画质的开关，自动测试、拍图片和在平板上试的时候用：
 //   ?tier=full | reduced | still   完整的一档、减配的一档、只放图片
 
@@ -73,6 +76,12 @@ export async function pickRouteTable(figureId: string): Promise<RouteTable | nul
 export function pickTier(): StageTier | 'still' | null {
   const choice = query('tier');
   return choice === 'full' || choice === 'reduced' || choice === 'still' ? choice : null;
+}
+
+/** 从全程沙盘到一站自己的沙盘，要不要先潜下去。 */
+export function divesHere(): boolean {
+  const choice = query('dive');
+  return choice !== 'none' && (choice === '1' || fakeStageChoice() === null);
 }
 
 /** 要不要把沙盘的读数挂出来、印出来。 */

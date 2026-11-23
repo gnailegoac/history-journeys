@@ -180,6 +180,10 @@ class ThreeStopView implements StopStageView {
   private insets: StageInsets;
 
   private built: Built | null = null;
+  /** 全程沙盘那一块程序（摆全程沙盘时才有）：潜到一站上空要用它。 */
+  private routeLevel: RouteLevel | null = null;
+  /** 正在潜到一站上空。 */
+  private diving = false;
   private lease: Lease<HTMLCanvasElement, WebGLRenderer> | null = null;
   /** 造出来的东西怎么放掉，按造的先后记着。 */
   private readonly disposers: (() => void)[] = [];
@@ -320,6 +324,68 @@ class ThreeStopView implements StopStageView {
 
   resetView(): Promise<void> {
     return this.sequencer.reset();
+  }
+
+  /**
+   * 全程沙盘潜到一站上空（规矩见 src/stage/types.ts）。镜头怎么走在全程沙盘那一块程序里（routeLevel.ts 的 diveEnd、divePath）；
+   * 先后由 sequencer 管：它顶掉正在滑的那一趟，新的指令、读者的手、画面丢了、关掉都会顶掉它。站点沙盘没有那一块程序，一律答 false。
+   */
+  dive(stop: string, ms: number): Promise<boolean> {
+    const b = this.built;
+    const level = this.routeLevel;
+    if (!b || !level || !this.isReady || this.slow || this.options.reducedMotion || this.scene.level !== 'route') return Promise.resolve(false);
+    const from: TableState = {
+      position: [b.camera.position.x, b.camera.position.y, b.camera.position.z],
+      target: [b.controls.target.x, b.controls.target.y, b.controls.target.z],
+      fov: b.camera.fov,
+      levelM: this.levelM,
+      flood: this.flood,
+      mist: this.mistNow,
+    };
+    const to = level.diveEnd(this.scene, stop, from, b.samplers, this.coords);
+    if (!to) return Promise.resolve(false);
+    const path = level.divePath(from, to);
+    // 题签一起步就收起来，只留那一站自己的那一条（它告诉读者镜头往哪儿去；这一节没有摆它，就照头一节的摆）。镜头是程序挪的，不算读者动过
+    const place = this.scene.places.find((p) => p.stops?.includes(stop));
+    const own = this.scene.strips.find((s) => s.of === place?.id)?.id;
+    const spec = [this.stripsFor, this.scene.sections[0].heading]
+      .flatMap((heading) => sectionStripSpecs(this.scene, heading, stripTexts(this.scene, heading, this.namesMode), this.options.marks))
+      .find((s) => s.id === own);
+    if (spec) {
+      // 那一条现在就摆着：别的拿掉，它留在原处（镜头还没动，名字不该跳一下）；没摆着就换上它
+      const kept = !!b.strips.only && !this.stripsHidden && this.shownStrips.some((s) => s.id === own);
+      if (kept) b.strips.only?.(spec.id);
+      else b.strips.set([spec]);
+      this.shownStrips = this.stripsOf([spec.id]);
+      this.spotCache = null;
+      // 新换上的先挑一次位置；以后（留在原处的从头起）一路留在那个位置上，不重新挑（draw 里看 diving）
+      this.stripsFresh = !kept;
+    } else {
+      b.strips.hide();
+    }
+    this.stripsHidden = !spec;
+    this.setMoved(false);
+    this.cancelSettle?.();
+    this.cancelSettle = null;
+    // 留着的那一条当场摆好（不等下一帧）：别的名字收起来的同一刻，它还在
+    this.diving = true;
+    if (spec) this.draw();
+    // 潜的这一会儿镜头不交给读者的手（托着平板的手掌碰到沙盘、滚轮转了一下，都不该把它打断成一下子跳过去）
+    b.controls.enabled = false;
+    const done = this.sequencer.free({
+      durationMs: ms,
+      frame: (k) => {
+        const now = this.built;
+        if (!now) return;
+        this.applyState(path(k), now);
+        this.draw();
+      },
+    });
+    void done.then(() => {
+      this.diving = false;
+      if (this.built && !this.slow) this.built.controls.enabled = true;
+    });
+    return done;
   }
 
   setNamesMode(mode: NamesMode): void {
@@ -613,6 +679,7 @@ class ThreeStopView implements StopStageView {
     const scene = table.scene;
     const { renderer, quality } = lease;
     const { level } = begun;
+    this.routeLevel = level;
     const gone = (): boolean => lease.signal.aborted;
     const routeStyle = style.route;
     if (!routeStyle) throw new Error(`样式“${scene.style}”还摆不了全程沙盘`);
@@ -1198,9 +1265,10 @@ class ThreeStopView implements StopStageView {
     if (!this.stripsHidden) {
       const anchors = projectSpots(this.spots(D, b), this.coords, camera, size);
       // 读者的手还按着：题签留在原来的位置上，不重新挑（转一下换十几次位置，看上去是在闪）。刚换的一批还没摆过，照常摆
-      if (this.handDown && !this.stripsFresh) {
+      // 潜到一站上空的路上也一样：留着的那一条不换位置
+      if ((this.handDown || this.diving) && !this.stripsFresh) {
         b.strips.place(anchors, size, this.insets, { moving: true });
-        this.heldStrips = true;
+        if (this.handDown) this.heldStrips = true;
       } else {
         b.strips.place(anchors, size, this.insets);
       }

@@ -30,10 +30,16 @@ export function FigureLayout({ figureId, stopId }: Props) {
   const figure = useLoaded(figureId, () => loadFigure(figureId));
 
   if (figure.state === 'loading') {
+    // 两栏的壳，沙盘栏空着（绢的底色）：从首页潜过来的时候，画面刚淡进绢里，不能换成独自一页纸闪一下
     return (
-      <main className="plain-page">
-        <p className="quiet">加载中…</p>
-      </main>
+      <div className="figure-layout">
+        <main className="reading">
+          <div className="reading-inner">
+            <p className="quiet">加载中…</p>
+          </div>
+        </main>
+        <section className="stage-pane is-pinned" data-stage-state="loading" data-stage-picture="none" />
+      </div>
     );
   }
   if (figure.state === 'error' || !figure.value) {

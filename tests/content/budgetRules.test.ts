@@ -45,9 +45,9 @@ describe('上限是哪几个数', () => {
     expect(COLOUR_PSNR_MIN).toBe(40);
   });
 
-  it('程序的下载量（压缩以后）：沙盘程序 230,000，页面 95,000，样式表 15,000；整个 dist/ 900 MB', () => {
+  it('程序的下载量（压缩以后）：沙盘程序 230,000，页面 97,000，样式表 15,000；整个 dist/ 900 MB', () => {
     expect([ENGINE_GZIP_MAX, ENGINE_GZIP_WARN]).toEqual([230_000, 215_000]);
-    expect([PAGE_GZIP_MAX, PAGE_GZIP_WARN]).toEqual([95_000, 90_000]);
+    expect([PAGE_GZIP_MAX, PAGE_GZIP_WARN]).toEqual([97_000, 90_000]);
     expect([STYLE_GZIP_MAX, STYLE_GZIP_WARN]).toEqual([15_000, 13_000]);
     expect([DIST_MAX_BYTES, DIST_WARN_BYTES]).toEqual([943_718_400, 524_288_000]);
   });
@@ -198,7 +198,7 @@ describe('程序的下载量对着上限查', () => {
     expect(today.fails).toEqual([]);
     expect(today.warns).toEqual([]);
     expect(today.lines).toEqual([
-      '页面的程序（压缩以后）：84,000 字节，上限 95,000（用了 88%）　assets/index-a.js',
+      '页面的程序（压缩以后）：84,000 字节，上限 97,000（用了 87%）　assets/index-a.js',
       '样式表（压缩以后）：4,900 字节，上限 15,000（用了 33%）　assets/index-a.css',
       '沙盘程序（压缩以后）：198,600 字节，上限 230,000（用了 86%）　assets/engine-b.js、assets/strips-c.js',
       '整个 dist/：2,000,000 字节，上限 943,718,400（用了 0%）',
@@ -218,12 +218,12 @@ describe('程序的下载量对着上限查', () => {
     expect(over.fails).toEqual(['沙盘程序（压缩以后）有 237,200 字节，超过了上限 230,000']);
   });
 
-  it('页面的程序超过 95,000 字节；过了 90,000 提醒', () => {
-    expect(report(manifestLikeToday(), { ...TODAY, 'assets/index-a.js': 95_001 }).fails).toEqual(['页面的程序（压缩以后）有 95,001 字节，超过了上限 95,000']);
+  it('页面的程序超过 97,000 字节；过了 90,000 提醒', () => {
+    expect(report(manifestLikeToday(), { ...TODAY, 'assets/index-a.js': 97_001 }).fails).toEqual(['页面的程序（压缩以后）有 97,001 字节，超过了上限 97,000']);
     const near = report(manifestLikeToday(), { ...TODAY, 'assets/index-a.js': 90_001 });
     expect(near.fails).toEqual([]);
-    expect(near.warns).toEqual(['页面的程序（压缩以后）有 90,001 字节，快到上限 95,000 了（过了 90,000 就提醒）']);
-    expect(report(manifestLikeToday(), { ...TODAY, 'assets/index-a.js': 95_000 }).fails).toEqual([]);
+    expect(near.warns).toEqual(['页面的程序（压缩以后）有 90,001 字节，快到上限 97,000 了（过了 90,000 就提醒）']);
+    expect(report(manifestLikeToday(), { ...TODAY, 'assets/index-a.js': 97_000 }).fails).toEqual([]);
   });
 
   it('样式表超过 15,000 字节；整个 dist/ 超过 900 MB', () => {
@@ -241,7 +241,7 @@ describe('程序的下载量对着上限查', () => {
     const found = report(manifest);
     expect(found.fails).toHaveLength(2);
     // 页面连同它带着的沙盘程序，也就超了页面的上限
-    expect(found.fails[0]).toBe('页面的程序（压缩以后）有 282,600 字节，超过了上限 95,000');
+    expect(found.fails[0]).toBe('页面的程序（压缩以后）有 282,600 字节，超过了上限 97,000');
     expect(found.fails[1]).toContain('成了页面一打开就下载的东西');
     // 就算小到没有超，也不行：定格图的沙盘是页面直接带着的，它不能把沙盘程序拖进来
     const small = report(manifest, { 'assets/index-a.js': 10, 'assets/engine-b.js': 10 });

@@ -47,8 +47,12 @@ export const FONT_FILE_WARN_BYTES = 280 * 1024;
 /** 沙盘程序（摆立体的沙盘时才下载的那几块）压缩以后最大多少字节；过了多少提醒一句。 */
 export const ENGINE_GZIP_MAX = 230_000;
 export const ENGINE_GZIP_WARN = 215_000;
-/** 页面的程序（一打开就下载的那几块）压缩以后最大多少字节；过了多少提醒一句。 */
-export const PAGE_GZIP_MAX = 95_000;
+/**
+ * 页面的程序（一打开就下载的那几块）压缩以后最大多少字节；过了多少提醒一句。
+ * 上限原来是 95,000。2026-11-23 加“从全程沙盘潜到一站自己的沙盘”时量到 95,340 字节，照事先定的规矩挪到
+ * “量到的数加 1,500、往上取到整五百”，就是 97,000（缘故和量到的数在 docs/technical-plan.md 第七节）。
+ */
+export const PAGE_GZIP_MAX = 97_000;
 export const PAGE_GZIP_WARN = 90_000;
 /** 样式表压缩以后最大多少字节；过了多少提醒一句。 */
 export const STYLE_GZIP_MAX = 15_000;

@@ -239,18 +239,27 @@ export function mountStrips(container: HTMLElement): StripLayer {
     items.forEach((item, i) => show(item, placed[i]));
   }
 
+  /** 把一条题签的东西从页面上拿走。 */
+  const take = (item: (typeof items)[number]): void => {
+    item.el.remove();
+    item.line.remove();
+    item.dot.remove();
+    item.arrow.remove();
+    item.halo.remove();
+    item.ring.remove();
+  };
+
   return {
+    only(id) {
+      items.filter((item) => item.spec.id !== id).forEach(take);
+      items = items.filter((item) => item.spec.id === id);
+      placements = placements?.filter((p) => p.id === id);
+    },
+
     set(strips) {
       // 还是原来那几条（只是换了古今的叫法，或者同一节重摆），还是换了别的几条（换了小节）
       const sameStrips = strips.length === items.length && strips.every((strip, i) => strip.id === items[i].spec.id);
-      for (const item of items) {
-        item.el.remove();
-        item.line.remove();
-        item.dot.remove();
-        item.arrow.remove();
-        item.halo.remove();
-        item.ring.remove();
-      }
+      items.forEach(take);
       items = strips.map(make);
       measure();
       // 换了一批：上一次摆在哪不算数了，每条重新挑位置（手还在动沙盘时也是）。

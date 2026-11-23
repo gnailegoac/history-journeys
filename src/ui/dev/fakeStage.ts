@@ -13,6 +13,7 @@
 //   data-fake-forced          页面是不是指定了画质（指定了就不嫌慢）
 //   data-fake-asked           是不是读者自己点“试试立体的沙盘”要来的
 //   data-fake-slow            说没说过“这台设备上太慢”（说过以后它就不再画了）
+//   data-fake-dive            最近一次叫它潜到哪一站上空（页面只在地址里带 ?dive=1 时才叫替身潜）
 // 题签用的是真的那一层（src/stage/overlay），只是每条题签指着的位置是编的。
 // 替身上没法拖动，没有会断的三维画面，也量不出快慢，各用一个按钮代替。
 //
@@ -253,6 +254,23 @@ function createFakeView(container: HTMLElement, table: StageTable, options: Stag
       requests.push(section);
       root.dataset.fakeRequests = requests.join('|');
       return moveTo(section, opts?.animate ?? true);
+    },
+    // 潜到一站上空：替身只是等这么久，题签收起来。途中来了新的指令、说了太慢、关掉了，答 false。
+    dive: (stop, ms) => {
+      if (destroyed || slow || !reported || options.reducedMotion) return Promise.resolve(false);
+      window.clearTimeout(timer);
+      settle?.();
+      root.dataset.fakeDive = stop;
+      gliding = true;
+      strips.hide();
+      return new Promise<boolean>((resolve) => {
+        settle = () => resolve(false);
+        timer = window.setTimeout(() => {
+          settle = null;
+          gliding = false;
+          resolve(true);
+        }, ms);
+      });
     },
     resetView: () => {
       if (destroyed) return Promise.reject(new Error('沙盘的替身已经关掉'));

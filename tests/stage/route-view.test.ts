@@ -6,7 +6,8 @@
 //     先画好的地面和现在的场景、地形文件对得上（控制台里没有说“旧的”）；
 //   比例尺说的是地上的长度（几百公里），不是沙盘里的米；拍定格图用的“一米多少像素”也是地上的米；
 //   路画出来了（头一节每一趟都画）；题签摆的是这一节的那几条，是站的地名带着站号的印（页面交了每一站的印才有）；
-//   没有先画好的地面：ready 拒绝，说得出缘故（全程沙盘不现画）。
+//   没有先画好的地面：ready 拒绝，说得出缘故（全程沙盘不现画）；
+//   潜到一站上空（dive）：镜头真的照钟点挪过去，读者的手打不断它，不算一趟滑动；还没摆好、要少动的时候不潜。
 
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { BakedGroundManifest } from '../../src/domain/bakedGround';
@@ -15,11 +16,13 @@ import { sectionStripSpecs } from '../../src/stage/overlay/strips';
 import { roadRuns, segmentCount } from '../../src/stage/roadLines';
 import { createHost } from '../../src/stage/three/host';
 import { ROAD_SEGMENT_TRIANGLES } from '../../src/stage/three/routeKit';
+import { DIVE_AIM_SHARE, DIVE_DISTANCE_M } from '../../src/stage/three/routeLevel';
 import { terrainGrid } from '../../src/stage/three/terrainMesh';
 import { styleFor } from '../../src/stage/three/style';
 import type { BrowserHost, ViewEnv } from '../../src/stage/three/view';
 import type { RouteTable, StageOptions, StageViewInfo, StopStageView } from '../../src/stage/types';
 import { stripTexts } from '../../src/domain/sceneText';
+import { hasStopTable } from '../../src/domain/sceneContent';
 import { stopMarks } from '../../src/domain/stopMarks';
 import type { Figure } from '../../src/domain/types';
 import { readBytes } from '../support/readBytes';
@@ -98,10 +101,10 @@ afterAll(async () => {
 /** 一台假的设备和一个 width × height 的容器。 */
 function stage(width: number, height: number) {
   const fake = fakeRenderer();
-  const { canvas } = fakeCanvas(width, height);
+  const { canvas, el } = fakeCanvas(width, height);
   const host: BrowserHost = createHost(fakeHostParts(canvas, fake.renderer).parts);
   const env: ViewEnv = { now: () => performance.now(), pageVisible: () => true };
-  return { fake, host, env, pane: { clientWidth: width, clientHeight: height } as HTMLElement };
+  return { fake, host, env, el, pane: { clientWidth: width, clientHeight: height } as HTMLElement };
 }
 
 async function openView(s: ReturnType<typeof stage>, ground: RouteTable['ground'] | undefined, options: Partial<StageOptions> = {}): Promise<StopStageView> {
@@ -230,5 +233,83 @@ describe(`${KEY} 在沙盘程序里`, () => {
     withLoader = false;
     const bare = await openView(stage(940, 900), baked);
     await expect(until(bare.ready)).rejects.toThrow('全程沙盘的程序没有取到');
+  });
+
+  it('潜到一站上空：镜头照钟点挪到那一站上空，先对准、再凑近；题签只留那一站自己的那一条；读者的手打不断它；不算一趟滑动（不量快慢）；换回小节题签都回来', { timeout: 120_000 }, async () => {
+    const stop = R.scene.sections.find((section) => section.stop && hasStopTable(FIGURE, section.stop))?.stop;
+    if (!stop) throw new Error('这位人物没有哪一站有自己的沙盘');
+    const place = R.scene.places.find((p) => p.stops?.includes(stop));
+    if (!place) throw new Error('沙盘上没有这一站的地名点');
+    const [px, pz] = R.coords.toLocal(place.at);
+    const spot = [px, R.coords.y(R.samplers.height(px, pz)), pz];
+    const own = R.scene.strips.find((strip) => strip.of === place.id)?.id;
+    if (!own) throw new Error('这一站的地名点没有题签');
+    const shown = (): string[] => strips.specs().map((spec) => spec.id);
+    const far = (a: readonly number[], b: readonly number[]): number => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
+    const pose = (view: StopStageView) => {
+      const shot = view.readout().shot;
+      if (!shot) throw new Error('读数里没有这个画面的底细');
+      return shot.pose;
+    };
+    const MS = 900;
+
+    const s = stage(940, 900);
+    const view = await openView(s, baked, { reducedMotion: false });
+    if (!view.dive) throw new Error('这座沙盘不会潜');
+    // 还没摆好：不潜
+    expect(await view.dive(stop, MS)).toBe(false);
+    await until(view.ready);
+    // 沙盘上没有的站：不潜，题签不动
+    expect(await view.dive('no-such-stop', MS)).toBe(false);
+    expect(strips.log).not.toContain('hide');
+    expect(shown()).toEqual(R.scene.sections[0].strips);
+    const start = pose(view);
+    const frames = view.readout().perf?.frames ?? 0;
+
+    const done = view.dive(stop, MS);
+    // 这一节本来就摆着那一条：别的拿掉，它留在原处（不是重新换一批）
+    expect(strips.log).toContain(`only ${own}`);
+    expect(shown()).toEqual([own]);
+    const placed = strips.places.length;
+    // 钟点走到“对准的那一点先到”的时候：镜头正对着那一站，离它还远
+    await vi.advanceTimersByTimeAsync(MS * DIVE_AIM_SHARE + FRAME_MS);
+    const aimed = pose(view);
+    expect(far(aimed.target, spot)).toBeLessThan(1);
+    expect(far(aimed.position, aimed.target)).toBeGreaterThan(DIVE_DISTANCE_M * 3);
+    expect(far(aimed.position, aimed.target)).toBeLessThan(far(start.position, start.target));
+    // 读者的手碰到了沙盘（滚轮、按下）：潜的这一会儿不理它
+    s.el.fire('wheel', { deltaY: -300, deltaMode: 0, clientX: 400, clientY: 400, ctrlKey: false });
+    s.el.fire('pointerdown', { pointerId: 1, pointerType: 'mouse', button: 0, clientX: 400, clientY: 400, pageX: 400, pageY: 400 });
+    expect(await until(done)).toBe(true);
+    const end = pose(view);
+    expect(far(end.target, spot)).toBeLessThan(1);
+    expect(far(end.position, end.target)).toBeCloseTo(DIVE_DISTANCE_M, 0);
+    expect(view.readout().perf?.frames ?? 0).toBeGreaterThan(frames + 10);
+    // 一路上只有那一站自己的那一条，每一帧跟着镜头摆，留在原来的位置上不重新挑（和“读者的手还在动”一样的摆法）；这一趟不算滑动，不拿它量设备的快慢
+    expect(shown()).toEqual([own]);
+    expect(strips.log).not.toContain('hide');
+    expect(strips.places.length).toBeGreaterThan(placed + 10);
+    expect(strips.places.slice(placed).every((p) => p.anchors.length === 1 && p.moving)).toBe(true);
+    expect(view.readout().perf?.glideMs).toBeNull();
+    // 没有换页（读者按了返回）：页面叫它回到小节，题签回来
+    await until(view.showSection(R.headings[0], { animate: false }));
+    expect(shown()).toEqual(R.scene.sections[0].strips);
+    expect(far(pose(view).target, start.target)).toBeLessThan(1);
+    // 从一个没有摆那一站的题签的小节起步：照头一节的那一条摆
+    const without = R.scene.sections.find((section) => !section.strips.includes(own));
+    if (without) {
+      await until(view.showSection(without.heading, { animate: false }));
+      expect(shown()).not.toContain(own);
+      const sets = strips.log.filter((line) => line.startsWith('set ')).length;
+      expect(await until(view.dive(stop, MS))).toBe(true);
+      expect(shown()).toEqual([own]);
+      expect(strips.log.filter((line) => line.startsWith('set ')).length).toBe(sets + 1);
+    }
+    console.log(`${KEY} 潜到 ${stop}：留着的题签是 ${own}；${without ? `“${without.heading}”没有摆它，也试过了` : '每一小节都摆着它'}`);
+
+    // 系统说要少动：不潜
+    const calm = await openView(stage(940, 900), baked, { reducedMotion: true });
+    await until(calm.ready);
+    expect(await calm.dive?.(stop, MS)).toBe(false);
   });
 });

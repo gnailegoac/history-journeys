@@ -3,7 +3,8 @@
 //   地面的算法（../ground/route.ts 的几个函数，从这里转出去）；
 //   先画好的地面怎么取（routeGroundPaint）——全程沙盘的地面不在页面上现画，只用制作时画好的两张图；
 //   两个替身：全程沙盘没有水面，也没有云气，可 view.ts 每一帧都要对水面和云气说话，这里给它两个什么也不画的；
-//   路（buildRouteModels，在 ./routeKit.ts 里，从这里转出去）。
+//   路（buildRouteModels，在 ./routeKit.ts 里，从这里转出去）；
+//   潜到一站上空的那一趟镜头怎么走（diveEnd、divePath）。
 // 查构建结果的测试把这一块连同它静态引入的东西单算一组（tests/content/budgetRules.ts 的 ROUTE_ENTRY）。
 
 import { Group, type IUniform, type Vector2 } from 'three';
@@ -12,9 +13,13 @@ import type { RouteScene } from '../../domain/scene';
 import { routeGroundKey, routeNormals, routePictureSize } from '../ground/route';
 import type { RouteGround } from '../ground/route';
 import type { RouteTable } from '../types';
+import type { FrameCoords } from '../../domain/sceneGeo';
+import type { GroundSamplers } from '../ground/types';
 import { loadPicture, pictureSize } from './groundPaint';
 import type { GroundPaintSource } from './groundPaint';
 import type { Mist } from './mist';
+import { poseOn } from './rig';
+import { mixState, type TableState } from './sequencer';
 import type { Water } from './water';
 // 这一句只为打包：这一块程序只在沙盘程序已经下载了以后才取。写了这一句，打包的工具就知道沙盘程序那一块一定在，
 // 两边共用的东西（three 的核心、取图片的函数、抹平的函数）留在那一块里直接用；不写的话，它们会被另拆成一块，
@@ -72,6 +77,51 @@ export function routeGroundPaint(table: RouteTable, signal: AbortSignal, loadIma
       }
       return { kind: 'baked', colour, fields, w, h, normals: routeNormals(ground) };
     },
+  };
+}
+
+// ---------------------------------------------------------------- 潜到一站上空
+
+/** 潜到头时，镜头离那一站的地名点多远（沙盘里的米）。朝正北看，倾角用到这一站去的那一节的。 */
+export const DIVE_DISTANCE_M = 4500;
+/** 到这一站去的那一节没有时用的倾角。 */
+const DIVE_PITCH = 45;
+
+/**
+ * 潜到头是什么样：镜头对准这一站的地名点（places 里 stops 写着这一站的那一个），离它 DIVE_DISTANCE_M，朝正北；
+ * 视角、水位、云气都照 from（现在的样子）不变。沙盘上没有这一站是 null。
+ */
+export function diveEnd(scene: RouteScene, stop: string, from: TableState, ground: GroundSamplers, coords: FrameCoords): TableState | null {
+  const place = scene.places.find((p) => p.stops?.includes(stop));
+  if (!place) return null;
+  const pitch = scene.sections.find((s) => s.stop === stop)?.camera.pitch ?? DIVE_PITCH;
+  const pose = poseOn({ target: place.at, distanceM: DIVE_DISTANCE_M, pitch, bearing: 0, fov: from.fov }, ground, coords);
+  return { ...from, position: pose.position, target: pose.target };
+}
+
+/** 钟点走到这么多成的时候，镜头已经正对着那一站了（离它还远，接着才凑近）：读者先看见是往哪儿去。 */
+export const DIVE_AIM_SHARE = 0.6;
+
+/**
+ * 潜的路。返回的函数收钟点走了几成（k，0 到 1），给那一刻的样子。两样东西各走各的：
+ * 镜头离对准的那一点多远、从哪一边看：起步慢、越来越快（k 的平方），距离按倍数匀着缩（每走一成缩同样的倍数）；
+ * 对准的那一点：缓起缓停地挪到那一站，钟点走到 DIVE_AIM_SHARE 就到了。这样那一站在画面上只往中间靠，画面还清楚的时候它已经在中间。
+ */
+export function divePath(from: TableState, to: TableState): (k: number) => TableState {
+  const off = (s: TableState): number[] => s.position.map((p, i) => p - s.target[i]);
+  const a = off(from);
+  const b = off(to);
+  const ratio = Math.hypot(...b) / Math.max(1, Math.hypot(...a));
+  return (k) => {
+    const e = k <= 0 ? 0 : k >= 1 ? 1 : k * k;
+    // 两头差不多远（比值挨着 1）时除数太小，照直线走
+    const z = Math.abs(1 - ratio) < 1e-3 ? e : (1 - ratio ** e) / (1 - ratio);
+    const state = mixState(from, to, z);
+    if (e <= 0 || e >= 1) return state;
+    const u = Math.min(1, k / DIVE_AIM_SHARE);
+    const g = u * u * (3 - 2 * u);
+    const target = from.target.map((t, i) => t + (to.target[i] - t) * g) as TableState['target'];
+    return { ...state, target, position: target.map((t, i) => t + a[i] + (b[i] - a[i]) * z) as TableState['position'] };
   };
 }
 

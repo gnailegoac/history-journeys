@@ -68,7 +68,8 @@ async function mount(search: string, stopId: string | null) {
   await show(stopId);
   await waitFor(() => {
     const state = container.querySelector('.stage-pane')?.getAttribute('data-stage-state');
-    return state !== undefined && state !== 'loading';
+    // 人物还在读的时候版面是两栏的壳，壳里也有一栏（写着 loading）；栏上没写状态的（null）一样接着等
+    return state != null && state !== 'loading';
   });
   return {
     container,

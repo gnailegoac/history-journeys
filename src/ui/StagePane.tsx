@@ -10,13 +10,14 @@
 //   unsupported  这个浏览器画不了
 //   slow         这台设备带不动立体的沙盘（或者地址里指定了只放图片）
 //   lost         画面中途断了，可以重新摆出来
-// 另外四个属性：
+// 另外五个属性：
 //   data-stage-level    摆着的是全程沙盘时写 route；站点沙盘不写
 //   data-stage-picture  现在放着的是什么：table 立体的沙盘，still 图片，none 都没有。
 //                       立体的沙盘盖着图片慢慢显出来的那一小会儿还算 still，显完、图片拿走了才是 table
 //                       （拍照的工具等到 table 再拍，拍到的就只有沙盘）。
 //   data-stage-section  上面那一张画面（沙盘或者图片）现在摆着的小节
 //   data-stage-tier     摆好的立体沙盘是哪一档画质（沙盘程序给了读数才有）
+//   data-stage-dive     全程沙盘的镜头正往哪一站潜（那一站的 id）：读者点了一个有自己的沙盘的站，潜完才换页（见 ./dive.ts）
 //
 // 有沙盘的一站，这一栏里叠着两层（见 TableStage）：下面是每一小节的图片（定格图，src/stage/still），上面是立体的沙盘。
 // 图片先出来；立体的沙盘摆好了盖上去，图片就拿走。立体的沙盘摆不了（浏览器画不了、设备太慢、没摆出来、画面断了）时，
@@ -34,8 +35,9 @@ import { sectionHeadings, sectionInfo } from '../domain';
 import type { SectionInfo, TableScene } from '../domain';
 import type { NamesMode, RouteTable, StageInsets, StageOptions, StageReadout, StageTable, StageTier, StageViewInfo, StopStageView, StopTable } from '../stage/types';
 import { NotePanel, SectionCaption } from './SectionCaption';
+import { cameByDive, preloadStop, watchDives } from './dive';
 import { fitScale } from './scale';
-import { canDrawStage, pickStageEngine, pickStillEngine, pickTier, wantsReadout } from './stageEngineSource';
+import { canDrawStage, divesHere, pickStageEngine, pickStillEngine, pickTier, wantsReadout } from './stageEngineSource';
 import { STAGE_TEXT, stageDebugLine } from './text';
 import '../styles/stage.css';
 
@@ -194,6 +196,8 @@ interface PaneProps {
   section?: string;
   /** 摆着的是全程沙盘。 */
   route?: boolean;
+  /** 全程沙盘的镜头正往哪一站潜。 */
+  dive?: string | null;
   /** 窄屏上钉在顶上不动（有画面的时候，或者摆着的沙盘画面断了）；不写就跟着页面一起滚走。 */
   pinned?: boolean;
   folded?: boolean;
@@ -202,7 +206,7 @@ interface PaneProps {
 }
 
 // tabIndex={-1}：这一栏自己不在 Tab 的顺序里，但程序可以把焦点放上来（见 restoreFocus 和站点页的“到沙盘”）。
-function Pane({ state, picture, tier, section, route, pinned = false, folded = false, paneRef, children }: PaneProps) {
+function Pane({ state, picture, tier, section, route, dive, pinned = false, folded = false, paneRef, children }: PaneProps) {
   const className = ['stage-pane', pinned ? 'is-pinned' : '', pinned && folded ? 'is-folded' : ''].filter(Boolean).join(' ');
   return (
     <section
@@ -215,6 +219,7 @@ function Pane({ state, picture, tier, section, route, pinned = false, folded = f
       data-stage-tier={tier ?? undefined}
       data-stage-section={section}
       data-stage-level={route ? 'route' : undefined}
+      data-stage-dive={dive ?? undefined}
     >
       {children}
     </section>
@@ -386,6 +391,12 @@ function TableStage({ table, section, resetLabel, marks, standing, namesMode, on
   const [late, setLate] = useState(false);
   // 完整的说明是为哪一小节展开的；null 是没展开。沙盘旁边的字换了小节，它自然就不算展开了。
   const [noteFor, setNoteFor] = useState<string | null>(null);
+  // 全程沙盘的镜头正往哪一站潜；null 是没在潜。
+  const [diving, setDiving] = useState<string | null>(null);
+  // 正在潜的时候沙盘不行了：马上放读者过去。
+  const hurryDive = useRef<() => void>(() => {});
+  // 读者是从全程沙盘潜到这一座的：头一张图片从底色里浮上来。
+  const cameIn = useMemo(() => cameByDive(table.key), [table]);
 
   // 沙盘该摆哪一小节：读到的那一节。读到的小节场景里没有时（正文和场景的标题对不上）留在上一次认得的那一节；
   // 一节都还不认得，就是第一节。
@@ -662,6 +673,7 @@ function TableStage({ table, section, resetLabel, marks, standing, namesMode, on
       console.info(asked ? '[沙盘] 立体的沙盘在这台设备上慢得没法用，换回图片。' : '[沙盘] 这一档画质在这台设备上太慢，降一档重摆。');
       unsubscribe.splice(0).forEach((off) => off());
       if (slot.view === view) slot.view = null;
+      hurryDive.current();
       exposeReadout(null);
       window.clearTimeout(fadeTimer);
       setHanding(false);
@@ -799,6 +811,26 @@ function TableStage({ table, section, resetLabel, marks, standing, namesMode, on
     goalRef.current = goal;
     catchUp(true);
   }, [goal, catchUp]);
+
+  // 从全程沙盘到一站自己的沙盘：先潜下去，再换页。只有全程沙盘听；哪一下算数、先后怎么排，都在 ./dive.ts。
+  useEffect(() => {
+    if (table.kind !== 'route') return;
+    const figureId = table.key.split('/')[0];
+    const watch = watchDives(figureId, {
+      pane: () => ({
+        ready: topRef.current === 'table' && !!tableSlot.current.view?.dive,
+        tucked: tuckedAway(),
+        calm: window.matchMedia('(prefers-reduced-motion: reduce)').matches,
+        on: divesHere(),
+      }),
+      dive: (stop, ms) => tableSlot.current.view?.dive?.(stop, ms) ?? null,
+      mark: setDiving,
+      preload: (stop) => preloadStop(figureId, stop, pane.current ? getComputedStyle(pane.current).getPropertyValue('--stage-shape').trim() : ''),
+      back: () => follow('table', true),
+    });
+    hurryDive.current = watch.hurry;
+    return watch.end;
+  }, [table, tuckedAway, follow]);
 
   // 有一张图片取不到，这一栏就先当没有图片（见 giveUpStills）。那多半是网断了一下，不该从此一张图片也不放：
   // 读者读到另一小节的时候，或者浏览器说网又通了，再放一次；还是取不到，照旧收起来，等下一回。浏览器明说断着网的时候不试。
@@ -979,13 +1011,14 @@ function TableStage({ table, section, resetLabel, marks, standing, namesMode, on
       tier={tableUp ? tier : null}
       section={onShow ?? undefined}
       route={table.kind === 'route'}
+      dive={diving}
       pinned={area || phase === 'lost'}
       folded={area && folded}
       paneRef={pane}
     >
       {area && (
         <div className={handing ? 'stage-canvas is-handing-over' : 'stage-canvas'}>
-          <div ref={stillHost} className="stage-still-host" />
+          <div ref={stillHost} className={cameIn ? (stillUp ? 'stage-still-host is-arriving' : 'stage-still-host is-coming') : 'stage-still-host'} />
           <div ref={host} className={tableUp ? 'stage-host is-up' : 'stage-host'} />
         </div>
       )}

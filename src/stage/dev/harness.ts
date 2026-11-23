@@ -12,7 +12,6 @@
 // &engine=still 不摆立体的沙盘，摆定格图（这一站要已经有定格图），用来在各种窗口大小上看定格图摆得对不对。
 // 试夜色用的三样（只在这一页上有，读者看的页面上没有）：
 // &sky=night&moon=103,12 沙盘摆出来以前，把这座沙盘的每一小节都改成夜里，月亮在方位 103 度、高 12 度的地方（站点沙盘才有）；
-// &nightset=B 夜里的灯换成暗一些的那一套（月光 0.9、天光 0.75；只为和样式里的那一套比着看）；也可以直接写两个数：&nightset=0.3,1.05 是月光、天光各多强；
 // &sheenmoon=12 水面的亮照这个高度的月亮算，灯还照 moon 写的高度（把月亮画高、水面的亮照真的高度算时用）。
 
 import { loadFigure } from '../../domain/content';
@@ -61,11 +60,8 @@ if (background !== null) {
   else console.warn(`[沙盘测试页] bg 要写成 #rrggbb，现在是“${background}”，不改底色`);
 }
 
-/** 试夜色用的暗一些的那一套（只在这一页上；样式里用的那一套在 three/style/songQinglv.ts）。 */
-const NIGHT_SET_B = { sun: 0.9, hemi: 0.75 };
-
 /**
- * 网址上写了 sky=night 和 moon 的话，把这座沙盘的每一小节都改成夜里；写了 nightset=B、sheenmoon 的话，把这种样式夜里的灯也换一下。
+ * 网址上写了 sky=night 和 moon 的话，把这座沙盘的每一小节都改成夜里；写了 sheenmoon 的话，水面的亮照那个高度的月亮算。
  * 要在沙盘摆出来以前做。写得不对就什么也不改，在控制台里说一句。
  */
 function tryNight(scene: TableScene): void {
@@ -79,17 +75,14 @@ function tryNight(scene: TableScene): void {
     section.sky = 'night';
     section.moon = { azimuth, altitude };
   }
-  const asked = params.get('nightset');
-  const [sun, hemi] = (asked ?? '').split(',').map(Number);
-  const set = asked === 'B' ? NIGHT_SET_B : sun > 0 && hemi > 0 ? { sun, hemi } : null;
   const sheenMoon = Number(params.get('sheenmoon'));
-  if (!set && !(sheenMoon > 0)) return;
+  if (!(sheenMoon > 0)) return;
   const style = styleFor(scene.style);
   const usual = style.light;
   style.light = (sky, moon) => {
     const light = usual(sky, moon);
     if (sky !== 'night' || !moon) return light;
-    return { ...light, ...set, ...(sheenMoon > 0 ? { sheen: usual(sky, { ...moon, altitude: sheenMoon }).sheen } : {}) };
+    return { ...light, sheen: usual(sky, { ...moon, altitude: sheenMoon }).sheen };
   };
 }
 

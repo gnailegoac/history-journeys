@@ -1,5 +1,11 @@
 // 整个版面（FigureLayout：人物页、站点页）的行为：用假 DOM（miniDom.ts）在 Node 里连同 content/ 里真的内容和沙盘的替身跑一遍。
 // 不看版面和样式（那是 tests/e2e 的事）。
+//
+// 黄州在这个文件里是“写好了正文、还没有自己的沙盘的一站”的替身（2026-11-23 起）：黄州自己的沙盘做出来以后，
+// content/ 里已经没有这样的一站了，可是这种情形还会再有（后面六座沙盘，哪一站都可能正文先写好），页面上这条路
+// （沙盘栏摆全程沙盘上到这一站去的来路，按钮下面多一行话）还得查。所以只在这个文件里，把黄州的沙盘拿走：
+// src/domain/sceneContent 的 hasStopTable、loadStopTable 问到黄州时答“没有”，别的原样；正文、凭据、全程沙盘都是真的。
+// 黄州有了沙盘以后的样子，在 second-table.test.tsx 里查（那里不拿走什么）。
 import { describe, expect, it, vi } from 'vitest';
 import { stopHref } from '../../../src/app/router';
 import { stopMarks, stripTexts } from '../../../src/domain';
@@ -22,6 +28,16 @@ vi.mock('../../../src/ui/stageEngineSource', async (original) => {
       (globalThis as any).__routeFails -= 1;
       return Promise.reject(new Error('这一次没读出来'));
     },
+  };
+});
+
+// 黄州的沙盘在这个文件里拿走（见文件开头）。全程沙盘也是从这个模块读的（loadRouteTable），它不受影响。
+vi.mock('../../../src/domain/sceneContent', async (original) => {
+  const actual = await original<typeof import('../../../src/domain/sceneContent')>();
+  return {
+    ...actual,
+    hasStopTable: (figureId: string, stopId: string) => stopId !== 'huangzhou' && actual.hasStopTable(figureId, stopId),
+    loadStopTable: (figureId: string, stopId: string) => (stopId === 'huangzhou' ? Promise.resolve(null) : actual.loadStopTable(figureId, stopId)),
   };
 });
 

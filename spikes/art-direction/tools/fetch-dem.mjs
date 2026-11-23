@@ -1,12 +1,30 @@
-// 取徐州一带的真实高程，存成样张共用的一张高程网格。
-// 数据：Mapzen Terrarium 高程瓦片（公开，不需要密钥）。运行：node tools/fetch-dem.mjs
+// 取一块地方的真实高程，存成一张高程网格（沙盘的地形文件就是这样一张）。
+// 数据：Mapzen Terrarium 高程瓦片（公开，不需要密钥）。
+// 运行：node tools/fetch-dem.mjs
+//         不带参数：徐州一带，存成样张共用的那一张（shared/xuzhou-dem.bin 和 .json），同以前一样。
+//       node tools/fetch-dem.mjs <输出文件，不带后缀> <西> <东> <南> <北> [每格多少米]
+//         别的地方。黄州的地形文件（content/figures/su-shi/scenes/huangzhou.terrain.bin，193 列 × 195 行）是这样取的：
+//         node tools/fetch-dem.mjs out/huangzhou 114.80 114.92 30.385 30.49 60
+//         取下来的 out/huangzhou.bin 改名放进 content/。
 import { writeFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { PNG } from 'pngjs';
 
-const AREA = { west: 117.05, east: 117.32, south: 34.17, north: 34.35 };
+const ARGS = process.argv.slice(2);
+if (ARGS.length !== 0 && ARGS.length !== 5 && ARGS.length !== 6) {
+  throw new Error('参数：不写（徐州），或者 <输出文件，不带后缀> <西> <东> <南> <北> [每格多少米]');
+}
+const AREA =
+  ARGS.length === 0
+    ? { west: 117.05, east: 117.32, south: 34.17, north: 34.35 }
+    : { west: Number(ARGS[1]), east: Number(ARGS[2]), south: Number(ARGS[3]), north: Number(ARGS[4]) };
 const Z = 12;
-const CELL_M = 60;
-const OUT = new URL('../shared/', import.meta.url);
+const CELL_M = ARGS.length === 6 ? Number(ARGS[5]) : 60;
+const OUT_BASE = ARGS.length === 0 ? new URL('../shared/xuzhou-dem', import.meta.url).href : pathToFileURL(resolve(ARGS[0])).href;
+if (![AREA.west, AREA.east, AREA.south, AREA.north, CELL_M].every(Number.isFinite) || !(AREA.west < AREA.east) || !(AREA.south < AREA.north) || !(CELL_M > 0)) {
+  throw new Error('范围或每格的米数读不出来：西要小于东，南要小于北');
+}
 
 const n = 2 ** Z;
 const lngToX = (lng) => ((lng + 180) / 360) * n;
@@ -73,7 +91,7 @@ for (let r = 0; r < rows; r++) {
   }
 }
 
-writeFileSync(new URL('xuzhou-dem.bin', OUT), Buffer.from(grid.buffer));
+writeFileSync(new URL(`${OUT_BASE}.bin`), Buffer.from(grid.buffer));
 const meta = {
   ...AREA,
   cols,
@@ -86,5 +104,5 @@ const meta = {
   format: 'Int16 little-endian, 分米；第 0 行在最北，第 0 列在最西；逐行存',
   source: 'Mapzen Terrarium 高程瓦片（今天的地形）',
 };
-writeFileSync(new URL('xuzhou-dem.json', OUT), JSON.stringify(meta, null, 2) + '\n');
+writeFileSync(new URL(`${OUT_BASE}.json`), JSON.stringify(meta, null, 2) + '\n');
 console.log(meta);

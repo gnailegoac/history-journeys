@@ -248,8 +248,10 @@ describe('“来源”页', () => {
         expect(line, '全程沙盘的出处要有分号后面的半句，这一项才查得到“只印前半句”').toContain('；');
         lines.push(`${line.split('；')[0]}。`);
       }
-      for (const path of scenes) {
-        if (path === routeFile) continue;
+      // 各站的沙盘照这位人物走的先后排（页面是照 figure.stops 一站一站取的），不照文件名：有了第二座沙盘（黄州）才分得出来
+      const stopFiles = figure.stops.map((stop) => `content/figures/${figure.id}/scenes/${stop.id}.json`).filter((path) => scenes.includes(path));
+      expect(stopFiles.length, '每个站点沙盘的文件名都是一站的 id').toBe(scenes.length - 1);
+      for (const path of stopFiles) {
         sceneFiles++;
         lines.push(...readJson<StopScene>(path).credits);
       }

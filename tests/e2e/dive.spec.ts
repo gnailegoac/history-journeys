@@ -69,6 +69,9 @@ async function openHome(page: Page, extra = ''): Promise<{ figureId: string; sto
   const stopId = routeOnDisk(figureId)?.sections.find((section) => section.stop && sceneOnDisk(figureId, section.stop) !== null)?.stop ?? '';
   if (env.CI) expect(stopId, '发布流程里没有“全程沙盘加一站自己的沙盘”：潜下去一次也没有试过，不能算通过').not.toBe('');
   else test.skip(stopId === '', '还没有“全程沙盘加一站自己的沙盘”');
+  // 有自己的沙盘的站不止一个了（徐州、黄州）：按的是全程沙盘上排在最前面的那一个，说出来是哪一站
+  const all = (routeOnDisk(figureId)?.sections ?? []).map((section) => section.stop).filter((stop): stop is string => !!stop && sceneOnDisk(figureId, stop) !== null);
+  console.log(`[潜] 这一项按的是 ${stopId}；有自己的沙盘、按了也会潜的站：${all.join('、')}`);
   await routeUp(page);
   return { figureId, stopId };
 }

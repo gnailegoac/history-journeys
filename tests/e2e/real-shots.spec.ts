@@ -8,7 +8,8 @@
 // 文件名：<站>-<第几节>-<宽>x<高>.png，人物页是 figure-<宽>x<高>.png；
 // 最后一节再拍一张点开“说明”的：<站>-<第几节>-<宽>x<高>-note.png。
 //
-// 另外两个环境变量：
+// 另外三个环境变量：
+//   STOP       拍哪一站（它的 id，如 huangzhou）。不设是第一个有沙盘的站。那一站没有场景文件就停下来，不悄悄拍别的。
 //   SHOTS_DIR  存到哪个文件夹。不设是 tests/shots/real；想另存一套（留着对比）就设它。
 //   TIER       用哪一档画质拍：不设是完整的一档（full）；设 reduced 拍减配的一档；
 //              设 still 拍“只放图片”的样子（设备太慢、不摆立体沙盘时读者看到的：每一小节一张先拍好的图片，上面是页面上的题签）。
@@ -16,12 +17,14 @@
 // 画质就是要的这一档。不然减配的一档、或者顶替沙盘的一张图片拍出来的照片，会被当成完整的沙盘拿去给人看。
 // TIER=still 时反过来查：放着的是图片、这一节的那一张已经显出来、页面上没有画布；只拍每一小节（不拍人物页，不拍“说明”）。
 // 例：REAL_SHOTS=1 TIER=reduced SHOTS_DIR=tests/shots/b-reduced npx playwright test tests/e2e/real-shots.spec.ts
+//     REAL_SHOTS=1 STOP=huangzhou SHOTS_DIR=tests/shots/d-u1 npx playwright test tests/e2e/real-shots.spec.ts -g "1440"
 //     REAL_SHOTS=1 TIER=still SHOTS_DIR=tests/shots/b-still npx playwright test tests/e2e/real-shots.spec.ts -g "1440"
 
 import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
 import type { StageTier } from '../../src/stage/types';
-import { expectRealTable, headingsOf, openFigureWithTable, realUrl, scrollToSection, shoot, stagePane } from './helpers';
+import type { StopScene } from '../../src/domain/scene';
+import { expectRealTable, headingsOf, openFigureWithTable, realUrl, sceneOnDisk, scrollToSection, shoot, stagePane } from './helpers';
 
 const env = (globalThis as { process?: { env: Record<string, string | undefined> } }).process?.env ?? {};
 // 存到哪：平时是 tests/shots/real；想另存一套（比如留着对比）就设 SHOTS_DIR。
@@ -34,6 +37,15 @@ function tierToShoot(): StageTier | 'still' {
   if (asked === 'reduced') return 'reduced';
   if (asked === 'still') return 'still';
   throw new Error(`环境变量 TIER 只能是 full、reduced 或 still，现在是“${asked}”`);
+}
+
+/** 拍哪一站：设了 STOP 就是那一站（没有场景文件就抛出错误），不设是打开人物页时找到的第一个有沙盘的站。 */
+function stopToShoot(opened: { figureId: string; found: { stopId: string; scene: StopScene } | null }): { stopId: string; scene: StopScene } | null {
+  const asked = env.STOP;
+  if (asked === undefined || asked === '') return opened.found;
+  const scene = sceneOnDisk(opened.figureId, asked);
+  if (!scene) throw new Error(`环境变量 STOP 写的是“${asked}”，这一站没有场景文件`);
+  return { stopId: asked, scene };
 }
 
 /**
@@ -63,7 +75,7 @@ async function shootStills(page: Page, tag: string): Promise<void> {
   page.on('console', (message) => {
     if (message.type() === 'error' || message.type() === 'warning') problems.push(`控制台（${message.type()}）：${message.text()}`);
   });
-  const { found } = await openFigureWithTable(page, realUrl('#/', null, '&tier=still'));
+  const found = stopToShoot(await openFigureWithTable(page, realUrl('#/', null, '&tier=still')));
   test.skip(!found, '还没有哪一站有沙盘');
   if (!found) return;
   const started = Date.now();
@@ -102,7 +114,7 @@ async function shootEverything(page: Page, size: { width: number; height: number
     if (message.type() === 'error' || message.type() === 'warning') problems.push(`控制台（${message.type()}）：${message.text()}`);
   });
 
-  const { found } = await openFigureWithTable(page, realUrl('#/', tier));
+  const found = stopToShoot(await openFigureWithTable(page, realUrl('#/', tier)));
 
   // 人物页：等全程沙盘真的摆好再拍
   await expectRealTable(page, tier, 120_000);

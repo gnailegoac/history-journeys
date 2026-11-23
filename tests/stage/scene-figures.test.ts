@@ -256,6 +256,38 @@ function largest(ok: (v: number) => boolean, hi: number): number {
   return lo;
 }
 
+/**
+ * 一条规则的船放大 times 倍时，船身压没压着地：返回头一处的说明；没有是 null。
+ * 这条规则在场的每一节，照那一节的水位，船身轮廓上的每一点脚下都要有水（水比那里的船底深），
+ * 不在水漫不进去的地方（城墙里面），不搁在墙脚的土坡上（土坡在墙角那里按“离墙角多远”算，和模型差一点）。
+ * 城墙的墙身另有一条（徐州的 boatsInWall）。每一座沙盘都照本来的大小查一遍；徐州另外照放大以后的大小查。
+ */
+function hullAground(R: RealScene, fleet: { pass: Pass; boats: Instance[] }, d: SceneDressing, times: number): string | null {
+  const { scene, coords, samplers, ground } = R;
+  const headings = scene.sections.map((s) => s.heading);
+  const normalM = scene.water.levels.values.normal;
+  for (const s of scene.sections.filter((x) => existsAt(d.when, x.heading, headings))) {
+    const levelM = scene.water.levels.values[s.water];
+    const waterY = coords.y(levelM);
+    for (const b of fleet.boats) {
+      for (const local of HULL_OUTLINE) {
+        const [x, z] = placed(b, times, local);
+        // 这一点的船底有多低：船身当中吃水深，两头悬在水面上（那里只要脚下有水）
+        const bottom = waterY - draftAt(local[0]) * (b.s ?? 1) * times;
+        const where = `${d.name}（${s.heading}）有一条船的船身在 (${x.toFixed(0)}, ${z.toFixed(0)})`;
+        const i = Math.round((x - ground.x0) / ground.cell);
+        const j = Math.round((z - ground.z0) / ground.cell);
+        if (i < 0 || i >= ground.nx || j < 0 || j >= ground.nz) return `${where}，出了沙盘`;
+        if (levelM > normalM + 0.01 && ground.dry[j * ground.nx + i] === 1) return `${where}，那里水漫不进去`;
+        if (coords.y(samplers.waterH(x, z)) > bottom) return `${where}，那里的水不够深（或者是岸上）`;
+        const bank = bankSurfaceY(fleet.pass, x, z);
+        if (bank !== null && bank > bottom) return `${where}，搁在墙脚的土坡上`;
+      }
+    }
+  }
+  return null;
+}
+
 // ---------------------------------------------------------------- 每一座沙盘
 
 describe.each(realSceneKeys())('%s：模型跟着远近变的时候', (key) => {
@@ -267,6 +299,22 @@ describe.each(realSceneKeys())('%s：模型跟着远近变的时候', (key) => {
     if (!BUILT_KINDS.includes(rule.kind)) return false;
     const count = (rule.params as { count?: unknown } | undefined)?.count;
     return rule.class === 'text' || (typeof count === 'number' && count <= 5);
+  });
+
+  it('每一条船，照本来的大小，在它在场的每一节的水位上，船身脚下都有水：不搁在岸上、滩上，不出沙盘', () => {
+    const ctx = ctxOf(R);
+    const boats = scene.dressing.filter((d) => d.kind === 'boats');
+    const lines: string[] = [];
+    for (const d of boats) {
+      const fleet = soloRule(ctx, d);
+      // 写了条数的，一条不少地造出来了（一条也没造出来的规则，下面什么也查不到）
+      expect(fleet.boats.length, `${d.name} 一条船也没有造出来`).toBeGreaterThan(0);
+      expect(hullAground(R, fleet, d, 1), d.name).toBeNull();
+      const levels = presentSections(d).map((s) => scene.water.levels.values[s.water]);
+      const depths = fleet.boats.map((b) => Math.min(...levels) - R.samplers.waterH(b.x, b.z));
+      lines.push(`  ${d.name}：${fleet.boats.length} 条，在场的各节里水最浅的时候，船身正中的水深 ${Math.min(...depths).toFixed(1)} 到 ${Math.max(...depths).toFixed(1)} 米`);
+    }
+    if (lines.length > 0) console.log(`${key}：船脚下的水\n${lines.join('\n')}`);
   });
 
   it('依据里说了数目、分组的点缀（依据是文字的，或者数目不超过五的），再远也一样不少，都是原样的那一份；两档画质造的一样多', () => {
@@ -521,7 +569,7 @@ const PANES: Pane[] = [WIDE, { name: '584 × 768', size: { width: 584, height: 7
 
 describe.runIf(realSceneKeys().includes(KEY))('徐州：船和石头不去掉，放大几倍要场景容得下；草屋半淹在水里', () => {
   const R = realScene(KEY);
-  const { scene, coords, samplers, ground } = R;
+  const { scene, coords, samplers } = R;
   const headings = scene.sections.map((s) => s.heading);
   const style = styleFor(scene.style);
   const ctx = ctxOf(R);
@@ -575,36 +623,10 @@ describe.runIf(realSceneKeys().includes(KEY))('徐州：船和石头不去掉，
     return null;
   };
 
-  /**
-   * 这条规则的船放大 times 倍时，船身压没压着地：返回头一处的说明；没有是 null。
-   * 这条规则在场的每一节，照那一节的水位，船身轮廓上的每一点脚下都要有水（水比那里的船底深），
-   * 不在水漫不进去的地方（城墙里面），不搁在墙脚的土坡上（土坡在墙角那里按“离墙角多远”算，和模型差一点）。
-   * 城墙的墙身另有一条（boatsInWall）。墙角的角台、城门的城台只查本来的大小；放大以后进了多深量出来，印给看图的人（wallDepth）。
-   */
+  /** 这条规则的船放大 times 倍时，船身压没压着地（见文件前面的 hullAground）。 */
   const boatsAground = (d: SceneDressing, times: number): string | null => {
     const fleet = fleets.get(d.id);
-    if (!fleet) return `${d.name} 没有造出来`;
-    const normalM = scene.water.levels.values.normal;
-    for (const s of scene.sections.filter((x) => existsAt(d.when, x.heading, headings))) {
-      const levelM = scene.water.levels.values[s.water];
-      const waterY = coords.y(levelM);
-      for (const b of fleet.boats) {
-        for (const local of HULL_OUTLINE) {
-          const [x, z] = placed(b, times, local);
-          // 这一点的船底有多低：船身当中吃水深，两头悬在水面上（那里只要脚下有水）
-          const bottom = waterY - draftAt(local[0]) * (b.s ?? 1) * times;
-          const where = `${d.name}（${s.heading}）有一条船的船身在 (${x.toFixed(0)}, ${z.toFixed(0)})`;
-          const i = Math.round((x - ground.x0) / ground.cell);
-          const j = Math.round((z - ground.z0) / ground.cell);
-          if (i < 0 || i >= ground.nx || j < 0 || j >= ground.nz) return `${where}，出了沙盘`;
-          if (levelM > normalM + 0.01 && ground.dry[j * ground.nx + i] === 1) return `${where}，那里水漫不进去`;
-          if (coords.y(samplers.waterH(x, z)) > bottom) return `${where}，那里的水不够深（或者是岸上）`;
-          const bank = bankSurfaceY(fleet.pass, x, z);
-          if (bank !== null && bank > bottom) return `${where}，搁在墙脚的土坡上`;
-        }
-      }
-    }
-    return null;
+    return fleet ? hullAground(R, fleet, d, times) : `${d.name} 没有造出来`;
   };
 
   /**

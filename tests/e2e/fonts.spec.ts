@@ -41,7 +41,7 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { expect, test } from '@playwright/test';
 import type { CDPSession, Page, Route } from '@playwright/test';
-import { expectRealTable, expectStageAt, expectRoute, fakeUrl, firstStopWithScene, firstWrittenStop, foldBodiesReady, fontsReady, headingsOf, openFigureWithTable, realUrl, routeOnDisk, scrollToBottom, scrollToSection, stagePane, stripsOf } from './helpers';
+import { expectRealTable, expectStageAt, expectRoute, fakeUrl, firstStopWithScene, firstWrittenStop, foldBodiesReady, fontsReady, headingsOf, openFigureWithTable, realUrl, routeOnDisk, sceneOnDisk, scrollToBottom, scrollToSection, stagePane, stripsOf } from './helpers';
 import { readBytes } from '../support/readBytes';
 import { SHIPPED_FONTS } from '../../src/fonts/shipped';
 import { SOURCES_TEXT } from '../../src/ui/sourcesText';
@@ -301,8 +301,10 @@ test('走一遍网站：每一个字都是随站的字体画的，楷体的只�
       continue;
     }
     await expect(page.locator('.text-section').first()).toBeVisible();
-    const hasTable = found !== null && found.stopId === stop.id;
-    if (hasTable) await expectStageAt(page, headingsOf(found.scene)[0]);
+    // 这一站有没有自己的沙盘，一站一站从 content/ 里看（有沙盘的站不止一个：徐州、黄州）。有的摆着它自己的第一节；
+    // 没有的（写好了正文、沙盘还没做的一站）摆着全程沙盘上到这一站去的来路
+    const own = sceneOnDisk(figureId, stop.id);
+    if (own) await expectStageAt(page, headingsOf(own)[0]);
     else expect(await expectRoute(page), `${stop.id}：这位人物有全程沙盘，这一页上就该摆着它`).toBe(hasRoute);
     await look(`${stop.id}，刚打开`, 40);
 

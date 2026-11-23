@@ -1,0 +1,994 @@
+{
+  "tool": 1,
+  "made": {
+    "tier": "full",
+    "three": "0.187.0",
+    "background": "#c5b189",
+    "fitMarginPx": 12,
+    "maxFit": 2.5
+  },
+  "madeFrom": {
+    "scene": "b107bafe49fe78f4",
+    "terrain": "5c8e7b12a9bf6276",
+    "ground": "cbaa0195bdda2cb1",
+    "program": "080a0f14d380495b"
+  },
+  "shapes": {
+    "wide": {
+      "window": [
+        1440,
+        900
+      ],
+      "pane": [
+        939,
+        900
+      ],
+      "insets": [
+        62,
+        0,
+        130,
+        0
+      ],
+      "extra": 130.5,
+      "pixelRatio": 1.5
+    },
+    "narrow": {
+      "window": [
+        768,
+        1024
+      ],
+      "pane": [
+        768,
+        572
+      ],
+      "insets": [
+        54,
+        0,
+        131,
+        0
+      ],
+      "extra": 96,
+      "pixelRatio": 2
+    }
+  },
+  "stills": [
+    {
+      "section": "到黄州",
+      "shape": "wide",
+      "file": "huangzhou-1-wide.jpg",
+      "width": 1800,
+      "height": 1350,
+      "bytes": 127073,
+      "quality": 82,
+      "key": "ecff6441f57307c9",
+      "raw": "c57fc3a4deecf877",
+      "pose": {
+        "target": [
+          -160.1,
+          -54,
+          -1517.9
+        ],
+        "position": [
+          8302.9,
+          29387.7,
+          -33102.1
+        ],
+        "fov": 18
+      },
+      "fit": 1,
+      "reach": [
+        419.9,
+        281
+      ],
+      "northDeg": 165,
+      "pxPerMetre": 0.064572,
+      "anchors": [
+        {
+          "id": "t-huangzhou",
+          "x": 0.48318,
+          "y": 0.48188,
+          "visible": true
+        },
+        {
+          "id": "t-bianjing",
+          "x": 0.56409,
+          "y": 0.60595,
+          "visible": true,
+          "out": [
+            0.482528,
+            0.875881
+          ]
+        }
+      ]
+    },
+    {
+      "section": "到黄州",
+      "shape": "narrow",
+      "file": "huangzhou-1-narrow.jpg",
+      "width": 1920,
+      "height": 1144,
+      "bytes": 119586,
+      "quality": 86,
+      "key": "f9fa3168615e6259",
+      "raw": "0ec8375b659ecc8a",
+      "pose": {
+        "target": [
+          -159.7,
+          -54,
+          -1517.4
+        ],
+        "position": [
+          8303.3,
+          29387.7,
+          -33101.6
+        ],
+        "fov": 18
+      },
+      "fit": 1,
+      "reach": [
+        266.9,
+        178.6
+      ],
+      "northDeg": 165,
+      "pxPerMetre": 0.041039,
+      "anchors": [
+        {
+          "id": "t-huangzhou",
+          "x": 0.48666,
+          "y": 0.45237,
+          "visible": true
+        },
+        {
+          "id": "t-bianjing",
+          "x": 0.55094,
+          "y": 0.57644,
+          "visible": true,
+          "out": [
+            0.482533,
+            0.875878
+          ]
+        }
+      ]
+    },
+    {
+      "section": "这个地方",
+      "shape": "wide",
+      "file": "huangzhou-2-wide.jpg",
+      "width": 1800,
+      "height": 1350,
+      "bytes": 196822,
+      "quality": 82,
+      "key": "6408f6f83c80aa34",
+      "raw": "23de8f8a3e23c8be",
+      "pose": {
+        "target": [
+          383.9,
+          -13.8,
+          554.7
+        ],
+        "position": [
+          4434,
+          9163.4,
+          -11910.2
+        ],
+        "fov": 21
+      },
+      "fit": 1,
+      "reach": [
+        284.8,
+        264.8
+      ],
+      "northDeg": 162,
+      "pxPerMetre": 0.151749,
+      "anchors": [
+        {
+          "id": "t-huangzhou",
+          "x": 0.62744,
+          "y": 0.70929,
+          "visible": true
+        },
+        {
+          "id": "t-dajiang",
+          "x": 0.70364,
+          "y": 0.39247,
+          "visible": true
+        },
+        {
+          "id": "t-wuchang",
+          "x": 0.26263,
+          "y": 0.24786,
+          "visible": true
+        },
+        {
+          "id": "t-dinghui",
+          "x": 0.46484,
+          "y": 0.65452,
+          "visible": true,
+          "foot": [
+            0.46491,
+            0.66121
+          ]
+        },
+        {
+          "id": "t-lingao",
+          "x": 0.58567,
+          "y": 0.58862,
+          "visible": true,
+          "foot": [
+            0.58532,
+            0.60363
+          ]
+        }
+      ]
+    },
+    {
+      "section": "这个地方",
+      "shape": "narrow",
+      "file": "huangzhou-2-narrow.jpg",
+      "width": 1920,
+      "height": 1144,
+      "bytes": 224523,
+      "quality": 86,
+      "key": "13c65a7a12653b22",
+      "raw": "9050f4a92aa35a75",
+      "pose": {
+        "target": [
+          383.9,
+          -13.8,
+          554.7
+        ],
+        "position": [
+          4434,
+          9163.4,
+          -11910.2
+        ],
+        "fov": 21
+      },
+      "fit": 1,
+      "reach": [
+        181,
+        168.3
+      ],
+      "northDeg": 162,
+      "pxPerMetre": 0.096445,
+      "anchors": [
+        {
+          "id": "t-huangzhou",
+          "x": 0.60124,
+          "y": 0.67976,
+          "visible": true
+        },
+        {
+          "id": "t-dajiang",
+          "x": 0.66178,
+          "y": 0.36294,
+          "visible": true
+        },
+        {
+          "id": "t-wuchang",
+          "x": 0.31142,
+          "y": 0.21833,
+          "visible": true
+        },
+        {
+          "id": "t-dinghui",
+          "x": 0.47204,
+          "y": 0.62129,
+          "visible": true,
+          "foot": [
+            0.47212,
+            0.63168
+          ]
+        },
+        {
+          "id": "t-lingao",
+          "x": 0.5681,
+          "y": 0.5569,
+          "visible": true,
+          "foot": [
+            0.56779,
+            0.5741
+          ]
+        }
+      ]
+    },
+    {
+      "section": "一天一百五十钱",
+      "shape": "wide",
+      "file": "huangzhou-3-wide.jpg",
+      "width": 1800,
+      "height": 1350,
+      "bytes": 188135,
+      "quality": 82,
+      "key": "183ab98a7f5e4994",
+      "raw": "5f376e428da0b33f",
+      "pose": {
+        "target": [
+          211.2,
+          -5.4,
+          -943.1
+        ],
+        "position": [
+          1517.9,
+          1533.7,
+          -4964.7
+        ],
+        "fov": 21
+      },
+      "fit": 1,
+      "reach": [
+        0,
+        16.4
+      ],
+      "northDeg": 162,
+      "pxPerMetre": 0.539552,
+      "anchors": [
+        {
+          "id": "t-lingao",
+          "x": 0.5,
+          "y": 0.44404,
+          "visible": true,
+          "foot": [
+            0.5,
+            0.46222
+          ]
+        }
+      ]
+    },
+    {
+      "section": "一天一百五十钱",
+      "shape": "narrow",
+      "file": "huangzhou-3-narrow.jpg",
+      "width": 1920,
+      "height": 1144,
+      "bytes": 202854,
+      "quality": 86,
+      "key": "be05e5982a73c741",
+      "raw": "75d09459ca857da6",
+      "pose": {
+        "target": [
+          211.2,
+          -5.4,
+          -943.1
+        ],
+        "position": [
+          1517.9,
+          1533.7,
+          -4964.7
+        ],
+        "fov": 21
+      },
+      "fit": 1,
+      "reach": [
+        0,
+        15.7
+      ],
+      "northDeg": 162,
+      "pxPerMetre": 0.342915,
+      "anchors": [
+        {
+          "id": "t-lingao",
+          "x": 0.5,
+          "y": 0.40532,
+          "visible": true,
+          "foot": [
+            0.5,
+            0.43269
+          ]
+        }
+      ]
+    },
+    {
+      "section": "东坡",
+      "shape": "wide",
+      "file": "huangzhou-4-wide.jpg",
+      "width": 1800,
+      "height": 1350,
+      "bytes": 188041,
+      "quality": 82,
+      "key": "3a32eb2945d23d9b",
+      "raw": "192d8e28c28d71b6",
+      "pose": {
+        "target": [
+          633.5,
+          39.6,
+          -1797.4
+        ],
+        "position": [
+          2970.3,
+          2319.1,
+          -5845
+        ],
+        "fov": 21
+      },
+      "fit": 1,
+      "reach": [
+        187.4,
+        43.6
+      ],
+      "northDeg": 150,
+      "pxPerMetre": 0.46692,
+      "anchors": [
+        {
+          "id": "t-dongpo",
+          "x": 0.48942,
+          "y": 0.43442,
+          "visible": true
+        },
+        {
+          "id": "t-xuetang",
+          "x": 0.50885,
+          "y": 0.47183,
+          "visible": true,
+          "foot": [
+            0.50882,
+            0.48897
+          ]
+        },
+        {
+          "id": "t-huangzhou",
+          "x": 0.65613,
+          "y": 0.43254,
+          "visible": true
+        }
+      ]
+    },
+    {
+      "section": "东坡",
+      "shape": "narrow",
+      "file": "huangzhou-4-narrow.jpg",
+      "width": 1920,
+      "height": 1144,
+      "bytes": 204612,
+      "quality": 86,
+      "key": "2648547175c5d5dc",
+      "raw": "d6bc690f989a75ab",
+      "pose": {
+        "target": [
+          633.5,
+          39.6,
+          -1797.4
+        ],
+        "position": [
+          2970.3,
+          2319.1,
+          -5845
+        ],
+        "fov": 21
+      },
+      "fit": 1,
+      "reach": [
+        119.1,
+        27.7
+      ],
+      "northDeg": 150,
+      "pxPerMetre": 0.296753,
+      "anchors": [
+        {
+          "id": "t-dongpo",
+          "x": 0.4916,
+          "y": 0.40489,
+          "visible": true
+        },
+        {
+          "id": "t-xuetang",
+          "x": 0.50704,
+          "y": 0.43285,
+          "visible": true,
+          "foot": [
+            0.50701,
+            0.45944
+          ]
+        },
+        {
+          "id": "t-huangzhou",
+          "x": 0.62403,
+          "y": 0.40301,
+          "visible": true
+        }
+      ]
+    },
+    {
+      "section": "寒食，沙湖",
+      "shape": "wide",
+      "file": "huangzhou-5-wide.jpg",
+      "width": 1800,
+      "height": 1350,
+      "bytes": 149207,
+      "quality": 82,
+      "key": "ee610ecfe387a6a2",
+      "raw": "ef6cd80f2dc723c5",
+      "pose": {
+        "target": [
+          1314.9,
+          0.2,
+          421.6
+        ],
+        "position": [
+          -3511.1,
+          1957.2,
+          -4404.4
+        ],
+        "fov": 21
+      },
+      "fit": 1,
+      "reach": [
+        82.8,
+        259.6
+      ],
+      "northDeg": -135,
+      "pxPerMetre": 0.341969,
+      "anchors": [
+        {
+          "id": "t-lingao",
+          "x": 0.431,
+          "y": 0.68152,
+          "visible": true,
+          "foot": [
+            0.43117,
+            0.7042
+          ]
+        },
+        {
+          "id": "t-dajiang-lingao",
+          "x": 0.50671,
+          "y": 0.73236,
+          "visible": true
+        },
+        {
+          "id": "t-shahu",
+          "x": 0.50592,
+          "y": 0.1739,
+          "visible": true,
+          "out": [
+            -0.524897,
+            -0.851166
+          ]
+        }
+      ]
+    },
+    {
+      "section": "寒食，沙湖",
+      "shape": "narrow",
+      "file": "huangzhou-5-narrow.jpg",
+      "width": 1920,
+      "height": 1144,
+      "bytes": 174589,
+      "quality": 86,
+      "key": "1e0889b09913ff4e",
+      "raw": "d2b00c019e4272c8",
+      "pose": {
+        "target": [
+          1314.9,
+          0.2,
+          421.6
+        ],
+        "position": [
+          -3511.1,
+          1957.2,
+          -4404.4
+        ],
+        "fov": 21
+      },
+      "fit": 1,
+      "reach": [
+        52.7,
+        165
+      ],
+      "northDeg": -135,
+      "pxPerMetre": 0.217341,
+      "anchors": [
+        {
+          "id": "t-lingao",
+          "x": 0.44511,
+          "y": 0.63909,
+          "visible": true,
+          "foot": [
+            0.44532,
+            0.67467
+          ]
+        },
+        {
+          "id": "t-dajiang-lingao",
+          "x": 0.50533,
+          "y": 0.70284,
+          "visible": true
+        },
+        {
+          "id": "t-shahu",
+          "x": 0.5047,
+          "y": 0.14437,
+          "visible": true,
+          "out": [
+            -0.524897,
+            -0.851166
+          ]
+        }
+      ]
+    },
+    {
+      "section": "赤壁",
+      "shape": "wide",
+      "file": "huangzhou-6-wide.jpg",
+      "width": 1800,
+      "height": 1350,
+      "bytes": 134426,
+      "quality": 82,
+      "key": "f1751c8346dbf92f",
+      "raw": "f6ca3f53bd5af6d2",
+      "pose": {
+        "target": [
+          -28.8,
+          92.4,
+          -2196.8
+        ],
+        "position": [
+          -3587.9,
+          1266.7,
+          -2824.4
+        ],
+        "fov": 21
+      },
+      "fit": 1,
+      "reach": [
+        58,
+        102.1
+      ],
+      "northDeg": -100,
+      "pxPerMetre": 0.638943,
+      "anchors": [
+        {
+          "id": "t-chibi",
+          "x": 0.51426,
+          "y": 0.54111,
+          "visible": true
+        },
+        {
+          "id": "t-dajiang-town",
+          "x": 0.61443,
+          "y": 0.61325,
+          "visible": true
+        }
+      ]
+    },
+    {
+      "section": "赤壁",
+      "shape": "narrow",
+      "file": "huangzhou-6-narrow.jpg",
+      "width": 1920,
+      "height": 1144,
+      "bytes": 141199,
+      "quality": 86,
+      "key": "124adc7a04971e26",
+      "raw": "5a4529ff451a5352",
+      "pose": {
+        "target": [
+          -28.8,
+          92.4,
+          -2196.8
+        ],
+        "position": [
+          -3587.9,
+          1266.7,
+          -2824.4
+        ],
+        "fov": 21
+      },
+      "fit": 1,
+      "reach": [
+        36.9,
+        64.9
+      ],
+      "northDeg": -100,
+      "pxPerMetre": 0.406084,
+      "anchors": [
+        {
+          "id": "t-chibi",
+          "x": 0.51133,
+          "y": 0.51158,
+          "visible": true
+        },
+        {
+          "id": "t-dajiang-town",
+          "x": 0.59091,
+          "y": 0.58372,
+          "visible": true
+        }
+      ]
+    },
+    {
+      "section": "十月，再到赤壁",
+      "shape": "wide",
+      "file": "huangzhou-7-wide.jpg",
+      "width": 1800,
+      "height": 1350,
+      "bytes": 136558,
+      "quality": 82,
+      "key": "520e40a963be4d2b",
+      "raw": "04d60658fb2845b3",
+      "pose": {
+        "target": [
+          -28.8,
+          92.4,
+          -2196.8
+        ],
+        "position": [
+          -3587.9,
+          1266.7,
+          -2824.4
+        ],
+        "fov": 21
+      },
+      "fit": 1,
+      "reach": [
+        58,
+        102.1
+      ],
+      "northDeg": -100,
+      "pxPerMetre": 0.638943,
+      "anchors": [
+        {
+          "id": "t-chibi",
+          "x": 0.51426,
+          "y": 0.54111,
+          "visible": true
+        },
+        {
+          "id": "t-dajiang-town",
+          "x": 0.61443,
+          "y": 0.61325,
+          "visible": true
+        }
+      ]
+    },
+    {
+      "section": "十月，再到赤壁",
+      "shape": "narrow",
+      "file": "huangzhou-7-narrow.jpg",
+      "width": 1920,
+      "height": 1144,
+      "bytes": 145884,
+      "quality": 86,
+      "key": "c82a241132dde3d0",
+      "raw": "c5ae36ab9267a872",
+      "pose": {
+        "target": [
+          -28.8,
+          92.4,
+          -2196.8
+        ],
+        "position": [
+          -3587.9,
+          1266.7,
+          -2824.4
+        ],
+        "fov": 21
+      },
+      "fit": 1,
+      "reach": [
+        36.9,
+        64.9
+      ],
+      "northDeg": -100,
+      "pxPerMetre": 0.406084,
+      "anchors": [
+        {
+          "id": "t-chibi",
+          "x": 0.51133,
+          "y": 0.51158,
+          "visible": true
+        },
+        {
+          "id": "t-dajiang-town",
+          "x": 0.59091,
+          "y": 0.58372,
+          "visible": true
+        }
+      ]
+    },
+    {
+      "section": "承天寺",
+      "shape": "wide",
+      "file": "huangzhou-8-wide.jpg",
+      "width": 1800,
+      "height": 1350,
+      "bytes": 116724,
+      "quality": 82,
+      "key": "18f8fbe3a9ab9378",
+      "raw": "27d51208091b4c35",
+      "pose": {
+        "target": [
+          575.9,
+          13.6,
+          -998.6
+        ],
+        "position": [
+          2541.8,
+          1285.4,
+          -1525.3
+        ],
+        "fov": 21
+      },
+      "fit": 1,
+      "reach": [
+        36.6,
+        181.2
+      ],
+      "northDeg": 105,
+      "pxPerMetre": 1.011659,
+      "anchors": [
+        {
+          "id": "t-chengtian",
+          "x": 0.5,
+          "y": 0.42375,
+          "visible": true,
+          "foot": [
+            0.5,
+            0.46222
+          ]
+        }
+      ]
+    },
+    {
+      "section": "承天寺",
+      "shape": "narrow",
+      "file": "huangzhou-8-narrow.jpg",
+      "width": 1920,
+      "height": 1144,
+      "bytes": 135829,
+      "quality": 86,
+      "key": "2b844d373e5cd9ea",
+      "raw": "c0b53421ef254342",
+      "pose": {
+        "target": [
+          575.9,
+          13.6,
+          -998.6
+        ],
+        "position": [
+          2541.8,
+          1285.4,
+          -1525.3
+        ],
+        "fov": 21
+      },
+      "fit": 1,
+      "reach": [
+        23.3,
+        115.9
+      ],
+      "northDeg": 105,
+      "pxPerMetre": 0.642966,
+      "anchors": [
+        {
+          "id": "t-chengtian",
+          "x": 0.5,
+          "y": 0.39422,
+          "visible": true,
+          "foot": [
+            0.5,
+            0.43269
+          ]
+        }
+      ]
+    },
+    {
+      "section": "要走了",
+      "shape": "wide",
+      "file": "huangzhou-9-wide.jpg",
+      "width": 1800,
+      "height": 1350,
+      "bytes": 199993,
+      "quality": 82,
+      "key": "ca85814655a63c28",
+      "raw": "68594f0268ff2764",
+      "pose": {
+        "target": [
+          -96,
+          -54,
+          -3384
+        ],
+        "position": [
+          5696,
+          6255.3,
+          3518.6
+        ],
+        "fov": 21
+      },
+      "fit": 1,
+      "reach": [
+        150.9,
+        250.8
+      ],
+      "northDeg": 40,
+      "pxPerMetre": 0.220726,
+      "anchors": [
+        {
+          "id": "t-xuetang",
+          "x": 0.42384,
+          "y": 0.68581,
+          "visible": true,
+          "foot": [
+            0.42418,
+            0.70203
+          ]
+        },
+        {
+          "id": "t-ruzhou",
+          "x": 0.37421,
+          "y": 0.1836,
+          "visible": true,
+          "out": [
+            0.555833,
+            -0.831294
+          ]
+        },
+        {
+          "id": "t-huangzhou",
+          "x": 0.37714,
+          "y": 0.63288,
+          "visible": true
+        }
+      ]
+    },
+    {
+      "section": "要走了",
+      "shape": "narrow",
+      "file": "huangzhou-9-narrow.jpg",
+      "width": 1920,
+      "height": 1144,
+      "bytes": 207081,
+      "quality": 86,
+      "key": "6c3913936964a9ee",
+      "raw": "0344e5ec3a083b10",
+      "pose": {
+        "target": [
+          -96,
+          -54,
+          -3384
+        ],
+        "position": [
+          5696,
+          6255.3,
+          3518.6
+        ],
+        "fov": 21
+      },
+      "fit": 1,
+      "reach": [
+        95.9,
+        159.4
+      ],
+      "northDeg": 40,
+      "pxPerMetre": 0.140283,
+      "anchors": [
+        {
+          "id": "t-xuetang",
+          "x": 0.43937,
+          "y": 0.64872,
+          "visible": true,
+          "foot": [
+            0.43977,
+            0.6725
+          ]
+        },
+        {
+          "id": "t-ruzhou",
+          "x": 0.40007,
+          "y": 0.15407,
+          "visible": true,
+          "out": [
+            0.555833,
+            -0.831294
+          ]
+        },
+        {
+          "id": "t-huangzhou",
+          "x": 0.40239,
+          "y": 0.60335,
+          "visible": true
+        }
+      ]
+    }
+  ]
+}

@@ -70,8 +70,8 @@
       "kind": "geography",
       "anchor": "周瑜破曹操的地方",
       "title": "黄州的赤壁",
-      "body": "黄州的赤壁俗称赤鼻矶，是江边一座红褐色的石山。三国时周瑜打败曹操的赤壁，一般认为在上游今湖北赤壁市一带，不在这里。因为泥沙淤积，今天这座赤壁离长江已有几百米。",
-      "sourceIds": ["l-chibi", "l-chibizhan", "w-chibidong"]
+      "body": "黄州的赤壁俗称赤鼻矶，是江边一座红褐色的石山。三国时周瑜打败曹操的赤壁，一般认为在上游今湖北赤壁市一带，不在这里。因为泥沙淤积，今天这座赤壁离江堤约六百米，离枯水时的江水约两公里半（在今天的地图上量的）。",
+      "sourceIds": ["l-chibi", "l-chibizhan", "w-chibidong", "l-osm"]
     },
     {
       "id": "n10",
@@ -132,7 +132,7 @@
       "date": "元丰六年（1083）十月十二日",
       "text": "元丰六年十月十二日夜，解衣欲睡，月色入户，欣然起行。念无与为乐者，遂至承天寺寻张怀民。怀民亦未寝，相与步于中庭。\n\n庭下如积水空明，水中藻、荇交横，盖竹柏影也。何夜无月？何处无竹柏？但少闲人如吾两人者耳。",
       "plain": "元丰六年十月十二日夜里，我脱了衣服正要睡，月光照进门来，便高兴地起身出门。想到没有人可以一同取乐，就到承天寺去找张怀民。怀民也还没睡，两人一起在院子里散步。\n\n院子里像积了一汪清水，又空又亮，水里有水草纵横交错，原来是竹子和柏树的影子。哪一夜没有月亮？哪里没有竹子和柏树？只是少有像我们两个这样的闲人罢了。",
-      "section": "承天寺，要走了",
+      "section": "承天寺",
       "sourceId": "w-chengtian"
     }
   ],
@@ -200,7 +200,30 @@
     { "id": "l-ruzhou", "basis": "later", "cite": "中文维基百科“汝州市”条；距离按今天的地图坐标量出" },
     { "id": "l-changjiang", "basis": "later", "cite": "中文维基百科“长江”条（航道水深分枯水期、汛期）" },
     { "id": "l-mai", "basis": "later", "cite": "北京市农业技术推广站的冬小麦镇压要点（《新京报》2022年11月28日报道）" },
-    { "id": "l-xinian", "basis": "later", "cite": "《定风波》的通行系年（维基文库该词页面标为1082年）" }
+    { "id": "l-xinian", "basis": "later", "cite": "《定风波》的通行系年（维基文库该词页面标为1082年）" },
+    { "id": "w-nantang", "basis": "own-words", "cite": "苏轼《南堂五首》" },
+    { "id": "w-huangniban", "basis": "own-words", "cite": "苏轼《黄泥坂词》" },
+    { "id": "w-chenjichang", "basis": "own-words", "cite": "苏轼《与陈季常》（“承天极相近”）" },
+    { "id": "w-wangdingguo", "basis": "own-words", "cite": "苏轼《王定国诗集叙》（“门外数步即大江”）" },
+    { "id": "w-dinghui", "basis": "own-words", "cite": "苏轼《游定惠院记》" },
+    { "id": "w-anguo", "basis": "own-words", "cite": "苏轼《黄州安国寺记》" },
+    { "id": "w-fanzifeng", "basis": "own-words", "cite": "苏轼《与范子丰》（“黄州少西山麓，斗入江中”）" },
+    { "id": "r-suzhe-nantang", "basis": "record", "cite": "苏辙《次韵子瞻临皋新葺南堂五绝》" },
+    { "id": "r-suzhe-jiuqu", "basis": "record", "cite": "苏辙《武昌九曲亭记》" },
+    { "id": "r-zhanglei", "basis": "record", "cite": "张耒《明道杂志》" },
+    { "id": "r-zhangshunmin", "basis": "record", "cite": "张舜民《郴行录》" },
+    { "id": "r-shenliao", "basis": "record", "cite": "沈辽《题子瞻雪堂即次前韵》" },
+    { "id": "r-wangyucheng", "basis": "record", "cite": "王禹偁《黄州新建小竹楼记》（999）" },
+    { "id": "l-luyou", "basis": "later", "cite": "陆游《入蜀记》卷四（1170）" },
+    { "id": "l-fanchengda", "basis": "later", "cite": "范成大《吴船录》卷下（1177）" },
+    { "id": "l-fangyu", "basis": "later", "cite": "祝穆《方舆胜览》卷五十" },
+    { "id": "l-qianshiyi", "basis": "later", "cite": "《齐安拾遗》，转引自《坡门酬唱集》卷七、《施注苏诗》卷二十的题注" },
+    { "id": "l-zhifang", "basis": "later", "cite": "《古今图书集成·职方典》所录清代《黄州府志》" },
+    { "id": "l-kaogu2011", "basis": "later", "cite": "2011 年黄州宋城遗址考古调查（《江汉考古》2012 年第 4 期；读到的是网上转贴的论证报告，印出来的报告没有见到）" },
+    { "id": "l-xinhua", "basis": "later", "cite": "新华社 2025 年 1 月 3 日的报道" },
+    { "id": "l-osm", "basis": "later", "cite": "开放街道地图（© OpenStreetMap 贡献者），2026 年 11 月 19 日读；地图上量的距离和借用的江堤的线" },
+    { "id": "l-dem", "basis": "later", "cite": "今天的高程数据：从 Mapzen 地形瓦片（Terrarium）裁出的网格，每格约 60 米；内容是 SRTM，由美国地质调查局（USGS）提供" },
+    { "id": "l-moon", "basis": "later", "cite": "月亮方位的推算：朔日干支据李焘《续资治通鉴长编》卷三二七、三二九、三三〇、三四〇；方位照通行的天文算法算出，并用美国喷气推进实验室的星历核过" }
   ],
   "provenance": [
     {
@@ -244,7 +267,8 @@
         { "what": "俸禄断了，人口不少；每月初一取四千五百钱分成三十份挂在梁上，每天用画叉挑一份，藏起叉子；余钱存竹筒待客；还能撑一年多。", "basis": "own-words", "sourceIds": ["w-qin"] },
         { "what": "“分成三十串”：原文是“断为三十块”，“串”是改写时的说法。", "basis": "editor", "sourceIds": [] },
         { "what": "穿草鞋、坐小船，和打柴打鱼的人混在一处，渐渐没有人认得：“扁舟草履，放浪山水间，与樵渔杂处……辄自喜渐不为人识”。", "basis": "own-words", "sourceIds": ["w-liduanshu"] },
-        { "what": "“从前的朋友很少来信”：原信说“平生亲友，无一字见及”；同一时期他仍和章惇、秦观通信，所以正文写成“很少”。", "basis": "editor", "sourceIds": [] }
+        { "what": "“从前的朋友很少来信”：原信说“平生亲友，无一字见及”；同一时期他仍和章惇、秦观通信，所以正文写成“很少”。", "basis": "editor", "sourceIds": [] },
+        { "what": "“挂在临皋亭的屋梁上”：原信只写“挂屋梁上”，屋名是编写时补的。信写在元丰三年冬天，那时他已经搬进临皋亭；同一封信里说“所居对岸武昌”。", "basis": "editor", "sourceIds": ["w-qin", "w-shiti"] }
       ]
     },
     {
@@ -267,22 +291,34 @@
         { "what": "“我写了两首诗”：衔接的一句。两首诗的手迹《黄州寒食诗帖》今藏台北故宫博物院，哪一年抄写的说法不一。", "basis": "later", "sourceIds": ["l-hanshitie"] },
         { "what": "三月七日沙湖道中遇雨，雨具先去，同行狼狈，不久天晴，作词；“竹杖芒鞋轻胜马，谁怕？一蓑烟雨任平生”。", "basis": "own-words", "sourceIds": ["w-dingfengbo"] },
         { "what": "沙湖在黄州东南三十里，是去看田：“黄州东南三十里为沙湖，亦曰螺师店，予买田其间，因往相田”。", "basis": "own-words", "sourceIds": ["w-shahu"] },
-        { "what": "把词序和《游沙湖》记的当作同一次出行，并放在元丰五年：两处原文都没有写年份，这是通行的说法。", "basis": "later", "sourceIds": ["l-xinian"] }
+        { "what": "把词序和《游沙湖》记的当作同一次出行，并放在元丰五年：两处原文都没有写年份，这是通行的说法。", "basis": "later", "sourceIds": ["l-xinian"] },
+        { "what": "“江水快要进临皋亭的门”：原诗只写“春江欲入户”，屋名是编写时补的。那一年他家仍住在临皋亭：同年十月的《后赤壁赋》写“将归于临皋……归而谋诸妇”。", "basis": "editor", "sourceIds": ["w-hanshi", "w-chibi2"] }
       ]
     },
     {
       "section": "赤壁",
       "items": [
         { "what": "七月十六夜和客人坐船到赤壁下；“清风徐来，水波不兴”；月亮从东山上出来；“白露横江，水光接天”。", "basis": "own-words", "sourceIds": ["w-chibi1"] },
-        { "what": "有人说这里是周瑜破曹操的地方，他不知道是不是：“或言即周瑜破曹公处，不知果是否”。", "basis": "own-words", "sourceIds": ["w-chibidong"] },
-        { "what": "十月十五再去；客人傍晚网到鱼，妻子拿出藏着的一斗酒；“山高月小，水落石出”；才隔三个月，江山已认不出：“曾日月之几何，而江山不可复识矣”。", "basis": "own-words", "sourceIds": ["w-chibi2"] }
+        { "what": "有人说这里是周瑜破曹操的地方，他不知道是不是：“或言即周瑜破曹公处，不知果是否”。", "basis": "own-words", "sourceIds": ["w-chibidong"] }
       ]
     },
     {
-      "section": "承天寺，要走了",
+      "section": "十月，再到赤壁",
+      "items": [
+        { "what": "十月十五再去；客人傍晚网到鱼，妻子拿出藏着的一斗酒；“山高月小，水落石出”；才隔三个月，江山已认不出：“曾日月之几何，而江山不可复识矣”。", "basis": "own-words", "sourceIds": ["w-chibi2"] },
+        { "what": "小节标题里的“再到赤壁”是编写时加的：这一段的句子里没有“赤壁”两个字，《后赤壁赋》开头写“是岁十月之望……复游于赤壁之下”。", "basis": "editor", "sourceIds": ["w-chibi2"] }
+      ]
+    },
+    {
+      "section": "承天寺",
       "items": [
         { "what": "十月十二日夜到承天寺找张怀民，两人在院子里走，地上的竹柏影像水里的水草：通篇转述《记承天寺夜游》。", "basis": "own-words", "sourceIds": ["w-chengtian"] },
-        { "what": "“他也是贬到黄州来的”：补的一句交代。苏辙记“清河张君梦得，谪居齐安”；说张梦得就是张怀民（字怀民），是后人的说法。", "basis": "later", "sourceIds": ["r-kuaizai", "l-zhang"] },
+        { "what": "“他也是贬到黄州来的”：补的一句交代。苏辙记“清河张君梦得，谪居齐安”；说张梦得就是张怀民（字怀民），是后人的说法。", "basis": "later", "sourceIds": ["r-kuaizai", "l-zhang"] }
+      ]
+    },
+    {
+      "section": "要走了",
+      "items": [
         { "what": "元丰七年改去汝州，四月动身：本传“手札移轼汝州”；词序“元丰七年四月一日，余将自黄移汝，留别雪堂邻里二三君子”。新的官名见他的谢表：“特授臣汝州团练副使，本州安置”。", "basis": "record", "sourceIds": ["r-songshi", "w-manting", "w-ruzhoubiao"] },
         { "what": "遇上两回闰月，孩子们都是这边的口音；“好在堂前细柳，应念我，莫剪柔柯”。“两回闰月”依“坐见黄州再闰”一读，一本“再”作“载”。", "basis": "own-words", "sourceIds": ["w-manting"] },
         { "what": "“请他们别剪堂前细柳的嫩枝”：对后面那句词的白话转述。", "basis": "editor", "sourceIds": [] }

@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest';
 import type { Grounds, LevelEdit, SceneDressing, SceneThing, StopScene } from '../../src/domain/scene';
 import { frameCoords } from '../../src/domain/sceneGeo';
 import { buildFields, gateSeats, paintGround, readDem, samplers, yardLayout } from '../../src/stage/ground';
+import { OPEN_SEED_BELOW_M, OPEN_SEED_OUTSIDE_M, openWater } from '../../src/stage/ground/fields';
 import { asRing, distLine, ringCentre, ringSigned, smoothLine, subdivide } from '../../src/stage/ground/lines';
 import type { Ground, GroundSamplers, GroundStyle, Vec2 } from '../../src/stage/ground/types';
 import { FIXTURE_HEIGHTS, FIXTURE_M, fixturePoint, fixtureScene, fixtureTerrainBytes } from '../support/fixtureScene';
@@ -1524,6 +1525,161 @@ describe('src/stage/ground 只算数', () => {
       const touchesPage = /\b(document|window|navigator|requestAnimationFrame)\b/.test(code(text));
       expect(`${path}: ${touchesPage}`).toBe(`${path}: false`);
     }
+  });
+});
+
+// ---------------------------------------------------------------- 修整压出来的宽水面
+
+describe('修整压出来的宽水面（openWater）和最低的水位露出来的沙', () => {
+  /** 小沙盘西边的平地上压出一块水面：x −1400 到 −1000，z −1000 到 −400，压到 31 米（平时的水位 37.6）；四周 60 米过渡。 */
+  const POND = { x0: -1400, x1: -1000, z0: -1000, z1: -400, toM: 31, feather: 60 };
+  /** 水面的西半边再垫回 36 米：比平时的水位低 1.6 米，比下面添的“水落” 34 米高 2 米——水落了它露出来。 */
+  const SHELF = { x0: -1400, x1: -1200, toM: 36 };
+  const ring = (x0: number, x1: number, z0: number, z1: number) => [fixturePoint(x0, z0), fixturePoint(x1, z0), fixturePoint(x1, z1), fixturePoint(x0, z1)];
+  const withPond = (s: StopScene, low?: number): void => {
+    s.terrain.edits.push(
+      { id: 'pond', name: '压出来的水面', op: 'level', mode: 'lower', toM: POND.toM, featherM: POND.feather, area: ring(POND.x0, POND.x1, POND.z0, POND.z1), ...grounds() } as LevelEdit,
+      { id: 'shelf', name: '水面里的滩', op: 'level', mode: 'raise', toM: SHELF.toM, featherM: 20, area: ring(SHELF.x0, SHELF.x1, POND.z0, POND.z1), ...grounds() } as LevelEdit,
+    );
+    if (low !== undefined) s.water.levels.values.low = low;
+  };
+  const pond = build((s) => withPond(s));
+  const g = pond.ground;
+  const plain = plainBuild.ground;
+  /** 离河和壕都远的那一片（小沙盘的西边）：这里的 edge 只可能是这块水面给的。 */
+  const west = (x: number): boolean => x <= -800;
+
+  it('没有这样的地方：一格“种子”也没有，什么也不动（小沙盘原样）', () => {
+    expect(plain.openSeeds).toBe(0);
+    expect(plain.lowWaterM).toBeNull();
+    // 每一格最近的还是画出来的河或壕（记的是它们画的宽度的一半），没有一格被当成宽水面的岸（那是 200）
+    expect([...new Set(Array.from(plain.bankHalf))].sort((p, q) => p - q)).toEqual([0, M.moatWidth / 2, M.riverWidth / 2]);
+    // 直接叫一遍：返回 0，三张网格一个字节不差
+    const h = Float32Array.from(plain.h);
+    const edge = Float32Array.from(plain.edge);
+    const half = Float32Array.from(plain.bankHalf);
+    expect(openWater(h, edge, half, plain, H.normal)).toBe(0);
+    expect(h).toEqual(plain.h);
+    expect(edge).toEqual(plain.edge);
+    expect(half).toEqual(plain.bankHalf);
+  });
+
+  it('两个门槛：比平时的水位低不到 0.25 米的不算；在画出来的河的岸外 20 米以内的不算；过了两个门槛的才算', () => {
+    const grid = { nx: 5, nz: 5, cell: 20 };
+    const make = (dip: number, edgeAt: number) => {
+      const h = new Float32Array(25).fill(40);
+      const edge = new Float32Array(25).fill(1e6);
+      const half = new Float32Array(25);
+      h[12] = 37.6 - dip;
+      edge[12] = edgeAt;
+      return { h, edge, half };
+    };
+    expect([OPEN_SEED_BELOW_M, OPEN_SEED_OUTSIDE_M]).toEqual([0.25, 20]);
+    // 低了一丝（程序挖河时岸坡正好斜到水位，差在小数点后第四位上的格子徐州有 8 格）
+    for (const [dip, at] of [[0.0001, 1e6], [0.2, 1e6], [0.24, 1e6], [3, 5], [3, 20], [3, -40]] as const) {
+      const a = make(dip, at);
+      const before = Float32Array.from(a.edge);
+      expect(openWater(a.h, a.edge, a.half, grid, 37.6), `低 ${dip} 米、离岸 ${at} 米`).toBe(0);
+      expect(a.edge).toEqual(before);
+      expect(Array.from(a.half).every((v) => v === 0)).toBe(true);
+    }
+    // 明明白白低、明明白白在河外面：算。它自己成了水（负数），四邻成了岸边（几米到二十米）
+    const b = make(0.3, 21);
+    expect(openWater(b.h, b.edge, b.half, grid, 37.6)).toBe(1);
+    expect(b.edge[12]).toBeLessThan(0);
+    expect(b.edge[12]).toBeGreaterThan(-20);
+    for (const k of [7, 11, 13, 17]) {
+      expect(b.edge[k]).toBeGreaterThan(0);
+      expect(b.edge[k]).toBeLessThanOrEqual(20);
+      expect(b.half[k]).toBe(200);
+    }
+    // 岸在两格之间“地面正好是水位”的地方：水里的这一格离它 20 × 0.3 ÷ 2.7 米，岸上的那一格是剩下的
+    expect(b.edge[12]).toBeCloseTo((-20 * 0.3) / 2.7, 3);
+    expect(b.edge[13]).toBeCloseTo(20 - (20 * 0.3) / 2.7, 3);
+  });
+
+  it('压出来的水面：里面是负数，越往里越小；外面是正数，越往外越大；岸就在地面和平时的水位相交的地方', () => {
+    expect(g.openSeeds).toBeGreaterThan(300);
+    expect(g.lowWaterM).toBeNull();
+    const at = pond.at;
+    // 深处（东半边的正中）离岸一百多米；滩的正中也在水里
+    expect(at.edge(-1100, -700)).toBeLessThan(-80);
+    expect(at.edge(-1300, -700)).toBeLessThan(-80);
+    expect(at.edge(-1100, -700)).toBeGreaterThan(-320);
+    // 往东出去：圈外 60 米过渡，岸在过渡带里；再往外一路变大
+    const east = [-960, -900, -860, -820].map((x) => at.edge(x, -700));
+    expect(east[0]).toBeGreaterThan(0);
+    east.slice(1).forEach((v, i) => expect(v).toBeGreaterThan(east[i] + 20));
+    expect(at.edge(-900, -700)).toBeGreaterThan(40);
+    expect(at.edge(-900, -700)).toBeLessThan(100);
+    // 一格一格看：西边这一片里，比平时的水位低的格子都是负数，别的都是正数；岸两边紧挨着的两格都在 20 米以内
+    let wet = 0;
+    eachCell(g, (k, x) => {
+      if (!west(x)) return;
+      const under = g.h[k] < H.normal;
+      if (under) wet++;
+      expect(g.edge[k] < 0, `第 ${k} 格`).toBe(under);
+      if (x + g.cell <= -800 && g.h[k + 1] < H.normal !== under) {
+        expect(Math.abs(g.edge[k])).toBeLessThanOrEqual(g.cell);
+        expect(Math.abs(g.edge[k + 1])).toBeLessThanOrEqual(g.cell);
+        expect(Math.abs(g.edge[k]) + Math.abs(g.edge[k + 1])).toBeCloseTo(g.cell, 3);
+      }
+    });
+    expect(wet).toBeGreaterThan(600);
+    // 岸边照宽的河上色（不是壕那样一道细边）；河那边、壕那边原来的数不动
+    expect(g.bankHalf[cellOf(g, -1100, -700)]).toBe(200);
+    expect(g.bankHalf[cellOf(g, -900, -700)]).toBe(200);
+    expect(g.bankHalf[cellOf(g, -100, -800)]).toBe(M.riverWidth / 2);
+    expect(g.edge[cellOf(g, -100, -800)]).toBe(plain.edge[cellOf(g, -100, -800)]);
+    // 水面四周算河边，不算山，也不摆村子、不种田（下游读的都是 edge）
+    expect(g.hill[cellOf(g, -1100, -700)]).toBe(0);
+    for (const v of g.villages) expect(pond.at.edge(v.x, v.z), `村子 (${v.x}, ${v.z})`).toBeGreaterThan(0);
+  });
+
+  it('上色：水面里面是水底的淡花青，岸边留白；没有比平时低的水位时，滩和深处一个颜色', () => {
+    const paint = paintGround(g, STYLE);
+    const deep = pixel(paint, g, -1100, -700);
+    const shelf = pixel(paint, g, -1300, -700);
+    const land = pixel(paint, g, -1200, 300);
+    // 平地：红比蓝多得多；水底偏蓝得多（这块水面挨着沙盘的西北角，四边留的空绢把颜色冲淡了一些，所以比着平地说）
+    expect(land[0]).toBeGreaterThan(land[2] + 25);
+    expect(deep[0] - deep[2]).toBeLessThan(land[0] - land[2] - 20);
+    expect(shelf[0] - shelf[2]).toBeLessThan(land[0] - land[2] - 20);
+  });
+
+  it('最低的水位比平时低：它露出来的地面（滩）是沙色，比它还低的地方还是水底的颜色；别处一个字节不差', () => {
+    const low = build((s) => withPond(s, 34));
+    expect(low.ground.lowWaterM).toBe(34);
+    // 最低的水位只差一丝（不到 0.01 米）不算
+    expect(build((s) => withPond(s, H.normal - 0.005)).ground.lowWaterM).toBeNull();
+    const before = paintGround(g, STYLE);
+    const after = paintGround(low.ground, STYLE);
+    const sand: [number, number, number] = [0xe6, 0xdb, 0xb9];
+    const bed: [number, number, number] = [0xb7, 0xc9, 0xc8];
+    const far = (p: number[], c: number[]): number => Math.hypot(p[0] - c[0], p[1] - c[1], p[2] - c[2]);
+    const shelf = pixel(after, low.ground, -1300, -700);
+    const deep = pixel(after, low.ground, -1100, -700);
+    // 滩（36 米，在 34 和 37.6 之间）：离沙色近；深处（31 米）：离水底的颜色近
+    expect(far(shelf, sand)).toBeLessThan(far(shelf, bed) - 20);
+    expect(far(deep, bed)).toBeLessThan(far(deep, sand) - 20);
+    expect(shelf[0]).toBeGreaterThan(shelf[2] + 20);
+    // 同一个点，没有“水落”这一档时是水底的颜色：红减蓝差出三十多
+    const was = pixel(before, g, -1300, -700);
+    expect(shelf[0] - shelf[2] - (was[0] - was[2])).toBeGreaterThan(25);
+    // 深处、岸上、河里、城里：和没有“水落”这一档时一个字节不差；变了的点都在滩那一带
+    expect(pixel(after, low.ground, -1100, -700)).toEqual(pixel(before, g, -1100, -700));
+    let changed = 0;
+    for (let k = 0; k < after.colour.length; k += 4) {
+      if (after.colour[k] === before.colour[k] && after.colour[k + 1] === before.colour[k + 1] && after.colour[k + 2] === before.colour[k + 2]) continue;
+      changed++;
+      const x = g.x0 + ((k / 4) % after.w) * (g.cell / 2);
+      const z = g.z0 + Math.floor(k / 4 / after.w) * (g.cell / 2);
+      // 变了的点：都在水边 8 米以内或者水里（上水底颜色的地方），地面都比“水落”高（差 0.3 米以内的在过渡里）。
+      // 河边、壕边的浅处也在里面：那里的地面同样比“水落”高
+      expect(pond.at.edge(x, z), `(${x}, ${z})`).toBeLessThan(8);
+      expect(pond.at.height(x, z), `(${x}, ${z})`).toBeGreaterThan(34 - 0.31);
+    }
+    expect(changed).toBeGreaterThan(1000);
   });
 });
 

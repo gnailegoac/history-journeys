@@ -50,6 +50,33 @@ function wallRing(): Vec2[] {
 }
 
 describe('徐州的地面', () => {
+  it('徐州没有修整压出来的宽水面：一格“种子”也没有，离两个门槛都远；最低的水位就是平时的水位', () => {
+    // 黄州的大江是用修整把江底压到水位以下做的，程序要认得那样的水面（fields.ts 的 openWater）。
+    // 那一步要么整个做、要么一点不做：徐州一点不能动。它离“做”有多远，记在这里——
+    //   画出来的河的岸外 20 米以外，最低的地面比平时的水位高多少（门槛是低 0.25 米；量到高 0.69 米）；
+    //   比平时的水位低 0.25 米以上的格子，最靠外的一格在河岸里面多少米（门槛是岸外 20 米；量到在岸里 5 米上下）。
+    const { ground, scene } = realScene(KEY);
+    const normal = scene.water.levels.values.normal;
+    expect(ground.openSeeds).toBe(0);
+    expect(ground.lowWaterM).toBeNull();
+    let lowestOutside = Infinity;
+    let furthestOut = -Infinity;
+    let hair = 0;
+    for (let k = 0; k < ground.nx * ground.nz; k++) {
+      if (ground.edge[k] > 20 && ground.h[k] < lowestOutside) lowestOutside = ground.h[k];
+      if (ground.h[k] < normal - 0.25 && ground.edge[k] > furthestOut) furthestOut = ground.edge[k];
+      if (ground.edge[k] > 0 && ground.h[k] < normal + 0.01) hair++;
+    }
+    console.log(
+      `徐州离“修整压出来的宽水面”有多远：河岸 20 米以外最低的地面比平时的水位高 ${(lowestOutside - normal).toFixed(2)} 米；` +
+        `比水位低 0.25 米以上的格子最靠外的在岸里 ${(-furthestOut).toFixed(1)} 米；岸上离水位不到 0.01 米的格子 ${hair} 格`,
+    );
+    expect(lowestOutside - normal).toBeGreaterThanOrEqual(0.5);
+    expect(furthestOut).toBeLessThanOrEqual(20 - 15);
+    // 所以门槛不能是“比水位低就算”：岸上真有贴着水位的格子（挖河时岸坡正好斜到水位）
+    expect(hair).toBeGreaterThan(0);
+  });
+
   it('三个水位是：平时低于城里的地面，大水高过城里的地面；“水来了”那一节刚漫出河岸，还不到城里的地面', () => {
     const R = realScene(KEY);
     const { normal, rising, flood } = R.scene.water.levels.values;

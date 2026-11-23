@@ -4,6 +4,7 @@
 //   3 沙盘四边：山收低到平地；
 //   4 河和壕：算每一格离河岸多远，压河岸，挖河床；
 //   5 写了 inside 的修整再压一遍，城里才是一块平地；
+//     修整把地面压到平时的水位以下的地方也是水（openWater）：让“离河岸多远”认得它；
 //   6 水看到的地面，水漫不进去的地方；
 //   7 给上色、摆树用的几样：哪里算山、凸凹；
 //   8 从场景带过来的：城的平面、村子、要画在地面上的路和田。
@@ -54,6 +55,14 @@ const BANK_UNDER_M = 48;
 const BANK_BEYOND_M = 35;
 const BANK_OFF_WALL_M = 20;
 const BANK_END_SLACK_M = 30;
+/**
+ * 修整压出来的宽水面（openWater）什么时候才算有：至少有一格地面比平时的水位低这么多米以上，
+ * 而且在每条画出来的河的岸外这么多米以外。程序挖河时岸坡正好斜到平时的水位，差一丝的格子不能算。
+ */
+export const OPEN_SEED_BELOW_M = 0.25;
+export const OPEN_SEED_OUTSIDE_M = 20;
+/** 宽水面的岸照这么宽的河上色（不照壕那样只留一道细边）。 */
+const OPEN_HALF_M = 200;
 
 /** 算出整理好的地面。 */
 export function buildGround(scene: StopScene, dem: Dem): Ground {
@@ -93,6 +102,11 @@ export function buildGround(scene: StopScene, dem: Dem): Ground {
     if (edit.op === 'level' && edit.inside !== undefined) applyLevel(h, null, grid, editRing(edit, walls, coords), edit, WALL_FOOT_M);
   }
 
+  // 修整压出来的宽水面：没有的时候（徐州）什么也不动
+  const normal = scene.water.levels.values.normal;
+  const openSeeds = openWater(h, edge, bankHalf, grid, normal);
+  const lowest = Math.min(...Object.values(scene.water.levels.values));
+
   // 6 水看到的地面，水漫不进去的地方
   const waterH = waterView(h, grid, scene, coords, walls);
   const dry = dryMask(grid, scene, coords, walls);
@@ -124,6 +138,8 @@ export function buildGround(scene: StopScene, dem: Dem): Ground {
     dry,
     edge,
     bankHalf,
+    openSeeds,
+    lowWaterM: lowest < normal - 0.01 ? lowest : null,
     lift,
     hill,
     hillSoft,
@@ -388,6 +404,75 @@ function carveWater(
     }
   }
   return { edge, bankHalf, lines, beforeMoat };
+}
+
+// ---------------------------------------------------------------- 修整压出来的宽水面
+
+/**
+ * 修整把地面压到平时的水位以下的地方也是水：让 edge 认得它。返回“种子”有几格（见 OPEN_SEED_BELOW_M）；
+ * 一格也没有时什么也不动。有的时候：比平时的水位低的格子是水，岸在地面和水位相交的地方；
+ * 每一格到岸多远（水里是负数）比原来的 edge 小就换上，换了的地方照宽的河上色。
+ */
+export function openWater(h: Float32Array, edge: Float32Array, bankHalf: Float32Array, grid: { nx: number; nz: number; cell: number }, normalM: number): number {
+  const { nx, nz, cell } = grid;
+  const N = nx * nz;
+  let seeds = 0;
+  for (let k = 0; k < N; k++) if (h[k] < normalM - OPEN_SEED_BELOW_M && edge[k] > OPEN_SEED_OUTSIDE_M) seeds++;
+  if (seeds === 0) return 0;
+
+  // 岸两边的格子：到“地面正好是水位”的那一点多远
+  const d = new Float32Array(N).fill(FAR_AWAY);
+  const pair = (k: number, q: number): void => {
+    if (h[k] < normalM === h[q] < normalM) return;
+    const f = cell * Math.min(1, Math.abs(normalM - h[k]) / (Math.abs(h[q] - h[k]) || 1e-6));
+    if (f < d[k]) d[k] = f;
+    if (cell - f < d[q]) d[q] = cell - f;
+  };
+  for (let j = 0; j < nz; j++) {
+    for (let i = 0; i < nx; i++) {
+      const k = j * nx + i;
+      if (i < nx - 1) pair(k, k + 1);
+      if (j < nz - 1) pair(k, k + nx);
+    }
+  }
+  // 往外量：来回各扫一遍（横竖一格，斜着一格半不到）
+  const diag = cell * Math.SQRT2;
+  const relax = (k: number, q: number, w: number): void => {
+    if (d[q] + w < d[k]) d[k] = d[q] + w;
+  };
+  for (let j = 0; j < nz; j++) {
+    for (let i = 0; i < nx; i++) {
+      const k = j * nx + i;
+      if (i > 0) relax(k, k - 1, cell);
+      if (j > 0) {
+        relax(k, k - nx, cell);
+        if (i > 0) relax(k, k - nx - 1, diag);
+        if (i < nx - 1) relax(k, k - nx + 1, diag);
+      }
+    }
+  }
+  for (let j = nz - 1; j >= 0; j--) {
+    for (let i = nx - 1; i >= 0; i--) {
+      const k = j * nx + i;
+      if (i < nx - 1) relax(k, k + 1, cell);
+      if (j < nz - 1) {
+        relax(k, k + nx, cell);
+        if (i < nx - 1) relax(k, k + nx + 1, diag);
+        if (i > 0) relax(k, k + nx - 1, diag);
+      }
+    }
+  }
+  for (let k = 0; k < N; k++) {
+    const wet = h[k] < normalM;
+    // 离哪条岸都远的干地照旧；水里再远也是水
+    if (!wet && d[k] > BANK_REACH_M) continue;
+    const signed = wet ? -Math.min(d[k], BANK_REACH_M) : d[k];
+    if (signed < edge[k]) {
+      edge[k] = signed;
+      if (bankHalf[k] < OPEN_HALF_M) bankHalf[k] = OPEN_HALF_M;
+    }
+  }
+  return seeds;
 }
 
 // ---------------------------------------------------------------- 6 水看到的地面，水漫不进去的地方

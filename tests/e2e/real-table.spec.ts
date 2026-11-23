@@ -4,6 +4,7 @@
 // 跳过的测试算“通过”，那样一座一次也没起来过的沙盘就发出去了。
 //
 // 一共六项：前三项是有自己的沙盘的那一站，后三项是人物页上真的全程沙盘，各有完整的一档、减配的一档、不指定画质三种。
+// 有自己的沙盘的站不止一个以后（黄州是第二座），后面的每一座再各添两项——完整的一档、减配的一档——换过去的是它第一个夜里的小节（有的话）。
 // 全程沙盘的三项：摆得出来，三角形数和画几批在预算里（印出来），按一方印就到那一站、沙盘换到它的来路，走到下一站跟着再换；
 // 完整的一档另量带印的题签（量出来和题签的测试算的一样大）；减配的一档要比完整的一档少画三角形。前三项的说法：
 //   完整的一档、减配的一档  地址里指定画质（?tier=full、?tier=reduced）。指定了，沙盘程序不量快慢、不自己换档，
@@ -24,7 +25,7 @@ import { stripTexts } from '../../src/domain/sceneText';
 import type { StageTier } from '../../src/stage/types';
 import { DRAW_CALLS_MAX, STANDING_STILL_MS, TRIANGLES_MAX, checkReduced } from '../stage/support/budgets';
 import { stripSize, stripSizeKind } from '../stage/support/stripSizes';
-import { expectRealTable, headingsOf, openFigureWithTable, realUrl, roadOf, routeOnDisk, sceneOnDisk, scrollToSection, stagePane, stageReadout, stripsOf } from './helpers';
+import { expectRealTable, headingsOf, openFigureWithTable, realUrl, roadOf, routeOnDisk, sceneOnDisk, scrollToSection, stagePane, stageReadout, stopsWithScenes, stripsOf } from './helpers';
 
 const env = (globalThis as { process?: { env: Record<string, string | undefined> } }).process?.env ?? {};
 
@@ -63,17 +64,25 @@ async function needWebGL2(page: Page): Promise<void> {
 /**
  * 指定画质的那两项：有沙盘的那一站摆得出来，是指定的那一档，读到后面的小节换得过去，预算之内，站着不动不再画。
  * leaveAndReturn：再查一遍“离开这一站又回来，还摆得出来，还是只有一块画布”。
+ * stopId 不写是第一个有沙盘的站；写了是那一站（每一座沙盘各起一遍：着色器、模型出了错，只有打开那一座才看得出来）。
+ * 写了 stopId 的，换过去的是这一站第一个夜里的小节（有的话）：夜里的光也在浏览器里走一遍。
  */
-async function forcedTier(page: Page, tier: StageTier, leaveAndReturn: boolean): Promise<void> {
-  const tag = `真沙盘（${TIER_NAME[tier]}）`;
+async function forcedTier(page: Page, tier: StageTier, leaveAndReturn: boolean, stopId?: string): Promise<void> {
+  const tag = `真沙盘（${TIER_NAME[tier]}${stopId ? `，${stopId}` : ''}）`;
   // 用软件画，画面越大越慢：用小一点的窗口（仍是宽屏版面），并且不要滑动的动画。
   await page.setViewportSize({ width: 1024, height: 640 });
   await page.emulateMedia({ reducedMotion: 'reduce' });
   const problems = watchProblems(page);
 
-  // 第一位人物、第一个有沙盘的站
-  const { found } = await openFigureWithTable(page, realUrl('#/', tier, '&debug=1'));
+  // 第一位人物、第一个有沙盘的站（写了 stopId 就是那一站）
+  const opened = await openFigureWithTable(page, realUrl('#/', tier, '&debug=1'));
   await needWebGL2(page);
+  let found = opened.found;
+  if (stopId) {
+    const scene = sceneOnDisk(opened.figureId, stopId);
+    expect(scene, `${stopId} 没有场景文件`).not.toBeNull();
+    found = scene ? { stopId, scene } : null;
+  }
   if (env.CI) expect(found, '发布流程里没有找到带沙盘的站：真沙盘一次也没有起来过，不能算通过').not.toBeNull();
   else test.skip(!found, '还没有哪一站有沙盘');
   if (!found) return;
@@ -112,7 +121,8 @@ async function forcedTier(page: Page, tier: StageTier, leaveAndReturn: boolean):
   await expect(page.locator('.stage-note-short')).toBeVisible();
 
   // 读到后面的一节（徐州是“水退以后”）：沙盘换过去，这一节的第一条题签挂上了
-  const later = headings[Math.min(3, headings.length - 1)];
+  const night = stopId ? found.scene.sections.findIndex((section) => section.sky === 'night') : -1;
+  const later = headings[night >= 0 ? night : Math.min(3, headings.length - 1)];
   from = Date.now();
   await scrollToSection(page, later);
   await expect(pane).toHaveAttribute('data-stage-section', later, { timeout: SECTION_MS });
@@ -184,6 +194,21 @@ test('真沙盘（减配的一档）：摆出来的真是减配的一档，换�
   test.setTimeout(300_000);
   await forcedTier(page, 'reduced', false);
 });
+
+// 别的有沙盘的站（第一个上面两项已经起过了）：每一座各起两遍，完整的一档和减配的一档。
+// 第二座沙盘用到的着色器、模型、夜里的光，只有打开它才编译、才造得出来；不这样查，它出了错两道关都看不见。
+const FIRST_FIGURE = stopsWithScenes()[0]?.figureId;
+for (const { stopId } of stopsWithScenes().filter((one) => one.figureId === FIRST_FIGURE).slice(1)) {
+  test(`真沙盘（完整的一档），${stopId}：这一站自己的沙盘摆得出来，换得到夜里的小节（有的话），三角形数和画几批在预算里，站着不动不再画`, async ({ page }) => {
+    test.setTimeout(300_000);
+    await forcedTier(page, 'full', false, stopId);
+  });
+
+  test(`真沙盘（减配的一档），${stopId}：摆出来的真是减配的一档，换得动小节，三角形数和画几批在预算里，站着不动不再画`, async ({ page }) => {
+    test.setTimeout(300_000);
+    await forcedTier(page, 'reduced', false, stopId);
+  });
+}
 
 test('真沙盘，不指定画质：时限之内要么摆好（哪一档都行），要么说一句“太慢”、换成图片；页面不出错', async ({ page }) => {
   test.setTimeout(AUTO_MS + 60_000);

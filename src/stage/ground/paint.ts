@@ -77,6 +77,7 @@ export function paintColour(ground: Ground, style: GroundStyle): { colour: Uint8
   const x1 = x0 + (nx - 1) * cell;
   const z1 = z0 + (nz - 1) * cell;
   const base = ground.baseM;
+  const low = ground.lowWaterM;
   const bands = style.bands;
 
   const names = Object.keys(style.colours) as GroundColour[];
@@ -176,7 +177,8 @@ export function paintColour(ground: Ground, style: GroundStyle): { colour: Uint8
       if (e < sandW) {
         // 窄的水道岸边的留白也淡一些：细细一条沟再描一圈白边，远看像一块块镶了边的方格
         col = mix3(col, C.sand, smoothstep(sandW, sandW * 0.13, e) * (0.4 + 0.45 * wide));
-        if (e < 8) col = mix3(col, C.bed, smoothstep(8, -26, e));
+        // 最低的水位露出来的地面（滩、石滩）是沙色，不是水底的颜色；没有比平时低的水位时同原来一样
+        if (e < 8) col = mix3(col, low === null ? C.bed : mix3(C.sand, C.bed, smoothstep(low + 0.3, low - 0.3, h)), smoothstep(8, -26, e));
       }
 
       // 城里城外先算好：田、路都要用。dOut 是到最近一道城墙的线多远，城里是负数

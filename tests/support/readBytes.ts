@@ -2,7 +2,7 @@
 // 路径都相对项目的根目录，用“/”分隔，如 content/figures/su-shi/scenes/xuzhou.terrain.bin。
 // 只给测试用（在 Node 里跑）；src/ 里的程序不要用。
 
-import { readFileSync, statSync } from 'node:fs';
+import { readdirSync, readFileSync, statSync } from 'node:fs';
 
 /** 项目的根目录：这个文件在 tests/support/ 里，往上两层。 */
 const ROOT = new URL('../../', import.meta.url);
@@ -18,4 +18,9 @@ export function readBytes(path: string): ArrayBuffer {
 /** 一个文件有多少字节。没有这个文件时抛出错误。 */
 export function fileSize(path: string): number {
   return statSync(new URL(path, ROOT)).size;
+}
+
+/** 一个文件夹里的名字（文件和子文件夹），排好了的。没有这个文件夹时抛出错误。 */
+export function namesIn(path: string): string[] {
+  return readdirSync(new URL(path.endsWith('/') ? path : `${path}/`, ROOT)).sort();
 }

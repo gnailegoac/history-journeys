@@ -6,7 +6,7 @@ import { expect } from '@playwright/test';
 import type { Locator, Page } from '@playwright/test';
 import type { RouteScene, SceneStrip, StopScene } from '../../src/domain/scene';
 import type { StageReadout, StageTier } from '../../src/stage/types';
-import { fileSize, readBytes } from '../support/readBytes';
+import { fileSize, namesIn, readBytes } from '../support/readBytes';
 
 /** 带沙盘替身的地址。extra 是另外要带的参数，如 "&route=none"。 */
 export function fakeUrl(hash: string, extra = ''): string {
@@ -176,6 +176,27 @@ export async function firstStopWithScene(page: Page, figureId: string): Promise<
     if (scene) return { stopId, scene };
   }
   return null;
+}
+
+/**
+ * content/ 里每一座站点沙盘：哪位人物、哪一站、它的场景。照人物的文件夹名、再照 figure.json 里各站的先后。
+ * 不用打开页面（测试的名字要在打开页面以前定下来）：给“每一座沙盘各在浏览器里起一遍”的测试用。
+ */
+export function stopsWithScenes(): { figureId: string; stopId: string; scene: StopScene }[] {
+  const out: { figureId: string; stopId: string; scene: StopScene }[] = [];
+  for (const figureId of namesIn('content/figures')) {
+    let figure: { stops: { id: string }[] };
+    try {
+      figure = JSON.parse(new TextDecoder().decode(readBytes(`content/figures/${figureId}/figure.json`))) as { stops: { id: string }[] };
+    } catch {
+      continue;
+    }
+    for (const stop of figure.stops) {
+      const scene = sceneOnDisk(figureId, stop.id);
+      if (scene) out.push({ figureId, stopId: stop.id, scene });
+    }
+  }
+  return out;
 }
 
 /** 目录里第一个写好了正文、却还没有沙盘的站；没有时是 null。要先打开人物页。 */

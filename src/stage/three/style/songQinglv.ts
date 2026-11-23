@@ -120,14 +120,14 @@ const LIGHT: LightSpec = {
 
 /**
  * 夜里的一套：月光是冷的、淡的，天光补得多（夜色不黑到看不清地形），方向照这一小节写的月亮。
- * 白天平地的亮算 100 的话：月亮 12 度高时平地 26、影子里 20；68 度高时平地 46（都是线性的光；屏幕上看是 54、49、70）。
+ * 月光和天光多强跟着月亮的高矮走（NIGHT_ENDS）：月亮高，光直着下来，平地亮得多；两头用一样的数的话，
+ * 月亮 68 度高的一夜看着像阴天的下午，12 度高的一夜才像夜里。所以月亮越高，这两样越弱。
+ * 白天平地的亮算 100 的话：月亮 12 度高时平地 26、影子里 20；68 度高时平地 35、影子里 15（都是线性的光；屏幕上看是 54、49、62、42）。
  * fog、mist 是照足了光时的颜色，用的时候按上面的比例压暗；云气夜里淡到八成。
- * 这是第一次试看用的数（在徐州的沙盘上试的），负责人看过图以后再定；tests/stage/rig.test.ts 里记着，改了那边会不通过。
+ * 2026-11-23 负责人看过徐州上试的图以后定的；tests/stage/rig.test.ts 里记着，改了那边会不通过。
  */
 const NIGHT = {
-  sun: 1.15,
   sunColor: '#cfdcf2',
-  hemi: 1.05,
   sky: '#b8c8e6',
   ground: '#5f6a7a',
   fog: '#d5deea',
@@ -135,11 +135,28 @@ const NIGHT = {
   mistStrength: 0.8,
 };
 
+/**
+ * 夜里月光（sun）、天光（hemi）的两头：月亮在 low.altitude 度以下用 low 的数，high.altitude 度以上用 high 的数，
+ * 中间照月亮高度的正弦匀过去（平地上直接照到的光就是照正弦长的）。
+ */
+const NIGHT_ENDS = { low: { altitude: 12, sun: 1.15, hemi: 1.05 }, high: { altitude: 68, sun: 0.9, hemi: 0.75 } };
+
 /** 月光直接照到的水面多亮出几倍，照 ../rig.ts 的 sheenFor 算时用的强弱：月亮 12 度高时是 4.8 倍，68 度高时几乎没有。 */
 const NIGHT_SHEEN = 2;
 
+const sinDeg = (deg: number): number => Math.sin((deg * Math.PI) / 180);
+
 function light(sky: SceneSky, moon?: SceneMoon): LightSpec {
-  return sky === 'night' && moon ? { ...NIGHT, dir: moonDir(moon.azimuth, moon.altitude), sheen: sheenFor(NIGHT_SHEEN, moon.altitude) } : LIGHT;
+  if (sky !== 'night' || !moon) return LIGHT;
+  const { low, high } = NIGHT_ENDS;
+  const t = Math.min(1, Math.max(0, (sinDeg(moon.altitude) - sinDeg(low.altitude)) / (sinDeg(high.altitude) - sinDeg(low.altitude))));
+  return {
+    ...NIGHT,
+    sun: low.sun + (high.sun - low.sun) * t,
+    hemi: low.hemi + (high.hemi - low.hemi) * t,
+    dir: moonDir(moon.azimuth, moon.altitude),
+    sheen: sheenFor(NIGHT_SHEEN, moon.altitude),
+  };
 }
 
 // ---------------------------------------------------------------- 雾

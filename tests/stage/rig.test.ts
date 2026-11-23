@@ -1011,7 +1011,7 @@ describe('宋代青绿设色：跟镜头有关的几条规矩', () => {
     const day = song.light('day');
     const low = song.light('night', { azimuth: 103, altitude: 12 });
     const high = song.light('night', { azimuth: 130, altitude: 68 });
-    // 第一次试看用的数（2026-11-23 在徐州的沙盘上试的那一套）。负责人看过图以后定下来的数改在样式里，这里跟着改
+    // 负责人看过徐州上试的图以后定的（2026-11-23）：月亮 12 度以下是这一头的数。要改先由负责人定，定了以后这里和样式里的数一起改
     expect(low).toEqual({
       dir: moonDir(103, 12),
       sun: 1.15,
@@ -1024,17 +1024,56 @@ describe('宋代青绿设色：跟镜头有关的几条规矩', () => {
       mistStrength: 0.8,
       sheen: sheenFor(2, 12),
     });
-    // 两夜只差方向和水面亮几倍
-    expect({ ...high, dir: low.dir, sheen: low.sheen }).toEqual(low);
+    // 月亮 68 度以上是另一头的数：月光、天光都弱一些。两夜差的是方向、这两样强弱和水面亮几倍，颜色、雾、云气一样
+    expect(high.sun).toBeCloseTo(0.9, 12);
+    expect(high.hemi).toBeCloseTo(0.75, 12);
+    expect({ ...high, dir: low.dir, sheen: low.sheen, sun: low.sun, hemi: low.hemi }).toEqual(low);
     expect(high.dir).toEqual(moonDir(130, 68));
     expect(high.sheen).toBe(sheenFor(2, 68));
     // 白天的灯没有这四样：白天的雾、云气用样式里平常的颜色，不压暗
     for (const key of ['fog', 'mist', 'mistStrength', 'sheen']) expect(day).not.toHaveProperty(key);
-    // 比白天暗，可不是黑的：月亮 12 度高时平地是白天的四分之一上下，68 度高时不到一半
+    // 比白天暗，可不是黑的：月亮 12 度高时平地是白天的四分之一上下，68 度高时三分之一上下
     expect(lightLevel(low)).toBeLessThan(lightLevel(high));
     expect(lightLevel(high)).toBeLessThan(lightLevel(day));
     expect(lightDim(low, day)).toBeCloseTo(0.26, 2);
-    expect(lightDim(high, day)).toBeCloseTo(0.46, 2);
+    expect(lightDim(high, day)).toBeCloseTo(0.35, 2);
+  });
+
+  it('夜里的灯跟着月亮的高矮走：12 度以下一套数，68 度以上一套数，中间照高度的正弦匀过去——为的是平地不管月亮高低都差不多亮', () => {
+    const day = song.light('day');
+    const at = (altitude: number) => song.light('night', { azimuth: 120, altitude });
+    // 两头以外不再变
+    for (const altitude of [5, 8, 12]) expect([at(altitude).sun, at(altitude).hemi]).toEqual([1.15, 1.05]);
+    for (const altitude of [68, 69, 75, 85]) {
+      expect(at(altitude).sun).toBeCloseTo(0.9, 12);
+      expect(at(altitude).hemi).toBeCloseTo(0.75, 12);
+    }
+    // 中间：照正弦匀，一路往下。正弦走到一半的那个高度（34.6 度上下），两样正好在两头的中间
+    const sin = (deg: number) => Math.sin((deg * Math.PI) / 180);
+    const half = (Math.asin((sin(12) + sin(68)) / 2) * 180) / Math.PI;
+    expect(at(half).sun).toBeCloseTo((1.15 + 0.9) / 2, 9);
+    expect(at(half).hemi).toBeCloseTo((1.05 + 0.75) / 2, 9);
+    const heights = [12, 20, 24, 30, 40, 51.9, 60, 68];
+    heights.slice(1).forEach((h, i) => {
+      expect(at(h).sun, `月光，${heights[i]} 度到 ${h} 度`).toBeLessThan(at(heights[i]).sun);
+      expect(at(h).hemi, `天光，${heights[i]} 度到 ${h} 度`).toBeLessThan(at(heights[i]).hemi);
+    });
+    // 这条规矩是为了什么：白天空旷的平地的亮算 1，夜里的平地在月亮 12 度高和 68 度高时差不到一成（0.1）。
+    // 照线性的光比、照屏幕上的亮比（过了显示器的伽马 2.2）都算。两头用同一套数（12 度的那一套）的话差 0.20 和 0.16，不通过。
+    // 要留意这说的是“差白天的几成”，不是两夜相比：两夜相比，68 度的那一夜平地还是亮三成（线性；屏幕上亮一成多）。
+    const screen = (v: number) => v ** (1 / 2.2);
+    const low = lightDim(at(12), day);
+    const high = lightDim(at(68), day);
+    expect(Math.abs(high - low)).toBeLessThan(0.1);
+    expect(Math.abs(screen(high) - screen(low))).toBeLessThan(0.1);
+    const sameSet = lightDim({ ...at(68), sun: at(12).sun, hemi: at(12).hemi }, day);
+    expect(sameSet - low).toBeGreaterThan(0.15);
+    expect(screen(sameSet) - screen(low)).toBeGreaterThan(0.15);
+    console.log(
+      `夜里的平地（白天算 1）：12 度 ${low.toFixed(3)}（屏幕上 ${screen(low).toFixed(3)}），68 度 ${high.toFixed(3)}（${screen(high).toFixed(3)}）；两头用同一套数时 68 度是 ${sameSet.toFixed(3)}（${screen(sameSet).toFixed(3)}）`,
+    );
+    // 中间的高度也不出这个圈
+    for (const h of heights) expect(Math.abs(lightDim(at(h), day) - low), `${h} 度`).toBeLessThan(0.1);
   });
 
   it('lightLevel、lightDim：直接照到的那一份跟着光的斜度走，天光不跟；白天压暗的几成正好是 1', () => {

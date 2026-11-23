@@ -11,6 +11,7 @@
 
 import * as THREE from 'three';
 import type { SceneThing, ThingKind } from '../../../domain/scene';
+import type { FamilyThingKind } from '../../../domain/sceneKinds';
 import { yardLayout } from '../../ground';
 import type { Vec2, Vec3 } from '../../ground/types';
 import type { FigureClass, KitContext } from '../internal';
@@ -868,8 +869,8 @@ function buildTimberBank(pass: Pass, thing: SceneThing): void {
   });
 }
 
-/** 九种摆件，一种一个造法。 */
-export const THING_BUILDERS: Record<ThingKind, ThingBuilder> = {
+/** 九种摆件，一种一个造法。按家分块的那几种（崖壁……）不在这里：它们的造法跟着那一家的程序来（见 families.ts）。 */
+export const THING_BUILDERS: Record<Exclude<ThingKind, FamilyThingKind>, ThingBuilder> = {
   wall: buildWall,
   gate: buildGate,
   tower: buildTower,

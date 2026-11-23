@@ -35,8 +35,9 @@ import {
   type IUniform,
 } from 'three';
 import type { FrameCoords } from '../../domain/sceneGeo';
-import type { GroundPaint, GroundSamplers, Vec2 } from '../ground/types';
+import type { GroundPaint, GroundSamplers } from '../ground/types';
 import { fieldBytes } from './groundPaint';
+import { terrainGrid, vertexHeightM } from './meshHeight';
 import type { GroundPaintSource } from './groundPaint';
 import { disposeTree } from './host';
 import type { StageStyle } from './internal';
@@ -45,16 +46,8 @@ import { rippleGlsl } from './water';
 /** 地形板的底面在沙盘里的高度。 */
 export const BLOCK_BASE_Y = -170;
 
-/** 地形板的网格大约多少米一格（样张是 58.5 × 59.1）。比高程的格子粗。 */
-const SEGMENT_M = 59;
-
-/** 地形板的网格横竖各分多少格。三角形数：上表面 sx × sz × 2，四边的切面 (sx + sz) × 4。segmentM 不写是站点沙盘的 59。 */
-export function terrainGrid(coords: FrameCoords, segmentM: number = SEGMENT_M): { sx: number; sz: number } {
-  return {
-    sx: Math.max(2, Math.round((coords.x1 - coords.x0) / segmentM)),
-    sz: Math.max(2, Math.round((coords.z1 - coords.z0) / segmentM)),
-  };
-}
+// 网格分多少格、一个顶点多高，在 ./meshHeight.ts：贴着地形板摆的模型也要问那里。
+export { terrainGrid };
 
 const FIELD_GLSL = /* glsl */ `
 varying vec3 vWPos;
@@ -198,14 +191,8 @@ export function buildTerrainMesh(input: TerrainMeshInput): TerrainMesh {
   const W = coords.x1 - coords.x0;
   const D = coords.z1 - coords.z0;
 
-  // 网格比高程粗，取附近的最低值，保证水面不会被网格顶破
-  const around: Vec2[] = [[22, 0], [-22, 0], [0, 22], [0, -22], [22, 22], [-22, 22], [22, -22], [-22, -22]];
-  const heightAtVertex = (x: number, z: number): number => {
-    let m = samplers.height(x, z);
-    if (input.underWater === false) return m;
-    for (const [dx, dz] of around) m = Math.min(m, samplers.height(x + dx, z + dz));
-    return m;
-  };
+  // 网格比高程粗，取附近的最低值，保证水面不会被网格顶破（meshHeight.ts 的 vertexHeightM）
+  const heightAtVertex = (x: number, z: number): number => (input.underWater === false ? samplers.height(x, z) : vertexHeightM(samplers, x, z));
 
   const nv = (SX + 1) * (SZ + 1);
   const pos = new Float32Array(nv * 3);

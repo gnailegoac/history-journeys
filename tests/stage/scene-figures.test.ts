@@ -46,8 +46,8 @@ const QUALITIES: Quality[] = [FULL_QUALITY, REDUCED_QUALITY];
 const BUILT_KINDS: DressingKind[] = ['houses', 'villages', 'boats', 'rocks', 'trees'];
 
 function ctxOf(R: RealScene, quality: Quality = FULL_QUALITY, style: StageStyle = styleFor(R.scene.style)): KitContext {
-  const { scene, ground, samplers, coords } = R;
-  return { scene, ground, samplers, coords, style, quality };
+  const { scene, ground, samplers, coords, kit } = R;
+  return { scene, ground, samplers, coords, style, quality, kit };
 }
 
 /** 镜头从 1 公里到 130 公里，每次远 5%。 */

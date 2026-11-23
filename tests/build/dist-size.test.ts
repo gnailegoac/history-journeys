@@ -14,6 +14,9 @@
 // 随站的字体带得对不对（dist/ 里正好是放进仓库的那三个文件，index.html 预先声明的和样式表里写的是同一个文件），
 // 字体多大也印出来；构建出来的样式表里没有 Safari 读不懂的那几种写法（查的是构建以后的原文：构建的工具会改写样式表）。
 // 后两件怎么查在 tests/support/builtFonts.ts。
+// 按家分块的零件（src/stage/families.ts）：每一家是单独的一块，场景里写到了才下载。对 content/ 里的每一座沙盘查
+// “沙盘程序加上这座沙盘要下载的那几块”不超过同一个上限；徐州和全程沙盘一家也不下载；沙盘程序还是一个文件
+//（分块分得不对，打包的工具会把两边共用的东西另拆一块，哪座沙盘都要多下载一个文件）。
 // 还有一件：点开才下载的三段界面程序（凭据里面的东西、讲解员面板里面的东西、“来源”页里面的东西）各是单独的一块，
 // 页面一打开就下载的程序只有入口那一个文件——React 的核心没有被打包的工具单拆出去（拆出去的话页面的程序凭空多出约 600 字节）。
 // “压缩以后”用的是 gzip 平常的力度，和构建时印在屏幕上的那一列是同一个算法。
@@ -27,11 +30,14 @@ import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { gzipSync } from 'node:zlib';
 import { describe, expect, it } from 'vitest';
 import { createHash } from 'node:crypto';
-import { ENGINE_ENTRY, ENGINE_GZIP_MAX, FILE_URLS_ENTRY, PAGE_ENTRY, ROUTE_ENTRY, fontReport, programReport, programSizes, staticClosure, withCommas } from '../content/budgetRules';
+import { ENGINE_ENTRY, ENGINE_GZIP_MAX, FILE_URLS_ENTRY, PAGE_ENTRY, ROUTE_ENTRY, familyEntry, fontReport, programReport, programSizes, staticClosure, withCommas } from '../content/budgetRules';
 import type { BuildManifest, SizeReport } from '../content/budgetRules';
 import { CONTAINER_MAX, CQW_MAX, builtFonts, builtStyleProblems } from '../support/builtFonts';
 import { oldIpadSheet } from '../support/oldIpadSheet';
 import { SOURCES_TEXT } from '../../src/ui/sourcesText';
+import { FAMILIES } from '../../src/stage/families';
+import { familyNamesFor } from '../stage/support/kitFamilies';
+import { realRouteScene, realSceneFile, realSceneKeys } from '../stage/support/realScenes';
 import type { BuiltSite, CommittedFont } from '../support/builtFonts';
 
 /** 项目的根目录下的 dist/：这个文件在 tests/build/ 里，往上两层。 */
@@ -104,6 +110,62 @@ describe('全程沙盘另外的那一块程序', () => {
     const extra = sizes.route?.gzip ?? 0;
     console.log(`  摆站点沙盘要下载的程序 ${withCommas(engine)} 字节；摆全程沙盘 ${withCommas(engine)} + ${withCommas(extra)} = ${withCommas(engine + extra)} 字节；上限都是 ${withCommas(ENGINE_GZIP_MAX)}`);
     expect(engine + extra).toBeLessThanOrEqual(ENGINE_GZIP_MAX);
+  });
+});
+
+describe('按家分块的零件：每一座沙盘要下载多少程序', () => {
+  /** 一家的程序另外要下载的文件（页面和沙盘程序已经带着的不重复算）。 */
+  const familyFiles = (manifest: BuildManifest, name: string): string[] => {
+    const have = new Set([...staticClosure(manifest, PAGE_ENTRY), ...staticClosure(manifest, ENGINE_ENTRY)].map((key) => manifest[key].file));
+    const files = staticClosure(manifest, familyEntry(name)).map((key) => manifest[key].file);
+    return files.filter((file, i) => !have.has(file) && files.indexOf(file) === i);
+  };
+
+  it('登记表里的每一家都是单独的一块，用到时才下载；沙盘程序、全程沙盘那一块、页面的程序都不带着它；沙盘程序还是一个文件', () => {
+    expect(existsSync(MANIFEST), '没有 dist/.vite/manifest.json：先运行 npm run build').toBe(true);
+    const manifest = readManifest(new TextDecoder().decode(readFileSync(MANIFEST)));
+    expect(FAMILIES.length).toBeGreaterThan(0);
+    for (const { name } of FAMILIES) {
+      const key = familyEntry(name);
+      expect(manifest[key], `清单里没有 ${key} 这一项：这一家的程序被打进了别的块，或者文件不叫这个名字（src/stage/three/families/<家的名字>.ts）`).toBeDefined();
+      expect(manifest[key].isDynamicEntry, `${key} 在清单里没有标成“用到时才下载”`).toBe(true);
+      for (const entry of [ENGINE_ENTRY, ROUTE_ENTRY, PAGE_ENTRY]) expect(staticClosure(manifest, entry), `${key} 成了 ${entry} 一来就带着的东西`).not.toContain(key);
+      // 它另外要下载的只有它自己那一个文件：和沙盘程序共用的东西留在沙盘程序里，没有另拆一块
+      expect(familyFiles(manifest, name), `${key} 另外要下载的文件`).toEqual([manifest[key].file]);
+    }
+    // 沙盘程序还是一个文件（共用的东西另拆了一块的话，这里是两个）
+    expect(programSizes(manifest, gzipOnDisk).engine?.files).toEqual([manifest[ENGINE_ENTRY].file]);
+  });
+
+  it(`content/ 里的每一座沙盘：沙盘程序加上它要下载的那几块，不超过 ${withCommas(ENGINE_GZIP_MAX)} 字节；徐州和全程沙盘一家也不下载`, () => {
+    expect(existsSync(MANIFEST), '没有 dist/.vite/manifest.json：先运行 npm run build').toBe(true);
+    const manifest = readManifest(new TextDecoder().decode(readFileSync(MANIFEST)));
+    const sizes = programSizes(manifest, gzipOnDisk);
+    const engine = sizes.engine?.gzip ?? 0;
+    const route = sizes.route?.gzip ?? 0;
+    expect(engine).toBeGreaterThan(0);
+    const lines: string[] = [];
+    const stops = realSceneKeys();
+    expect(stops).toContain('su-shi/xuzhou');
+    for (const key of stops) {
+      const names = familyNamesFor(realSceneFile(key).scene);
+      const each = names.map((name) => ({ name, gzip: familyFiles(manifest, name).reduce((sum, file) => sum + gzipOnDisk(file), 0) }));
+      const total = engine + each.reduce((sum, family) => sum + family.gzip, 0);
+      lines.push(`${key}：沙盘程序 ${withCommas(engine)}${each.map((family) => ` + ${family.name} ${withCommas(family.gzip)}`).join('')} = ${withCommas(total)} 字节${names.length ? '' : '（一家也不下载）'}`);
+      expect(total, `${key} 要下载的程序超过了上限`).toBeLessThanOrEqual(ENGINE_GZIP_MAX);
+      for (const family of each) expect(family.gzip, `${family.name} 这一家量不出大小`).toBeGreaterThan(0);
+    }
+    // 徐州：场景里没有写到哪一家的东西
+    expect(familyNamesFor(realSceneFile('su-shi/xuzhou').scene)).toEqual([]);
+    // 全程沙盘：它下载的是全程沙盘那一块；场景里没有摆件和点缀，写不到哪一家的东西，摆它的那条路也不问登记表（src/stage/three/view.ts 的 buildRouteParts）
+    for (const key of realSceneKeys('route')) {
+      const scene = realRouteScene(key).scene as unknown as Record<string, unknown>;
+      expect(scene.things, `${key} 有了摆件`).toBeUndefined();
+      expect(scene.dressing, `${key} 有了点缀`).toBeUndefined();
+      lines.push(`${key}：沙盘程序 ${withCommas(engine)} + 全程沙盘那一块 ${withCommas(route)} = ${withCommas(engine + route)} 字节（一家也不下载）`);
+      expect(engine + route).toBeLessThanOrEqual(ENGINE_GZIP_MAX);
+    }
+    console.log(['每一座沙盘要下载的程序（压缩以后）', ...lines.map((line) => `  ${line}`), ...FAMILIES.map(({ name, holds }) => `  ${name} 这一家：${holds.join('、')}　${withCommas(familyFiles(manifest, name).reduce((sum, file) => sum + gzipOnDisk(file), 0))} 字节　${manifest[familyEntry(name)].file}`)].join('\n'));
   });
 });
 

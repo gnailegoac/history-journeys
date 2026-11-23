@@ -70,6 +70,15 @@ const PALETTE: Record<string, string> = {
   rammedEarth: '#bda27a', // 夯土的城墙：比新筑的堤旧一点、灰一点
   bankEarth: '#c2b292', // 墙脚到水边的旧土坡：在平地的茶色和夯土城墙之间，不比城墙亮眼
   fog: '#ece3cf', // 远处的雾（样张里直接写在 sandtable.js 里）
+  // 黄州添的：崖壁的红褐色和崖脚的深色，竹、柏，崖脚石头的四种颜色（“深浅红黄之色”）
+  cliff: '#a4563c',
+  cliffDeep: '#7d4130',
+  bamboo: '#8fae6a',
+  cypress: '#2f4f48',
+  shoreRed: '#b0715a',
+  shoreYellow: '#c9a86a',
+  shoreBrown: '#8d6f55',
+  shorePale: '#d9d5c6',
 };
 
 // ---------------------------------------------------------------- 题签抬多高
@@ -92,6 +101,8 @@ const STRIP_LIFT: Record<ThingKind, number> = {
   dike: 30,
   bank: 6,
   'timber-bank': 10,
+  // 崖壁：那个点落在崖顶的边上面一点
+  cliff: 100,
 };
 
 /**
@@ -141,8 +152,8 @@ const NIGHT = {
  */
 const NIGHT_ENDS = { low: { altitude: 12, sun: 1.15, hemi: 1.05 }, high: { altitude: 68, sun: 0.9, hemi: 0.75 } };
 
-/** 月光直接照到的水面多亮出几倍，照 ../rig.ts 的 sheenFor 算时用的强弱：月亮 12 度高时是 4.8 倍，68 度高时几乎没有。 */
-const NIGHT_SHEEN = 2;
+/** 月亮 12 度高时，月光直接照到的水面多亮出几倍；月亮再高照 ../rig.ts 的 sheenFor 降下去：24 度高时 5.1 倍，68 度以上没有。 */
+const NIGHT_SHEEN = 9.1;
 
 const sinDeg = (deg: number): number => Math.sin((deg * Math.PI) / 180);
 

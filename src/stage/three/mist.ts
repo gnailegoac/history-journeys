@@ -10,7 +10,7 @@ import type { StopScene } from '../../domain/scene';
 import type { FrameCoords } from '../../domain/sceneGeo';
 import type { Ground, GroundSamplers } from '../ground/types';
 import type { StageStyle } from './internal';
-import { clamp, fbm, smoothstep } from './kit/util';
+import { clamp, distSeg, fbm, smoothstep } from './kit/util';
 
 const MIST_FRAG = /* glsl */ `
 uniform sampler2D uA;
@@ -91,9 +91,12 @@ export function buildMist(input: MistInput): Mist {
   // 立在地上的单座的屋、亭（张山人的草屋、放鹤亭）是小节里要讲的小东西，又都在山脚：雾一罩，屋脚在哪、水淹到墙的哪里就看不清了，
   // 旁边的树也被雾面切成上下两截。它们四周一百多米里不起雾，往外慢慢起
   const singles = scene.things.flatMap((t) => ((t.kind === 'house' || t.kind === 'pavilion') && t.at && !t.on ? [coords.toLocal(t.at)] : []));
+  // 崖壁也一样（离崖脚那条线多远）：三层云气的高度正好横在崖面上，从低处看过去会把崖拦腰切断
+  const cliffs = scene.things.flatMap((t) => (t.kind === 'cliff' && t.line ? [t.line.map((p) => coords.toLocal(p))] : []));
   const awaySingle = (x: number, z: number): number => {
     let d = Infinity;
     for (const [sx, sz] of singles) d = Math.min(d, Math.hypot(x - sx, z - sz));
+    for (const line of cliffs) for (let i = 1; i < line.length; i++) d = Math.min(d, distSeg(x, z, line[i - 1][0], line[i - 1][1], line[i][0], line[i][1]));
     return smoothstep(150, 480, d);
   };
 

@@ -6,8 +6,15 @@
 // ---------------------------------------------------------------- 摆件
 
 /** 零件库里有的东西。添一种零件要改程序，先添在这里和下面三张表里。 */
-export const THING_KINDS = ['wall', 'gate', 'tower', 'pavilion', 'hall-group', 'house', 'dike', 'bank', 'timber-bank'] as const;
+export const THING_KINDS = ['wall', 'gate', 'tower', 'pavilion', 'hall-group', 'house', 'dike', 'bank', 'timber-bank', 'cliff'] as const;
 export type ThingKind = (typeof THING_KINDS)[number];
+
+/**
+ * 只有一部分沙盘用得着的零件：造它的程序不在沙盘程序里，按“家”分块，用到时才下载（登记在 src/stage/families.ts）。
+ * 树、石头的 type 里也有这样的（bamboo、cypress、shore），登记在同一处。
+ */
+export const FAMILY_THING_KINDS = ['cliff'] as const satisfies readonly ThingKind[];
+export type FamilyThingKind = (typeof FAMILY_THING_KINDS)[number];
 
 /** 参数的样子：一个数，是或否，或者几个词里选一个。 */
 export type ParamType = 'number' | 'boolean' | readonly string[];
@@ -37,6 +44,8 @@ export const THING_PARAMS = {
   bank: {},
   /** 木桩护岸。 */
   'timber-bank': {},
+  /** 崖壁：线是崖脚。 */
+  cliff: {},
 } as const satisfies Record<ThingKind, Record<string, ParamType>>;
 
 /** 各种零件的位置怎么写：point 是一个点（at），line 是一条线（line），ring 是一圈闭合的线（line，最后一点不用重复第一点）。 */
@@ -50,6 +59,7 @@ export const THING_PLACING: Record<ThingKind, 'point' | 'line' | 'ring'> = {
   dike: 'line',
   bank: 'line',
   'timber-bank': 'line',
+  cliff: 'line',
 };
 
 /**
@@ -66,6 +76,7 @@ export const THING_HOSTS: Record<ThingKind, readonly ThingKind[]> = {
   dike: ['wall'],
   bank: ['wall'],
   'timber-bank': [],
+  cliff: [],
 };
 
 // ---------------------------------------------------------------- 点缀
@@ -81,12 +92,12 @@ export const DRESSING_PARAMS = {
   villages: { count: 'number', seed: 'number' },
   /** 田。 */
   fields: { seed: 'number' },
-  /** 树。type：杂树、松、柳、果树。 */
-  trees: { type: ['mixed', 'pine', 'willow', 'fruit'], density: 'number', radiusM: 'number', seed: 'number' },
+  /** 树。type：杂树、松、柳、果树、竹、柏（后两种的程序按家分块）。 */
+  trees: { type: ['mixed', 'pine', 'willow', 'fruit', 'bamboo', 'cypress'], density: 'number', radiusM: 'number', seed: 'number' },
   /** 船。type：货船还是小船；moored：系着不动。 */
   boats: { type: ['cargo', 'small'], count: 'number', moored: 'boolean', radiusM: 'number', seed: 'number' },
-  /** 露着的石头。 */
-  rocks: { type: ['grey', 'pale'], count: 'number', radiusM: 'number', seed: 'number' },
+  /** 露着的石头。shore 是只在水落时露出来的（程序按家分块）。 */
+  rocks: { type: ['grey', 'pale', 'shore'], count: 'number', radiusM: 'number', seed: 'number' },
   /** 路。street 是城里的街，road 是城外的路。 */
   roads: { type: ['street', 'road'] },
 } as const satisfies Record<DressingKind, Record<string, ParamType>>;

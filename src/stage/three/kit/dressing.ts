@@ -91,8 +91,11 @@ interface Home {
  * 顺着巷子一座一座看，它放大、摊开以后不碰到已经挑上的、也不压着城墙脚、院落和大街，才挑上。
  * 这一批的次序排在“放大到头时留几成”那条线以内，别的排在线以外：放大到头时正好只剩这一批，谁也不压着谁。
  * 次序只看屋子摆在哪，不看画质：减配时少造一半，远了留下的还是这一批里造了的那几座。
+ * turned：这一片是散着摆的，屋子各有各的朝向（差着十来度）。那样的两座屋不能再当成走向一样来比：
+ * 各照自己真的朝向，算出它在沙盘的东西、南北两个方向上占多宽（斜着的占得宽一些），两个方向上都隔不开才算碰到。
+ * 沿巷子排的不写，照原来的比法。
  */
-function rankHomes(pass: Pass, ruleId: string, homes: Home[], seed: number, clear: (x: number, z: number, dx: number, dz: number) => boolean): number[] {
+function rankHomes(pass: Pass, ruleId: string, homes: Home[], seed: number, clear: (x: number, z: number, dx: number, dz: number) => boolean, turned = false): number[] {
   const rule: FigureRule = pass.ctx.style.figure.rules.cityHouse;
   const grow = Math.max(1, rule.maxTimes);
   const spread = Math.max(1, rule.spreadAtMax ?? 1);
@@ -115,6 +118,13 @@ function rankHomes(pass: Pass, ruleId: string, homes: Home[], seed: number, clea
       // 两座屋的走向差不多是一样的（巷子平行）：在这一座自己的方向上看隔得够不够开
       const u = Math.abs((g.x - p.x) * h.dx + (g.z - p.z) * h.dz);
       const v = Math.abs(-(g.x - p.x) * h.dz + (g.z - p.z) * h.dx);
+      if (turned) {
+        const wide = (q: { hl: number; hd: number }, dx: number, dz: number): Vec2 => [Math.abs(dx) * q.hl + Math.abs(dz) * q.hd, Math.abs(dz) * q.hl + Math.abs(dx) * q.hd];
+        const a = wide(g, h.dx, h.dz);
+        const b = wide(p, p.dx, p.dz);
+        if (Math.abs(g.x - p.x) < a[0] + b[0] + 2 && Math.abs(g.z - p.z) < a[1] + b[1] + 2) return;
+        continue;
+      }
       const aligned = Math.abs(h.dx * p.dx + h.dz * p.dz) > 0.7;
       const reachU = g.hl + (aligned ? p.hl : p.hd) + 2;
       const reachV = g.hd + (aligned ? p.hd : p.hl) + 2;
@@ -325,7 +335,7 @@ function housesScattered(pass: Pass, B: Batch, ruleId: string, area: Vec2[], wal
     }
   }
   const grownYards = pass.yards.map(grownYard);
-  const rank = rankHomes(pass, ruleId, homes, seed, (x, z) => !grownYards.some((y) => inYard(y, x, z, 40)));
+  const rank = rankHomes(pass, ruleId, homes, seed, (x, z) => !grownYards.some((y) => inYard(y, x, z, 40)), true);
   for (const { lot, home } of backLots) lot.follow = { cls: 'cityHouse', group: [homes[home].x, homes[home].z], rank: rank[home] };
   addHomes(B, homes, rank, (h) => heights[homes.indexOf(h)], (h) => !wall && wetAt(pass, h.x, h.z));
 }
@@ -632,7 +642,7 @@ function buildBoats(pass: Pass, rule: SceneDressing): void {
 // ---------------------------------------------------------------- 露着的石头
 
 /** 一块石头：摆在哪、什么样。 */
-interface Rock {
+export interface Rock {
   mat: 'rock' | 'rockPale';
   shape: [number, number];
   foot: Vec3;
@@ -646,6 +656,10 @@ interface Rock {
 function layRocks(pass: Pass, rule: SceneDressing): Rock[] {
   if (!rule.at) return [];
   const p = dressingParams('rocks', rule.params);
+  // 按家分块的那几种石头（崖脚的石头）：摆法跟着那一家的程序来
+  const family = pass.ctx.kit?.rocks?.[p.type ?? ''];
+  if (family) return family(pass, rule);
+  if (p.type === 'shore') throw new Error('零件库里没有 shore 这种石头的摆法：它那一家的程序没有取到');
   const { coords, samplers, scene } = pass.ctx;
   const rnd = mulberry32(p.seed ?? 1078);
   const [bx, bz] = local(pass, rule.at);

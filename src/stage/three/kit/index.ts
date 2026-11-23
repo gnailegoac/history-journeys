@@ -1,5 +1,6 @@
 // 零件库的入口：按场景数据造出一座沙盘上的全部小模型。约定见 ../internal.ts。
-// 沙盘程序别的部分只用这里的 buildModels 和它返回的 ModelSet，不直接碰零件库里面的文件。
+// 沙盘程序别的部分只用这里的 buildModels 和它返回的 ModelSet，不直接碰零件库里面的文件；
+// 只有一样例外：按家分块的零件（./families.ts）怎么登记、怎么取，view.ts 和 engine.ts 直接从那个文件拿。
 //
 // 里面分这几块：
 //   geo.ts、textures.ts、parts.ts、shapes.ts  从样张搬来的零件：批次、屋顶、棱柱；贴图；殿、楼、亭、民房；石头、船、树的形状

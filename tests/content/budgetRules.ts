@@ -71,6 +71,8 @@ export const ENGINE_ENTRY = 'src/stage/three/engine.ts';
  * 不另算的话，全程沙盘的程序就挪到了哪一条上限都看不见的地方。
  */
 export const ROUTE_ENTRY = 'src/stage/three/routeLevel.ts';
+/** 按家分块的零件（src/stage/families.ts 的登记表）里叫 name 的那一家，它的程序在构建清单里的名字。 */
+export const familyEntry = (name: string): string => `src/stage/three/families/${name}.ts`;
 /** 沙盘用到的文件（地形文件、先画好的地面、定格图）的网址那一块在清单里叫什么。它要用到时才下载，不能进页面那一块。 */
 export const FILE_URLS_ENTRY = 'src/domain/sceneFileUrls.ts';
 

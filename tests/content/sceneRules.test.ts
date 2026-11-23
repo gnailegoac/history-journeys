@@ -639,8 +639,20 @@ describe('规则 13 零件', () => {
     expect(sceneProblems((s) => (s.things[0].params = { parapet: 'yes' }))).toEqual(['13 things[0].params.parapet']);
     expect(sceneProblems((s) => (s.things[0].params = { face: 'stone' }))).toEqual(['13 things[0].params.face']);
     expect(sceneProblems((s) => (s.things[0].params = { face: true }))).toEqual(['13 things[0].params.face']);
-    expect(sceneProblems((s) => (s.dressing[1].params = { type: 'bamboo' }))).toEqual(['13 dressing[1].params.type']);
+    // 竹（bamboo）现在有了；棕榈还没有
+    expect(sceneProblems((s) => (s.dressing[1].params = { type: 'palm' }))).toEqual(['13 dressing[1].params.type']);
+    expect(sceneProblems((s) => (s.dressing[1].params = { type: 'bamboo' }))).toEqual([]);
     expect(sceneProblems((s) => (s.dressing[2].params = { count: '3' }))).toEqual(['13 dressing[2].params.count']);
+  });
+
+  it('“这几处不种”（except）只有树的规则可以写，写的是带着一圈范围的修整的 id', () => {
+    // dressing[1] 是树，low-field 是带 area 的 level 修整：可以
+    expect(sceneProblems((s) => (s.dressing[1].except = ['low-field']))).toEqual([]);
+    // 民居不能写
+    expect(sceneProblems((s) => (s.dressing[0].except = ['low-field']))).toEqual(['13 dressing[0].except']);
+    // 没有这处修整；城里的地面写的是 inside，没有自己的一圈；垫高的小冈不是 level
+    expect(sceneProblems((s) => (s.dressing[1].except = ['nowhere']))).toEqual(['13 dressing[1].except[0]']);
+    expect(sceneProblems((s) => (s.dressing[1].except = ['low-field', 'city-ground', 'knoll']))).toEqual(['13 dressing[1].except[1]', '13 dressing[1].except[2]']);
   });
 
   it('参数可以一个都不写', () => {

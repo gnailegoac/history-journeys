@@ -9,6 +9,7 @@ import type { SceneMoon, SceneSky, SceneStyleId, StopScene, ThingKind } from '..
 import type { FrameCoords } from '../../domain/sceneGeo';
 import type { Ground, GroundSamplers, GroundStyle, Vec3 } from '../ground/types';
 import type { StageTier } from '../types';
+import type { KitFamily } from './kit/families';
 
 /** 画质。所有和画质有关的数都从这里读，不散在各处。两档各一份，在 src/stage/three/quality.ts。 */
 export interface Quality {
@@ -197,6 +198,8 @@ export interface KitContext {
   coords: FrameCoords;
   style: StageStyle;
   quality: Quality;
+  /** 这座沙盘用得着的、按家分块的零件（已经取到、并成一份；见 kit/families.ts）。一家也用不着就不写。 */
+  kit?: KitFamily;
 }
 
 /** 一座沙盘的全部小模型。由零件库的 buildModels(ctx) 造出来（src/stage/three/kit/index.ts）。 */

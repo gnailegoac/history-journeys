@@ -340,14 +340,20 @@ export function lightDim(light: LightSpec, day: LightSpec): number {
   return light.fog || light.mist ? lightLevel(light) / lightLevel(day) : 1;
 }
 
+/** 月光照亮水面的那条线的两头：月亮 SHEEN_FULL 度高时是样式里写的那个倍数，SHEEN_NONE 度以上是 0。 */
+const SHEEN_FULL = 12;
+const SHEEN_NONE = 68;
+
 /**
- * 月光直接照到的水面多亮出几倍：strength × (1 − s)³ ÷ max(s, 0.15)，s 是月亮高度的正弦。
- * 月亮低的时候大（光贴着水面来，水面反得多），高的时候几乎是 0。altitude 是月亮真的高度（度）：
- * 灯画得比它高的时候（山画高了，影子要短一些），这里还是照真的算。
+ * 月光直接照到的水面多亮出几倍：strength × u^1.76，u =（sin 68° − sin 月亮的高度）÷（sin 68° − sin 12°），不小于 0。
+ * strength 是月亮 12 度高时的倍数（样式里的一个数）。月亮低的时候大（光贴着水面来，水面反得多），越高越小，68 度以上是 0。
+ * 2026-11-23 对着黄州七月那一夜的图重定的：12 度时 9.1 倍、24 度时 5.1 倍，敞开的江面都比照到月光的平地亮二十来级，
+ * 水纹不比白天白。原来的一条线（strength × (1 − s)³ ÷ s）12 度到 24 度掉得太快：一个数顾不了两头。
  */
 export function sheenFor(strength: number, altitude: number): number {
-  const s = Math.sin(MathUtils.degToRad(altitude));
-  return (strength * (1 - s) ** 3) / Math.max(s, 0.15);
+  const sin = (deg: number): number => Math.sin(MathUtils.degToRad(deg));
+  const u = (sin(SHEEN_NONE) - sin(altitude)) / (sin(SHEEN_NONE) - sin(SHEEN_FULL));
+  return u > 0 ? strength * u ** 1.76 : 0;
 }
 
 // ---------------------------------------------------------------- 题签指着的那一点

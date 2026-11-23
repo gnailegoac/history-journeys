@@ -34,9 +34,23 @@ const ARROW_STYLE = 'fill:none;stroke:var(--color-ink, #2a2520);stroke-width:1.5
 /** 箭头底下垫的衬边（和空心圈的衬边一个颜色）：竖着拿的平板上箭头尖正落在沙盘深色的边框上，墨色压着深褐色，没有衬边就只剩半截。 */
 const ARROW_HALO_STYLE = 'fill:none;stroke:var(--color-paper, #f5efe3);stroke-width:3.6;opacity:0.85;stroke-linecap:round;stroke-linejoin:round';
 
+/**
+ * 引线底下垫的衬边（和空心圈、箭头的衬边一个颜色）：一像素宽的墨线压在夜里的深色水面、深色的屋顶上，反差只剩白天的一半，
+ * 垫一条纸色的、宽三像素的线，哪种天色都看得清。
+ */
+const LEADER_UNDER_STYLE = 'fill:none;stroke:var(--color-paper, #f5efe3);stroke-width:3;opacity:0.8';
+
+/**
+ * 一条横平竖直的线画在整像素上：中线挪到半个像素的地方，一像素宽的线正好占一行（一列）像素。
+ * 中线落在别处（比如 200.0）的话，这一像素的墨被分到相邻的两行里，各淡一半。
+ */
+const onPixel = (v: number): number => Math.floor(v) + 0.5;
+
 interface Item {
   spec: StripSpec;
   el: HTMLDivElement;
+  /** 引线，和垫在它底下的衬边（一起显、一起藏）。 */
+  under: SVGPathElement;
   line: SVGLineElement;
   dot: SVGCircleElement;
   /** 远处的题签才画的小箭头，和垫在它底下的衬边（两条一样的线，一起显、一起藏）。 */
@@ -122,6 +136,9 @@ export function mountStrips(container: HTMLElement): StripLayer {
       }
     }
 
+    const under = doc.createElementNS(SVG_NS, 'path');
+    under.style.cssText = LEADER_UNDER_STYLE;
+    under.style.display = 'none';
     const line = doc.createElementNS(SVG_NS, 'line');
     line.setAttribute('stroke', 'currentColor');
     line.setAttribute('stroke-width', '1');
@@ -148,9 +165,9 @@ export function mountStrips(container: HTMLElement): StripLayer {
       ring.append(circle);
     }
 
-    svg.append(line, halo, arrow, dot, ring);
+    svg.append(under, line, halo, arrow, dot, ring);
     root.append(el);
-    return { spec, el, line, dot, arrow, halo, ring, w: 0, h: 0 };
+    return { spec, el, under, line, dot, arrow, halo, ring, w: 0, h: 0 };
   }
 
   function measure(): void {
@@ -170,6 +187,7 @@ export function mountStrips(container: HTMLElement): StripLayer {
 
   function conceal(item: Item): void {
     item.el.style.visibility = 'hidden';
+    item.under.style.display = 'none';
     item.line.style.display = 'none';
     item.dot.style.display = 'none';
     setArrow(item, null);
@@ -197,12 +215,19 @@ export function mountStrips(container: HTMLElement): StripLayer {
     item.el.style.top = `${placement.y}px`;
     item.el.style.visibility = '';
     if (!placement.leader) {
+      item.under.style.display = 'none';
       item.line.style.display = 'none';
       item.dot.style.display = 'none';
       setArrow(item, null);
       return;
     }
-    const [x1, y1, x2, y2] = placement.leader;
+    const [ax, ay] = placement.leader;
+    let [x1, y1, x2, y2] = placement.leader;
+    // 竖着的引线横向落在整像素上，横着的竖向落在整像素上；那个点跟着线走（朝外的小箭头还从原来那一点起）
+    if (Math.abs(x2 - x1) < 0.5) x1 = x2 = onPixel(x1);
+    if (Math.abs(y2 - y1) < 0.5) y1 = y2 = onPixel(y1);
+    item.under.setAttribute('d', `M${x1.toFixed(1)} ${y1.toFixed(1)}L${x2.toFixed(1)} ${y2.toFixed(1)}`);
+    item.under.style.display = '';
     item.line.setAttribute('x1', x1.toFixed(1));
     item.line.setAttribute('y1', y1.toFixed(1));
     item.line.setAttribute('x2', x2.toFixed(1));
@@ -213,13 +238,13 @@ export function mountStrips(container: HTMLElement): StripLayer {
     item.dot.style.display = '';
     // 朝外的小箭头。题签自己已经摆在朝外的那一边时不画：引线就是朝外的，再画一个会叠在引线上
     const out = outOf(item);
-    const length = Math.hypot(x2 - x1, y2 - y1);
-    if (!out || (length > 0 && ((x2 - x1) * out[0] + (y2 - y1) * out[1]) / length > 0.5)) {
+    const length = Math.hypot(x2 - ax, y2 - ay);
+    if (!out || (length > 0 && ((x2 - ax) * out[0] + (y2 - ay) * out[1]) / length > 0.5)) {
       setArrow(item, null);
       return;
     }
-    const tipX = x1 + out[0] * ARROW_LENGTH;
-    const tipY = y1 + out[1] * ARROW_LENGTH;
+    const tipX = ax + out[0] * ARROW_LENGTH;
+    const tipY = ay + out[1] * ARROW_LENGTH;
     // 箭头尖的两条边：从尖上往回，各偏开半个弧度
     const wing = (turn: number): string => {
       const c = Math.cos(turn);
@@ -227,7 +252,7 @@ export function mountStrips(container: HTMLElement): StripLayer {
       return `${(tipX - (out[0] * c - out[1] * s) * ARROW_HEAD).toFixed(1)} ${(tipY - (out[0] * s + out[1] * c) * ARROW_HEAD).toFixed(1)}`;
     };
     const tip = `${tipX.toFixed(1)} ${tipY.toFixed(1)}`;
-    setArrow(item, `M${x1.toFixed(1)} ${y1.toFixed(1)}L${tip}M${wing(0.5)}L${tip}L${wing(-0.5)}`);
+    setArrow(item, `M${ax.toFixed(1)} ${ay.toFixed(1)}L${tip}M${wing(0.5)}L${tip}L${wing(-0.5)}`);
   }
 
   function arrange(): void {
@@ -242,6 +267,7 @@ export function mountStrips(container: HTMLElement): StripLayer {
   /** 把一条题签的东西从页面上拿走。 */
   const take = (item: (typeof items)[number]): void => {
     item.el.remove();
+    item.under.remove();
     item.line.remove();
     item.dot.remove();
     item.arrow.remove();

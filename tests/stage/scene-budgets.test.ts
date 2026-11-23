@@ -128,7 +128,7 @@ describe.each(realSceneKeys())('%s 的预算', (key) => {
       const R = realScene(key);
       const { scene, ground, samplers, coords } = R;
       const style = styleFor(scene.style);
-      const build = (tier: StageTier): ModelSet => buildModels({ scene, ground, samplers, coords, style, quality: QUALITY[tier] });
+      const build = (tier: StageTier): ModelSet => buildModels({ scene, ground, samplers, coords, style, quality: QUALITY[tier], kit: R.kit });
       const mist = (tier: StageTier): Mist => buildMist({ ground, samplers, coords, scene, style, layers: QUALITY[tier].mistLayers });
       const models = { full: build('full'), reduced: build('reduced') };
       // 和页面上一样：先把每一节要用的备好

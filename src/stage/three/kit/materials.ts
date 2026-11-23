@@ -44,8 +44,8 @@ export const MATERIAL_NAMES = [
 export type MatName = (typeof MATERIAL_NAMES)[number];
 
 export interface KitMaterials {
-  /** 并成一个网格的零件用的材质，按名字取。 */
-  named: Record<MatName, THREE.MeshLambertMaterial>;
+  /** 并成一个网格的零件用的材质，按名字取。按家分块的零件自己的材质（extra）也在里面。 */
+  named: Record<string, THREE.MeshLambertMaterial>;
   /** 船（一条船一个实例）。 */
   boat: THREE.MeshLambertMaterial;
   /** 树（一棵树一个实例，颜色写在实例上）。 */
@@ -67,7 +67,7 @@ export interface TreeColours {
   willow: string;
 }
 
-export function makeMaterials(style: StageStyle): KitMaterials {
+export function makeMaterials(style: StageStyle, extra: readonly string[] = []): KitMaterials {
   const colour = (name: string): string => {
     const v = style.palette[name];
     if (!v) throw new Error(`样式 ${style.id} 的颜色里没有 ${name}`);
@@ -86,7 +86,7 @@ export function makeMaterials(style: StageStyle): KitMaterials {
   const L = (color: string, map: THREE.Texture | null = null): THREE.MeshLambertMaterial => patchFigure(new THREE.MeshLambertMaterial({ vertexColors: true, color, map }), figure);
 
   const straw = draw(strawTexture);
-  const named: Record<MatName, THREE.MeshLambertMaterial> = {
+  const named: Record<string, THREE.MeshLambertMaterial> = {
     tile: L(colour('tile'), draw(tileTexture)),
     thatch: L(colour('thatch'), straw),
     plaster: L(colour('plaster')),
@@ -104,6 +104,8 @@ export function makeMaterials(style: StageStyle): KitMaterials {
     rock: L(colour('rock')),
     rockPale: L(colour('rockPale')),
   };
+  // 按家分块的零件自己的材质：白的，颜色全写在顶点上
+  for (const name of extra) named[name] = L('#ffffff');
   const boat = L(colour('boat'));
   const tree = L('#ffffff');
 

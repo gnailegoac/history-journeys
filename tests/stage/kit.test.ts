@@ -8,7 +8,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { ShaderLib } from 'three';
 import type { BufferGeometry, Group, InstancedMesh, Mesh, Object3D } from 'three';
-import { DRESSING_KINDS, THING_KINDS } from '../../src/domain/sceneKinds';
+import { DRESSING_KINDS, FAMILY_THING_KINDS, THING_KINDS } from '../../src/domain/sceneKinds';
 import type { SceneDressing, SceneThing, StopScene, ThingKind, When } from '../../src/domain/scene';
 import { frameCoords } from '../../src/domain/sceneGeo';
 import { gateSeats } from '../../src/stage/ground';
@@ -41,6 +41,7 @@ import { dressingParams, thingParams } from '../../src/stage/three/kit/params';
 import type { Bucket, Pass } from '../../src/stage/three/kit/pass';
 import { cornerOffset, insideRing, lineDistance, makeRing, nearestOnRing, ringDistance, ringPath, snapLineToRing, surveyWalls } from '../../src/stage/three/kit/site';
 import { PILE_ABOVE, THING_BUILDERS, bankSurfaceY } from '../../src/stage/three/kit/things';
+import type { ThingBuilder } from '../../src/stage/three/kit/things';
 import { songQinglv } from '../../src/stage/three/style/songQinglv';
 import { SONG_QINGLV_FIGURE } from '../../src/stage/three/style/songQinglvFigure';
 import { FIXTURE_HEADINGS, FIXTURE_HEIGHTS, FIXTURE_M, fixturePoint, fixtureScene } from '../support/fixtureScene';
@@ -97,7 +98,7 @@ const testStyle: StageStyle = {
   ground: { colours: GROUND_COLOURS, bands: { foot: [2.4, 8], green: [7, 22], blue: [40, 84], deepBlue: [88, 125] } },
   // 模型跟着远近怎么变：用真的那一份表
   figure: SONG_QINGLV_FIGURE,
-  stripLift: { wall: 62, gate: 8, tower: 76, pavilion: 30, 'hall-group': 40, house: 14, dike: 30, bank: 6, 'timber-bank': 10 },
+  stripLift: { wall: 62, gate: 8, tower: 76, pavilion: 30, 'hall-group': 40, house: 14, dike: 30, bank: 6, 'timber-bank': 10, cliff: 100 },
   light: () => ({ dir: [-0.66, 0.6, -0.42], sun: 2.6, sunColor: '#fff4e2', hemi: 1.55, sky: '#fffaf0', ground: '#c4b494' }),
   fogFor: () => [40000, 140000],
   mistFor: () => 1,
@@ -123,6 +124,16 @@ function rule(id: string, kind: SceneDressing['kind'], more: Partial<SceneDressi
 }
 
 const REDUCED: Quality = { ...FULL, tier: 'reduced', treeKeep: 0.5, houseKeep: 0.5 };
+
+/**
+ * 沙盘程序自己带着的九种摆件的造法。按家分块的（崖壁）不在 THING_BUILDERS 里，这个文件里编出来的场景也不摆它们：
+ * 它们在 tests/stage/kit-families.test.ts 和 huangzhou-figures.test.ts 里查。
+ */
+function coreBuilder(kind: ThingKind): ThingBuilder {
+  const build = (THING_BUILDERS as Partial<Record<ThingKind, ThingBuilder>>)[kind];
+  if (!build) throw new Error(`${kind} 是按家分块的零件，不在沙盘程序自己的表里`);
+  return build;
+}
 
 /** 只走一种零件：所有东西放进同一组，好数、好量。 */
 function soloPass(ctx: KitContext): { pass: Pass; bucket: Bucket } {
@@ -278,8 +289,9 @@ function expectAllFinite(root: Object3D): void {
 // ---------------------------------------------------------------- 表和参数
 
 describe('零件的表', () => {
-  it('九种摆件、七种点缀各有一个造法', () => {
-    expect(Object.keys(THING_BUILDERS).sort()).toEqual([...THING_KINDS].sort());
+  it('九种摆件、七种点缀各有一个造法；按家分块的摆件不在沙盘程序自己的表里', () => {
+    expect(Object.keys(THING_BUILDERS).sort()).toEqual(THING_KINDS.filter((kind) => !(FAMILY_THING_KINDS as readonly string[]).includes(kind)).sort());
+    expect(Object.keys(THING_BUILDERS)).toHaveLength(9);
     expect(Object.keys(DRESSING_BUILDERS).sort()).toEqual([...DRESSING_KINDS].sort());
   });
 
@@ -1136,7 +1148,7 @@ describe('每种摆件、每种点缀都摆上的一座沙盘', () => {
 
   it('零件用到的材质，零件库里都有', () => {
     const { pass, bucket } = soloPass(makeCtx(everythingScene()));
-    for (const kind of THING_KINDS) for (const t of pass.ctx.scene.things) if (t.kind === kind) THING_BUILDERS[kind](pass, t);
+    for (const kind of THING_KINDS) for (const t of pass.ctx.scene.things) if (t.kind === kind) coreBuilder(kind)(pass, t);
     for (const kind of DRESSING_KINDS) for (const d of pass.ctx.scene.dressing) if (d.kind === kind) DRESSING_BUILDERS[kind](pass, d);
     const used = new Set([...bucket.main.parts.keys(), ...bucket.raised.parts.keys()]);
     expect(used.size).toBeGreaterThan(8);
@@ -1517,7 +1529,7 @@ describe('每样东西带的记号（脚在哪、哪一类、是不是细处、�
   const build = (id: string): { main: BufferGeometry[]; raised: BufferGeometry[]; thing: SceneThing } => {
     const { pass, bucket } = soloPass(ctx);
     const t = find(id);
-    THING_BUILDERS[t.kind](pass, t);
+    coreBuilder(t.kind)(pass, t);
     return { main: [...bucket.main.parts.values()].flat(), raised: [...bucket.raised.parts.values()].flat(), thing: t };
   };
   const W = M.wall;
@@ -1542,7 +1554,7 @@ describe('每样东西带的记号（脚在哪、哪一类、是不是细处、�
 
   it('批次里的每个零件都带着三样数据，一个零件的每个顶点带的都一样；没有记号的零件都是 0', () => {
     const { pass, bucket } = soloPass(ctx);
-    for (const kind of THING_KINDS) for (const t of ctx.scene.things) if (t.kind === kind) THING_BUILDERS[kind](pass, t);
+    for (const kind of THING_KINDS) for (const t of ctx.scene.things) if (t.kind === kind) coreBuilder(kind)(pass, t);
     for (const kind of DRESSING_KINDS) for (const d of ctx.scene.dressing) if (d.kind === kind) DRESSING_BUILDERS[kind](pass, d);
     let parts = 0;
     for (const batch of [bucket.main, bucket.raised]) {
@@ -1581,7 +1593,7 @@ describe('每样东西带的记号（脚在哪、哪一类、是不是细处、�
 
   it('归了类的东西，脚都在它自己的底下：横着在它占的那一块里面，竖着在它的底上', () => {
     const { pass, bucket } = soloPass(ctx);
-    for (const kind of THING_KINDS) for (const t of ctx.scene.things) if (t.kind === kind) THING_BUILDERS[kind](pass, t);
+    for (const kind of THING_KINDS) for (const t of ctx.scene.things) if (t.kind === kind) coreBuilder(kind)(pass, t);
     for (const kind of DRESSING_KINDS) for (const d of ctx.scene.dressing) if (d.kind === kind) DRESSING_BUILDERS[kind](pass, d);
     // 脚一样的零件是同一样东西的
     const things = new Map<string, { marks: FigureMarks; parts: BufferGeometry[] }>();

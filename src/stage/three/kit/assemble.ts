@@ -31,6 +31,7 @@ import { boatGeo, instanced } from './shapes';
 import type { Instance } from './shapes';
 import { surveyWalls } from './site';
 import { THING_BUILDERS } from './things';
+import type { ThingBuilder } from './things';
 import { cityTreeRule, cityTrees, keptTree, metreOfWater, plantTrees, rankTrees, treeLists, treeShapes } from './trees';
 import type { RankedTree, TreeShapes, TreeSorting } from './trees';
 
@@ -115,7 +116,7 @@ export function buildModels(ctx: KitContext): ModelSet {
   const { scene, style, coords, quality, ground } = ctx;
   const headings = scene.sections.map((s) => s.heading);
   const group = new THREE.Group();
-  const materials = makeMaterials(style);
+  const materials = makeMaterials(style, ctx.kit?.materials);
   const survey = surveyWalls(ctx);
   const cityCentre: Vec2 = ground.cities.length ? ground.cities[0].centre : [0, 0];
 
@@ -147,7 +148,16 @@ export function buildModels(ctx: KitContext): ModelSet {
       return e;
     };
     const pass: Pass = { ctx, survey, yards: [], lots: [], bucket: (when) => entry(when).bucket };
-    for (const kind of THING_KINDS) for (const thing of scene.things) if (thing.kind === kind) THING_BUILDERS[kind](pass, thing);
+    // 造法先在这里的九种里找，没有就是按家分块的：跟着那一家的程序来的（ctx.kit）。那一家没有取到，说清楚缺的是哪一种
+    const builders: Partial<Record<string, ThingBuilder>> = { ...ctx.kit?.things, ...THING_BUILDERS };
+    for (const kind of THING_KINDS) {
+      for (const thing of scene.things) {
+        if (thing.kind !== kind) continue;
+        const build = builders[kind];
+        if (!build) throw new Error(`零件库里没有 ${kind} 的造法：它那一家的程序没有取到`);
+        build(pass, thing);
+      }
+    }
     for (const kind of DRESSING_KINDS) for (const rule of scene.dressing) if (rule.kind === kind) DRESSING_BUILDERS[kind](pass, rule);
 
     // 树：照规则种下去的，加上城里空地上的（空地是摆民居时留出来的）

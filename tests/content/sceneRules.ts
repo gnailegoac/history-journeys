@@ -137,6 +137,7 @@ const SCENE: Shape = strict({
       area: optional(list(lngLat)),
       line: optional(list(lngLat)),
       at: optional(lngLat),
+      except: optional(list(text)),
       params: optional(record(anything)),
       when: optional(WHEN),
     }),
@@ -554,6 +555,15 @@ export function checkSceneParts(scene: StopScene, file: string): Violation[] {
     }
     if (rule.area !== undefined) ring(rule.area, `${at}.area`, `${what}的范围`);
     if (rule.line !== undefined && rule.line.length < 2) bad(`${at}.line`, `${what}沿着的线至少要有两个点`);
+    // “这几处不种”：只有树的规则可以写，写的是修整的 id，那处修整要有自己的一圈范围（area）
+    if (rule.except !== undefined) {
+      if (rule.kind !== 'trees') bad(`${at}.except`, `${what}是 ${rule.kind}，不能写 except；只有树的规则可以写“这几处不种”`);
+      rule.except.forEach((id, k) => {
+        const edit = scene.terrain.edits.find((e) => e.id === id);
+        if (!edit) bad(`${at}.except[${k}]`, `${what}的 except 写的“${id}”不是地形里的一处修整（terrain.edits 的 id）`);
+        else if (edit.op !== 'level' || edit.area === undefined) bad(`${at}.except[${k}]`, `${what}的 except 写的“${id}”没有自己的一圈范围；这里只能写 level 一类、带 area 的修整`);
+      });
+    }
   });
   return out;
 

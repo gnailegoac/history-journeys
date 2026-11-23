@@ -10,7 +10,7 @@
 //   画质从借到手的画布那一份（lease.quality）读，不从别处读。
 //   快慢只量、只报，不在这里评：第一个画面摆出来以后试画一次，镜头每滑完一趟量一次，都报给这一次访问的记性（tier.ts）。
 //   它答“降”，这座沙盘从此不再画，通知页面（onSlow）；评的线、降到哪一档，这里一概不知道。
-//   零件库只通过 buildModels 和 ModelSet 用，题签只通过 mountStrips 和 StripLayer 用。
+//   零件库只通过 buildModels 和 ModelSet 用（按家分块的零件怎么取，另从 kit/families.ts 拿：familiesOf、loadFamilies），题签只通过 mountStrips 和 StripLayer 用。
 
 import { DirectionalLight, Fog, HemisphereLight, MathUtils, PMREMGenerator, PerspectiveCamera, Scene, Vector3, type WebGLRenderer } from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
@@ -28,6 +28,7 @@ import { beginGroundPaint, type GroundPaintJob } from './groundPaint';
 import { nextFrame, nextPaint, type Lease, type StageHost } from './host';
 import type { LightSpec, ModelSet, StageStyle } from './internal';
 import { buildModels } from './kit';
+import { familiesOf, loadFamilies } from './kit/families';
 import { buildMist, type Mist } from './mist';
 import { pixelRatioFor, qualityFor } from './quality';
 import { centreShift, chooseScale, equivalentDistance, lightDim, northDeg, pixelsPerMetre, placeCamera, projectSpots, shadowBox, shadowTuning, stripSpots, type StripSpot } from './rig';
@@ -628,6 +629,11 @@ class ThreeStopView implements StopStageView {
     const scene = table.scene;
     const { renderer, quality } = lease;
     const gone = (): boolean => lease.signal.aborted;
+    // 按家分块的零件：场景里写到了哪几家的东西，现在就动手取（造模型以前要到）；一家也没写到的沙盘什么都不取
+    const families = familiesOf(scene);
+    const kit = families.length ? loadFamilies(families) : undefined;
+    // 半路不要了、没有等它的时候，取不到也不算没人管的错
+    kit?.catch(() => {});
 
     // 地面：读高程，整理和挖河，上色。先画好的图对不上、取不到时要现画，那是最慢的一步，前后各让一次
     const dem = readDem(scene.terrain, bytes);
@@ -662,7 +668,9 @@ class ThreeStopView implements StopStageView {
     if (gone()) return null;
 
     // 小模型：先造第一个画面要用的，别的等摆出来以后再造
-    const models = buildModels({ scene, ground, samplers, coords, style, quality });
+    const loaded = kit && (await kit);
+    if (gone()) return null;
+    const models = buildModels({ scene, ground, samplers, coords, style, quality, kit: loaded });
     this.keep(() => models.dispose());
     return { samplers, terrain, water, mist, stand, models };
   }

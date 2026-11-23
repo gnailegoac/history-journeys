@@ -6,6 +6,8 @@
 //   镜头贴近的那一节，对准的那一点四周的苔点另有一棵细做的，两样此消彼长。
 // 有三处不是“随手种”的：城里空地上的树跟着它那座屋、那个院落走（屋在树在，一直在屋后）；
 //   一座屋四周的树种在两边和屋后，不种在门前；题签指着的小建筑，从那一节的镜头看过去，前面不种山上的杂树。
+// 竹、柏这样细高的树是按家分块的（families.ts 的 TreeKind）：种法跟着那一家的程序来，种下去的还是苔点，只是细高，贴近了也不换成细做的。
+// 规则写了 except 的（这几处修整的范围里不种），种下以后落在里面的去掉。
 // 这里只算数和形状，不碰页面。
 
 import * as THREE from 'three';
@@ -13,6 +15,7 @@ import type { SceneDressing } from '../../../domain/scene';
 import type { Vec2, Vec3 } from '../../ground/types';
 import type { FigureClass, KitContext } from '../internal';
 import { figureGroups, liftClass } from './figure';
+import type { TreeKind } from './families';
 import { FIG_TREE, FIG_TREE_DOT, FIG_TREE_FINE } from './figureMaterial';
 import type { TreeColours } from './materials';
 import { dressingParams } from './params';
@@ -44,6 +47,8 @@ export interface Tree {
   rule: number;
   /** 城里空地上的树：跟着哪座屋、哪个院落走（见 pass.ts 的 Lot）。 */
   follow?: Lot['follow'];
+  /** 细高的树（竹、柏）：镜头贴近了也还是这粒苔点，不另长一棵细做的。 */
+  slim?: boolean;
 }
 
 /** 树用的几个形状，各组的树共用：细做的一棵（五团叶子一根干），圆一点的苔点，最省的苔点。 */
@@ -66,7 +71,9 @@ const DROWN_FROM_M = 1;
 /** 水漫不到的树，“水面到多高它开始缩”写这个数（沙盘里的高度，水到不了这么高）。 */
 export const NEVER_WET = 1e6;
 
-type TreeType = 'mixed' | 'pine' | 'willow' | 'fruit';
+type TreeType = 'mixed' | 'pine' | 'willow' | 'fruit' | 'bamboo' | 'cypress';
+/** 沙盘程序自己会种的几种；别的是按家分块的。 */
+const CORE_TYPES: readonly TreeType[] = ['mixed', 'pine', 'willow', 'fruit'];
 
 /** 种树的人：知道地面、城墙在哪，种下的每一棵都记上水看到的地面有多高。 */
 interface Planter {
@@ -78,12 +85,16 @@ interface Planter {
   /** 这一种树用什么颜色。杂树从几种绿里挑。 */
   colour(type: TreeType, rnd: () => number): string;
   put(t: Omit<Tree, 'wet'>): void;
+  /** 这一种要是细高的树（按家分块的）：它的种法。不是就没有。 */
+  slim(type: TreeType): TreeKind | undefined;
+  /** 在这一点种一处细高的树：一棵，或者一丛。 */
+  putSlim(kind: Tree['kind'], rule: number, slim: TreeKind, x: number, z: number, rnd: () => number): void;
 }
 
 function makePlanter(ctx: KitContext, survey: Survey, colours: TreeColours): Planter {
   const { ground, samplers, coords } = ctx;
   const out: Tree[] = [];
-  return {
+  const planter: Planter = {
     out,
     okGround(x, z) {
       if (samplers.edge(x, z) <= 30) return false;
@@ -92,6 +103,8 @@ function makePlanter(ctx: KitContext, survey: Survey, colours: TreeColours): Pla
     },
     y: (x, z) => coords.y(samplers.height(x, z)),
     colour(type, rnd) {
+      const slim = ctx.kit?.trees?.[type];
+      if (slim) return ctx.style.palette[slim.colour];
       if (type === 'pine') return colours.treeBlue;
       if (type === 'willow') return colours.willow;
       if (type === 'fruit') return colours.treeOlive;
@@ -103,7 +116,21 @@ function makePlanter(ctx: KitContext, survey: Survey, colours: TreeColours): Pla
       const dry = i >= 0 && i < ground.nx && j >= 0 && j < ground.nz && ground.dry[j * ground.nx + i] === 1;
       out.push({ ...t, wet: dry ? Infinity : samplers.waterH(t.x, t.z) });
     },
+    slim: (type) => ctx.kit?.trees?.[type],
+    putSlim(kind, rule, slim, x, z, rnd) {
+      const n = slim.clump ? slim.clump(rnd) : 1;
+      const reach = n > 1 ? (slim.spreadM ?? 0) : 0;
+      for (let k = 0; k < n; k++) {
+        const a = rnd() * 6.28;
+        const d = reach * Math.sqrt(rnd());
+        const xx = x + Math.cos(a) * d;
+        const zz = z + Math.sin(a) * d;
+        const [s, sy] = slim.size(rnd);
+        planter.put({ kind, rule, x: xx, y: planter.y(xx, zz) - 2, z: zz, s, sy, ry: rnd() * 6.28, color: ctx.style.palette[slim.colour], slim: true });
+      }
+    },
   };
+  return planter;
 }
 
 /** 哪里都不写的规则：山上成丛的苔点，村子四周，平地上零星几棵。城里空地上的另算（见 cityTrees）。 */
@@ -200,7 +227,9 @@ function plantAround(pl: Planter, ctx: KitContext, rule: number, at: Vec2, radiu
     const x = at[0] + Math.cos(a) * d;
     const z = at[1] + Math.sin(a) * d;
     if (ctx.samplers.edge(x, z) < 20) continue;
-    pl.put({ kind: 'spot', rule, x, y: pl.y(x, z) - 1, z, s: (0.9 + rnd() * 0.4) * size, ry: rnd() * 6.28, color: pl.colour(type, rnd) });
+    const slim = pl.slim(type);
+    if (slim) pl.putSlim('spot', rule, slim, x, z, rnd);
+    else pl.put({ kind: 'spot', rule, x, y: pl.y(x, z) - 1, z, s: (0.9 + rnd() * 0.4) * size, ry: rnd() * 6.28, color: pl.colour(type, rnd) });
     placed++;
   }
 }
@@ -242,6 +271,12 @@ function plantArea(pl: Planter, ctx: KitContext, rule: number, area: Vec2[], typ
     const x = x0 + rnd() * (x1 - x0);
     const z = z0 + rnd() * (z1 - z0);
     if (!insidePolygon(area, x, z) || ctx.samplers.edge(x, z) < 30) continue;
+    const slim = pl.slim(type);
+    if (slim) {
+      pl.putSlim('grove', rule, slim, x, z, rnd);
+      placed++;
+      continue;
+    }
     const s = 13 + rnd() * 10;
     pl.put({ kind: 'grove', rule, x, y: pl.y(x, z) - 2, z, s, sy: s * 1.1, ry: rnd() * 6.28, color: pl.colour(type, rnd) });
     placed++;
@@ -325,6 +360,7 @@ export function plantTrees(ctx: KitContext, survey: Survey, colours: TreeColours
     if (rule.kind !== 'trees') return;
     const p = dressingParams('trees', rule.params);
     const type: TreeType = p.type ?? 'mixed';
+    if (!CORE_TYPES.includes(type) && !pl.slim(type)) throw new Error(`零件库里没有 ${type} 这种树的种法：它那一家的程序没有取到`);
     const density = Math.max(0, p.density ?? 1);
     const seed = p.seed ?? 1037;
     if (rule.line) plantAlong(pl, ctx, index, rule.line.map((q) => ctx.coords.toLocal(q)), type, density, seed);
@@ -336,9 +372,17 @@ export function plantTrees(ctx: KitContext, survey: Survey, colours: TreeColours
     else if (rule.area) plantArea(pl, ctx, index, rule.area.map((q) => ctx.coords.toLocal(q)), type, density, seed);
     else plantEverywhere(pl, ctx, index, type, density, seed);
   });
+  // 规则写了“这几处不种”（except：修整的 id）的：种下以后落在那几处修整的范围里的去掉
+  const barred = ctx.scene.dressing.map((rule) =>
+    (rule.except ?? []).flatMap((id) => {
+      const edit = ctx.scene.terrain.edits.find((e) => e.id === id);
+      return edit?.op === 'level' && edit.area ? [edit.area.map((q) => ctx.coords.toLocal(q))] : [];
+    }),
+  );
+  const allowed = barred.some((areas) => areas.length) ? pl.out.filter((t) => !barred[t.rule].some((area) => insidePolygon(area, t.x, t.z))) : pl.out;
   // 挡在要人看的小建筑前面的苔点不种（先都种下再去掉：别的树种在哪不跟着变）
   const features = featured(ctx);
-  return features.length ? pl.out.filter((t) => !hides(t, features)) : pl.out;
+  return features.length ? allowed.filter((t) => !hides(t, features)) : allowed;
 }
 
 /** 哪一条规则管城里空地上的树：第一条哪里都不写的树的规则。没有就是 −1。 */
@@ -444,7 +488,7 @@ export function treeLists(trees: RankedTree[], { ctx, centre, closeSpots, joined
       lists.fine.push({ x: t.x, y: t.y, z: t.z, ry: t.ry, s: t.s, color: t.color, rule, figure: { ...figure, kind: FIG_TREE } });
       continue;
     }
-    const close = closeSpots.some((p) => Math.hypot(t.x - p[0], t.z - p[1]) < R_CLOSE);
+    const close = !t.slim && closeSpots.some((p) => Math.hypot(t.x - p[0], t.z - p[1]) < R_CLOSE);
     const dot: Instance = { x: t.x, y: t.y, z: t.z, ry: t.ry, s: t.s, sy: t.sy, color: t.color, rule, figure: { ...figure, kind: close ? FIG_TREE_DOT : FIG_TREE } };
     (follow ? lists.city : Math.hypot(t.x - centre[0], t.z - centre[1]) < R_NEAR ? lists.round : lists.plain).push(dot);
     // 细做的一棵：大小按苔点的大小折算，脚比苔点高一点（苔点埋得深）

@@ -1134,12 +1134,78 @@ describe('题签层：摆不下的画一个空心的圈，不写句子（T8）',
     m.layer.place([at('a', 22, 200), at('b', 22, 210)], tight, PHONE_INSETS);
     expect(m.ringed('b')).toBe(true);
     m.layer.set([spec('c', '泗水')]);
-    // 旧的一批连圈一起拿走了：线那一层里只剩新的一条的线、（远处的题签才显的）箭头的衬边和箭头、点、圈
-    expect(m.root.children[0].children.map((el) => el.tag)).toEqual(['line', 'path', 'path', 'circle', 'g']);
+    // 旧的一批连圈一起拿走了：线那一层里只剩新的一条的引线的衬边和引线、（远处的题签才显的）箭头的衬边和箭头、点、圈
+    expect(m.root.children[0].children.map((el) => el.tag)).toEqual(['path', 'line', 'path', 'path', 'circle', 'g']);
     expect(m.els().map((el) => el.dataset.stripId)).toEqual(['c']);
 
     m.layer.destroy();
     expect(m.container.children).toEqual([]);
+  });
+});
+
+describe('题签层：引线底下垫着纸色的衬边，横平竖直的引线画在整像素上', () => {
+  /** 一条题签的引线，和线那一层里紧挨在它前面的那一条（先画的在底下）：它的衬边。 */
+  const leaderOf = (m: ReturnType<typeof mounted>, index: number): { line: FakeElement; under: FakeElement } => {
+    const siblings = m.root.children[0].children;
+    const line = siblings.filter((el) => el.tag === 'line')[index];
+    return { line, under: siblings[siblings.indexOf(line) - 1] };
+  };
+  const num = (el: FakeElement, name: string): number => Number(el.getAttribute(name));
+
+  it('摆出来的题签：衬边和引线是同一条线，纸色、比引线宽；白天夜里都一样（样子写在元素自己身上）', () => {
+    const m = mounted();
+    m.layer.set([spec('a', '徐州')]);
+    m.layer.place([at('a', 100, 200)], PHONE, PHONE_INSETS);
+    const { line, under } = leaderOf(m, 0);
+    expect(line.style.display).not.toBe('none');
+    expect(under.tag).toBe('path');
+    expect(under.style.display).not.toBe('none');
+    expect(under.getAttribute('d')).toBe(`M${line.getAttribute('x1')} ${line.getAttribute('y1')}L${line.getAttribute('x2')} ${line.getAttribute('y2')}`);
+    expect(under.style.fill).toBe('none');
+    expect(under.style.stroke).toContain('--color-paper');
+    expect(Number(under.style['stroke-width'])).toBeGreaterThan(num(line, 'stroke-width'));
+  });
+
+  it('引线是竖的，横向就落在半个像素上（一像素宽的线正好占一列像素）；是横的，竖向也一样；实心的点跟着线走', () => {
+    const m = mounted();
+    m.layer.set([spec('a', '徐州')]);
+    // 那一点写在整数上、写在小数上，都挪到半个像素的地方
+    for (const [x, y] of [
+      [100, 200],
+      [100.4, 200.3],
+      [137.8, 180.6],
+    ]) {
+      m.layer.place([at('a', x, y)], PHONE, PHONE_INSETS);
+      const { line, under } = leaderOf(m, 0);
+      const [x1, y1, x2, y2] = ['x1', 'y1', 'x2', 'y2'].map((name) => num(line, name));
+      const upright = Math.abs(x2 - x1) < 0.5;
+      const level = Math.abs(y2 - y1) < 0.5;
+      expect(upright || level, `(${x}, ${y}) 的引线不是横平竖直的`).toBe(true);
+      if (upright) {
+        expect(x1).toBe(Math.floor(x) + 0.5);
+        expect(x2).toBe(x1);
+      }
+      if (level) {
+        expect(y1).toBe(Math.floor(y) + 0.5);
+        expect(y2).toBe(y1);
+      }
+      const dot = m.root.children[0].children.find((el) => el.tag === 'circle' && el.style.display !== 'none')!;
+      expect(num(dot, 'cx')).toBe(x1);
+      expect(num(dot, 'cy')).toBe(y1);
+      expect(under.getAttribute('d')).toBe(`M${x1.toFixed(1)} ${y1.toFixed(1)}L${x2.toFixed(1)} ${y2.toFixed(1)}`);
+    }
+  });
+
+  it('藏起来、摆不下、那一点看不见时，衬边跟着引线一起不显', () => {
+    const m = mounted();
+    m.layer.set([spec('a', '徐州'), spec('b', '一条长得摆不下去的题签啊')]);
+    m.layer.place([at('a', 100, 200), at('b', 200, 150)], PHONE, PHONE_INSETS);
+    expect(leaderOf(m, 0).under.style.display).not.toBe('none');
+    expect(leaderOf(m, 1).under.style.display).toBe('none');
+    m.layer.hide();
+    expect(leaderOf(m, 0).under.style.display).toBe('none');
+    m.layer.place([at('a', 100, 200, { visible: false }), at('b', 200, 150)], PHONE, PHONE_INSETS);
+    expect(leaderOf(m, 0).under.style.display).toBe('none');
   });
 });
 

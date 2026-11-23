@@ -1022,14 +1022,16 @@ describe('宋代青绿设色：跟镜头有关的几条规矩', () => {
       fog: '#d5deea',
       mist: '#dfe6ee',
       mistStrength: 0.8,
-      sheen: sheenFor(2, 12),
+      sheen: 9.1,
     });
     // 月亮 68 度以上是另一头的数：月光、天光都弱一些。两夜差的是方向、这两样强弱和水面亮几倍，颜色、雾、云气一样
     expect(high.sun).toBeCloseTo(0.9, 12);
     expect(high.hemi).toBeCloseTo(0.75, 12);
     expect({ ...high, dir: low.dir, sheen: low.sheen, sun: low.sun, hemi: low.hemi }).toEqual(low);
     expect(high.dir).toEqual(moonDir(130, 68));
-    expect(high.sheen).toBe(sheenFor(2, 68));
+    expect(high.sheen).toBe(0);
+    // 黄州七月那一夜（月亮 24 度高）：5.1 倍上下
+    expect(song.light('night', { azimuth: 111, altitude: 24 }).sheen).toBeCloseTo(5.15, 2);
     // 白天的灯没有这四样：白天的雾、云气用样式里平常的颜色，不压暗
     for (const key of ['fog', 'mist', 'mistStrength', 'sheen']) expect(day).not.toHaveProperty(key);
     // 比白天暗，可不是黑的：月亮 12 度高时平地是白天的四分之一上下，68 度高时三分之一上下
@@ -1098,18 +1100,34 @@ describe('宋代青绿设色：跟镜头有关的几条规矩', () => {
     expect(lightDim({ ...day, sun: day.sun / 2, hemi: day.hemi / 2, mist: '#dfe6ee' }, day)).toBeCloseTo(0.5, 12);
   });
 
-  it('sheenFor：月亮低，水面亮得多；月亮高，几乎不亮；强弱是 0 就是 0', () => {
-    // 强弱 2：12 度高是 4.8 倍，24 度高是 1 倍上下，68 度高几乎没有
-    expect(sheenFor(2, 12)).toBeCloseTo(4.8, 1);
-    expect(sheenFor(2, 24)).toBeCloseTo(1.0, 1);
-    expect(sheenFor(2, 68)).toBeLessThan(0.002);
-    expect(sheenFor(2, 90)).toBeCloseTo(0, 12);
+  it('sheenFor：月亮低，水面亮得多；越高越小；68 度以上是 0；强弱是 0 就是 0', () => {
+    // 这张表是 2026-11-23 对着黄州七月那一夜的图定的：强弱写的是 12 度高时的倍数。
+    // 12 度时的 9.1 倍是原来那条线上强弱 3.8 给的（3.8 × (1 − s)³ ÷ s = 9.08），24 度时的 5.1 倍是原来强弱 10 给的（5.13）：
+    // 这两样量出来是同一种水面（敞开的江面 133 到 138，照到月光的平地 110 到 117，水纹 181 到 192，白天的水纹 215 到 219）
+    const table: [number, number][] = [
+      [5, 11.96],
+      [8, 10.69],
+      [12, 9.1],
+      [18, 6.97],
+      [24, 5.15],
+      [30, 3.64],
+      [45, 1.13],
+      [60, 0.12],
+      [68, 0],
+      [75, 0],
+      [85, 0],
+    ];
+    for (const [height, times] of table) expect(sheenFor(9.1, height), `月亮 ${height} 度高`).toBeCloseTo(times, 1);
+    const old = (strength: number, height: number): number => (strength * (1 - Math.sin((height * Math.PI) / 180)) ** 3) / Math.sin((height * Math.PI) / 180);
+    expect(Math.abs(sheenFor(9.1, 12) - old(3.8, 12))).toBeLessThan(0.05);
+    expect(Math.abs(sheenFor(9.1, 24) - old(10, 24))).toBeLessThan(0.05);
+    expect(sheenFor(9.1, 68)).toBe(0);
+    expect(sheenFor(9.1, 90)).toBe(0);
     expect(sheenFor(0, 12)).toBe(0);
     expect(sheenFor(4, 12)).toBeCloseTo(sheenFor(2, 12) * 2, 12);
-    // 越高越小，一路往下；很低的月亮不会大得没有边（正弦小于 0.15 时分母不再变小）
-    const heights = [5, 8, 12, 20, 30, 45, 60, 75, 85];
-    heights.slice(1).forEach((h, i) => expect(sheenFor(2, h), `${heights[i]} 度到 ${h} 度`).toBeLessThan(sheenFor(2, heights[i])));
-    expect(sheenFor(2, 5)).toBeLessThan(2 / 0.15);
+    // 越高越小，一路往下，到 68 度为止
+    const heights = [5, 8, 12, 20, 30, 45, 60, 67];
+    heights.slice(1).forEach((h, i) => expect(sheenFor(9.1, h), `${heights[i]} 度到 ${h} 度`).toBeLessThan(sheenFor(9.1, heights[i])));
   });
 
   it('雾：在样张五个镜头的远近上就是样张的数；更远时跟着远近放大', () => {

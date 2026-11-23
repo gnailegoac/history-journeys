@@ -93,7 +93,7 @@ describe.each(realSceneKeys())('%s 的小模型', (key) => {
     if (!have) {
       const R = realScene(key);
       const { scene, ground, samplers, coords } = R;
-      have = { R, models: buildModels({ scene, ground, samplers, coords, style: styleFor(scene.style), quality }) };
+      have = { R, models: buildModels({ scene, ground, samplers, coords, style: styleFor(scene.style), quality, kit: R.kit }) };
       made.set(quality.tier, have);
     }
     return have;

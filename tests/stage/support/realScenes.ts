@@ -13,6 +13,8 @@ import { buildFields, readDem, samplers } from '../../../src/stage/ground';
 import { buildRouteGround, readRouteDem, routeSamplers } from '../../../src/stage/ground/route';
 import type { RouteGround } from '../../../src/stage/ground/route';
 import type { Dem, Ground, GroundSamplers, Vec2 } from '../../../src/stage/ground/types';
+import type { KitFamily } from '../../../src/stage/three/kit/families';
+import { kitFor } from './kitFamilies';
 import { readBytes } from '../../support/readBytes';
 
 /** 场景文件只用 import.meta.glob 读（和 src/domain/sceneContent.ts 一样），不直接 import 那个 JSON。两层的沙盘都在里面。 */
@@ -27,6 +29,8 @@ export interface RealScene {
   headings: string[];
   ground: Ground;
   samplers: GroundSamplers;
+  /** 这座沙盘用得着的、按家分块的零件（见 ./kitFamilies.ts）；一家也用不着是 undefined。造模型时交给零件库（KitContext.kit）。 */
+  kit: KitFamily | undefined;
 }
 
 /** 一座沙盘的地面只算一次（半秒上下），同一个测试文件里反复用。 */
@@ -64,7 +68,7 @@ export function realScene(key: string): RealScene {
   const { scene, terrainPath } = realSceneFile(key);
   const coords = frameCoords(scene.frame);
   const ground = buildFields(scene, readDem(scene.terrain, readBytes(terrainPath)));
-  const made: RealScene = { key, scene, coords, headings: scene.sections.map((s) => s.heading), ground, samplers: samplers(ground) };
+  const made: RealScene = { key, scene, coords, headings: scene.sections.map((s) => s.heading), ground, samplers: samplers(ground), kit: kitFor(scene) };
   built.set(key, made);
   return made;
 }

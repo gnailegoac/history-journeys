@@ -7,6 +7,8 @@ import type { StageEngine } from '../types';
 import { browserParts, createHost, type HostParts } from './host';
 import { createStopView, type BrowserHost, type RouteLevelLoader } from './view';
 
+export { provideFamilies } from './kit/families';
+
 /**
  * 全程沙盘那一块程序怎么取。沙盘程序自己不写那一句动态 import（缘故见 view.ts 的 RouteLevelLoader），
  * 由取沙盘程序的那一边在取到以后交进来（src/stage/index.ts 的 loadStageEngine）。没有交的时候，摆全程沙盘会说摆不出来。

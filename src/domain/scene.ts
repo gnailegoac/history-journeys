@@ -292,6 +292,8 @@ export interface SceneDressing extends Grounds {
   area?: LngLat[];
   line?: LngLat[];
   at?: LngLat;
+  /** 只有树的规则可以写：这几处修整（terrain.edits 里 level 一类的 id）的范围里不种。 */
+  except?: string[];
   params?: Params;
   when?: When;
 }

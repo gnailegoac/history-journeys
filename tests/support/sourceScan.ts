@@ -117,10 +117,10 @@ export function readCss(css: string): { declarations: Declaration[]; nested: str
 const hasQuotedText = (value: string): boolean => /"[^"]+"|'[^']+'/.test(value);
 
 /** 字体的两个记号（框架的）。别的 --font-… 都不许有；题签用的是人物自己的 --figure-font。 */
-const FONT_TOKENS = ['--font-song', '--font-kai'];
+const FONT_TOKENS = ['--font-song', '--font-sans'];
 /** font-family 的值只许是这几种：两个记号之一；跟着上一层；题签的规则里是人物自己的字体记号、后面带一串备用的字体（开发时单看沙盘的页面没有记号）。 */
-const familyAllowed = (value: string, strips: boolean): boolean => /^var\(--font-(song|kai)\)$/.test(value) || value === 'inherit' || (strips && /^var\(--figure-font,/.test(value));
-/** 设备自带的黑体一类：哪里都不该出现。 */
+const familyAllowed = (value: string, strips: boolean): boolean => /^var\(--font-(song|sans)\)$/.test(value) || value === 'inherit' || (strips && /^var\(--figure-font,/.test(value));
+/** 设备自带的黑体一类：只许出现在 --font-sans 这一个记号的值里。 */
 const SANS_WORDS = ['system-ui', 'sans-serif', 'PingFang', 'YaHei'];
 
 /** 一条规则的选择器，一个一个分开（括号里的逗号不算）。 */
@@ -171,10 +171,12 @@ function seamFindings(declarations: Declaration[], add: (rule: string, what: str
 
 /**
  * 扫一份样式表。找这些：
- *   font-weight   不是 400、也不是 var(--weight-heading) 的；--weight-heading 这个记号不是 400
+ *   font-weight   不是 400、也不是 var(--weight-sans) 的；--weight-sans 这个记号不是 500；又写了 --weight-heading
+ *   sans-weight   用了黑体（font-family: var(--font-sans)）的规则，同一条里没有写 font-weight: var(--weight-sans)（黑体的文件只有 500 这一种粗细）
  *   font-style    不是 normal 的；哪里写了 italic、oblique
  *   font          简写（只许 font: inherit）
- *   font-family   不是两个记号的（题签的规则里是人物自己的那一个）；别的 --font-… 记号；system-ui、sans-serif、PingFang、YaHei 这几个词
+ *   font-family   不是两个记号的（题签的规则里是人物自己的那一个）；别的 --font-… 记号
+ *   sans          system-ui、sans-serif、PingFang、YaHei 这几个词写在了 --font-sans 的值以外
  *   seam          框架的规则读了人物的记号，题签的规则读了框架的记号，人物的记号写在了沙盘栏以外（见 seamFindings）
  *   content       content: 里写了字（工具不看样式表，这些字进不了字体）
  *   text-decoration  简写里除了线的种类还写了别的（Safari 26.2 以前不认，线会没有）：要拆成 text-decoration-line 这几条
@@ -189,23 +191,33 @@ export function scanStyle(file: string, css: string): Finding[] {
   };
   const { declarations, nested } = readCss(css);
   for (const prelude of nested) add('nesting', prelude);
-  for (const { selector, property, value } of declarations) {
+  /** 用了黑体的规则（排第几 → 选择器），和写了黑体的粗细的规则。 */
+  const sansRules = new Map<number, string>();
+  const weighted = new Set<number>();
+  /** --font-sans 的值：设备自带的黑体的名字只许写在这里面。 */
+  let sansValue = '';
+  for (const { selector, property, value, rule } of declarations) {
     const line = `${property}: ${value}`;
-    if (property === 'font-weight' && value !== '400' && value !== 'var(--weight-heading)') add('font-weight', line);
-    if (property === '--weight-heading' && value !== '400') add('font-weight', line);
+    if (property === 'font-weight' && value !== '400' && value !== 'var(--weight-sans)') add('font-weight', line);
+    if (property === '--weight-sans' && value !== '500') add('font-weight', line);
+    if (property === '--weight-heading') add('font-weight', `${property}: …`);
     if (property === 'font-style' && value !== 'normal') add('font-style', line);
     if (property === 'font' && value !== 'inherit') add('font', line);
     if (property === 'font-family' && !familyAllowed(value, isStripRule(selector))) add('font-family', line);
     if (property.startsWith('--font-') && !FONT_TOKENS.includes(property)) add('font-family', `${property}: …`);
+    if (property === 'font-family' && value === 'var(--font-sans)') sansRules.set(rule, selector);
+    if (property === 'font-weight' && value === 'var(--weight-sans)') weighted.add(rule);
+    if (property === '--font-sans') sansValue += ` ${value}`;
     if (property === 'content' && hasQuotedText(value)) add('content', line);
     if ((property === 'text-decoration' || property === '-webkit-text-decoration') && value.split(/\s+/).length > 1) add('text-decoration', line);
     if (property !== 'font-style' && /\bitalic\b|\boblique\b/.test(value)) add('font-style', line);
     if (/color-mix\(/.test(value)) add('color-mix', line);
     if (property === 'text-wrap' || property.startsWith('text-wrap-')) add('text-wrap', line);
   }
+  for (const [rule, selector] of sansRules) if (!weighted.has(rule)) add('sans-weight', selector);
   seamFindings(declarations, add);
   const text = stripCssComments(css);
-  for (const word of SANS_WORDS) for (let i = 0; i < countIn(text, word); i++) add('sans', word);
+  for (const word of SANS_WORDS) for (let i = 0; i < countIn(text, word) - countIn(sansValue, word); i++) add('sans', word);
   return found;
 }
 

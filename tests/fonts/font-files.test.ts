@@ -76,7 +76,7 @@ function withExtra(from: FontPlan, group: string, ch: string, where: string): Fo
 // ---------------------------------------------------------------- 一、字都在
 
 describe('网站上显示的每一个字都在随站的字体里', () => {
-  it('用楷体排的字都在 yanlu-kai 里；用黑体排的字都在 yanlu-sans 里；不用点开就看得见的字都在 yanlu-song 里；点开才看得见的字在两个宋体文件之一里', async () => {
+  it('用黑体排的字都在 yanlu-sans 里；题签和印上的字都在 yanlu-kai 里；不用点开就看得见的成句的字都在 yanlu-song 里；点开才看得见的字在两个宋体文件之一里', async () => {
     expect(missingFromShipped(await plan, shipped)).toEqual([]);
   });
 
@@ -116,7 +116,7 @@ describe('网站上显示的每一个字都在随站的字体里', () => {
     expect(missingFromShipped(withExtra(await plan, 'song-more', onlySong, '徐州的原文'), shipped)).toEqual([]);
   });
 
-  it('用楷体排的字里没有弯引号（这套楷体里它们只有三分之一个字宽）', async () => {
+  it('题签和印上的字里没有弯引号（这套楷体里它们只有三分之一个字宽）；标题、小节名是黑体的了，里面有弯引号不归这一条管', async () => {
     const kai = await planned('kai');
     const found = [...KAI_FORBIDDEN].filter((ch) => kai.characters.includes(ch)).map((ch) => `“${ch}”（${codeOf(ch)}）用在${(kai.where.get(ch) ?? []).join('、')}里：换个说法，或者先问一声`);
     expect(found).toEqual([]);
@@ -348,7 +348,7 @@ describe('源文件里的写法', () => {
     expect(tally(scanProgram('index.html', page.replace(/<!--[\s\S]*?-->/g, '')))).toEqual(['index.html | entity | &hellip; × 1', 'index.html | escape | \\u2026 × 1']);
   });
 
-  it('样式表里：不加粗、不用斜体、字体只用两个记号（题签另用人物自己的一个）、框架的样式和题签的样式各读各的那一套记号、content 里不写字、不用 Safari 15 读不懂的写法（PENDING 里点了名的除外：现在一处也没有）', () => {
+  it('样式表里：每套字体只用它那一种粗细（黑体 500，别的 400）、不用斜体、字体只用三个记号（宋体、黑体、题签用的人物自己的一个）、设黑体的每一条都同时写粗细、框架的样式和题签的样式各读各的那一套记号、content 里不写字、不用 Safari 15 读不懂的写法（PENDING 里点了名的除外：现在一处也没有）', () => {
     expect(styles.length).toBeGreaterThan(5);
     const found = tally(styles.flatMap((path) => scanStyle(path, text(path))));
     const allowed = PENDING.map((item) => `${item.file} | ${item.rule} | ${item.what} × ${item.times}`).sort();
@@ -359,7 +359,7 @@ describe('源文件里的写法', () => {
     for (const item of PENDING) expect(item.unit, `${item.file} ${item.what}：要写明由哪个单元去掉`).toMatch(/^U[2-6]$/);
   });
 
-  it('查得出来：样式表里加粗、斜体、别的字体、content 里的字、带颜色的 text-decoration 简写、color-mix、text-wrap、嵌套、框架和题签读错了记号', () => {
+  it('查得出来：样式表里加粗、斜体、别的字体、content 里的字、带颜色的 text-decoration 简写、color-mix、text-wrap、嵌套、框架和题签读错了记号、黑体没有写粗细', () => {
     const bad = `
       :root { --font-ui: system-ui, 'PingFang SC', 'Microsoft YaHei', sans-serif; --weight-heading: 700; --grain: url("data:image/svg+xml;utf8,<svg/>"); }
       h1 { font-weight: 700; font-style: italic; font-family: var(--font-ui); font: bold 1rem serif; }
@@ -377,23 +377,32 @@ describe('源文件里的写法', () => {
       .tag { color: var(--figure-ink); background: var(--color-paper-sunk); }
       .stage-pane { background: var(--color-paper-sunk); --figure-ink: #28231f; }
       .card-name { --figure-ink: #000000; }
+      .label { font-family: var(--font-sans); font-size: 1rem; }
+      .label-fine { font-family: var(--font-sans); font-weight: var(--weight-sans); }
+      .label-fine span { font-family: var(--font-song); font-weight: 400; }
+      .frame { --weight-sans: 400; --font-kai: 'Kaiti SC', serif; --font-sans: 'Yanlu Sans', 'PingFang SC', 'Microsoft YaHei', sans-serif; }
     `;
     expect(tally(scanStyle('x.css', bad))).toEqual([
       'x.css | color-mix | color: color-mix(in srgb, red, blue) × 1',
       "x.css | content | content: '+' × 1",
       'x.css | font | font: bold 1rem serif × 1',
+      'x.css | font-family | --font-kai: … × 1',
       'x.css | font-family | --font-ui: … × 1',
+      'x.css | font-family | font-family: var(--font-kai) × 1',
       "x.css | font-family | font-family: var(--font-kai, 'Kaiti SC', serif) × 1",
       'x.css | font-family | font-family: var(--font-ui) × 1',
       'x.css | font-style | font-style: italic × 1',
-      'x.css | font-weight | --weight-heading: 700 × 1',
+      'x.css | font-weight | --weight-heading: … × 1',
+      'x.css | font-weight | --weight-sans: 400 × 1',
       'x.css | font-weight | font-weight: 700 × 1',
+      'x.css | font-weight | font-weight: var(--weight-heading) × 1',
       'x.css | nesting | &:hover × 1',
       'x.css | nesting | .inner × 1',
       'x.css | sans | PingFang × 1',
       'x.css | sans | YaHei × 1',
       'x.css | sans | sans-serif × 1',
       'x.css | sans | system-ui × 1',
+      'x.css | sans-weight | .label × 1',
       'x.css | seam | .card-name { --figure-ink: … } × 1',
       'x.css | seam | .stage-pane:not(.is-wide) .strip { border-radius: var(--radius) } × 1',
       'x.css | seam | .stage-pane:not(.is-wide) .strip { color: var(--color-ink) } × 1',

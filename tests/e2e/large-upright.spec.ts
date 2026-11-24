@@ -108,12 +108,12 @@ test.describe('竖着拿的大平板（1024×1366）', () => {
     expect(Math.abs(upright.pane.height - UPRIGHT.height * 0.56)).toBeLessThan(1);
     await expect(pane).toHaveClass(/is-pinned/);
     expect(await pane.evaluate((el) => getComputedStyle(el).position)).toBe('sticky');
-    expect(upright.reading.x, '正文那一页纸的左边').toBe(0);
-    expect(upright.reading.width, '正文那一页纸和窗口一样宽').toBe(UPRIGHT.width);
+    expect(upright.reading.x, '文字栏的左边').toBe(0);
+    expect(upright.reading.width, '文字栏和窗口一样宽').toBe(UPRIGHT.width);
     expect(upright.reading.y, '正文在沙盘栏下面').toBeGreaterThanOrEqual(upright.pane.height - 1);
-    // 正文一行 30 个字，摆在纸的中间
+    // 正文一行 30 个字，摆在文字栏的中间
     expect(Math.abs(upright.text.ems - 30), `正文一行 ${upright.text.ems.toFixed(1)} 个字，该是 30 个`).toBeLessThan(0.1);
-    expect(Math.abs(upright.text.left - upright.text.right), '正文摆在纸的中间').toBeLessThan(1.5);
+    expect(Math.abs(upright.text.left - upright.text.right), '正文摆在文字栏的中间').toBeLessThan(1.5);
     // “收起沙盘”在；“问讲解员”那一条和窗口一样宽，贴着底边
     expect(upright.fold, '“收起沙盘”要在').toBe(true);
     await expect(fold).toHaveText('收起沙盘');

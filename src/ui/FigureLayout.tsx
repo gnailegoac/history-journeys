@@ -30,7 +30,7 @@ export function FigureLayout({ figureId, stopId }: Props) {
   const figure = useLoaded(figureId, () => loadFigure(figureId));
 
   if (figure.state === 'loading') {
-    // 两栏的壳，沙盘栏空着（绢的底色）：从首页潜过来的时候，画面刚淡进绢里，不能换成独自一页纸闪一下
+    // 两栏的壳，沙盘栏空着（只有它的底色）：从首页潜过来的时候，画面刚淡进沙盘栏的底色里，不能换成没有沙盘栏的一页闪一下
     return (
       <div className="figure-layout">
         <main className="reading">

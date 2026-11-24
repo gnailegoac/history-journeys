@@ -50,7 +50,7 @@ async function watchDive(page: Page): Promise<void> {
       if (now !== last) note(now === null ? 'mark off' : `mark ${now}`);
       last = now;
     }).observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ['data-stage-dive'] });
-    // 独自一页纸的“加载中…”（没有沙盘栏的那一种版面）：潜过去的路上不该出来
+    // 没有沙盘栏的那一种版面上的“加载中…”：潜过去的路上不该出来
     new MutationObserver(() => {
       if (document.querySelector('main.plain-page') && !log.some((n) => n.what === 'plain page')) note('plain page');
     }).observe(document.body, { subtree: true, childList: true });
@@ -128,7 +128,7 @@ async function sealPoint(page: Page, stopId: string): Promise<{ x: number; y: nu
  * 潜完以后的那几样：记号出来的时候地址还是原来的；地址是照钟点换的（不早于记号出来以后 0.8 秒），只换了一次；
  * 从点下去到换地址用了多久只印出来，不设上限：到点一定放行是用假的钟在 tests/unit/dive.test.ts 里查的，
  * 这里的机器画一帧要多久不由我们定（发布流程的机器用软件画，比这里慢一倍）。
- * 现在的地址是那一站的，栏里是那一站自己的沙盘，照常摆好；记号没有了；头一张图片是按“潜过来的”放的；一路上没有换成独自一页纸的版面。
+ * 现在的地址是那一站的，栏里是那一站自己的沙盘，照常摆好；记号没有了；头一张图片是按“潜过来的”放的；一路上没有换成没有沙盘栏的那一种版面。
  */
 async function expectArrived(page: Page, figureId: string, stopId: string, from: string, where: string): Promise<void> {
   const there = `#/${figureId}/${stopId}`;
@@ -151,7 +151,7 @@ async function expectArrived(page: Page, figureId: string, stopId: string, from:
   await expect(pane.locator('.stage-still-host')).toHaveClass(/is-(coming|arriving)/);
   await expectRealTable(page, 'full', READY_MS);
   await expect(pane.locator('canvas')).toHaveCount(1);
-  expect((await notes(page)).filter((n) => n.what === 'plain page'), `${where}：潜过去的路上没有换成独自一页纸的“加载中…”`).toEqual([]);
+  expect((await notes(page)).filter((n) => n.what === 'plain page'), `${where}：潜过去的路上没有换成没有沙盘栏的那一种“加载中…”`).toEqual([]);
 }
 
 test('潜下去：在人物页的沙盘上按一站的印，地址先不变、栏上写着正往哪一站潜，潜完才到那一站，那一站的沙盘照常摆好', async ({ page }) => {

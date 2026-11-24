@@ -21,7 +21,7 @@ import { loadStopTable } from '../../src/domain/sceneContent';
 import { sceneRegister, sectionHeadings, sectionInfo, stripTexts } from '../../src/domain/sceneText';
 import { stopMarks } from '../../src/domain/stopMarks';
 import type { Figure, FigureCard, Source, StopContent } from '../../src/domain/types';
-import { KAI_LABELS, SANS_LABELS, placeLabel } from '../../src/ui/text';
+import { SANS_LABELS, placeLabel } from '../../src/ui/text';
 import type { FontTables } from './sfnt';
 import { charactersOf, checkSfnt, cmapOf, englishName, featuresOf, glyphCountOf, hintingOf, namesOf, readSfnt, readWoff2, renameSfnt, weightOf } from './sfnt';
 
@@ -189,10 +189,10 @@ export function squeezeProblems(item: Pick<FontFileRecord, 'file' | 'source' | '
 
 /**
  * 哪几个文件在 index.html 里预先声明（浏览器不等样式表读完就去取）：按装的是哪一组字说。
- * 现在是头一个宋体文件和楷体：页面的标题、按钮眼下还是用楷体排的。黑体的文件做好了、样式表里也声明了，页面的样式还没有用它，
- * 所以先不预先声明；页面换成用黑体排标题的时候，这里改成黑体和头一个宋体文件，index.html 里的两行跟着改（构建以后的测试守着两头一致）。
+ * 是黑体和头一个宋体文件：页面一打开，标题、标签、按钮要黑体，成句的话要宋体。楷体只有沙盘上的题签和印在用，
+ * 题签摆出来的时候浏览器才取，不预先声明。改了这里，index.html 里的两行跟着改（构建以后的测试守着两头一致）。
  */
-export const PRELOAD_GROUPS: readonly string[] = ['song', 'kai'];
+export const PRELOAD_GROUPS: readonly string[] = ['sans', 'song'];
 
 /** 做出来的文件名称表里“说明”那一条（第 10 条）的头一句：从哪个原字体裁剪出来的，不是原字体。 */
 export function subsetSentence(source: Pick<FontSource, 'name' | 'version' | 'site'>): string {
@@ -229,8 +229,6 @@ export const CACHE_DIR = '.cache/fonts';
 export interface SiteText {
   /** 界面：src/ 里各个程序文件和 index.html 的原文，路径 → 文字。 */
   sources: Record<string, string>;
-  /** 界面上用楷体排的固定的字（src/ui/text.ts 的 KAI_LABELS）。 */
-  kaiLabels: readonly string[];
   /** 界面上用黑体排的固定的字（src/ui/text.ts 的 SANS_LABELS）。 */
   sansLabels: readonly string[];
   /** 首页的人物卡片。 */
@@ -400,8 +398,8 @@ export function planFonts(
   /** 点开才看得见的。 */
   const more = (home: string, label: string, text: string | undefined | null): void => put(`more:${home}`, label, text);
   /**
-   * 用楷体排的。同一个字在头一组宋体里也放一份：楷体文件还在路上的那一会儿，这些字先用宋体显示，
-   * 不能为这个去下载点开才要的那个文件。
+   * 用楷体排的：只有沙盘上的题签和题签脚上的印。同一个字在头一组宋体里也放一份：楷体文件不预先声明，总比页面晚到，
+   * 它还在路上的那一会儿，这些字先用宋体显示，不能为这个去下载点开才要的那个文件。
    */
   const kai = (home: string, label: string, text: string | undefined | null): void => {
     put('kai', label, text);
@@ -415,11 +413,6 @@ export function planFonts(
     put('sans', label, text);
     first(home, label, text);
   };
-  /** 眼下标题、按钮这些还是楷体排的，黑体的文件先备着：这样的字两套字体里都放。 */
-  const title = (home: string, label: string, text: string | undefined | null): void => {
-    kai(home, label, text);
-    sans(home, label, text);
-  };
 
   // ---- 界面：程序里原样写着的每一个字（注释不算），index.html 里的字，英文字母、数字和半角的符号
   for (const [path, text] of Object.entries(site.sources)) {
@@ -428,21 +421,19 @@ export function planFonts(
     (pressedSources.includes(path) ? more : first)('common', `程序里（${path}）`, stripComments(code, { shaders: holdsShaders(path) }));
   }
   for (let code = 0x20; code < 0x7f; code++) first('common', '英文字母、数字和半角符号', String.fromCodePoint(code));
-  for (const label of site.kaiLabels) kai('common', '界面上用楷体排的字', label);
   for (const label of site.sansLabels) sans('common', '界面上用黑体排的字', label);
-  for (const label of Object.values(SCENE_CLASS_LABEL)) title('common', '沙盘上东西的类别名', label);
+  for (const label of Object.values(SCENE_CLASS_LABEL)) sans('common', '沙盘上东西的类别名', label);
   put('kai', '空格', ' ');
   put('sans', '空格', ' ');
-  // 一行楷体的字放不下、被截掉的时候（标题、站名只占一行的地方），浏览器自己在行尾添一个省略号：楷体文件里有它，
-  // 这个省略号才是楷体画的。没有的话 Chromium 改画三个半角的句点，用的是设备自带的字体（在浏览器里看过）。
-  kai('common', '一行楷体截掉时行尾的省略号', '…');
-  // 黑体的一行也会截（沙盘旁边的时间只占一行）：一样的道理
+  // 一行黑体的字放不下、被截掉的时候（站名、沙盘旁边的时间只占一行的地方），浏览器自己在行尾添一个省略号：黑体文件里有它，
+  // 这个省略号才是黑体画的。没有的话 Chromium 改画三个半角的句点，用的是设备自带的字体（在浏览器里看过）。
+  // 题签不截，楷体的文件里不放省略号。
   sans('common', '一行黑体截掉时行尾的省略号', '…');
 
   // ---- 首页
   for (const card of site.cards) {
     for (const text of [card.name, card.era, card.years, card.tagline]) first('common', '首页的人物卡片', text);
-    title('common', '首页的人物卡片', card.name);
+    sans('common', '首页的人物卡片', card.name);
     // 朝代和年份那一行是黑体
     for (const text of [card.era, card.years]) sans('common', '首页的人物卡片', text);
   }
@@ -452,13 +443,13 @@ export function planFonts(
   for (const { figure, stops, route } of site.figures) {
     const page = `${figure.name}的人物页`;
     for (const text of [figure.name, figure.era, figure.years, figure.tagline, ...figure.intro]) first('common', page, text);
-    title('common', page, figure.name);
+    sans('common', page, figure.name);
     for (const text of [figure.era, figure.years]) sans('common', page, text);
     for (const stop of figure.stops) {
       // 目录里的一行；站点页的抬头、底下的上一站和下一站用的也是这几样
       for (const text of [stop.years, stop.age, stop.summary, placeLabel(stop.place)]) first('common', `${page}（各站目录）`, text);
-      title('common', `${page}（各站目录）`, stop.title);
-      title('common', `${page}（各站目录）`, stop.shortTitle);
+      sans('common', `${page}（各站目录）`, stop.title);
+      sans('common', `${page}（各站目录）`, stop.shortTitle);
       // 目录里每一行的时间、地点、年纪是黑体（站点页抬头里的同样几个字是宋体，所以两套里都有）
       for (const text of [stop.years, stop.age, placeLabel(stop.place)]) sans('common', `${page}（各站目录）`, text);
     }
@@ -474,16 +465,16 @@ export function planFonts(
       if (content) {
         const cite = new Map(content.sources.map((source) => [source.id, source.cite]));
         const cites = (ids: string[]): string[] => ids.flatMap((sourceId) => cite.get(sourceId) ?? []);
-        // 正文：小节标题是楷体（黑体的文件里也备着，下同），段落和引用是宋体
+        // 正文：小节标题是黑体，段落和引用是宋体
         for (const section of content.sections) {
-          title(id, says('正文'), section.heading);
+          sans(id, says('正文'), section.heading);
           for (const block of section.blocks) {
             for (const text of block.type === 'quote' ? block.lines : block.segments.map((segment) => segment.text)) first(id, says('正文'), text);
           }
         }
-        // 小注：点开才有。标题是楷体
+        // 小注：点开才有。标题是黑体
         for (const note of content.notes) {
-          title(id, says('小注'), note.title);
+          sans(id, says('小注'), note.title);
           for (const text of [note.title, note.body, ...cites(note.sourceIds)]) more(id, says('小注'), text);
         }
         // 原文：标题印在折着的那一行上，别的点开才有
@@ -496,9 +487,9 @@ export function planFonts(
           for (const text of [image.caption, image.credit, image.license]) first(id, says('图片'), text);
           more(id, says('图片'), image.alt);
         }
-        // 凭据：点开才有。小节标题是楷体
+        // 凭据：点开才有。小节标题是黑体
         for (const group of content.provenance) {
-          title(id, says('凭据'), group.section);
+          sans(id, says('凭据'), group.section);
           more(id, says('凭据'), group.section);
           for (const item of group.items) for (const text of [item.what, ...cites(item.sourceIds)]) more(id, says('凭据'), text);
         }
@@ -519,11 +510,11 @@ export function planFonts(
    * 全程沙盘上站名的题签脚上还有写着站号的印：那几个数字是楷体的，在上面“每位人物”那一段里数（照页面拼印的函数）。
    */
   function table(home: string, says: (what: string) => string, scene: TableScene, sources: Source[]): void {
-    // 沙盘旁边的字：小节名是楷体（黑体的文件里也备着）；时间在黑体的文件里备着；
-    // 题记是一句话，和时间、远处的那句话、一句说明的两种写法一样是宋体；完整的说明点开才有
+    // 沙盘旁边的字：小节名和时间是黑体；
+    // 题记是一句话，和远处的那句话、一句说明的两种写法一样是宋体；完整的说明点开才有
     for (const heading of sectionHeadings(scene)) {
       const info = sectionInfo(scene, heading);
-      title(home, says('沙盘'), info.section);
+      sans(home, says('沙盘'), info.section);
       sans(home, says('沙盘'), info.date);
       for (const text of [info.line, info.date, info.note.short, info.note.brief, ...info.far.map((far) => `${far.name}：${far.say}`)]) first(home, says('沙盘'), text);
       for (const line of info.note.lines) more(home, says('“说明”'), line);
@@ -611,7 +602,7 @@ export function planFonts(
   }
 
   // 只在程序里出现、content/ 里哪儿也没有的字（下面这几种来处不算 content/ 里的）
-  const NOT_CONTENT = ['英文字母、数字和半角符号', '界面上用楷体排的字', '界面上用黑体排的字', '沙盘上东西的类别名', '一行楷体截掉时行尾的省略号', '一行黑体截掉时行尾的省略号'];
+  const NOT_CONTENT = ['英文字母、数字和半角符号', '界面上用黑体排的字', '沙盘上东西的类别名', '一行黑体截掉时行尾的省略号'];
   const fromContent = new Set<string>();
   for (const [name, map] of baskets) {
     if (name === 'kai' || name === 'sans') continue;
@@ -660,7 +651,7 @@ export async function readSite(): Promise<SiteText> {
     const route = existsSync(new URL(routePath, ROOT)) ? (JSON.parse(readText(routePath).replace(/^﻿/, '')) as RouteScene) : null;
     figures.push({ figure, stops, route });
   }
-  return { sources, kaiLabels: KAI_LABELS, sansLabels: SANS_LABELS, cards: await loadFigureCards(), figures };
+  return { sources, sansLabels: SANS_LABELS, cards: await loadFigureCards(), figures };
 }
 
 // ================================================================ 三、做文件

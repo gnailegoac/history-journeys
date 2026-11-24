@@ -46,7 +46,7 @@ export function GuidePanel({ figure, prev, next, sampleQuestions }: Props) {
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [open]);
 
-  // 一头的格子：“上一站”或者“下一站”（宋体的小字）在上，站名（楷体）在下，各占一行；没有那一站时是空的一格。
+  // 一头的格子：“上一站”或者“下一站”（小字）在上，站名（大一些）在下，都是黑体，各占一行；没有那一站时是空的一格。
   const cell = (stop: StopMeta | null, rel: 'prev' | 'next') =>
     stop ? (
       <a className={`walk-link is-${rel}`} href={stopHref(figure.id, stop.id)} rel={rel}>

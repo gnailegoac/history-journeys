@@ -31,12 +31,12 @@ export function FigureContents({ figure, route }: { figure: Figure; route: Route
           {figure.stops.map((stop, i) => (
             <li key={stop.id}>
               <a className="stop-item" href={stopHref(figure.id, stop.id)} data-stop-id={stop.id} data-stop-status={stop.status}>
-                {/* 数字印：一到十用汉字（和全程图上的印一样），再多就用数字。读屏不念它：这是个有序的列表，第几项它自己会说。 */}
+                {/* 圆点里的数字：一到十用汉字（和全程沙盘上的印一样），再多就用数字。读屏不念它：这是个有序的列表，第几项它自己会说。 */}
                 <span className="stop-number" aria-hidden="true">
                   {'一二三四五六七八九十'[i] ?? i + 1}
                 </span>
                 <span className="stop-body">
-                  {/* 站名是楷体，“还没写”的小标签是宋体：并排的两块，不挤在同一行字里 */}
+                  {/* 站名和“还没写”的小标签都是黑体，大小不一样：并排的两块，不挤在同一行字里 */}
                   <span className="stop-head">
                     <span className="stop-title">{stop.title}</span>
                     {stop.status !== 'complete' && <span className="tag">{NOT_WRITTEN}</span>}
@@ -57,7 +57,7 @@ export function FigureContents({ figure, route }: { figure: Figure; route: Route
       {/* 全程沙盘的凭据：和站点页上是同一个组件，这里只有“沙盘上的东西”一栏，出处是全程沙盘自己的。 */}
       {route && <Provenance content={{ provenance: [], sources: route.sources }} scene={route} />}
 
-      {/* 目录完了：一个小菱形（样式表画的），下面是通到“来源”页的链接。 */}
+      {/* 目录完了：一道短短的细线（样式表画的），下面是通到“来源”页的链接。 */}
       <div className="stop-nav">
         <a className="stop-nav-sources" href={sourcesHref}>
           {SOURCES_LABEL}

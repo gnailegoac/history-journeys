@@ -43,7 +43,7 @@ const withNotice = (pane: { name: string; size: Pane['size']; insets: StageInset
 const WITH_NOTICE: Pane[] = STANDARD_PANES.filter((pane) => NOTICE_ROW_TOP[pane.name] !== undefined).map(withNotice);
 /** 别的竖着拿的平板：平常的，和上面多一行说明的。 */
 const UPRIGHT: Pane[] = UPRIGHT_PANES.flatMap((pane) => [{ name: pane.name, size: pane.size, insets: pane.insets }, withNotice(pane)]);
-/** 首页的沙盘栏里和人物页不一样的那几种（宽屏上的两种：首页那一页纸宽，栏就窄）。 */
+/** 首页的沙盘栏里和人物页不一样的那几种（宽屏上的两种：首页的文字栏宽，沙盘栏就窄）。 */
 const HOME: Pane[] = HOME_PANES.filter((pane) => !STANDARD_PANES.includes(pane)).map(({ name, size, insets }) => ({ name, size, insets }));
 /** 定稿样张的画面：照它定的镜头，在它上面程序不该再挪。 */
 const TRIAL_PANE: Pane = { name: '880 × 900', size: { width: 880, height: 900 }, insets: NO_INSETS };

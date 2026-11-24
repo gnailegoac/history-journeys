@@ -112,7 +112,7 @@ test('全程沙盘在沙盘栏里和一站的沙盘一样：人物页、还没�
       expect(got.insets, `${where}，${what}：四边留的空（上 右 下 左）。${hint}`).toBe(`${top} ${right} ${bottom} ${left}`);
       await expect(page.locator('.stage-notice'), `${where}，${what}：按钮下面没有那一行话`).toHaveCount(0);
     }
-    // 首页：摆的是同一栏、同一座全程沙盘。宽屏上那页纸比人物页的宽，沙盘栏就窄一些（standardPanes.ts 的 HOME_PANES，
+    // 首页：摆的是同一栏、同一座全程沙盘。宽屏上首页的文字栏比人物页的宽，沙盘栏就窄一些（standardPanes.ts 的 HOME_PANES，
     // 题签的测试照它在 Node 里摆“全程”那一节）；沙盘在上的两种窗口上和人物页一模一样。
     const wanted = HOME_PANES.find((item) => item.window.width === pane.window.width && item.window.height === pane.window.height)!;
     const home = await measure(page, pane, figureId, 'home');

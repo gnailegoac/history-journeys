@@ -1,5 +1,5 @@
 // 首页和“来源”页的行为：用假 DOM（miniDom.ts）在 Node 里连同 content/ 里真的内容跑一遍。
-// 不看版面和样式（那是 tests/e2e 的事）。要对的东西都从真的文件读：卡片照 index.json，绢上的沙盘照 scenes/route.json，
+// 不看版面和样式（那是 tests/e2e 的事）。要对的东西都从真的文件读：卡片照 index.json，沙盘栏里的沙盘照 scenes/route.json，
 // 字体照 src/fonts/shipped.ts，地形和水的每一行照每个场景文件的 credits，图片照每一站的 images，许可全文照 public/licences/。
 import { readdirSync } from 'node:fs';
 import { describe, expect, it, vi } from 'vitest';
@@ -7,7 +7,7 @@ import { stopHref } from '../../../src/app/router';
 import type { Figure, FigureCard, RouteScene, StopExtras, StopScene } from '../../../src/domain';
 import { SHIPPED_FONTS } from '../../../src/fonts/shipped';
 import { LIBRARY_LICENCES, SOURCES_TEXT } from '../../../src/ui/sourcesText';
-import { KAI_LABELS, SITE_LINE, SITE_TITLE } from '../../../src/ui/text';
+import { SANS_LABELS, SITE_LINE, SITE_TITLE } from '../../../src/ui/text';
 import { LIBRARY_LICENCES as LIBRARY_LICENCE_FILES, LICENCES_DIR } from '../../support/fontTool';
 import { readBytes } from '../../support/readBytes';
 import { installMiniDom, MiniElement } from './miniDom';
@@ -76,13 +76,13 @@ async function mount(search: string, what: 'home' | 'sources') {
 }
 
 describe('首页', () => {
-  it('一页纸：网站的名字、一句话、内容里的每一张卡片、“来源”；可以点进去的是链接、写着“从第一站读起”，还没写的不是链接、标着“还没写”', { timeout: 30_000 }, async () => {
+  it('文字栏：网站的名字、一句话、内容里的每一张卡片、“来源”；可以点进去的是链接、写着“从第一站读起”，还没写的不是链接、标着“还没写”', { timeout: 30_000 }, async () => {
     expect(cards.length).toBeGreaterThanOrEqual(2);
     expect(open.length).toBeGreaterThanOrEqual(1);
     expect(cards.length - open.length, '内容里要有还没写的人物，这一项才查得到“点不了的卡片”').toBeGreaterThanOrEqual(1);
     const page = await mount('?stage=fake', 'home');
     await waitFor(() => page.all('.card').length > 0);
-    // 版面是人物页的那一种：一页纸，后面跟着绢上的那一块
+    // 版面是人物页的那一种：文字栏，后面跟着沙盘栏
     const layout = page.q('.home-layout')!;
     expect(layout.className).toBe('figure-layout home-layout');
     expect(layout.childNodes.map((node) => (node as MiniElement).className.split(' ')[0])).toEqual(['reading', 'stage-pane']);
@@ -120,16 +120,16 @@ describe('首页', () => {
       expect(el.querySelectorAll('progress'), where).toHaveLength(0);
       expect(el.querySelectorAll('meter'), where).toHaveLength(0);
     }
-    // 楷体排的两句都在楷体的名单里（不在的话，楷体文件里没有这些字）
-    expect(KAI_LABELS).toContain('从第一站读起');
-    expect(KAI_LABELS).toContain(SITE_TITLE);
+    // 黑体排的两句都在黑体的名单里（不在的话，黑体文件里没有这些字）
+    expect(SANS_LABELS).toContain('从第一站读起');
+    expect(SANS_LABELS).toContain(SITE_TITLE);
 
     // 卡片后面：通到“来源”页的链接
     expect(page.all('.reading .stop-nav a').map((link) => [link.textContent, attr(link, 'href')])).toEqual([['来源', '#/sources']]);
     await page.unmount();
   });
 
-  it('绢上的那一块就是人物页的沙盘栏：摆着第一位可以点进去的人物的全程沙盘，看的是头一节，印通到他的各站；没有全程沙盘时是一句话', { timeout: 30_000 }, async () => {
+  it('旁边的沙盘栏就是人物页的那一栏：摆着第一位可以点进去的人物的全程沙盘，看的是头一节，印通到他的各站；没有全程沙盘时是一句话', { timeout: 30_000 }, async () => {
     const figure = figures[0];
     const route = readJson<RouteScene>(`content/figures/${figure.id}/scenes/route.json`);
     const page = await mount('?stage=fake', 'home');
@@ -155,12 +155,12 @@ describe('首页', () => {
     expect(attr(none.q('.stage-pane'), 'data-stage-state')).toBe('still');
     expect(none.q('.fake-stage')).toBeNull();
     expect(none.q('.stage-still-line')!.textContent).toBe('全程沙盘还没接进来。');
-    // 那页纸照常
+    // 文字栏照常
     expect(none.all('.cards .card')).toHaveLength(cards.length);
     await none.unmount();
   });
 
-  it('全程沙盘这一次没读出来：说“沙盘没能摆出来”，带“再试一次”，不说“还没接进来”；再试读出来了就摆上；那页纸照常', { timeout: 30_000 }, async () => {
+  it('全程沙盘这一次没读出来：说“沙盘没能摆出来”，带“再试一次”，不说“还没接进来”；再试读出来了就摆上；文字栏照常', { timeout: 30_000 }, async () => {
     (globalThis as any).__routeFails = 1;
     const page = await mount('?stage=fake', 'home');
     await waitFor(() => attr(page.q('.stage-pane'), 'data-stage-state') === 'failed');
@@ -179,7 +179,7 @@ describe('首页', () => {
 describe('“来源”页', () => {
   it('架子马上就有（位置那一行、标题），里面的东西取到了才换上；四栏：字体、地形和水、图片、程序', { timeout: 30_000 }, async () => {
     const page = await mount('?stage=fake', 'sources');
-    // 一上来：一页纸独自立着，没有沙盘栏；标题是“来源”，下面一句“加载中…”
+    // 一上来：一栏字独自立着，没有沙盘栏；标题是“来源”，下面一句“加载中…”
     const main = page.q('main')!;
     expect(main.className).toBe('plain-page sources');
     expect(page.q('.stage-pane')).toBeNull();
@@ -194,8 +194,8 @@ describe('“来源”页', () => {
     const sections = page.all('main section');
     expect(sections.map((section) => attr(section, 'data-sources'))).toEqual(['fonts', 'land', 'pictures', 'program']);
     expect(sections.map((section) => section.querySelector('h2.section-heading')!.textContent)).toEqual(['字体', '地形和水', '图片', '程序']);
-    // 标题和四个小标题用楷体排：都在楷体的名单里
-    for (const heading of ['来源', '字体', '地形和水', '图片', '程序']) expect(KAI_LABELS, heading).toContain(heading);
+    // 标题和四个小标题用黑体排：都在黑体的名单里
+    for (const heading of ['来源', '字体', '地形和水', '图片', '程序']) expect(SANS_LABELS, heading).toContain(heading);
     await waitFor(() => page.all('main .quiet').length === 0);
     await page.unmount();
   });

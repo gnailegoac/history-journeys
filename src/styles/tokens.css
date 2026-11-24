@@ -1,7 +1,8 @@
 /* 全站的颜色、字体、字号和尺寸都在这一个文件里。分两套，名字不重样：
-   一、框架的一套（:root）：首页、人物页、各站目录、正文那一栏、按钮、面板、沙盘栏上下的按钮和题记。哪位人物都用这一套；要换框架的风格，只改这一套。
+   一、框架的一套（:root）：首页、人物页、各站目录、正文那一栏、按钮、面板、沙盘栏上下的按钮和题记。哪位人物都用这一套；
+       要换框架的风格，只改这一套。
    二、人物自己的一套（文件末尾，写在沙盘栏 .stage-pane 上）：沙盘栏的底色，和沙盘上的题签、印、引线。一位人物一套，现在只有苏轼的。
-   框架的样式不读人物的那一套，题签的样式只读人物的那一套：换了哪一套，另一套都不动（tests/support/sourceScan.ts 守着）。
+   框架的样式不读人物的那一套，题签的样式不读框架的颜色和字体：换了哪一套，另一套都不动。
    宽屏和窄屏的分界：窗口 960px 以上宽、而且横着（宽比高大）才是宽屏，写在 layout.css、stage.css 和 guide.css 的媒体查询里
    （媒体查询不能用变量）；这个文件里按宽窄另定字号的三处用的也是它，和 1280px、1400px。 */
 
@@ -9,70 +10,78 @@
   /* 设备设成深色的时候，输入框、滚动条这些浏览器自己画的东西也照浅色画。 */
   color-scheme: light;
 
-  /* 颜色：纸、绢、墨、一种印泥红。字在纸上；沙盘摆在绢上；摆在绢上的东西（题签、按钮、面板）是一张张纸条。
-     红只用来做记号（一道线、一个小方块、一方印、一道虚线），不拿来铺大块的底。
-     绢上的字都用墨色（7.4 比 1）：红字在绢上只有 2.9 比 1，纸上说明用的灰字 3.7 比 1，都太淡。 */
-  --color-paper: #f5eedd; /* 正文的那一页纸 */
-  --color-paper-raised: #faf5e7; /* 纸条：按钮、卡片、面板 */
-  --color-paper-note: #ece2cb; /* 点开的小注：比纸深一点 */
-  --color-paper-edge: #ded2b6; /* 纸条下边的那一道边 */
-  --color-silk: #c5b189; /* 绢：没有纸的地方露出来的底（首页、没找到的页面的两边） */
-  --color-ink: #28231f;
-  --color-ink-soft: #5a5146; /* 说明性的字 */
-  --color-ink-faint: #8a7e6b; /* 记号和用不了的东西上的字，不拿来排成句的话 */
-  --color-ink-on-silk: rgb(40 35 31 / 0.92); /* 绢上说明性的字：墨色淡一点点，不用 --color-ink-soft（那是纸上用的） */
-  --color-line: #cdbf9f; /* 纸上的细线 */
-  --color-line-on-silk: rgb(60 46 32 / 0.5); /* 绢上的细线，和纸条里面那一圈深色的边 */
-  --color-accent: #b03a2a; /* 印泥红 */
-  --color-accent-wash: #f1e0d6; /* 只剩测试用的两个替身用它分清彼此（fake-stage.css） */
-  --color-on-accent: #f5eedd;
-  --color-focus: #b03a2a; /* 纸上的焦点框 */
-  --color-focus-on-silk: #28231f; /* 绢上的焦点框用墨色（沙盘栏和它里面的东西） */
-  --color-shadow: rgb(60 40 10 / 0.34);
-  --color-stage-veil: #c5b189; /* 题记那一条的底：就是那块绢，不透明——沙盘不从字底下透上来 */
-  --color-slip-veil: rgb(250 245 231 / 0.96); /* 绢上的一句话底下垫的纸条：“正在摆”“没能摆出来” */
+  /* 颜色：一页近乎白的、略带一点暖的底，深灰的字，一种墨蓝。括号里是和页面的底比的反差，照颜色的数算出来的。
+     墨蓝是唯一的一种彩色：链接和点得动的小东西上的字，“现在在这儿”的那一样（这一站的小圈、选中的古名今名），
+     标题上面的一道短线和几处小记号。不拿来铺大块的底。框架里没有纹理，没有印。 */
+  --color-paper: #fbfaf7; /* 页面的底：正文那一栏、“来源”页、贴着底边的那一条、沙盘栏上下的两条带子 */
+  --color-paper-raised: #ffffff; /* 板：卡片、按钮、面板、点得开的那一行，和摆在沙盘栏上面的每一样 */
+  --color-paper-note: #f3f1ec; /* 点开的小注，按下去的那一下，还用不了的东西 */
+  --color-ink: #23221f; /* 字（15.2 比 1，板上 15.9） */
+  --color-ink-soft: #5c5a55; /* 说明性的字（6.6 比 1，板上 6.9） */
+  --color-ink-faint: #86837c; /* 记号和用不了的东西上的字，不拿来排成句的话（3.6 比 1，板上 3.8） */
+  --color-mark-firm: #77746d; /* 笔画很细的记号用深一点的这一种：位置那一行的小圈（4.47 比 1：记号够了，排成句的话还差一点，不拿它排字） */
+  --color-line: #dedbd3; /* 细线：只用来把东西隔开，不单靠它表示什么 */
+  --color-line-strong: #c8c4ba; /* 重一点的线：引文左边的一道、一页末尾的短线、首页卡片的边、讲解员面板的上边 */
+  --color-line-pane: #d3d1cb; /* 沙盘栏上的线：栏自己的边、栏里上下两条带子的边线、用不了的按钮的边。是不透明的：栏的底色铺到它的边线底下，透明的线会被染上那个颜色 */
+  --color-plate-edge: rgb(35 34 31 / 0.5); /* 摆在沙盘栏上面的板的细边：半透明的深灰。画在板自己的白底上是 #91918f（和板比 3.2 比 1），沙盘栏的底是深是浅都一样 */
+  --color-accent: #1f4b6e; /* 墨蓝（8.8 比 1，板上 9.2） */
+  --color-accent-wash: #e7eef3; /* 选中的古名今名、展开着的“说明”按钮底下铺的淡蓝（墨蓝的字在它上面 7.8 比 1） */
+  --color-on-accent: #ffffff; /* 墨蓝上面的字 */
+  --color-focus: #1f4b6e; /* 页面上的焦点框 */
+  --color-focus-pane: #23221f; /* 沙盘栏和它里面的东西的焦点框，外面的一道：深灰 */
+  --color-focus-pane-inner: #ffffff; /* 里面贴着东西的一道：白。两道一起画，沙盘栏的底是深是浅，总有一道看得见 */
 
-  /* 纸的纹理：浏览器照这几百个字节自己画出来的，不是图片文件；画不出来就是平的纸色。
-     双引号里包着单引号：里面的井号和百分号写成 %23、%25。 */
-  --grain: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='320' height='320'><filter id='n' x='0' y='0' width='100%25' height='100%25'><feTurbulence type='fractalNoise' baseFrequency='0.9 0.35' numOctaves='3' seed='11'/><feColorMatrix values='0 0 0 0 0.42  0 0 0 0 0.32  0 0 0 0 0.16  0 0 0 0.75 -0.33'/></filter><rect width='320' height='320' filter='url(%23n)'/></svg>");
+  /* 影子：正文那一栏里的东西没有影子。有影子的只有这几样。 */
+  --shadow-plate: 0 1px 2px rgb(22 22 20 / 0.1), 0 3px 10px -3px rgb(22 22 20 / 0.22); /* 浮着的板：沙盘上面的按钮、那几句话、展开的说明，和“到沙盘” */
+  --shadow-small: 0 1px 2px rgb(22 22 20 / 0.1); /* 沙盘栏里的两个小按钮 */
+  --shadow-card: 0 1px 2px rgb(22 22 20 / 0.04), 0 8px 20px -12px rgb(22 22 20 / 0.16); /* 首页上点得进去的卡片 */
+  --shadow-panel: 0 -12px 28px -16px rgb(22 22 20 / 0.32); /* 讲解员面板往上投的 */
+  --shadow-pane: 0 10px 20px -14px rgb(22 22 20 / 0.4); /* 窄屏上钉在顶上的沙盘栏往下面的正文上投的 */
+  --shadow-dock: 0 -12px 14px -8px rgb(251 250 247 / 0.92); /* 贴着底边的那一条上面，正文淡出去的一小截：颜色就是页面的底（--color-paper），改了那一个，这里跟着改 */
 
-  /* 绢的经纬：横竖各一组很淡的细线。只铺在页面的底上（没有纸的地方）；沙盘栏的底是平的，不铺。 */
-  --weave: repeating-linear-gradient(0deg, rgb(90 66 28 / 0.055) 0 1px, transparent 1px 3px), repeating-linear-gradient(90deg, rgb(255 246 220 / 0.07) 0 1px, transparent 1px 3px);
+  /* 展开的说明比它那一块高、要在里面滚的时候，底边上画的两层（用法见 stage.css 的 .stage-note-panel）。
+     上面一层是板的白（--color-paper-raised，改了那一个，这里跟着改），从透明到白；下面一层是一道淡淡的影子。 */
+  --fade-plate: linear-gradient(rgb(255 255 255 / 0), #ffffff 55%);
+  --shade-more: linear-gradient(rgb(22 22 20 / 0), rgb(22 22 20 / 0.2));
 
-  /* 字体：随站带着两套，各只有一种粗细。宋体排正文和成句的话，楷体排标题、题签、按钮和几个固定的小标签。
+  /* 字体：随站带着两套，各只有一种粗细。宋体（400）排正文和成句的话；黑体（500）排标题、名字、标签、按钮，和单独摆着的日期、数字。
      文件和 @font-face 在 src/fonts/（工具做的，npm run fonts），说明见 docs/data-spec.md“随站的字体”。
-     名单里排在后面的是设备自带的：随站的文件还在路上、或者没取到的时候先顶着。
-     设备上没有楷体的（平板大多没有），楷体的字先用随站的宋体，不会变成黑体。 */
+     名单里排在后面的是设备自带的：随站的文件还在路上、或者没取到的时候先顶着。设备自带的黑体的名字只写在 --font-sans 这一行里，别处一律用记号。
+     黑体的文件只有 500 这一种粗细：哪一条样式用了 --font-sans，就在同一条里写上 font-weight: var(--weight-sans)；
+     黑体的元素里面套着宋体的字的地方，把粗细写回 400。 */
   --font-song: 'Yanlu Song', 'Songti SC', 'STSong', 'Noto Serif CJK SC', 'Source Han Serif SC', 'SimSun', serif;
-  --font-kai: 'Yanlu Kai', 'Kaiti SC', 'STKaiti', 'KaiTi', 'Yanlu Song', 'Songti SC', 'Noto Serif CJK SC', 'SimSun', serif;
+  --font-sans: 'Yanlu Sans', 'Noto Sans SC', 'Source Han Sans SC', 'Noto Sans CJK SC', 'PingFang SC', 'Microsoft YaHei UI', 'Microsoft YaHei', sans-serif;
+  --weight-sans: 500;
 
-  /* 字号。这里写的是竖着拿的平板（和更窄的窗口）上的；宽屏上不一样的几个见文件末尾。这里最小的是 14px，
+  /* 字号。这里写的是竖着拿的平板（和更窄的窗口）上的；宽屏上不一样的几个见后面。这里最小的是 14px，
      沙盘栏里给读者看的字也都不小于它（只有手机那么窄的栏上，题记下面那一行说明还会缩，见 stage.css）。 */
   --size-reading: 1.1875rem; /* 正文，19px */
   --leading-reading: 1.9;
   --size-note: 1.0625rem; /* 小注、白话、凭据、讲解员面板，17px */
   --leading-note: 1.8;
-  --size-ui: 1rem; /* 抬头里的时间地点、目录里的摘要、位置那一行，16px */
-  --size-small: 0.875rem; /* 说明性的小字、出处、小标签，14px */
-  --size-fine: 0.9375rem; /* 字距放开的小字：位置那一行、第几站、人物的朝代和年份，15px */
-  --size-site-title: 2.75rem; /* 网站的名字，44px */
-  --size-title: 2.5rem; /* 一页的大标题，40px */
-  --size-heading: 1.5rem; /* 小节标题，24px */
-  --size-label: 1.0625rem; /* 楷体的小标签：时间、地点、年纪，“读原文”“凭据”，沙盘栏的按钮，17px */
-  --size-note-title: 1.25rem; /* 小注的标题，20px */
-  --size-stop-title: 1.375rem; /* 目录里各站的标题，22px */
-  --size-ask: 1.125rem; /* “问讲解员”，18px */
-  --size-nav: 1.25rem; /* 上一站、下一站的站名，20px */
-  --size-card-name: 2.5rem; /* 首页卡片上竖着写的名字，40px */
-  --weight-heading: 400; /* 没有粗体：两套字体都只带了一种粗细。这个记号留着，各处照旧引用它 */
+  --size-ui: 1rem; /* 抬头里的时间地点、目录里的摘要，16px */
+  --size-small: 0.875rem; /* 说明性的小字、出处，14px */
+  --size-fine: 0.875rem; /* 黑体的小字：位置那一行、第几站、人物的朝代和年份、沙盘栏里的日期，14px */
+  --size-pane-text: 0.9375rem; /* 压在沙盘上面的几句成句的话：“正在摆”、没能摆出来的那一句、展开的说明，15px */
+  --size-site-title: 2.5rem; /* 网站的名字，40px */
+  --size-title: 2.25rem; /* 一页的大标题，36px */
+  --size-heading: 1.375rem; /* 小节标题，22px */
+  --size-label: 0.9375rem; /* 黑体的标签和按钮：“时间”“地点”“年纪”，“读原文”“凭据”，沙盘栏的按钮，15px */
+  --size-note-title: 1.125rem; /* 小注的标题，18px */
+  --size-stop-title: 1.25rem; /* 目录里各站的标题，20px */
+  --size-ask: 1rem; /* “问讲解员”，16px */
+  --size-nav: 1.125rem; /* 上一站、下一站的站名，18px */
+  --size-card-name: 1.75rem; /* 首页卡片上的名字，28px，横着写 */
 
   /* 尺寸 */
   --measure: 30em; /* 正文一行最多这么宽：30 个字（竖着拿的平板上就是这么宽） */
-  --leaf-pad-start: 2rem; /* 宽屏上那一页纸左右留的空：左 32px，右 28px，一行字 = 纸宽 − 60px（1024 宽时 20 个字，1389 起 23 个字） */
+  --leaf-pad-start: 2rem; /* 宽屏上正文那一栏左右留的空：左 32px，右 28px，一行字 = 栏宽 − 60px（1024 宽时 20 个字，1389 起 23 个字） */
   --leaf-pad-end: 1.75rem;
   --bar-h: 4rem; /* 站点页贴着底边的那一条（上一站、问讲解员、下一站）：64px 高，宽屏上 68px */
   --tap: 2.75rem; /* 可点的东西至少 44px 高 */
-  --radius: 2px; /* 按钮、面板的圆角。纸条（原文和凭据的那一行、小注、小标签、目录上的数字印）是方角的，不用它 */
+  --radius: 4px; /* 圆角：板、按钮、点得开的那一行 */
+  --radius-card: 6px; /* 首页的卡片 */
+  --radius-small: 3px; /* 小按钮和小标签 */
   --gap-1: 0.25rem;
   --gap-2: 0.5rem;
   --gap-3: 0.75rem;
@@ -80,7 +89,7 @@
   --gap-5: 1.5rem;
   --gap-6: 2.25rem;
   --page-pad: 1.25rem; /* 文字栏两侧的留白 */
-  --home-width: 40rem; /* 独自立在绢上的一页纸有多宽：“来源”页，没找到人物的那一页 */
+  --home-width: 40rem; /* 没有沙盘栏的两页（“来源”页，没找到人物的那一页）文字那一栏有多宽 */
 
   /* 版面 */
   --column-width: clamp(27.5rem, 36vw, 31.25rem); /* 宽屏上文字栏的宽度，440 到 500px */
@@ -98,26 +107,25 @@
 /* 宽屏（文字栏在左、沙盘栏在右）：标题按文字栏的宽窄另定。 */
 @media (min-width: 960px) and (orientation: landscape) {
   :root {
-    --size-site-title: 3.25rem; /* 52px */
-    --size-title: 2.375rem; /* 38px：文字栏只有 440px 宽 */
+    --size-site-title: 2.875rem; /* 46px */
+    --size-title: 2.125rem; /* 34px：文字栏只有 440px 宽 */
     --bar-h: 4.25rem; /* 68px */
   }
 }
 
 @media (min-width: 1280px) and (orientation: landscape) {
   :root {
-    --size-site-title: 4.125rem; /* 66px */
-    --size-heading: 1.6875rem; /* 27px */
-    --size-ask: 1.1875rem; /* 19px */
-    --size-nav: 1.375rem; /* 22px */
+    --size-site-title: 3.5rem; /* 56px */
+    --size-heading: 1.5rem; /* 24px */
+    --size-nav: 1.1875rem; /* 19px */
   }
 }
 
-/* 一页的大标题到 1400px 宽才放大：文字栏要到窗口 1389px 宽才长到头（500px），在那以前 47px 的字一行放不下九个，
-   “汴京：御史台的一百三十天”冒号后面的九个字会把最后一个“天”字单独甩到第三行（tests/e2e/titles.spec.ts 守着）。 */
+/* 一页的大标题到 1400px 宽才放大：文字栏要到窗口 1389px 宽才长到头（500px，一行字 440px）。
+   标题折了行，最后一行不能只剩一个字（tests/e2e/titles.spec.ts 守着）。 */
 @media (min-width: 1400px) and (orientation: landscape) {
   :root {
-    --size-title: 2.9375rem; /* 47px */
+    --size-title: 2.5rem; /* 40px */
   }
 }
 

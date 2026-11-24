@@ -161,7 +161,7 @@ function NoteView({ note, cites, onClose }: { note: Note; cites: Map<string, str
   });
   return (
     <aside className="note" id={noteDomId(note.id)} data-note-id={note.id} aria-label={`小注：${note.title}`}>
-      {/* 标题是楷体，类别的小标签和“关闭”是宋体：并排的三块，不挤在同一行字里 */}
+      {/* 标题、类别的小标签和“关闭”都是黑体，大小不一样：并排的三块，不挤在同一行字里 */}
       <div className="note-head">
         <span className="note-title">{note.title}</span>
         <span className="tag note-kind">{NOTE_KIND_LABEL[note.kind]}</span>
@@ -214,7 +214,7 @@ function ImageView({ image, url }: { image: StopImage; url: string | undefined }
 }
 
 /**
- * “读原文”“凭据”折着的那一行：前面的记号、楷体的名字、后面宋体的标题（凭据没有），并排的三块。
+ * “读原文”“凭据”折着的那一行：前面的记号、黑体的名字、后面宋体的标题（凭据没有），并排的三块。
  * 记号是页面上真的字（折着显加号，点开显减号，由样式表挑一个显出来），不是样式表画的：这样它们在随站的字体里，
  * 查字体的测试也看得到。读屏不念它：这一行是折着还是开着，浏览器自己会说。
  */

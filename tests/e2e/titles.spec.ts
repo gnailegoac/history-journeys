@@ -2,16 +2,18 @@
 //
 // 标题在标点后面折行（“汴京：/御史台的一百三十天”）；标点之间的那一截自己就比一行长的时候，浏览器只好从中间断，
 // 最后一行就可能只剩一个字（“汴京：/御史台的一百三十/天”）——窗口 1280 到 1388 像素宽的时候出过这个毛病：
-// 那时文字栏还没长到头，47 像素的字一行放不下九个。现在标题到 1400 像素宽才放大（src/styles/tokens.css）。
+// 那时文字栏还没长到头，放大了的字一行放不下九个。所以标题到 1400 像素宽才放大（src/styles/tokens.css）。
+// 标题现在是黑体，开着 halt：标题里的全角标点（冒号）只占半个字宽，一行能放下的字比原来多一点，折行的地方也跟着变了，
+// 所以这一条每换一次字体、字号都要真的跑一遍，不靠算。
 //
 // 这里把每一站都真的打开，把窗口从窄到宽一档一档拉过去（每档 20 像素）：
 //   横排的版面（文字在左、沙盘在右）  窗口 960 到 1920 像素宽，高 800（横着）
 //   沙盘在上的版面                    窗口 600 到 1100 像素宽，高 1400（竖着）
 // 每一档看标题的每个字落在哪一行：折了行的标题，最后一行不能只有一个字。
-// 另外：四种标准的窗口上，标题的字号是 47、38、40、40 像素，没有因为挪了放大的那一档而变。
+// 另外：四种标准的窗口上，标题的字号是 40、34、36、36 像素（电脑、横着拿的平板、竖着拿的两种平板），没有因为挪了放大的那一档而变。
 //
 // 站名照 content/ 里真的文件，页面上的标题要和它一样；沙盘用的是替身（?stage=fake）。
-// 这只证明 Chromium 里是这样；别的浏览器一行能放下几个字可能差出一点（标题右边为此让出了一截，见 base.css 的 .page-title）。
+// 这只证明 Chromium 里是这样；别的浏览器一行能放下几个字可能差出一点。
 
 import { expect, test } from '@playwright/test';
 import type { Figure } from '../../src/domain/types';
@@ -26,7 +28,7 @@ const RANGES = [
 ] as const;
 const STEP = 20;
 /** 四种标准的窗口上，一页的大标题多大（像素）。 */
-const TITLE_PX: Record<string, number> = { '1440 × 900': 47, '1024 × 768': 38, '768 × 1024': 40, '1024 × 1366': 40 };
+const TITLE_PX: Record<string, number> = { '1440 × 900': 40, '1024 × 768': 34, '768 × 1024': 36, '1024 × 1366': 36 };
 
 test('各站的大标题：窗口从窄到宽一档一档拉过去，折了行的标题最后一行都不只剩一个字；四种标准的窗口上字号不变', async ({ page }) => {
   test.setTimeout(240_000);
@@ -82,7 +84,7 @@ test('各站的大标题：窗口从窄到宽一档一档拉过去，折了行�
         const got = await readTitle();
         measured++;
         expect(got.shape, `窗口 ${width} × ${range.height}：该是${range.name}`).toBe(range.shape);
-        expect(got.family, `“${stop.title}”是楷体`).toMatch(/^"?Yanlu Kai/);
+        expect(got.family, `“${stop.title}”是黑体`).toMatch(/^"?Yanlu Sans/);
         expect(got.lines.join(''), '量到的每一行合起来就是标题').toBe(stop.title);
         const shape = `${got.size}px ${got.lines.join(' / ')}`;
         shapes.set(shape, [...(shapes.get(shape) ?? []), width]);

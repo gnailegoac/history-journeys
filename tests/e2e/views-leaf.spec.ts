@@ -98,7 +98,7 @@ test.describe('有自己的沙盘、正文还没写的一站：沙盘上看的�
       const where = `窗口 ${size.width} × ${size.height}，${stopId}`;
       const visited = await page.evaluate(() => history.length);
 
-      // ---- 单子：一行一个按钮，顺序是场景里各处的顺序；头一行是摆着的，只有它带红线和小标签
+      // ---- 单子：一行一个按钮，顺序是场景里各处的顺序；头一行是摆着的，只有它带强调色的线和小标签
       const items = views.locator('.view-item');
       await expect(items).toHaveCount(names.length);
       expect(await items.evaluateAll((list) => list.map((item) => item.getAttribute('data-view')))).toEqual(names);
@@ -126,7 +126,8 @@ test.describe('有自己的沙盘、正文还没写的一站：沙盘上看的�
         expect(row.left, `${where}：第 ${i + 1} 行的左边`).toBeGreaterThanOrEqual(column.left - 0.5);
         expect(row.right, `${where}：第 ${i + 1} 行的右边`).toBeLessThanOrEqual(column.right + 0.5);
       }
-      // 摆着的那一行左边的线是印泥红，别的行那道线是透明的；宽度都一样（换一处字不左右挪）
+      // 摆着的那一行左边的线是强调色，别的行那道线是透明的；宽度都一样（换一处字不左右挪），都是 3 像素：
+      // 这道线和键盘的焦点框现在是同一种颜色，靠样子分——线只在左边一道、3 像素，框是四边一圈、2 像素、离开 2 像素；线是两样里重的一样
       const accent = await page.evaluate(() => {
         const probe = document.createElement('i');
         probe.style.color = 'var(--color-accent)';
@@ -138,6 +139,7 @@ test.describe('有自己的沙盘、正文还没写的一站：沙盘上看的�
       expect(rows[0].rule, `${where}：摆着的那一行左边的线`).toBe(accent);
       for (const row of rows.slice(1)) expect(row.rule, `${where}：别的行左边的线`).toBe('rgba(0, 0, 0, 0)');
       expect(new Set(rows.map((row) => row.ruleWidth)).size).toBe(1);
+      expect(rows[0].ruleWidth, `${where}：每一行左边那道线的宽`).toBe('3px');
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), `${where}：页面有横着的滚动条`).toBe(true);
 
       // ---- 按第三行：记号换到它上面，沙盘换到那一处，题记也是那一处的
@@ -219,7 +221,8 @@ test.describe('有自己的沙盘、正文还没写的一站：沙盘上看的�
               { message: `${where}：用键盘走到“${at.slice(5)}”那一行，它该整个看得见` },
             )
             .toBe(true);
-          // 走到的这一行画着焦点的框（三个像素的实线）：这一行是没有边、没有底色的按钮，框是键盘上唯一看得出“现在在哪”的东西
+          // 走到的这一行画着焦点的框（页面上别处一样的那一种：两个像素的实线，离开两个像素）：这一行是没有边、没有底色的按钮，
+          // 框是键盘上唯一看得出“现在在哪”的东西
           await expect
             .poll(
               () =>
@@ -229,7 +232,7 @@ test.describe('有自己的沙盘、正文还没写的一站：沙盘上看的�
                 }),
               { message: `${where}：用键盘走到“${at.slice(5)}”那一行，它该画着焦点的框` },
             )
-            .toBe('solid 3');
+            .toBe('solid 2');
         }
         if (at === 'pane') break;
       }

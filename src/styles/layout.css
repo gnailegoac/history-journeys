@@ -1,11 +1,11 @@
 /* 人物页和站点页共用的版面：文字栏和沙盘栏。
-   文字栏是一页纸（.reading）：纸色上有一层淡淡的纹理。宽屏上它左右各有一道细线（册页的界栏），右边压着沙盘栏投下一道影子；
-   窄屏上没有这些，是钉在顶上的沙盘栏往下面的纸上投一道影子。
+   文字栏（.reading）就是页面的底色，平的：没有纹理，没有界栏，自己没有影子。宽屏上它和沙盘栏之间只隔着沙盘栏左边的一道细线；
+   窄屏上是钉在顶上的沙盘栏往下面的正文上投一道淡淡的影子。
    窄屏：沙盘栏在上。摆着沙盘时它钉在顶上（.is-pinned），文字在下面滚动，可以收起；摆着的沙盘画面断了，它也留在原处；
          只有一张图或一句话时，它跟着页面一起滚走，不占着屏幕。
    宽屏（窗口 960px 以上宽，而且是横着的：宽比高大）：文字栏在左，沙盘栏占满右边，文字滚动时它不动。
    别的窗口都照窄屏排：不到 960px 宽的，和竖着的（高不小于宽）——竖着拿的大平板有 1024px 宽，也是沙盘在上、文字在下。
-   沙盘栏的底是一块绢（平的一种颜色，见 tokens.css 的 --color-paper-sunk），它的边线是绢上的细线。
+   沙盘栏的底色是这位人物自己的（平的一种颜色，见 tokens.css 末尾的 --color-paper-sunk）；它的边线是框架的（--color-line-pane）。
    沙盘栏里面的东西（按钮、题记、题签、定格图）在 stage.css。高度的几个数（--stage-height-…）在 tokens.css。 */
 
 /* 用键盘走到的东西不要被底下的按钮挡住；沙盘钉在顶上时，也不要被它挡住。 */
@@ -46,12 +46,11 @@ html:has(.figure-layout) {
 }
 
 /* 底下留的空比贴着底边的“问讲解员”那一条高，最后几行能滚到它上面。
-   正文再短，纸也铺到屏幕的底边（窄屏上它排在沙盘栏下面，把剩下的高度占满；宽屏上见下面的 min-height）。 */
+   正文再短，这一栏也铺到屏幕的底边（窄屏上它排在沙盘栏下面，把剩下的高度占满；宽屏上见下面的 min-height）。 */
 .reading {
   flex: 1 0 auto;
   padding: var(--gap-4) var(--page-pad) calc(6rem + env(safe-area-inset-bottom, 0px));
   background-color: var(--color-paper);
-  background-image: var(--grain);
 }
 
 .reading-inner {
@@ -68,8 +67,9 @@ html:has(.figure-layout) {
   /* 里面的东西按沙盘栏自己的宽度分两种排法：宽度是页面量的，挂在这一栏上的类名和 --pane-w（见 StagePane.tsx、stage.css）。 */
   order: -1;
   position: relative;
+  /* 底色是人物自己的；边线是框架的，不透明的浅灰（栏的底色铺到边线底下，透明的线会被它染上颜色）。 */
   background: var(--color-paper-sunk);
-  border-bottom: 1px solid var(--color-line-on-silk);
+  border-bottom: 1px solid var(--color-line-pane);
 }
 
 /* --stage-pane-h 是摆着沙盘时这一栏的高，--stage-controls-room 是顶上那排按钮连上下的空占的高：
@@ -82,8 +82,8 @@ html:has(.figure-layout) {
   z-index: 2;
   height: var(--stage-pane-h);
   overflow: hidden;
-  /* 钉在顶上的沙盘栏往下面的纸上投一道影子（不占地方，栏的大小不变） */
-  box-shadow: 0 10px 18px -10px rgb(60 40 10 / 0.45);
+  /* 钉在顶上的沙盘栏往下面的正文上投一道淡淡的影子（不占地方，栏的大小不变） */
+  box-shadow: var(--shadow-pane);
 }
 
 .stage-pane.is-pinned.is-folded {
@@ -103,33 +103,11 @@ html:has(.figure-layout) {
     align-items: start;
   }
 
-  /* 那一页纸：和屏幕一样高（正文再短，纸也到底）；左右两边稍深一点，各一道细线；压在沙盘栏上面，往右投一道影子。
-     叠在上面只为了这道影子：纸里面钉在屏幕上的东西（底下那一条、讲解员面板）都在纸这一栏的范围里，碰不到沙盘栏。 */
+  /* 文字栏：和屏幕一样高（正文再短，这一栏也到底）。它和沙盘栏各占各的一格，谁也不压着谁；
+     栏里面钉在屏幕上的东西（底下那一条、讲解员面板）都在这一栏的范围里，碰不到沙盘栏。 */
   .reading {
-    position: relative;
-    z-index: 1;
     min-height: 100vh;
     padding: var(--gap-2) var(--leaf-pad-end) calc(6rem + env(safe-area-inset-bottom, 0px)) var(--leaf-pad-start);
-    background-image: linear-gradient(90deg, rgb(120 92 40 / 0.07), transparent 26px, transparent calc(100% - 60px), rgb(120 92 40 / 0.09)), var(--grain);
-    box-shadow: 1px 0 0 rgb(90 66 28 / 0.28), 14px 0 34px -8px var(--color-shadow);
-  }
-
-  .reading::before,
-  .reading::after {
-    content: '';
-    position: absolute;
-    top: 0;
-    bottom: 0;
-    width: 1px;
-    background: var(--color-line);
-  }
-
-  .reading::before {
-    left: 18px;
-  }
-
-  .reading::after {
-    right: 14px;
   }
 
   .stage-pane,
@@ -146,7 +124,7 @@ html:has(.figure-layout) {
     height: 100dvh;
     overflow: hidden;
     border-bottom: 0;
-    border-left: 1px solid var(--color-line-on-silk);
+    border-left: 1px solid var(--color-line-pane);
     box-shadow: none;
   }
 

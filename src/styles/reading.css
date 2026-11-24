@@ -1,25 +1,29 @@
-/* 文字栏（那一页纸）里的东西：位置那一行、抬头、目录、正文、小注、原文、图片、凭据、一站末尾回到目录的链接。
-   纸本身（纸色、纹理、界栏、影子）在 layout.css。这里的规矩：
-   · 字是宋体（从 body 传下来的），只有点了名的几样是楷体：标题、小节名、几个小标签、目录上的数字印和站名。
-     楷体的字和宋体的字不排在同一行里：一行里两样都有的地方（时间地点、小注的抬头、“读原文”那一行、目录里的一站），
-     各是并排的一块，各有自己的行高。
-   · 没有粗体。要显眼，靠楷体和宋体的分别、字的大小、墨色的深浅，和红色的记号。
-   · 红色只做记号：小标签的字、一道线、一个小方块、词下面的虚线。
+/* 文字栏（正文那一栏）里的东西：位置那一行、抬头、目录、正文、小注、原文、图片、凭据、一站末尾回到目录的链接。
+   栏本身（底色）在 layout.css。这里的规矩：
+   · 成句的话是宋体（从 body 传下来的）。点了名的几样是黑体：标题、小节名、站名、标签、按钮和链接上的字，和单独摆着的日期、数字。
+     黑体只带了 500 这一种粗细：哪一条用了 --font-sans，同一条里就写上 font-weight: var(--weight-sans)。
+     黑体的字和宋体的字不排在同一行里：一行里两样都有的地方（时间地点、“读原文”那一行），各是并排的一块，各有自己的行高。
+   · 没有更粗的字。要显眼，靠黑体和宋体的分别、字的大小、字色的深浅，和墨蓝的记号。
+   · 墨蓝只用在这几样上：链接，点得动的词下面的虚线，“现在在这儿”的那一样（这一站的小圆圈、沙盘上摆着的那一处），
+     写好了的站的圆点，和几个小记号（小注左边的一道、类别的小标签、加号减号）。不拿它铺大块的底。
+   · 把东西隔开的线都是 1px 的细线。这一栏里的东西没有影子（只有“到沙盘”是浮着的板，有）。
    · 鼠标移上去才有的样子都写在 @media (hover: hover) 里；手指按下去的样子用 :active。 */
 
 /* ---------------------------------------------------------------- 位置那一行 */
 
-/* “沿着他走过的路 — 苏轼”：小字，字距放开；两个名字下面各有一道细细的淡墨线——平板上没有“鼠标移上去”这回事，
-   靠这道线看得出它们点得动。中间是一小段细线（画出来的，不是字）。跟着正文滚走。 */
+/* “沿着他走过的路 / 苏轼”：黑体的小字；两个名字下面各有一道细细的灰线——平板上没有“鼠标移上去”这回事，
+   靠这道线看得出它们点得动（线有多粗是 base.css 里链接共用的那一句定的）。中间是一道斜着的细线（画出来的，不是字）。跟着正文滚走。 */
 .crumbs {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0 0.625rem;
+  gap: 0 var(--gap-2);
   margin-bottom: var(--gap-2);
   color: var(--color-ink-soft);
+  font-family: var(--font-sans);
   font-size: var(--size-fine);
-  letter-spacing: 0.08em;
+  font-weight: var(--weight-sans);
+  letter-spacing: 0.04em;
 }
 
 .crumbs a {
@@ -30,14 +34,14 @@
   color: inherit;
   text-decoration-line: underline;
   text-decoration-color: var(--color-ink-faint);
-  text-decoration-thickness: 1px;
-  text-underline-offset: 0.4em;
+  text-underline-offset: 0.35em;
 }
 
 .crumbs-sep {
-  width: 14px;
-  height: 1px;
+  width: 1px;
+  height: 0.8125rem;
   background: var(--color-ink-faint);
+  transform: rotate(20deg);
 }
 
 /* ---------------------------------------------------------------- 抬头 */
@@ -47,7 +51,7 @@
 }
 
 /* “到沙盘”：给用键盘的人从标题直接到沙盘栏的一步。平时看不见，走到它上面才显出来，
-   浮在抬头的右上角，不挤别的东西。显出来是一张纸条：一圈纸色的边，里面一道深色的细线。 */
+   浮在抬头的右上角，不挤别的东西。显出来是一块浮着的白板，同沙盘栏里的按钮一样：一圈细边，圆角，底下一点影子。 */
 .skip-to-stage {
   position: absolute;
   top: 0;
@@ -56,10 +60,13 @@
   height: 1px;
   padding: 0;
   overflow: hidden;
-  border: 1px solid var(--color-paper-raised);
+  border: 1px solid var(--color-plate-edge);
+  border-radius: var(--radius);
   background: var(--color-paper-raised);
-  box-shadow: inset 0 0 0 1px rgb(60 46 32 / 0.45), 2px 4px 8px -2px rgb(60 40 10 / 0.35);
-  font-size: var(--size-ui);
+  box-shadow: var(--shadow-plate);
+  font-family: var(--font-sans);
+  font-size: var(--size-label);
+  font-weight: var(--weight-sans);
   white-space: nowrap;
   clip-path: inset(50%);
 }
@@ -73,23 +80,26 @@
   clip-path: none;
 }
 
-/* “第 4 站 · 共 8 站”，和人物页上的“北宋 · 1037–1101”：字距放开的小字。 */
+/* “第 4 站 · 共 8 站”，和人物页上的“北宋 · 1037–1101”：黑体的小字，字距放开一点。 */
 .eyebrow,
 .meta {
   color: var(--color-ink-soft);
+  font-family: var(--font-sans);
   font-size: var(--size-fine);
-  letter-spacing: 0.12em;
+  font-weight: var(--weight-sans);
+  letter-spacing: 0.06em;
 }
 
 .eyebrow {
   display: flex;
   align-items: center;
   gap: var(--gap-3);
-  margin-bottom: 0.375rem;
+  margin-bottom: var(--gap-2);
 }
 
-/* 第几站后面的一排小方块：一站一个，这一站的是红的，别的都只有一圈线。它只说这一站排在路上的第几个，
-   不记读者读过哪几站（所以前面的不涂实）。读屏不念它：前面那句话已经说了。 */
+/* 第几站后面的一排小圆圈：一站一个，这一站的涂成墨蓝，别的都只有一圈线（线是 1.5px 的、深一点的灰：
+   圈这么小，线再细再淡就看不见了）。它只说这一站排在路上的第几个，不记读者读过哪几站（所以前面的不涂实）。
+   读屏不念它：前面那句话已经说了。 */
 .ticks {
   display: flex;
   gap: 5px;
@@ -98,7 +108,8 @@
 .ticks span {
   width: 9px;
   height: 9px;
-  border: 1px solid var(--color-ink-faint);
+  border: 1.5px solid var(--color-mark-firm);
+  border-radius: 50%;
 }
 
 .ticks .is-here {
@@ -112,39 +123,46 @@
 
 .figure-tagline {
   margin-top: var(--gap-3);
-  line-height: 1.8;
+  font-size: var(--size-note);
+  line-height: var(--leading-note);
 }
 
 /* 人物页：抬头下面一道细线，再往下是介绍。 */
 .figure-page .page-head {
   margin-bottom: var(--gap-5);
-  padding-bottom: 1.25rem;
+  padding-bottom: var(--gap-5);
   border-bottom: 1px solid var(--color-line);
 }
 
-/* 抬头里的时间、地点、年纪：夹在上下两道细线中间。 */
+/* 抬头里的时间、地点、年纪：上下各一道细线，三行中间也各隔一道。 */
 .facts {
   margin-top: var(--gap-5);
-  padding: 14px 0 13px;
   border-top: 1px solid var(--color-line);
   border-bottom: 1px solid var(--color-line);
   font-size: var(--size-ui);
-  line-height: 1.75;
+  line-height: 1.6;
 }
 
 .facts > div {
   display: flex;
   align-items: baseline;
+  padding: 0.4375rem 0;
 }
 
-/* “时间”“地点”“年纪”是楷体的红色小标签。它和后面宋体的字各是一块（.facts > div 里横着排的两块），不挤在同一行字里。 */
+.facts > div + div {
+  border-top: 1px solid var(--color-line);
+}
+
+/* “时间”“地点”“年纪”是黑体的小标签，灰字（不用墨蓝：它们点不动，也不是“现在在这儿”）。
+   它和后面宋体的字各是一块（.facts > div 里横着排的两块），不挤在同一行字里。 */
 .facts dt {
   flex: none;
-  width: 3.4em;
-  color: var(--color-accent);
-  font-family: var(--font-kai);
-  font-size: var(--size-label);
-  letter-spacing: 0.1em;
+  width: 3.625rem;
+  color: var(--color-ink-soft);
+  font-family: var(--font-sans);
+  font-size: var(--size-fine);
+  font-weight: var(--weight-sans);
+  letter-spacing: 0.08em;
 }
 
 /* 抬头下面的两句说明：正文是改写的，带虚线的词可以点开。 */
@@ -159,6 +177,11 @@
    竖着拿的平板上头一句正好比一行多半个字，不这样，最后两个字“话。”会单独掉到下一行。 */
 .text-about p {
   margin-right: -0.5em;
+}
+
+/* 正文还在读、没读出来、还没写的时候，抬头下面的那一句话（base.css 的 .quiet）：和上面夹着细线的三行隔开一行。 */
+.stop-page > .quiet {
+  margin-top: var(--gap-4);
 }
 
 /* ---------------------------------------------------------------- 正文 */
@@ -192,7 +215,7 @@
   margin-top: 2.25rem;
 }
 
-/* 可以点开小注的词：下面一道红色的虚线，这是它唯一的记号（没有底色）。点开着、鼠标移上去、手指按着的时候，字也变红。
+/* 可以点开小注的词：下面一道墨蓝的虚线，这是它唯一的记号（没有底色）。点开着、鼠标移上去、手指按着的时候，字也变成墨蓝。
    线的种类、样子、颜色分开写：合成一句的写法（text-decoration 后面跟着样子和颜色）
    iPad 上的 Safari 到 26.2 版才认，早些的版本里这道线会整个没有。构建出来的样式表里也不许合回去（tests/build/dist-size.test.ts 查）。
    上下的 padding 不占行高，只让能点的地方有一行那么高。 */
@@ -201,24 +224,23 @@
   text-decoration-line: underline;
   text-decoration-style: dotted;
   text-decoration-color: var(--color-accent);
-  text-decoration-thickness: 2px;
+  text-decoration-thickness: 1.5px;
   text-underline-offset: 0.3em;
   cursor: pointer;
 }
 
-/* 点开的小注：夹在正文里的一张纸条。比纸深一点，左边一道红边，下边一点影子。 */
+/* 点开的小注：夹在正文里的一块。底色比页面深一点，左边一道墨蓝的边，右边的两个角是圆的；没有影子。 */
 .note {
   margin: 0.875rem 0 1.25rem;
   padding: 0.9375rem 1.25rem 0.9375rem 1.375rem;
-  border-left: 3px solid var(--color-accent);
+  border-left: 2px solid var(--color-accent);
+  border-radius: 0 var(--radius) var(--radius) 0;
   background-color: var(--color-paper-note);
-  background-image: var(--grain);
-  box-shadow: 0 1px 0 var(--color-paper-edge), 0 6px 14px -8px rgb(60 40 10 / 0.35);
   font-size: var(--size-note);
   line-height: var(--leading-note);
 }
 
-/* 小注的抬头：标题（楷体）、类别的小标签（宋体）、“关闭”（宋体），并排的三块，各有各的行高。 */
+/* 小注的抬头：标题、类别的小标签、“关闭”，都是黑体，并排的三块，各有各的行高。 */
 .note-head {
   display: flex;
   align-items: center;
@@ -227,20 +249,20 @@
 }
 
 .note-title {
-  font-family: var(--font-kai);
+  font-family: var(--font-sans);
   font-size: var(--size-note-title);
-  font-weight: var(--weight-heading);
+  font-weight: var(--weight-sans);
   line-height: 2rem;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.02em;
 }
 
-/* 类别（历史、地理、人文、科学）：红字、红线的小标签。 */
+/* 类别（历史、地理、人文、科学）：墨蓝的字、墨蓝的线的小标签（别的小标签是灰字灰线，见 base.css 的 .tag）。 */
 .note-kind {
   flex: none;
   margin-left: 0;
-  padding-left: 0.5em;
+  border-color: currentColor;
   color: var(--color-accent);
-  letter-spacing: 0.2em;
+  letter-spacing: 0.1em;
 }
 
 /* “关闭”：字小，能点的地方有 44px 见方（往外撑出去的部分用负的 margin 收回来，不把这一行撑高）。 */
@@ -253,19 +275,21 @@
   border: 0;
   background: transparent;
   color: var(--color-ink-soft);
+  font-family: var(--font-sans);
   font-size: var(--size-small);
-  letter-spacing: 0.1em;
+  font-weight: var(--weight-sans);
+  letter-spacing: 0.06em;
 }
 
 .prose .note p {
   margin: 0.375rem 0 0;
 }
 
-/* 引用的原文句子：左边一道细线，往里缩一个半字。 */
+/* 引用的原文句子：左边一道重一点的细线，往里缩一个半字。 */
 .quote {
   margin: 0.25em 0 0.9em;
   padding-left: 1.5em;
-  border-left: 1px solid var(--color-line);
+  border-left: 1px solid var(--color-line-strong);
 }
 
 .prose .quote p {
@@ -274,15 +298,17 @@
 
 /* ---------------------------------------------------------------- 原文、图片、凭据 */
 
-/* “读原文”和“凭据”：折着的时候是一张纸条那样的一行，点开在下面展开。 */
+/* “读原文”和“凭据”：折着的时候是一行白底的板，一圈细线，圆角；点开在下面展开。 */
 .original,
 .provenance {
   margin-top: var(--gap-4);
   border: 1px solid var(--color-line);
+  border-radius: var(--radius);
   background: var(--color-paper-raised);
 }
 
-/* 那一行里并排的三块：加号或者减号（宋体）、“读原文”或者“凭据”（楷体）、原文的标题（宋体）。至少 48px 高；标题长了自己折行。 */
+/* 那一行里并排的三块：加号或者减号、“读原文”或者“凭据”（这两块是黑体）、原文的标题（宋体）。至少 48px 高；标题长了自己折行。
+   圆角同外面那一圈一样：按下去变深的底色、焦点框都不出角。 */
 .original summary,
 .provenance summary {
   display: flex;
@@ -290,6 +316,7 @@
   gap: 0.625rem;
   min-height: 3rem;
   padding: 0.375rem var(--gap-4);
+  border-radius: var(--radius);
   font-size: var(--size-ui);
   line-height: 1.5rem;
   cursor: pointer;
@@ -304,12 +331,14 @@
 .fold-mark,
 .fold-label {
   flex: none;
-  color: var(--color-accent);
+  font-family: var(--font-sans);
+  font-weight: var(--weight-sans);
 }
 
-/* 折着是加号，点开是减号：两个都是页面上真的字，这里只管显哪一个。 */
+/* 折着是加号，点开是减号：两个都是页面上真的字，这里只管显哪一个。记号是墨蓝的，后面的名字是平常的字色。 */
 .fold-mark {
   width: 1em;
+  color: var(--color-accent);
   text-align: center;
 }
 
@@ -319,9 +348,8 @@ details[open] > summary .fold-mark :first-child {
 }
 
 .fold-label {
-  font-family: var(--font-kai);
   font-size: var(--size-label);
-  letter-spacing: 0.1em;
+  letter-spacing: 0.06em;
 }
 
 .original-body,
@@ -329,7 +357,7 @@ details[open] > summary .fold-mark :first-child {
   padding: 0 var(--gap-4) var(--gap-4);
 }
 
-/* 原文的时间，和“白话”这个小标签：小字，淡墨。 */
+/* 原文的时间，和“白话”这个小标签：小字，灰字。 */
 .prose .original-date,
 .prose .original-plain-label {
   margin: 0;
@@ -342,12 +370,14 @@ details[open] > summary .fold-mark :first-child {
   white-space: pre-line;
 }
 
-/* “白话”上面一道细线，把它和原文隔开；字距放开，看得出是个标签。 */
+/* “白话”上面一道细线，把它和原文隔开；黑体，字距放开，看得出是个标签。 */
 .prose .original-plain-label {
   margin-top: var(--gap-4);
   padding-top: var(--gap-3);
   border-top: 1px solid var(--color-line);
-  letter-spacing: 0.2em;
+  font-family: var(--font-sans);
+  font-weight: var(--weight-sans);
+  letter-spacing: 0.12em;
 }
 
 .prose .original-plain {
@@ -366,6 +396,7 @@ details[open] > summary .fold-mark :first-child {
   max-width: 100%;
   height: auto;
   border: 1px solid var(--color-line);
+  border-radius: 2px;
 }
 
 .stop-image figcaption {
@@ -413,14 +444,14 @@ details[open] > summary .fold-mark :first-child {
   color: var(--color-ink-soft);
 }
 
-/* 凭据里每一小节的名字，和“沙盘上的东西”：楷体。 */
+/* 凭据里每一小节的名字，和“沙盘上的东西”：黑体。 */
 .provenance-group h3,
 .scene-register h3 {
   margin-top: var(--gap-4);
-  font-family: var(--font-kai);
+  font-family: var(--font-sans);
   font-size: var(--size-label);
-  font-weight: var(--weight-heading);
-  letter-spacing: 0.06em;
+  font-weight: var(--weight-sans);
+  letter-spacing: 0.04em;
 }
 
 .provenance-item,
@@ -458,17 +489,18 @@ details[open] > summary .fold-mark :first-child {
   margin-top: 0;
 }
 
-/* 五个类别的名字（真的、今天的位置……）和“没有画的”：楷体，红字。 */
+/* 五个类别的名字（真的、今天的位置……）和“没有画的”：黑体的小字，灰字，字距放开。
+   不用墨蓝：它们点不动，也不是“现在在这儿”（旁边那个墨蓝的加号减号才是点得动的）。 */
 .scene-register-group h4 {
   margin: var(--gap-4) 0 0;
-  color: var(--color-accent);
-  font-family: var(--font-kai);
-  font-size: var(--size-label);
-  font-weight: var(--weight-heading);
+  color: var(--color-ink-soft);
+  font-family: var(--font-sans);
+  font-size: var(--size-fine);
+  font-weight: var(--weight-sans);
   letter-spacing: 0.1em;
 }
 
-/* 每样东西的名字：宋体，墨色，比下面淡墨的依据大一号（不用楷体：这些名字有八十来个字，会都进楷体的文件）。 */
+/* 每样东西的名字：宋体，比下面灰字的依据大一号（不用黑体：这些名字有八十来个字，会都进黑体的文件）。 */
 .scene-register-name {
   font-size: var(--size-note);
 }
@@ -481,26 +513,28 @@ details[open] > summary .fold-mark :first-child {
 
 .stop-item {
   display: flex;
-  gap: 0.875rem;
+  gap: var(--gap-4);
   min-height: 4rem;
-  padding: var(--gap-3) 0;
+  padding: 0.875rem 0;
   border-bottom: 1px solid var(--color-line);
   color: var(--color-ink);
   text-decoration: none;
 }
 
-/* 这一站的数字印：一方红印，里面是纸色的楷体数字（一、二、三……，和全程图上的印一样）。 */
+/* 这一站的数字：一个墨蓝的小圆点，里面是白色的黑体数字（一、二、三……是页面印的字，和全程沙盘的印上写的一样）。 */
 .stop-number {
   flex: none;
-  width: 1.5rem;
-  height: 1.5rem;
-  margin-top: 0.1875rem;
+  width: 1.625rem;
+  height: 1.625rem;
+  margin-top: 0.125rem;
   border: 1px solid var(--color-accent);
+  border-radius: 50%;
   background: var(--color-accent);
   color: var(--color-on-accent);
-  font-family: var(--font-kai);
-  font-size: 1rem;
-  line-height: 1.375rem;
+  font-family: var(--font-sans);
+  font-size: var(--size-small);
+  font-weight: var(--weight-sans);
+  line-height: 1.5rem;
   text-align: center;
 }
 
@@ -512,7 +546,7 @@ details[open] > summary .fold-mark :first-child {
   min-width: 0;
 }
 
-/* 站名（楷体）和“还没写”的小标签（宋体）是并排的两块，标签靠右。 */
+/* 站名和“还没写”的小标签是并排的两块，标签靠右。 */
 .stop-head {
   display: flex;
   align-items: center;
@@ -520,13 +554,15 @@ details[open] > summary .fold-mark :first-child {
   gap: var(--gap-2);
 }
 
-/* 站名放不下的时候和一页的大标题一样，在标点后面折行。 */
+/* 站名放不下的时候和一页的大标题一样，在标点后面折行。全角的冒号也和大标题一样只占半个字宽
+   （'halt'，见 base.css 的 .page-title；黑体的文件里留着这一项）。 */
 .stop-title {
-  font-family: var(--font-kai);
+  font-family: var(--font-sans);
   font-size: var(--size-stop-title);
-  font-weight: var(--weight-heading);
+  font-weight: var(--weight-sans);
   line-height: 1.4;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.01em;
+  font-feature-settings: 'halt';
   word-break: keep-all;
   overflow-wrap: break-word;
 }
@@ -536,9 +572,13 @@ details[open] > summary .fold-mark :first-child {
   margin-left: 0;
 }
 
+/* 年份、地点、年纪：黑体的小字，灰字。 */
 .stop-meta {
   color: var(--color-ink-soft);
+  font-family: var(--font-sans);
   font-size: var(--size-small);
+  font-weight: var(--weight-sans);
+  letter-spacing: 0.02em;
 }
 
 /* 年份、地点、年纪各自成块：一行放不下时整块换行，不从中间断开。 */
@@ -552,7 +592,7 @@ details[open] > summary .fold-mark :first-child {
   line-height: 1.7;
 }
 
-/* 还没写的一站：整行都是淡墨，数字印只有一圈线、不涂红。 */
+/* 还没写的一站：整行都是灰字，数字的圆点只有一圈线、不涂实。 */
 .stop-item:not([data-stop-status='complete']) {
   color: var(--color-ink-soft);
 }
@@ -565,9 +605,13 @@ details[open] > summary .fold-mark :first-child {
 
 /* ---------------------------------------------------------------- 沙盘上看的几处（正文还没写、有自己的沙盘的一站） */
 
-/* 一行是一个按钮，整行都能按，至少 4rem 高（同目录的一行）：名字（楷体，同站名）、年份（同目录里的那一行小字）、题记（一句话，宋体）。
-   没有数字印：红印上的一二三说的是第几站。摆着的那一处左边一道印泥红的线，名字右边一个小标签。
-   每一行左边都留着这道线的位置（透明的），换了一处字不左右挪。 */
+/* 一行是一个按钮，整行都能按，至少 4rem 高，上下垫的空同目录的一行：名字（黑体，同站名）、年份（同目录里的那一行小字）、
+   题记（一句话，宋体，从 body 传下来的）。没有数字的圆点：圆点里的一二三说的是第几站。
+   摆着的那一处左边一道墨蓝的线（3px，贴着这一行的左边），名字右边一个墨蓝的小标签“正在看”：
+   墨蓝在这里说的是“现在在这儿”。不铺底色。
+   每一行左边都留着这道线的位置（透明的），换了一处字不左右挪。
+   它和焦点框都是墨蓝，靠样子分开：“摆着”是左边的一道粗线加小标签，只在左边；焦点框是细一点的一整圈（2px），
+   离开这一行 2px，四边都有（见 base.css 的 :focus-visible）。两样可以同时在一行上。 */
 .not-written + section {
   margin-top: var(--gap-5);
 }
@@ -582,7 +626,7 @@ details[open] > summary .fold-mark :first-child {
   gap: 2px;
   width: 100%;
   min-height: 4rem;
-  padding: var(--gap-3) 0 var(--gap-3) var(--gap-3);
+  padding: 0.875rem 0 0.875rem var(--gap-3);
   border: 0;
   border-bottom: 1px solid var(--color-line);
   border-left: 3px solid transparent;
@@ -594,39 +638,45 @@ details[open] > summary .fold-mark :first-child {
   border-left-color: var(--color-accent);
 }
 
+/* “正在看”：只有摆着的那一行有这个小标签（别的小标签是灰字灰线，见 base.css 的 .tag）。 */
+.view-item .tag {
+  border-color: currentColor;
+  color: var(--color-accent);
+}
+
 .view-line {
   line-height: 1.7;
 }
 
 /* ---------------------------------------------------------------- 一页的末尾：回到目录，“来源” */
 
-/* 一站的正文完了：正中一个小菱形，下面并排两个链接，“回到各站目录”和“来源”。人物页的目录后面、首页的卡片后面
-   也是这个小菱形，下面只有“来源”。上一站、下一站在贴着底边的那一条里（guide.css）。
-   小菱形左右的空各是“一半减去它自己的一半”，它一个就占满一行，链接都排到下一行、居中。 */
+/* 一站的正文完了：一道短短的细线，下面并排两个链接，“回到各站目录”和“来源”，都靠左，同这一栏里别的东西一样。
+   人物页的目录后面、首页的卡片后面也是这道短线，下面只有“来源”。上一站、下一站在贴着底边的那一条里（guide.css）。
+   短线右边的空是“一整行减去它自己”，它一个就占满一行，链接都排到下一行。 */
 .stop-nav {
   display: flex;
   flex-wrap: wrap;
-  justify-content: center;
   gap: 0 2.5rem;
   margin-top: 3rem;
-  font-size: var(--size-ui);
+  font-family: var(--font-sans);
+  font-size: var(--size-label);
+  font-weight: var(--weight-sans);
+  letter-spacing: 0.04em;
 }
 
 .stop-nav::before {
   content: '';
   flex: none;
-  width: 9px;
-  height: 9px;
-  margin: 0 calc(50% - 4.5px) 1.25rem;
-  background: var(--color-line);
-  transform: rotate(45deg);
+  width: 2.5rem;
+  height: 1px;
+  margin: 0 calc(100% - 2.5rem) 1.25rem 0;
+  background: var(--color-line-strong);
 }
 
 .stop-nav-list,
 .stop-nav-sources {
   display: flex;
   align-items: center;
-  justify-content: center;
   min-width: var(--tap);
   min-height: var(--tap);
 }
@@ -659,8 +709,8 @@ details[open] > summary .fold-mark :first-child {
 
 /* ---------------------------------------------------------------- “来源”页 */
 
-/* 一页纸独自立在绢上（base.css 的 .plain-page），没有沙盘栏。标题和四个小标题是楷体；字是宋体 17px。
-   每一条下面的链接自己占一行，一个挨一个：每个都有 44px 高，手指点得准。链接下面是一道印泥红的线。 */
+/* 这一页没有沙盘栏：文字那一栏立在页面正中（base.css 的 .plain-page）。标题和四个小标题是黑体；字是宋体 17px。
+   每一条下面的链接自己占一行，一个挨一个：每个都有 44px 高，手指点得准。链接下面是一道墨蓝的线。 */
 .sources {
   padding-top: var(--gap-2);
   padding-bottom: 4rem;
@@ -712,6 +762,5 @@ details[open] > summary .fold-mark :first-child {
   min-height: var(--tap);
   text-decoration-line: underline;
   text-decoration-color: var(--color-accent);
-  text-decoration-thickness: 1px;
   text-underline-offset: 0.3em;
 }

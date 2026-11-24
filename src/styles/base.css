@@ -9,31 +9,34 @@
 html {
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
-  /* 两套字体都只带了一种粗细、一种正的写法：不许浏览器自己把字描粗、歪成斜体。 */
+  /* 随站的几套字体各只带了一种粗细、一种正的写法：不许浏览器自己把字描粗、歪成斜体。 */
   font-synthesis: none;
   /* 全角的标点（，。：；“”（）《》）个个占满一个字宽，两个挨着也不挤紧：Chrome 平常会把挨着的两个挤紧，
      iPad 上的 Safari 不会，同一段话在两边会断在不同的地方。
-     随站的字体画的字，靠的不是这一句：那两套字体里没有带把标点挤窄的排版功能，浏览器想挤也挤不了
-     （在 Chromium 里量过，这一句写不写都是两个字宽；由 tests/fonts/font-files.test.ts 守着）。
-     这一句管的是随站的字体还没到、设备自带的字体顶着的那一会儿：那些字体里常有那几项功能。所以不要当成没用的删掉。
+     随站的宋体画的字，靠的不是这一句：那套字体里没有带把标点挤窄的排版功能，浏览器想挤也挤不了
+     （在 Chromium 里量过，这一句写不写都是两个字宽）。
+     随站的黑体不一样：它带着 halt 这一项（标题要用，见下面的 .page-title），黑体排的标签、按钮、日期里，
+     挨着的两个标点不被挤紧，靠的就是这一句。随站的字体还没到、设备自带的字体顶着的那一会儿也靠它：
+     那些字体里常有那几项功能。所以不要当成没用的删掉。
+     （哪个文件带着哪几项功能，由 tests/fonts/font-files.test.ts 守着；量出来的字宽，由 tests/e2e/fonts.spec.ts 守着。）
      不认识这一句的浏览器（Safari、Firefox）本来就不挤，跳过它。 */
   text-spacing-trim: space-all;
 }
 
-/* 页面的底是绢，带着淡淡的经纬：有纸的地方（正文那一页纸、独自立着的一页纸）盖在它上面，没有纸的地方露出来。
-   直接落在绢上的字（程序起不来时 index.html 里的那一句）是墨色。 */
+/* 页面的底：一种近乎白的颜色，平的，没有纹理。正文那一栏、独自一页的“来源”页都直接落在它上面，不另铺一层。
+   直接落在它上面的字（程序起不来时 index.html 里的那一句）是深灰。 */
 body {
   margin: 0;
-  background-color: var(--color-silk);
-  background-image: var(--weave);
+  background-color: var(--color-paper);
   color: var(--color-ink);
   font-family: var(--font-song);
   font-size: var(--size-ui);
   line-height: 1.6;
 }
 
-/* 没有粗体，也没有斜体：浏览器给标题这些东西自带的加粗都去掉。
-   要显眼，靠楷体和宋体的分别、字的大小和红色的记号。 */
+/* 没有斜体，也没有浏览器自己加粗的字：标题这些东西自带的加粗都去掉。
+   粗细只有两种，各跟着一套字体：宋体 400，黑体 500（哪一条样式用了黑体，就在同一条里写上，见 tokens.css）。
+   要显眼，靠黑体和宋体的分别、字的大小和墨蓝的记号。 */
 h1,
 h2,
 h3,
@@ -66,9 +69,11 @@ ol {
   list-style: none;
 }
 
+/* 链接：墨蓝的字，下面一道 1px 的细线。 */
 a {
   color: var(--color-accent);
-  text-underline-offset: 0.2em;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.25em;
 }
 
 button,
@@ -85,8 +90,9 @@ button:disabled {
   cursor: default;
 }
 
+/* 页面上的焦点框：2px 的墨蓝，离开东西 2px。沙盘栏里的是另一种（深灰和白两道），见 stage.css。 */
 :focus-visible {
-  outline: 3px solid var(--color-focus);
+  outline: 2px solid var(--color-focus);
   outline-offset: 2px;
 }
 
@@ -115,20 +121,22 @@ button:disabled {
   line-height: var(--leading-note);
 }
 
-/* 小标签：还没写、凭据的依据、小注的类别。只有一圈细线，不铺底色；线跟着字的颜色。 */
+/* 小标签：还没写、凭据的依据、小注的类别。黑体的小字（14px，全站最小的一号），一圈淡灰的细线，小圆角，不铺底色。
+   上下不另留空（行高已经够了），左右各留 0.35em：三个字的标签 56px 宽、23px 高。 */
 .tag {
   display: inline-block;
   margin-left: var(--gap-2);
-  padding: 0 0.3em 0 0.4em;
-  border: 1px solid;
+  padding: 0 0.35em;
+  border: 1px solid var(--color-ink-faint);
+  border-radius: var(--radius-small);
   color: var(--color-ink-soft);
-  font-family: var(--font-song);
+  font-family: var(--font-sans);
   font-size: var(--size-small);
-  font-weight: 400;
+  font-weight: var(--weight-sans);
   line-height: 1.5;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.06em;
   white-space: nowrap;
-  vertical-align: 0.1em;
+  vertical-align: 0.08em;
 }
 
 .text-link {
@@ -138,52 +146,50 @@ button:disabled {
   min-height: var(--tap);
 }
 
-/* 一页的大标题。一行放不下的时候在标点后面折行（“眉山到汴京：/两次出川”），不从词中间断开、把一个字单独甩到下一行；
-   标点之间的那一截自己就比一行长的时候，才从中间断。 */
+/* 一页的大标题：黑体。一行放不下的时候在标点后面折行（“眉山到汴京：/两次出川”），不从词中间断开、把一个字单独甩到下一行；
+   标点之间的那一截自己就比一行长的时候，才从中间断。
+   halt：标题里的全角标点只占半个字宽，“徐州：大水围城”的冒号后面不留一大截空。这一项功能是随站的黑体带着的；
+   设备自带的字体顶着的时候不一定有，那时只是那一截空又回来，别的不变。 */
 .page-title {
-  /* 字距放开以后，一行最后一个字后面多出一截空：往右让出这一截，正好排满一行的标题不会因为它多折一行 */
-  margin-right: -0.04em;
-  font-family: var(--font-kai);
+  font-family: var(--font-sans);
   font-size: var(--size-title);
-  font-weight: var(--weight-heading);
-  line-height: 1.25;
-  letter-spacing: 0.04em;
+  font-weight: var(--weight-sans);
+  line-height: 1.3;
+  letter-spacing: 0.01em;
+  font-feature-settings: 'halt';
   word-break: keep-all;
   overflow-wrap: break-word;
 }
 
-/* 小节标题：楷体，前面一个斜着摆的印泥红小方块（画出来的，不是字）。 */
+/* 小节标题：黑体，上面一道墨蓝的短线（画出来的，不是字）。短线贴着标题那一块的上边，下面空 12px 才是字。 */
 .section-heading {
-  display: flex;
-  align-items: center;
-  gap: var(--gap-3);
-  margin-bottom: 0.9rem;
-  font-family: var(--font-kai);
+  position: relative;
+  margin-bottom: 0.875rem;
+  padding-top: 0.875rem;
+  font-family: var(--font-sans);
   font-size: var(--size-heading);
-  font-weight: var(--weight-heading);
+  font-weight: var(--weight-sans);
   line-height: 1.4;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.02em;
 }
 
 .section-heading::before {
   content: '';
-  flex: none;
-  width: 9px;
-  height: 9px;
-  border-radius: 1px;
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 1.75rem;
+  height: 2px;
   background: var(--color-accent);
-  transform: rotate(45deg);
 }
 
-/* 人物没找到、加载中时的整页，和“来源”页：一页纸自己立在绢上，和屏幕一样高，最宽 40rem（--home-width）。 */
+/* 人物没找到、加载中时的整页，和“来源”页：没有沙盘栏，字直接排在页面的底上，居中的一栏，最宽 40rem（--home-width），
+   至少和屏幕一样高。不另铺底，没有边，没有影子。 */
 .plain-page {
   max-width: var(--home-width);
   min-height: 100vh;
   margin: 0 auto;
   padding: var(--gap-6) var(--leaf-pad-start);
-  background-color: var(--color-paper);
-  background-image: var(--grain);
-  box-shadow: 0 0 34px -8px var(--color-shadow);
 }
 
 /* “没有找到这位人物”“没有这一站”是那一页的标题，字不用一站的标题那么大。 */

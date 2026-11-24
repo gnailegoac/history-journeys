@@ -387,14 +387,14 @@ describe('整个版面 + 真的内容 + 沙盘的替身', () => {
     await page.unmount();
   });
 
-  it('站点页的抬头：一站一个小方块，只有这一站的做了记号，读屏不念；位置那一行中间是画出来的一小段线', { timeout: 60_000 }, async () => {
+  it('站点页的抬头：一站一个小圆圈，只有这一站的做了记号，读屏不念；位置那一行中间是画出来的一小段线', { timeout: 60_000 }, async () => {
     const count = figure.stops.length;
     const at = figure.stops.findIndex((stop) => stop.id === 'xuzhou');
     expect(at).toBeGreaterThanOrEqual(0);
     const page = await mount('?stage=fake', 'xuzhou');
     // 前面那句话照旧说第几站、共几站
     expect(page.q('.page-head .eyebrow')?.textContent).toBe(`第 ${at + 1} 站 · 共 ${count} 站`);
-    // 小方块：有几站就有几个，里面没有字；读屏不念（那句话已经说了）
+    // 小圆圈：有几站就有几个，里面没有字；读屏不念（那句话已经说了）
     const ticks = page.q('.page-head .eyebrow .ticks')!;
     expect(ticks).not.toBeNull();
     expect(attr(ticks, 'aria-hidden')).toBe('true');
@@ -415,14 +415,14 @@ describe('整个版面 + 真的内容 + 沙盘的替身', () => {
     await page.unmount();
   });
 
-  it('人物页的目录：数字印是汉字的一、二、三……，读屏不念；站名里不夹着“还没写”的小标签', { timeout: 30_000 }, async () => {
+  it('人物页的目录：圆点里的数字是汉字的一、二、三……，读屏不念；站名里不夹着“还没写”的小标签', { timeout: 30_000 }, async () => {
     const page = await mount('?stage=fake', null);
     const numerals = '一二三四五六七八九十';
     expect(figure.stops.length).toBeLessThanOrEqual(numerals.length);
     const seals = page.all('.stop-item .stop-number');
     expect(seals.map((seal) => seal.textContent)).toEqual(figure.stops.map((_, i) => numerals[i]));
     for (const seal of seals) expect(attr(seal, 'aria-hidden')).toBe('true');
-    // 站名（楷体）自己一块，里面只有站名；小标签（宋体）是旁边的另一块
+    // 站名自己一块，里面只有站名；小标签是旁边的另一块（都是黑体，大小不一样）
     expect(page.all('.stop-item .stop-head .stop-title').map((title) => title.textContent)).toEqual(figure.stops.map((stop) => stop.title));
     expect(page.all('.stop-item .stop-title .tag')).toHaveLength(0);
     const unwritten = figure.stops.filter((stop) => stop.status !== 'complete').map((stop) => stop.id);
@@ -431,7 +431,7 @@ describe('整个版面 + 真的内容 + 沙盘的替身', () => {
     await page.unmount();
   });
 
-  it('目录超过十站：第十一站起数字印用数字', async () => {
+  it('目录超过十站：第十一站起圆点里用数字', async () => {
     const many: Figure = { ...figure, stops: Array.from({ length: 12 }, (_, i) => ({ ...figure.stops[i % figure.stops.length], id: `s${i + 1}` })) };
     const container = doc.createElement('div');
     doc.body.appendChild(container);
@@ -675,7 +675,7 @@ describe('整个版面 + 真的内容 + 沙盘的替身', () => {
       expect(attr(page.q('.stop-page'), 'data-stop-text')).toBe('none');
       expect(attr(page.q('.stop-page'), 'data-stop-scene')).toBe('yes');
 
-      // 那一句话；小标题是楷体的小节标题，单子挂在它名下
+      // 那一句话；小标题是黑体的小节标题，单子挂在它名下
       expect(page.q('.not-written')?.textContent).toBe(LEAF_FIRST + LEAF_REST);
       const heading = page.q('.stop-page h2.section-heading')!;
       expect(heading.textContent).toBe('沙盘上看的几处');

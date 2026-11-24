@@ -1,18 +1,18 @@
 // 首页和“来源”页，在真的页面上看。要对的东西都从真的文件读（卡片照 index.json，图片和题记照 figure.json，
 // 字体照 src/fonts/shipped.ts，地形和水照每个场景文件的 credits，图片照每一站的 images，许可全文照 public/licences/）。
 //
-// 一、首页，四种标准的窗口上：一页纸和绢上的那一块。
-//     宽屏（窗口 960 像素以上宽，而且横着）：纸在左，宽是窗口的 46%（最窄 464、最宽 640 像素），和屏幕一样高；绢在右，占满剩下的，
-//     钉着不动。别的窗口：绢在上，和窗口一样宽，钉在顶上，高是屏幕的 56%（和人物页一样）；纸在下。
-//     绢上摆的是第一位可以点进去的人物的全程沙盘，和人物页上是同一栏、同一座：看的是“全程”那一节，按钮是“古名、今名”“回到全程”，
+// 一、首页，四种标准的窗口上：文字栏和沙盘栏。
+//     宽屏（窗口 960 像素以上宽，而且横着）：文字栏在左，宽是窗口的 46%（最窄 464、最宽 640 像素），和屏幕一样高；沙盘栏在右，占满剩下的，
+//     钉着不动。别的窗口：沙盘栏在上，和窗口一样宽，钉在顶上，高是屏幕的 56%（和人物页一样）；文字栏在下。
+//     沙盘栏里摆的是第一位可以点进去的人物的全程沙盘，和人物页上是同一栏、同一座：看的是“全程”那一节，按钮是“古名、今名”“回到全程”，
 //     下面是同一条题记；栏多大就是 tests/stage/support/standardPanes.ts 的 HOME_PANES 里写的；按一方印，就到那一站。
-//     网站的名字是楷体，一行；内容里的每一张卡片都在，名字竖着写；可以点进去的是链接，
-//     写着“从第一站读起”，点了进人物页；还没写的不是链接，标着“还没写”，点了哪也不去。页面不比窗口宽。
+//     网站的名字是黑体，一行；内容里的每一张卡片都在，名字横着写，和朝代、年份在一行；可以点进去的是链接，是一块白底的板，
+//     写着“从第一站读起”，点了进人物页；还没写的不是链接，只是单子上的一行，标着“还没写”，点了哪也不去。页面不比窗口宽。
 //     （能点的东西够不够 44 像素见方在 tests/e2e/leaf.spec.ts：首页和“来源”页都在那里一个一个点。）
-// 二、“来源”页：一页纸独自立在绢上（最宽 640 像素，和屏幕一样高），没有沙盘栏。标题和四个小标题是楷体，字是宋体 17 像素。
+// 二、“来源”页：一栏字立在页面正中（最宽 640 像素，和屏幕一样高），没有沙盘栏，页面的底是平的一种颜色。标题和四个小标题是黑体，字是宋体 17 像素。
 //     三套字体各一条（黑体、宋体、楷体），名字、版本就是 shipped.ts 里的；每位可以点进去的人物的全程图片、每一座沙盘写的每一行都在，不重复；
 //     每一站正文里的每一张图片都在。五份许可全文的链接答的是 200，是文本，和 public/licences/ 里的文件一个字不差；
-//     点了就在这一页打开。“字体的网站”“图片出处”是新开一页的平常链接，页面自己不去取。链接下面是一道印泥红的线。
+//     点了就在这一页打开。“字体的网站”“图片出处”是新开一页的平常链接，页面自己不去取。链接是强调色的字，下面一道强调色的线。
 // 三、“来源”页里面的那一段程序是点进这一页才下载的：在首页、人物页、站点页上都没有取；从首页、人物页的目录后面、
 //     一站的末尾三处都点得进去，那一段程序只取一次。从头到尾没有一个请求出了网站自己的地址。
 //
@@ -37,10 +37,16 @@ const CARDS = readJson<FigureCard[]>('content/figures/index.json').sort((a, b) =
 const OPEN = CARDS.filter((card) => card.available);
 const FIGURES = OPEN.map((card) => readJson<Figure>(`content/figures/${card.id}/figure.json`));
 
-const INK = 'rgb(40, 35, 31)';
-const INK_SOFT = 'rgb(90, 81, 70)';
-const SEAL_RED = 'rgb(176, 58, 42)';
-const SILK = 'rgb(197, 177, 137)';
+/** 框架的一套颜色（tokens.css 的 :root）：字、说明性的字、强调色、板的底、页面的底、重一点的线、细线。 */
+const FRAME_INK = 'rgb(35, 34, 31)';
+const FRAME_SOFT = 'rgb(92, 90, 85)';
+const FRAME_ACCENT = 'rgb(31, 75, 110)';
+const PLATE = 'rgb(255, 255, 255)';
+const PAGE = 'rgb(251, 250, 247)';
+const LINE_STRONG = 'rgb(200, 196, 186)';
+const LINE = 'rgb(222, 219, 211)';
+/** 人物自己的一套里沙盘栏的底色（写在沙盘栏上）。 */
+const FIGURE_GROUND = 'rgb(197, 177, 137)';
 
 /** 换一种窗口，从头打开一个地址。 */
 async function openAt(page: Page, size: { width: number; height: number }, hash: string): Promise<void> {
@@ -50,13 +56,13 @@ async function openAt(page: Page, size: { width: number; height: number }, hash:
   await page.goto(fakeUrl(hash));
 }
 
-/** 等绢上的全程沙盘（替身）摆好。 */
+/** 等沙盘栏里的全程沙盘（替身）摆好。 */
 async function tableShown(page: Page): Promise<void> {
-  expect(await expectRoute(page), '绢上该摆着全程沙盘').toBe(true);
+  expect(await expectRoute(page), '沙盘栏里该摆着全程沙盘').toBe(true);
   await fontsReady(page);
 }
 
-test('首页，四种标准的窗口上：一页纸（网站的名字、一句话、每一张卡片、“来源”）和绢上的全程沙盘；宽屏上左右排，别的窗口上绢在上、钉在顶上', async ({ page }) => {
+test('首页，四种标准的窗口上：文字栏（网站的名字、一句话、每一张卡片、“来源”）和沙盘栏里的全程沙盘；宽屏上左右排，别的窗口上沙盘栏在上、钉在顶上', async ({ page }) => {
   test.setTimeout(240_000);
   expect(CARDS.length, '内容里的卡片').toBeGreaterThanOrEqual(2);
   expect(OPEN.length, '可以点进去的人物').toBeGreaterThanOrEqual(1);
@@ -110,20 +116,31 @@ test('首页，四种标准的窗口上：一页纸（网站的名字、一句�
         caption: { section: need('.stage-caption').getAttribute('data-section'), line: need('.stage-caption .stage-line').textContent },
         cards: Array.from(document.querySelectorAll<HTMLElement>('.cards .card')).map((card) => {
           const name = card.querySelector<HTMLElement>('.card-name')!;
+          const era = card.querySelector<HTMLElement>('.card-era')!;
           const go = card.querySelector<HTMLElement>('.card-go');
           const tag = card.querySelector<HTMLElement>('.tag');
+          const style = getComputedStyle(card);
           return {
             id: card.getAttribute('data-figure-id'),
             element: card.tagName.toLowerCase(),
             href: card.getAttribute('href'),
             box: box(card),
-            cursor: getComputedStyle(card).cursor,
+            cursor: style.cursor,
+            ground: style.backgroundColor,
+            edges: { top: `${style.borderTopWidth} ${style.borderTopStyle} ${style.borderTopColor}`, left: `${style.borderLeftWidth} ${style.borderLeftStyle}`, shadow: style.boxShadow },
             name: { ...type(name), text: name.textContent, writing: getComputedStyle(name).writingMode, tall: name.getBoundingClientRect().height > name.getBoundingClientRect().width },
-            era: card.querySelector('.card-era')?.textContent,
+            era: era.textContent,
+            eraFamily: type(era).family,
+            eraLines: Math.round(era.getBoundingClientRect().height / parseFloat(getComputedStyle(era).lineHeight)),
+            nameBox: box(name),
+            eraBox: box(era),
             tagline: { ...type(card.querySelector('.card-tagline')!), text: card.querySelector('.card-tagline')?.textContent },
+            taglineBox: box(card.querySelector('.card-tagline')!),
             go: go ? { ...type(go), text: go.textContent, rule: getComputedStyle(go, '::after').width } : null,
+            goTop: go ? box(go).y : null,
             tag: tag ? { text: tag.textContent, right: box(tag).right, top: box(tag).y } : null,
-            bodyRight: box(card.querySelector('.card-body')!).right,
+            headRight: box(card.querySelector('.card-head')!).right,
+            headChildren: Array.from(card.querySelector('.card-head')!.children).map((child) => child.className),
             top: box(card).y,
           };
         }),
@@ -134,68 +151,84 @@ test('首页，四种标准的窗口上：一页纸（网站的名字、一句�
     });
 
     // ---- 两块怎么摆
-    expect(got.layout, `${where}：一页纸，后面是绢上的那一块`).toEqual(['reading', 'stage-pane']);
+    expect(got.layout, `${where}：文字栏，后面是沙盘栏`).toEqual(['reading', 'stage-pane']);
     expect(got.shape, `${where}：页面说的排法`).toBe(sideBySide ? 'wide' : 'narrow');
     expect(got.pageWidth, `${where}：页面不比窗口宽`).toBeLessThanOrEqual(size.width);
-    expect(got.paneGround, `${where}：绢上的那一块的底`).toBe(SILK);
+    expect(got.paneGround, `${where}：沙盘栏的底色（人物自己的）`).toBe(FIGURE_GROUND);
+    expect(got.leafGround, `${where}：文字栏的底是页面的颜色`).toBe(PAGE);
     if (sideBySide) {
       const wanted = Math.min(640, Math.max(464, size.width * 0.46));
-      expect(got.leaf.x, `${where}：纸在左`).toBe(0);
-      expect(Math.abs(got.leaf.width - wanted), `${where}：纸宽 ${got.leaf.width}，该是 ${wanted}（窗口的 46%，最窄 464、最宽 640）`).toBeLessThan(1);
-      expect(got.leaf.height, `${where}：纸和屏幕一样高（或者更长）`).toBeGreaterThanOrEqual(size.height);
-      expect(Math.abs(got.pane.x - got.leaf.width), `${where}：绢紧挨着纸的右边`).toBeLessThan(1);
-      expect(Math.abs(got.pane.right - size.width), `${where}：绢占满右边`).toBeLessThan(1);
-      expect({ y: got.pane.y, height: got.pane.height, position: got.panePosition }, `${where}：绢上的那一块和屏幕一样高，钉着不动`).toEqual({ y: 0, height: size.height, position: 'sticky' });
+      expect(got.leaf.x, `${where}：文字栏在左`).toBe(0);
+      expect(Math.abs(got.leaf.width - wanted), `${where}：文字栏宽 ${got.leaf.width}，该是 ${wanted}（窗口的 46%，最窄 464、最宽 640）`).toBeLessThan(1);
+      expect(got.leaf.height, `${where}：文字栏和屏幕一样高（或者更长）`).toBeGreaterThanOrEqual(size.height);
+      expect(Math.abs(got.pane.x - got.leaf.width), `${where}：沙盘栏紧挨着文字栏的右边`).toBeLessThan(1);
+      expect(Math.abs(got.pane.right - size.width), `${where}：沙盘栏占满右边`).toBeLessThan(1);
+      expect({ y: got.pane.y, height: got.pane.height, position: got.panePosition }, `${where}：沙盘栏和屏幕一样高，钉着不动`).toEqual({ y: 0, height: size.height, position: 'sticky' });
     } else {
-      // 绢在上：和人物页上一样，沙盘栏钉在顶上，高是屏幕的 56%
-      expect({ x: got.pane.x, y: got.pane.y, width: got.pane.width }, `${where}：绢在上，和窗口一样宽`).toEqual({ x: 0, y: 0, width: size.width });
-      expect(got.panePosition, `${where}：绢上的那一块钉在顶上`).toBe('sticky');
-      expect(Math.abs(got.pane.height - size.height * 0.56), `${where}：绢上的那一块高 ${got.pane.height}，该是屏幕的 56%`).toBeLessThan(1);
-      expect(got.leaf.x, `${where}：纸在下，和窗口一样宽`).toBe(0);
-      expect(got.leaf.width, `${where}：纸和窗口一样宽`).toBe(size.width);
-      expect(Math.abs(got.leaf.y - got.pane.bottom), `${where}：纸紧接在绢的下面`).toBeLessThan(1);
+      // 沙盘栏在上：和人物页上一样，钉在顶上，高是屏幕的 56%
+      expect({ x: got.pane.x, y: got.pane.y, width: got.pane.width }, `${where}：沙盘栏在上，和窗口一样宽`).toEqual({ x: 0, y: 0, width: size.width });
+      expect(got.panePosition, `${where}：沙盘栏钉在顶上`).toBe('sticky');
+      expect(Math.abs(got.pane.height - size.height * 0.56), `${where}：沙盘栏高 ${got.pane.height}，该是屏幕的 56%`).toBeLessThan(1);
+      expect(got.leaf.x, `${where}：文字栏在下，和窗口一样宽`).toBe(0);
+      expect(got.leaf.width, `${where}：文字栏和窗口一样宽`).toBe(size.width);
+      expect(Math.abs(got.leaf.y - got.pane.bottom), `${where}：文字栏紧接在沙盘栏的下面`).toBeLessThan(1);
       // 头一张卡片的上边在第一屏里：一打开就看得见有卡片
       expect(got.cards[0].top, `${where}：头一张卡片的上边在第一屏里`).toBeLessThan(size.height - 44);
     }
 
-    // ---- 绢上摆的是第一位可以点进去的人物的全程沙盘：看的是头一节，印通到他的各站。
-    //      栏多大就是 HOME_PANES 里写的（宽屏上首页那页纸比人物页的宽，栏就窄一些；题签在这样的栏上摆不摆得下，
+    // ---- 沙盘栏里摆的是第一位可以点进去的人物的全程沙盘：看的是头一节，印通到他的各站。
+    //      栏多大就是 HOME_PANES 里写的（宽屏上首页的文字栏比人物页的宽，沙盘栏就窄一些；题签在这样的栏上摆不摆得下，
     //      tests/stage/route-views.test.ts 照同一份数查）；按钮、题记和人物页上是同一套。
     const wantedPane = HOME_PANES.find((pane) => pane.window.width === size.width && pane.window.height === size.height)!;
-    expect(got.paneSize, `${where}：绢上的那一块多大`).toBe(`${wantedPane.size.width} × ${wantedPane.size.height}`);
-    expect({ section: got.section, reset: got.reset, strips: got.strips }, `${where}：绢上的全程沙盘`).toEqual({ section: route.sections[0].heading, reset: '回到全程', strips: route.sections[0].strips });
+    expect(got.paneSize, `${where}：沙盘栏多大`).toBe(`${wantedPane.size.width} × ${wantedPane.size.height}`);
+    expect({ section: got.section, reset: got.reset, strips: got.strips }, `${where}：沙盘栏里的全程沙盘`).toEqual({ section: route.sections[0].heading, reset: '回到全程', strips: route.sections[0].strips });
     expect(got.controls, `${where}：栏上的按钮`).toEqual(['古名', '今名', '回到全程']);
     expect(got.caption, `${where}：栏下面的题记`).toEqual({ section: route.sections[0].heading, line: route.sections[0].line });
     expect(got.shownStrips, `${where}：题签都摆出来了`).toBe(route.sections[0].strips.length);
     expect(got.seals.length, `${where}：站的题签带着印`).toBeGreaterThanOrEqual(FIGURES[0].stops.length);
     for (const seal of got.seals) expect(FIGURES[0].stops.some((stop) => seal === `${stop.id} #/${FIGURES[0].id}/${stop.id}`), `${where}：印“${seal}”通到他的一站`).toBe(true);
 
-    // ---- 那页纸上的字
-    expect(got.title, `${where}：网站的名字`).toMatchObject({ family: 'Yanlu Kai', colour: INK, lines: 1 });
+    // ---- 文字栏里的字：网站的名字是黑体，一行；下面的一句是宋体
+    expect(got.title, `${where}：网站的名字`).toMatchObject({ family: 'Yanlu Sans', colour: FRAME_INK, lines: 1 });
     expect(got.title.text).toBe((await page.title()).trim());
-    expect(got.line, `${where}：名字下面的一句`).toMatchObject({ family: 'Yanlu Song', size: 19, colour: INK_SOFT });
+    expect(got.line, `${where}：名字下面的一句`).toMatchObject({ family: 'Yanlu Song', size: 19, colour: FRAME_SOFT });
 
     // ---- 卡片：一张不多、一张不少，按时代先后；一张在一张下面
     expect(got.cards.map((card) => card.id), `${where}：卡片`).toEqual(CARDS.map((card) => card.id));
+    const eraLines: string[] = [];
     for (const [i, card] of CARDS.entries()) {
       const shown = got.cards[i];
       const at = `${where}，“${card.name}”的卡片`;
-      expect(shown.name, at).toMatchObject({ text: card.name, family: 'Yanlu Kai', size: 40, writing: 'vertical-rl', tall: true });
+      // 名字横着写，黑体：点得进去的 28px，还没写的小一号（24px）
+      expect(shown.name, at).toMatchObject({ text: card.name, family: 'Yanlu Sans', size: card.available ? 28 : 24, writing: 'horizontal-tb', tall: false });
       expect(shown.era, at).toBe(`${card.era} · ${card.years}`);
+      expect(shown.eraFamily, `${at}：朝代和年份是黑体`).toBe('Yanlu Sans');
       expect(shown.tagline, at).toMatchObject({ text: card.tagline, family: 'Yanlu Song' });
-      expect(shown.box.height, `${at}的高`).toBeGreaterThanOrEqual(150);
-      expect(shown.box.right, `${at}在那页纸里`).toBeLessThanOrEqual(got.leaf.right);
+      // 一张卡片从上到下：抬头一行（名字在前，朝代和年份在它右边、同一行；还没写的在这一行的右头有“还没写”），一句话介绍，“从第一站读起”
+      expect(shown.headChildren, `${at}：抬头里的几样`).toEqual(card.available ? ['card-name', 'card-era'] : ['card-name', 'card-era', 'tag']);
+      expect(shown.eraBox.x, `${at}：朝代和年份在名字的右边`).toBeGreaterThanOrEqual(shown.nameBox.right);
+      expect(shown.eraBox.y < shown.nameBox.bottom && shown.eraBox.bottom > shown.nameBox.y, `${at}：朝代和年份同名字在一行`).toBe(true);
+      expect(shown.taglineBox.y, `${at}：一句话介绍在抬头下面`).toBeGreaterThanOrEqual(Math.max(shown.nameBox.bottom, shown.eraBox.bottom) - 1);
+      if (shown.goTop !== null) expect(shown.goTop, `${at}：“从第一站读起”在一句话介绍下面`).toBeGreaterThanOrEqual(shown.taglineBox.bottom);
+      eraLines.push(`${card.name} ${shown.eraLines} 行`);
+      expect(shown.box.right, `${at}在文字栏里`).toBeLessThanOrEqual(got.leaf.right);
       if (i > 0) expect(shown.box.y, `${at}排在上一张的下面`).toBeGreaterThanOrEqual(got.cards[i - 1].box.bottom + 8);
       if (card.available) {
         expect({ element: shown.element, href: shown.href, cursor: shown.cursor }, `${at}：可以点进去`).toEqual({ element: 'a', href: `#/${card.id}`, cursor: 'pointer' });
-        expect(shown.go, `${at}：最后一行`).toMatchObject({ text: '从第一站读起', family: 'Yanlu Kai', size: 19, colour: SEAL_RED, rule: '26px' });
+        // 可以点进去的是一块白底的板：一圈细边，底下一点影子
+        expect({ ground: shown.ground, top: shown.edges.top, left: shown.edges.left }, `${at}：是一块白底的板`).toEqual({ ground: PLATE, top: `1px solid ${LINE_STRONG}`, left: '1px solid' });
+        expect(shown.edges.shadow, `${at}：板有影子`).not.toBe('none');
+        // “从第一站读起”：黑体，强调色，后面一个画出来的小箭头（7 像素见方）
+        expect(shown.go, `${at}：最后一行`).toMatchObject({ text: '从第一站读起', family: 'Yanlu Sans', size: 15, colour: FRAME_ACCENT, rule: '7px' });
         expect(shown.tag, at).toBeNull();
       } else {
         expect({ element: shown.element, href: shown.href }, `${at}：不是链接`).toEqual({ element: 'div', href: null });
         expect(shown.cursor, `${at}：鼠标移上去不是“能点”的手`).not.toBe('pointer');
         expect(shown.tag?.text, at).toBe('还没写');
-        // “还没写”在卡片的右上角
-        expect(Math.abs((shown.tag?.right ?? 0) - shown.bodyRight), `${at}：“还没写”靠右`).toBeLessThan(1);
+        // 还没写的不是一块板，只是单子上的一行：不铺底，只有上面一道细线，没有影子
+        expect({ ground: shown.ground, top: shown.edges.top, left: shown.edges.left, shadow: shown.edges.shadow }, `${at}：只是单子上的一行`).toEqual({ ground: 'rgba(0, 0, 0, 0)', top: `1px solid ${LINE}`, left: '0px none', shadow: 'none' });
+        // “还没写”在抬头那一行的右头
+        expect(Math.abs((shown.tag?.right ?? 0) - shown.headRight), `${at}：“还没写”靠右`).toBeLessThan(1);
         expect((shown.tag?.top ?? 0) - shown.box.y, `${at}：“还没写”在上头`).toBeLessThan(40);
         expect(shown.go, at).toBeNull();
       }
@@ -212,7 +245,7 @@ test('首页，四种标准的窗口上：一页纸（网站的名字、一句�
     expect(page.url(), `${where}：点了还没写的卡片，地址不该变`).toMatch(/#\/$/);
     await expect(page.locator('.cards .card')).toHaveCount(CARDS.length);
 
-    // ---- 按绢上的一方印（像手指那样点在印的正中）：到那一站；后退，回到首页，沙盘还是那一节
+    // ---- 按沙盘上的一方印（像手指那样点在印的正中）：到那一站；后退，回到首页，沙盘还是那一节
     await page.evaluate(() => window.scrollTo(0, 0));
     //      挑一方正中没有被旁边的印的按处盖住的（全程那一节里有几方印挨得近，按处有相叠的）
     const sealAt = await page.evaluate(() => {
@@ -245,17 +278,17 @@ test('首页，四种标准的窗口上：一页纸（网站的名字、一句�
       section: document.querySelector('.stage-pane')!.getAttribute('data-stage-section'),
       strips: Array.from(document.querySelectorAll('.stage-host .strip')).map((strip) => strip.getAttribute('data-strip-id')),
     }));
-    expect(onFigure, `${where}：首页绢上的全程沙盘，和人物页上是同一节、同样几条题签`).toEqual({ section: got.section, strips: got.strips });
+    expect(onFigure, `${where}：首页沙盘栏里的全程沙盘，和人物页上是同一节、同样几条题签`).toEqual({ section: got.section, strips: got.strips });
 
     rows.push(
-      `  ${where}：${sideBySide ? '左右排' : '绢在上'}；纸 ${Math.round(got.leaf.width)} 宽，绢上的那一块 ${got.paneSize}；` +
-        `网站的名字 ${got.title.size}px 一行；卡片各高 ${got.cards.map((card) => Math.round(card.box.height)).join('、')}`,
+      `  ${where}：${sideBySide ? '左右排' : '沙盘栏在上'}；文字栏 ${Math.round(got.leaf.width)} 宽，沙盘栏 ${got.paneSize}；` +
+        `网站的名字 ${got.title.size}px 一行；卡片各高 ${got.cards.map((card) => Math.round(card.box.height)).join('、')}；朝代和年份那一行占几行：${eraLines.join('、')}`,
     );
   }
   console.log(['首页：', ...rows].join('\n'));
 });
 
-test('“来源”页：一页纸立在绢上；三套字体照 shipped.ts，地形和水、图片照内容，一条不少；五份许可全文答的是 200、是文本；通到别的网站的只是链接', async ({ page, baseURL }) => {
+test('“来源”页：一栏字立在页面正中，没有沙盘栏；三套字体照 shipped.ts，地形和水、图片照内容，一条不少；五份许可全文答的是 200、是文本；通到别的网站的只是链接', async ({ page, baseURL }) => {
   test.setTimeout(180_000);
   const requests: string[] = [];
   page.on('request', (request) => requests.push(request.url()));
@@ -283,6 +316,8 @@ test('“来源”页：一页纸立在绢上；三套字体照 shipped.ts，地
   expect(scenes, 'content/ 里要有沙盘，才查得到东西').toBeGreaterThan(0);
   expect(pictures.length, 'content/ 里要有图片，才查得到东西').toBeGreaterThan(0);
 
+  // 这一页的标题和站点页的大标题一样大：电脑上 40，竖着拿的平板上 36（tests/e2e/titles.spec.ts 量的是站点页的）
+  const TITLE_PX: Record<string, number> = { '1440 × 900': 40, '768 × 1024': 36 };
   for (const size of [WINDOWS[0], WINDOWS[2]]) {
     const where = nameOf(size);
     await openAt(page, size, '#/sources');
@@ -312,6 +347,7 @@ test('“来源”页：一页纸立在绢上；三套字体照 shipped.ts，地
         });
       return {
         leaf: { x: r.x, width: r.width, height: r.height, right: r.right },
+        leafGround: getComputedStyle(leaf).backgroundColor,
         ground: getComputedStyle(document.body).backgroundColor,
         panes: document.querySelectorAll('.stage-pane').length,
         crumbs: Array.from(leaf.querySelectorAll<HTMLAnchorElement>('.crumbs a')).map((a) => [a.textContent, a.getAttribute('href')]),
@@ -328,22 +364,23 @@ test('“来源”页：一页纸立在绢上；三套字体照 shipped.ts，地
       };
     });
 
-    // ---- 一页纸独自立在绢上
+    // ---- 一栏字立在页面正中；页面的底是平的一种颜色，那一栏自己不另铺底
     expect(got.panes, `${where}：“来源”页没有沙盘栏`).toBe(0);
-    expect(got.ground, `${where}：页面的底是绢`).toBe(SILK);
-    expect(got.leaf.width, `${where}：那页纸最宽 640 像素`).toBe(Math.min(640, size.width));
-    expect(Math.abs(got.leaf.x - (size.width - got.leaf.width) / 2), `${where}：那页纸在正中`).toBeLessThan(1);
-    expect(got.leaf.height, `${where}：那页纸和屏幕一样高（或者更长）`).toBeGreaterThanOrEqual(size.height);
+    expect(got.ground, `${where}：页面的底是页面的颜色`).toBe(PAGE);
+    expect(got.leafGround, `${where}：那一栏字不另铺底`).toBe('rgba(0, 0, 0, 0)');
+    expect(got.leaf.width, `${where}：那一栏最宽 640 像素`).toBe(Math.min(640, size.width));
+    expect(Math.abs(got.leaf.x - (size.width - got.leaf.width) / 2), `${where}：那一栏在正中`).toBeLessThan(1);
+    expect(got.leaf.height, `${where}：那一栏和屏幕一样高（或者更长）`).toBeGreaterThanOrEqual(size.height);
     expect(got.pageWidth, `${where}：页面不比窗口宽`).toBeLessThanOrEqual(size.width);
     expect(got.crumbs).toEqual([['沿着他走过的路', '#/']]);
 
-    // ---- 字：标题和四个小标题是楷体，别的是宋体 17 像素
-    expect(got.title, `${where}：标题`).toMatchObject({ family: 'Yanlu Kai', colour: INK });
-    expect(got.title.size, `${where}：标题和别的页面的大标题一样大`).toBeGreaterThanOrEqual(38);
+    // ---- 字：标题和四个小标题是黑体，别的是宋体 17 像素
+    expect(got.title, `${where}：标题`).toMatchObject({ family: 'Yanlu Sans', colour: FRAME_INK });
+    expect(got.title.size, `${where}：标题和站点页的大标题一样大`).toBe(TITLE_PX[where]);
     expect(got.lead, `${where}：标题下面的一句`).toMatchObject({ text: SOURCES_TEXT.lead, family: 'Yanlu Song', size: 17 });
     expect(got.sections).toEqual(['fonts', 'land', 'pictures', 'program']);
     expect(got.headings.map((h) => h.text)).toEqual(['字体', '地形和水', '图片', '程序']);
-    for (const heading of got.headings) expect(heading, `${where}：小标题“${heading.text}”`).toMatchObject({ family: 'Yanlu Kai', colour: INK });
+    for (const heading of got.headings) expect(heading, `${where}：小标题“${heading.text}”`).toMatchObject({ family: 'Yanlu Sans', colour: FRAME_INK });
 
     // ---- 字体：三套各一条（黑体、宋体、楷体），照 shipped.ts
     expect(got.fonts.map((font) => font.family)).toEqual([SHIPPED_FONTS.sans.family, SHIPPED_FONTS.song.family, SHIPPED_FONTS.kai.family]);
@@ -352,12 +389,12 @@ test('“来源”页：一页纸立在绢上；三套字体照 shipped.ts，地
       expect(shown.says, `${where}：${font.family} 那一条`).toBe([SOURCES_TEXT.sans, SOURCES_TEXT.song, SOURCES_TEXT.kai][i](font));
       expect(shown.says, `${where}：${font.family} 那一条里的名字`).toContain(font.name);
       expect(shown.says, `${where}：${font.family} 那一条里的版本`).toContain(`${font.version} 版`);
-      expect(shown.type, `${where}：${font.family} 那一条的字`).toEqual({ family: 'Yanlu Song', size: 17, colour: INK });
+      expect(shown.type, `${where}：${font.family} 那一条的字`).toEqual({ family: 'Yanlu Song', size: 17, colour: FRAME_INK });
       expect(shown.links.map((link) => [link.text, link.href, link.target, link.rel]), `${where}：${font.family} 那一条的链接`).toEqual([
         ['许可全文（英文）', font.licence, null, null],
         ['字体的网站', font.site, '_blank', 'noopener noreferrer'],
       ]);
-      for (const link of shown.links) expect({ line: link.line, colour: link.colour, lineColour: link.lineColour }, `${where}：链接“${link.text}”下面一道印泥红的线`).toEqual({ line: 'underline', colour: SEAL_RED, lineColour: SEAL_RED });
+      for (const link of shown.links) expect({ line: link.line, colour: link.colour, lineColour: link.lineColour }, `${where}：链接“${link.text}”是强调色的字，下面一道强调色的线`).toEqual({ line: 'underline', colour: FRAME_ACCENT, lineColour: FRAME_ACCENT });
     }
     expect(got.subset).toBe(SOURCES_TEXT.subset(SHIPPED_FONTS.sans, SHIPPED_FONTS.song, SHIPPED_FONTS.kai));
 

@@ -19,6 +19,7 @@ import {
   firstUnwrittenStopWithoutScene,
   firstWrittenStop,
   firstWrittenStopWithoutScene,
+  fontsReady,
   headingsOf,
   openFirstFigure,
   paneMoments,
@@ -29,6 +30,7 @@ import {
   scrollToBottom,
   scrollToSection,
   stagePane,
+  stopsWithScenes,
   stripText,
   stripsOf,
   stripsOnStage,
@@ -36,6 +38,7 @@ import {
   watchPane,
 } from './helpers';
 import type { PaneMoment } from './helpers';
+import { decodePng } from '../support/png';
 
 const KINDS = /^(历史|地理|人文|科学)$/;
 const BASES = /^(他本人的话|史书和当时人的记载|后人的记载|编写时补的)$/;
@@ -161,7 +164,7 @@ async function expectPaneSettled(page: Page, figureId: string, stopId: string): 
   else await expectRoute(page);
 }
 
-test('首页：标题、一句话、人物卡片；没写好的人物不是链接；旁边的绢上是全程沙盘；卡片后面有“来源”', async ({ page }) => {
+test('首页：标题、一句话、人物卡片；没写好的人物不是链接；旁边的沙盘栏里是全程沙盘；卡片后面有“来源”', async ({ page }) => {
   await page.goto(fakeUrl('#/'));
   await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
   await expect(page.locator('.home-line')).not.toBeEmpty();
@@ -182,7 +185,7 @@ test('首页：标题、一句话、人物卡片；没写好的人物不是链�
     await expect(card.locator('.tag')).toHaveText('还没写');
   }
 
-  // 首页旁边的绢上是人物页用的那个沙盘栏，摆着第一位可以点进去的人物的全程沙盘，看的是头一节。
+  // 首页旁边就是人物页用的那个沙盘栏，摆着第一位可以点进去的人物的全程沙盘，看的是头一节。
   await expect(stagePane(page)).toHaveCount(1);
   expect(await expectRoute(page)).toBe(true);
   await expect(stagePane(page).locator('.stage-reset')).toHaveText('回到全程');
@@ -827,6 +830,103 @@ test('沙盘旁边的“说明”：点了才展开完整的几句话，盖在�
   await expect(panel).toHaveAttribute('data-section', headings[2]);
 });
 
+test('竖着拿的平板上，“说明”比它那一块高的时候：在那一块里滚得动，底边画着一道影子，滚到底最后一行看得全', async ({ page }) => {
+  test.setTimeout(180_000);
+  await page.setViewportSize({ width: 768, height: 1024 });
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  const pane = stagePane(page);
+  const button = pane.locator('.stage-note-button');
+  const panel = pane.locator('.stage-note-panel');
+  /** 照着按钮的位置点，像手指那样（测试工具自己的“点这个元素”会先把钉在顶上的沙盘栏滚回页面开头，小节就换了）。 */
+  const tapNote = async (): Promise<void> => {
+    const box = (await button.boundingBox())!;
+    await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+  };
+  const sizeOf = (): Promise<{ scroll: number; client: number; top: number }> => panel.evaluate((el) => ({ scroll: el.scrollHeight, client: el.clientHeight, top: el.scrollTop }));
+  /**
+   * 展开的那一块底边上画的是什么：贴着底边里面、左边留白的地方（那里没有字）取一小块，量它有多亮（0 黑，255 白）。
+   * 下面还有字的时候那里是一道影子，比白暗；滚到底、或者字不用滚的时候是白的。
+   */
+  const bottomEdge = async (): Promise<number> => {
+    const box = (await panel.boundingBox())!;
+    const shot = decodePng(await page.screenshot({ clip: { x: Math.round(box.x) + 3, y: Math.round(box.y + box.height) - 4, width: 6, height: 2 } }));
+    let sum = 0;
+    for (let i = 0; i < shot.width * shot.height; i++) sum += (shot.pixels[i * shot.channels] + shot.pixels[i * shot.channels + 1] + shot.pixels[i * shot.channels + 2]) / 3;
+    return sum / (shot.width * shot.height);
+  };
+
+  // 写好了正文、有自己的沙盘的站，一站一站、一节一节点开“说明”看：找一节比它那一块高的，和一节放得下的
+  const seen: string[] = [];
+  let fits: { where: string; edge: number } | null = null;
+  let tall: { where: string; scroll: number; client: number; open: () => Promise<void> } | null = null;
+  search: for (const { figureId, stopId, scene, written } of stopsWithScenes()) {
+    if (!written) continue;
+    const headings = headingsOf(scene);
+    /** 从头打开这一站，读到第 i 节，点开它的“说明”。 */
+    const openAt = async (i: number): Promise<void> => {
+      await page.goto('about:blank');
+      await page.goto(fakeUrl(`#/${figureId}/${stopId}`));
+      await expectStageAt(page, headings[0]);
+      if (i === headings.length - 1) await scrollToBottom(page);
+      else if (i > 0) await scrollToSection(page, headings[i]);
+      await expectStageAt(page, headings[i]);
+      await expect(pane.locator('.stage-caption')).toHaveAttribute('data-section', headings[i]);
+      await tapNote();
+      await expect(panel).toBeVisible();
+      await expect(panel).toHaveAttribute('data-section', headings[i]);
+      await fontsReady(page);
+    };
+    for (const [i, heading] of headings.entries()) {
+      await openAt(i);
+      const size = await sizeOf();
+      const where = `${stopId}“${heading}”`;
+      seen.push(`${where} ${size.scroll}/${size.client}`);
+      if (size.scroll > size.client + 1) {
+        if (tall === null) tall = { where, scroll: size.scroll, client: size.client, open: () => openAt(i) };
+      } else if (fits === null) fits = { where, edge: await bottomEdge() };
+      // 两样都找到了就不往下看了
+      if (tall !== null && fits !== null) break search;
+    }
+  }
+  test.skip(tall === null, `竖着拿的平板上，没有哪一节的“说明”比它那一块高（看过：${seen.join('、')}）`);
+  if (tall === null) return;
+  // 回到比那一块高的那一节，再点开
+  await tall.open();
+
+  // 画法：两层，上面一层跟着字滚（local），下面一层钉在这一块的底边（scroll）
+  const look = await panel.evaluate((el) => {
+    const style = getComputedStyle(el);
+    return { attachment: style.backgroundAttachment, layers: style.backgroundImage.split('linear-gradient(').length - 1, overflow: style.overflowY, ground: style.backgroundColor };
+  });
+  expect(look, `${tall.where}：展开的那一块的画法`).toEqual({ attachment: 'local, scroll', layers: 2, overflow: 'auto', ground: 'rgb(255, 255, 255)' });
+
+  // 在开头：下面还有字，底边是一道影子，比白暗
+  expect((await sizeOf()).top, `${tall.where}：刚展开，从头读起`).toBe(0);
+  const edgeAtTop = await bottomEdge();
+  expect(edgeAtTop, `${tall.where}：下面还有字的时候，底边该有一道影子（量到的亮度 ${edgeAtTop.toFixed(0)}，白是 255）`).toBeLessThan(240);
+
+  // 在那一块里滚到底：滚得动；最后一行整个在这一块里面；底边的影子没有了（白盖住了它）；这一块自己没有变大、没有挪
+  const boxBefore = (await panel.boundingBox())!;
+  await panel.evaluate((el) => {
+    el.scrollTop = el.scrollHeight;
+  });
+  await expect.poll(async () => { const size = await sizeOf(); return size.top > 0 && size.top + size.client >= size.scroll - 1; }, { message: `${tall.where}：展开的那一块该滚得到底` }).toBe(true);
+  const last = await panel.evaluate((el) => {
+    const box = el.getBoundingClientRect();
+    const lines = el.querySelectorAll('.stage-note-lines p');
+    const line = lines[lines.length - 1].getBoundingClientRect();
+    return { lines: lines.length, lineTop: line.top, lineBottom: line.bottom, top: box.top, bottom: box.bottom };
+  });
+  expect(last.lines, `${tall.where}：说明的句数`).toBeGreaterThanOrEqual(3);
+  expect(last.lineBottom, `${tall.where}：滚到底，最后一行的下边在这一块里面`).toBeLessThanOrEqual(last.bottom + 0.5);
+  expect(last.lineTop, `${tall.where}：滚到底，最后一行的上边在这一块里面`).toBeGreaterThanOrEqual(last.top - 0.5);
+  await expect.poll(bottomEdge, { message: `${tall.where}：滚到底以后，底边的影子该没有了` }).toBeGreaterThan(250);
+  expect((await panel.boundingBox())!, `${tall.where}：这一块没有变大、没有挪`).toEqual(boxBefore);
+  // 放得下的一节（不用滚）：底边一直是白的，看不出影子
+  if (fits !== null) expect(fits.edge, `${fits.where}：说明放得下的时候，底边没有影子（量到的亮度 ${fits.edge.toFixed(0)}）`).toBeGreaterThan(250);
+  console.log(`竖着拿的平板上，${tall.where}的“说明”有 ${tall.scroll} 像素高，那一块只有 ${tall.client}：在开头底边的亮度 ${edgeAtTop.toFixed(0)}，滚到底 ${(await bottomEdge()).toFixed(0)}${fits === null ? '' : `；放得下的 ${fits.where} 底边 ${fits.edge.toFixed(0)}`}（看过：${seen.join('、')}）`);
+});
+
 test('用键盘：标题后面有一步“到沙盘”，走到它上面才显出来；按了以后焦点到沙盘栏，下一步就是它的按钮', async ({ page }) => {
   const { headings } = await openStopWithScene(page);
   await expectStageAt(page, headings[0]);
@@ -849,14 +949,14 @@ test('用键盘：标题后面有一步“到沙盘”，走到它上面才显�
   await page.keyboard.press('Enter');
   await expect(stagePane(page)).toBeFocused();
   expect(await page.evaluate(() => window.scrollY)).toBe(scrollBefore);
-  // 焦点到了栏上，看得出来：一圈 3 像素的墨色框，叠在栏里所有东西的上面（画面、按钮那一排、题记把栏自己盖满了，
-  // 画在栏自己身上的框露不出来），和栏一样大，不挡手指和鼠标
+  // 焦点到了栏上，看得出来：一圈两道的框——外面 2 像素的深灰，里面贴着 2 像素的白（沙盘的画面是深是浅，总有一道看得见）——
+  // 叠在栏里所有东西的上面（画面、按钮那一排、题记把栏自己盖满了，画在栏自己身上的框露不出来），和栏一样大，不挡手指和鼠标
   const ring = await stagePane(page).evaluate((pane) => {
     const style = getComputedStyle(pane, '::after');
     const layers = Array.from(pane.children).map((child) => Number(getComputedStyle(child).zIndex) || 0);
-    return { content: style.content, edge: `${style.borderTopWidth} ${style.borderTopStyle} ${style.borderTopColor}`, position: style.position, inset: `${style.top} ${style.right} ${style.bottom} ${style.left}`, above: Number(style.zIndex) > Math.max(...layers), taps: style.pointerEvents };
+    return { content: style.content, edge: `${style.borderTopWidth} ${style.borderTopStyle} ${style.borderTopColor}`, inner: style.boxShadow, position: style.position, inset: `${style.top} ${style.right} ${style.bottom} ${style.left}`, above: Number(style.zIndex) > Math.max(...layers), taps: style.pointerEvents };
   });
-  expect(ring).toEqual({ content: '""', edge: '3px solid rgb(40, 35, 31)', position: 'absolute', inset: '0px 0px 0px 0px', above: true, taps: 'none' });
+  expect(ring).toEqual({ content: '""', edge: '2px solid rgb(35, 34, 31)', inner: 'rgb(255, 255, 255) 0px 0px 0px 2px inset', position: 'absolute', inset: '0px 0px 0px 0px', above: true, taps: 'none' });
   await page.keyboard.press('Tab');
   await expectOnFirstButtonInPane(page);
   // 焦点走到按钮上，栏上的那一圈就没有了

@@ -255,10 +255,10 @@ describe('随站的字体在构建出来的网站里', () => {
     expect(built.problems).toEqual([]);
     expect(Object.keys(site.fonts)).toHaveLength(committed.length);
     expect(built.files.map((item) => item.file)).toEqual(committed.map((item) => item.file));
-    // 一打开就下载的（index.html 里预先声明了的）：正好是记录里说要预先声明的那几个——现在是头一个宋体文件和楷体
-    //（黑体的文件不带 unicode-range，也不预先声明：页面的样式眼下还没有用它）
+    // 一打开就下载的（index.html 里预先声明了的）：正好是记录里说要预先声明的那几个——黑体和头一个宋体文件
+    //（楷体的文件不带 unicode-range，也不预先声明：只有沙盘上的题签在用，题签摆出来的时候浏览器才取）
     expect(built.files.filter((item) => item.first).map((item) => item.file)).toEqual(committed.filter((item) => item.preload).map((item) => item.file));
-    expect(built.files.filter((item) => item.first).map((item) => item.file).sort()).toEqual(['yanlu-kai.woff2', 'yanlu-song.woff2']);
+    expect(built.files.filter((item) => item.first).map((item) => item.file).sort()).toEqual(['yanlu-sans.woff2', 'yanlu-song.woff2']);
     // 大小量的是 dist/ 里的文件；哪几个算首次打开要下载的、各归哪一站，照记录（宋体按站拆开以后按站分开算）
     const sized = built.files.map(({ file, bytes }) => {
       const record = committed.find((item) => item.file === file);
@@ -285,7 +285,8 @@ describe('随站的字体在构建出来的网站里', () => {
 });
 
 describe('字体带得不对的时候这里通不过（用编出来的网页和样式表，走的是同一条路）', () => {
-  // 四个文件。黑体的不带 unicode-range、也不预先声明（页面上用到这套字体时浏览器才取）；楷体和头一个宋体预先声明
+  // 四个文件。这个编出来的网站里，黑体的不带 unicode-range、也不预先声明（页面上用到这套字体时浏览器才取），楷体和头一个宋体预先声明；
+  // 真的网站上不预先声明的那一个是楷体（上面那一组查的）。规矩是同一条：照记录里的 preload，不照带不带 unicode-range
   const COMMITTED: CommittedFont[] = [
     { file: 'yanlu-sans.woff2', sha256: 'h', range: false, preload: false, first: true, stop: null },
     { file: 'yanlu-song.woff2', sha256: 's', range: false, preload: true, first: true, stop: null },
@@ -318,11 +319,11 @@ describe('字体带得不对的时候这里通不过（用编出来的网页和�
   });
 
   it('不带 unicode-range、记录里又说不预先声明的文件：index.html 里没有它是对的，有了通不过；记录里说要预先声明的没有声明，也通不过', () => {
-    // 黑体的文件现在就是这样：不声明是对的（上一项）；声明了，说得出来
+    // 这里的黑体文件就是这样：不声明是对的（上一项）；声明了，说得出来
     expect(builtFonts(site({ html: HTML.replace('</head>', `${link('sans-0.woff2')}</head>`) }), COMMITTED).problems).toEqual([
       'index.html 里预先声明的 ./assets/sans-0.woff2不是记录里说要预先声明的字体文件（要预先声明的是 assets/song-2.woff2、assets/kai-1.woff2）：会多下载一个文件，或者下载得太早',
     ]);
-    // 反过来：记录改成“楷体不预先声明、黑体预先声明”（页面换成用黑体排标题以后就是这样），index.html 还是旧的两行——两处都说得出来
+    // 反过来：记录改成“楷体不预先声明、黑体预先声明”（真的网站上就是这样），index.html 还是旧的两行——两处都说得出来
     const flipped = COMMITTED.map((item) => (item.file === 'yanlu-kai.woff2' ? { ...item, preload: false } : item.file === 'yanlu-sans.woff2' ? { ...item, preload: true } : item));
     expect(builtFonts(site(), flipped).problems).toEqual([
       'index.html 里预先声明的 ./assets/kai-1.woff2不是记录里说要预先声明的字体文件（要预先声明的是 assets/sans-0.woff2、assets/song-2.woff2）：会多下载一个文件，或者下载得太早',

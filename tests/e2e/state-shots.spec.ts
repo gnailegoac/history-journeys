@@ -1,10 +1,12 @@
 // 给页面的几种状态各拍一张照，用真的沙盘，供人看（不进仓库）：看的是字和版面，不是沙盘。
 // real-shots.spec.ts 拍的是人物页和每一小节；这里拍它没拍到的：
-//   home-<宽>x<高>.png               首页（绢上的全程图片取到了再拍）
+//   home-<宽>x<高>.png               首页（沙盘栏里的全程图片取到了再拍）
 //   sources-…、sources-full-…、sources-foot-…  “来源”页：第一屏；整页，从头到尾一张长图；滚到最下面
 //   figure-list-…                   人物页的各站目录（在第一屏下面，滚到它拍）
 //   figure-foot-…                   人物页滚到最下面：目录后面通到“来源”页的链接
 //   stop-foot-…                     有沙盘的一站滚到最下面：正文末尾的“回到各站目录”和“来源”
+//   state-modern-…                  有沙盘的一站，古名今名选了“今名”
+//   state-folded-…                  沙盘收起来的样子（只有沙盘在上的版面上有“收起沙盘”：竖着拿的两种平板）
 //   state-note-…                    点开一条小注（小注不在第一屏里的窗口上，先把带着那个词的一段滚到看得见的地方）
 //   state-original-…                点开一篇原文
 //   state-provenance-…              点开凭据（里面的东西是点开才取的，等它到了再拍）
@@ -21,7 +23,7 @@
 // 例：REAL_SHOTS=1 SHOTS_DIR=tests/shots/c-a-fonts npx playwright test tests/e2e/state-shots.spec.ts -g "1440"
 
 import { expect, test } from '@playwright/test';
-import type { Page } from '@playwright/test';
+import type { Locator, Page } from '@playwright/test';
 import type { StageTier } from '../../src/stage/types';
 import { expectRealTable, firstUnwrittenStopWithoutScene, firstWrittenStopWithoutScene, foldBodiesReady, openFigureWithTable, realUrl, shoot, stagePane, stopsWithScenes } from './helpers';
 
@@ -62,10 +64,10 @@ async function shootStates(page: Page, size: { width: number; height: number }):
     await shoot(page, { path: `${DIR}/${name}-${tag}.png` });
   };
 
-  // 首页（绢上的全程图片取到了再拍）
+  // 首页（沙盘栏里的全程图片取到了再拍）
   await page.goto(url('#/'));
   await expect(page.locator('.card').first()).toBeVisible();
-  // 绢上的全程沙盘摆好了再拍（只放图片的那一种：等图片显出来）
+  // 沙盘栏里的全程沙盘摆好了再拍（只放图片的那一种：等图片显出来）
   await paneSettled();
   await snap('home');
 
@@ -82,7 +84,7 @@ async function shootStates(page: Page, size: { width: number; height: number }):
   // 人物页的各站目录：在第一屏下面，滚到“各站目录”那个标题拍
   await paneSettled();
   await page.getByRole('heading', { name: '各站目录' }).evaluate((heading) => heading.scrollIntoView({ block: 'start' }));
-  // 鼠标挪到角上：不然它正好停在哪一站上，那一站的名字就是“鼠标移上去”的红色
+  // 鼠标挪到角上：不然它正好停在哪一站上，那一站的名字就是“鼠标移上去”的强调色
   await page.mouse.move(1, 1);
   await snap('figure-list');
   // 目录后面通到“来源”页的链接：滚到页面最下面拍
@@ -97,6 +99,30 @@ async function shootStates(page: Page, size: { width: number; height: number }):
     await page.locator(`.stop-item[data-stop-id="${found.stopId}"]`).click();
     await expect(page.locator('.text-section').first()).toBeVisible();
     await paneSettled();
+
+    // 古名今名选了“今名”的样子（按钮在沙盘栏里：照它的位置点，像手指那样，不让测试工具把页面滚动）；拍完换回古名
+    const tapAt = async (target: Locator): Promise<void> => {
+      const box = (await target.boundingBox())!;
+      await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+    };
+    const names = pane.locator('.names-switch button');
+    await tapAt(names.nth(1));
+    await expect(names.nth(1)).toHaveAttribute('aria-pressed', 'true');
+    await page.mouse.move(1, 1);
+    await snap('state-modern');
+    await tapAt(names.nth(0));
+    await expect(names.nth(0)).toHaveAttribute('aria-pressed', 'true');
+    // 沙盘收起来的样子：只有沙盘在上的版面上有“收起沙盘”；拍完再展开
+    const fold = pane.locator('.stage-fold');
+    if ((await fold.count()) > 0 && (await fold.isVisible())) {
+      await tapAt(fold);
+      await expect(fold).toHaveText('展开沙盘');
+      await page.mouse.move(1, 1);
+      await snap('state-folded');
+      await tapAt(fold);
+      await expect(fold).toHaveText('收起沙盘');
+      await paneSettled();
+    }
 
     // 点开第一条小注（在页面里直接点：不让测试工具把页面滚动）
     await page.locator('.note-term').first().evaluate((term: HTMLElement) => term.click());

@@ -1,23 +1,27 @@
 // 沙盘栏的样子，在真的页面上量。只量说得出数的几样；好不好看要看照片。
-// 沙盘栏的底是一块绢（tokens.css 的 --color-paper-sunk）；摆在绢上的东西——按钮、题签、展开的说明——是纸条。
+// 沙盘栏的底色是人物自己的（tokens.css 末尾那一块的 --color-paper-sunk）。框架摆在栏里的东西有两种面：
+// 带子（按钮下面的那一行话、题记那一条：页面的颜色，边上一道细线）和板（按钮、展开的说明、等着和出了错时的那几句话：白底，一圈细边）。
+// 题签是人物自己的：纸条、楷体、脚上有印。
 //
-// 一、绢上的字都是墨色，够深。沙盘栏里显出来的每一段字，往上找到垫在它下面的那一层底色：
-//     直接落在绢上的（栏自己、题记那一条、按钮下面那一行话），字的颜色只许是墨色或者“绢上的墨色”（墨色九成二），
-//     和绢比不低于 6 比 1；落在纸条上的，和纸条比不低于 4.5 比 1（点不了的按钮除外）。每一种配法印出来。
-//     焦点框：沙盘栏自己、它里面的按钮，框都是墨色（红框在绢上只有 2.9 比 1）。
+// 一、框架的字都不直接落在沙盘栏的底色上。沙盘栏里显出来的每一段字，往上找到垫在它下面的那一层底色：
+//     垫着的不许是沙盘栏自己；落在带子上的（题记那一条、按钮下面那一行话），和带子比不低于 6 比 1；
+//     落在板上的（题签的纸条也算一种板），和它比不低于 4.5 比 1（点不了的按钮除外）。每一种配法印出来。
+//     焦点框：沙盘栏自己、它里面的按钮，框是两道——外面一圈深灰，里面贴着一圈白（栏的底是深是浅，总有一道看得见）。
 // 二、四种标准的窗口上，沙盘栏里给读者看的字没有小于 14px 的；小节名、题记、说明、时间、比例尺、“北”、
-//     两个小按钮各是多大、什么字体，一样一样对。题记那一行是一句话：多大都是宋体，栏上不挂 is-kai。
+//     两个小按钮各是多大、什么字体、什么粗细，一样一样对：名字、时间、数、“北”、按钮是黑体（500），成句的话是宋体（400）。
+//     题记那一行是一句话：多大都是宋体，栏上不挂 is-kai。
 //     窄的排法（沙盘栏不到 584 像素宽；拿 1000 × 768 的窗口量，栏 560 宽）也一样：没有小于 14px 的字，
 //     题记那一块 94 像素高，题记和远处两行、说明一行都看得全。
 // 三、题记写满 40 个字（场景里许可的最多的字数），从 560 像素宽的栏往上，哪一种栏宽都放得下：
 //     584 像素起是宽的排法，一行，不截断，字号不小于 14px；不到 584 是窄的排法，连同远处两行放得下。
 //     窗口从窄到宽换二十几种宽度，每一种都量。
-// 四、按钮、题记那一条、题签的样子：古名今名选中的是红字加一个实心的小红方块，不铺红底，换着选按钮不挪地方；
-//     题记那一条的底是绢色、上边一道细线，没有淡出去的一截；题签脚上有一方印，水名是靛青，远处是虚线；窄的栏上题签小一号。
-//     四种标准的窗口上，每一小节再量一遍题记那一条：底是不透明的绢色（沙盘不从字底下透上来），130 像素高；
+// 四、按钮、题记那一条、题签的样子：按钮是白底的板；古名今名选中的是墨蓝的字加一个实心的圆点、垫一块淡蓝，换着选按钮不挪地方；
+//     题记那一条的底是页面的颜色、上边一道细线，没有淡出去的一截；题签还是人物自己的样子：纸条、楷体，脚上有一方印，
+//     水名是靛青，远处是虚线；窄的栏上题签小一号。
+//     四种标准的窗口上，每一小节再量一遍题记那一条：底是不透明的页面颜色（沙盘不从字底下透上来），130 像素高；
 //     说明那一句占满这一条的宽，“说明”按钮立在右头、和说明的头一行对齐、在比例尺和指北的下面，说明的字到不了按钮底下；
-//     题记、说明、远处都没有截掉的字，远处那一行紧接在说明下面。“说明”和“换回图片”是纸条的打扮（纸色、里面一圈深色的细线、
-//     一道影子），不是一圈红线的小标签；能点的地方有 44 像素高。
+//     题记、说明、远处都没有截掉的字，远处那一行紧接在说明下面。“说明”和“换回图片”是白底小板的打扮（白底、一圈细边、圆角、
+//     一道影子），不是一圈线的小标签；能点的地方有 44 像素高。
 // 五、人物页上的全程图片：电脑和横着拿的平板上，图片、题记、说明、出处都在栏里，不用在栏里滚；图片没有被压扁。
 //     竖着拿的两种平板上图片在上面、跟着页面滚走，和放它的地方一样宽。
 // 六、“老平板”的替身：把构建出来的样式表照 iPadOS 15 的读法改一遍（@container 的块去掉，用了 cqw 的声明作废；
@@ -42,25 +46,28 @@ const nameOf = (size: { width: number; height: number }): string => `${size.widt
 /**
  * tokens.css 里的几种颜色，算出来的样子。分两组，各是各的记号：
  * 人物自己的一套（写在沙盘栏上：栏的底色，题签的纸条、字、印、水名），和框架的一套（:root：按钮、几句话、题记那一条）。
- * 现在两组里有几个值还一样；框架换样子的时候只改框架的那一组，人物的一组不动。
+ * 框架换成中性的样子时只改了框架的那一组；人物的一组一个数也没有动。
  */
 const FIGURE_GROUND = 'rgb(197, 177, 137)';
 const FIGURE_SLIP = 'rgb(250, 245, 231)';
 const FIGURE_INK = 'rgb(40, 35, 31)';
 const FIGURE_MARK = 'rgb(176, 58, 42)';
 const FIGURE_WATER = 'rgb(62, 96, 114)';
-const FRAME_INK = 'rgb(40, 35, 31)';
-const FRAME_SOFT = 'rgb(90, 81, 70)';
-const FRAME_ACCENT = 'rgb(176, 58, 42)';
-const INK_ON_SILK = 'rgba(40, 35, 31, 0.92)';
-/** 按钮、面板这些纸条的底。 */
-const PLATE = 'rgb(250, 245, 231)';
-/** 按钮下面那一行话的底：现在和沙盘栏的底色是同一种颜色。 */
-const PAGE = 'rgb(197, 177, 137)';
-/** 题记那一条的底：现在也是这种颜色，不透明（沙盘不从字底下透上来）。 */
-const VEIL = PAGE;
+const FRAME_INK = 'rgb(35, 34, 31)';
+const FRAME_SOFT = 'rgb(92, 90, 85)';
+const FRAME_ACCENT = 'rgb(31, 75, 110)';
+/** 按钮、面板这些板的底：白。 */
+const PLATE = 'rgb(255, 255, 255)';
+/** 板的那一圈细边：半透明的深灰。 */
+const PLATE_EDGE = 'rgba(35, 34, 31, 0.5)';
+/** 两条带子（按钮下面那一行话、题记那一条）的底：页面的颜色，不透明（沙盘不从字底下透上来）。 */
+const PAGE = 'rgb(251, 250, 247)';
+/** 沙盘栏上的线：用不了的按钮的边。 */
+const LINE_PANE = 'rgb(211, 209, 203)';
+/** 选中的古名今名底下垫的淡蓝。 */
+const WASH = 'rgb(231, 238, 243)';
 
-/** 一样东西是不是纸条的打扮：纸色的底，最外面一道纸色的边，方角，里面一圈深色的细线，外面一道影子。 */
+/** 一样东西的打扮：底色，最外面的边，圆角，里面有没有另画一圈线，外面有没有影子。板是白底、一圈半透明深灰的细边、圆角、有影子、里面没有线。 */
 async function slipDress(page: Page, selector: string): Promise<{ ground: string; edge: string; radius: string; innerLine: boolean; dropShadow: boolean; height: number; tapHeight: number }> {
   return stagePane(page)
     .locator(selector)
@@ -166,24 +173,26 @@ async function paneRuns(page: Page): Promise<PaneRun[]> {
   });
 }
 
-/** 直接落在绢上的字，垫在下面的是这几样：沙盘栏自己，题记那一条，按钮下面的那一行话。 */
-const ON_SILK = ['section.stage-pane', 'div.stage-foot', 'div.stage-notice'];
+/** 沙盘栏自己：它的底色是沙盘的，人物自己的。框架的字不许直接落在它上面。 */
+const PANE_ITSELF = 'section.stage-pane';
+/** 两条带子：题记那一条，按钮下面的那一行话。底是页面的颜色。 */
+const BANDS = ['div.stage-foot', 'div.stage-notice'];
 
-/** 一批字对着“绢上只许墨色、都要够深”查一遍。给出不对的，和见到的每一种配法（字的颜色、底、对比）。 */
+/** 一批字对着“不直接落在沙盘栏的底色上、带子上不低于 6 比 1、板上不低于 4.5 比 1”查一遍。给出不对的，和见到的每一种配法（字的颜色、底、对比）。 */
 function judge(runs: PaneRun[]): { problems: string[]; pairs: Map<string, string> } {
   const problems: string[] = [];
   const pairs = new Map<string, string>();
-  const silk = rgba(FIGURE_GROUND);
+  const paneGround = rgba(FIGURE_GROUND);
   for (const run of runs) {
     const at = `${run.where}“${run.text}”`;
-    const onSilk = ON_SILK.includes(run.holder);
-    // 半透明的底（题记那一条、垫着的纸条）盖在绢上
-    const ground = over(rgba(run.ground), silk);
+    // 半透明的底盖在沙盘栏的底色上
+    const ground = over(rgba(run.ground), paneGround);
     const ratio = contrast(over(rgba(run.colour), ground), ground);
     pairs.set(`${run.colour} 在 ${run.holder}（${run.ground}）上${run.disabled ? '，点不了的' : ''}`, ratio.toFixed(2));
-    if (onSilk) {
-      if (run.colour !== FRAME_INK && run.colour !== INK_ON_SILK) problems.push(`${at}：落在绢上（${run.holder}），颜色是 ${run.colour}，只许是墨色`);
-      if (ratio < 6) problems.push(`${at}：落在绢上，对比只有 ${ratio.toFixed(2)}`);
+    if (run.holder === PANE_ITSELF) {
+      problems.push(`${at}：直接落在沙盘栏的底色上（底下没有垫带子，也没有垫板）`);
+    } else if (BANDS.includes(run.holder)) {
+      if (ratio < 6) problems.push(`${at}：落在带子上（${run.holder}，${run.ground}），颜色 ${run.colour}，对比只有 ${ratio.toFixed(2)}`);
     } else if (!run.disabled && ratio < 4.5) {
       problems.push(`${at}：在 ${run.holder}（${run.ground}）上，颜色 ${run.colour}，对比只有 ${ratio.toFixed(2)}`);
     }
@@ -222,14 +231,14 @@ async function paneWidth(page: Page): Promise<{ outer: number; inner: number; wi
   }));
 }
 
-test('绢上的字都是墨色，和绢比不低于 6 比 1；纸条上的字不低于 4.5 比 1；沙盘栏和它里面的焦点框是墨色', async ({ page }) => {
+test('沙盘栏里框架的字都不直接落在沙盘栏的底色上：落在页面颜色的带子上的不低于 6 比 1，落在白底的板上的不低于 4.5 比 1；沙盘栏和它里面的焦点框是两道，里面一圈白、外面一圈深灰', async ({ page }) => {
   test.setTimeout(180_000);
   const seen = new Map<string, string>();
   const look = async (label: string, atLeast: number): Promise<void> => {
     const runs = await paneRuns(page);
     expect(runs.length, `${label}：沙盘栏里显出来的字太少，怕是没打开`).toBeGreaterThanOrEqual(atLeast);
     const { problems, pairs } = judge(runs);
-    expect(problems, `${label}：沙盘栏里这几处的字颜色不对，或者太淡`).toEqual([]);
+    expect(problems, `${label}：沙盘栏里这几处的字直接落在了沙盘栏的底色上，或者太淡`).toEqual([]);
     for (const [pair, ratio] of pairs) seen.set(pair, ratio);
   };
   const pane = stagePane(page);
@@ -253,19 +262,19 @@ test('绢上的字都是墨色，和绢比不低于 6 比 1；纸条上的字不
     await openStop(page, size, PANE_QUERIES.only);
     await expectPane(page, 'slow', 'still');
     await expect(notice(page)).toBeVisible();
-    expect(await notice(page).evaluate((el) => getComputedStyle(el).backgroundColor), `${where}：按钮下面那一行话的底色，就是沙盘栏的底色`).toBe(PAGE);
+    expect(await notice(page).evaluate((el) => getComputedStyle(el).backgroundColor), `${where}：按钮下面那一行话的底色是页面的颜色，不是沙盘栏的底色`).toBe(PAGE);
     await look(`${where}，只放图片`, 8);
     // 读者要来的沙盘：那一行话后面有“换回图片”
     await tap(page, '.stage-controls .stage-retry');
     await expectPane(page, 'ready', 'table');
     await expect(pane.locator('.stage-notice-button')).toBeVisible();
-    // “换回图片”是一个按钮，不是一枚小标签：纸条的打扮（纸色、里面一圈深色的细线、一道影子），22 像素高，能点的地方有 44
+    // “换回图片”是一个按钮，不是一枚小标签：白底小板的打扮（白底、一圈细边、圆角、一道影子），22 像素高，能点的地方有 44
     const back = await slipDress(page, '.stage-notice-button');
     expect({ ground: back.ground, edge: back.edge, radius: back.radius, innerLine: back.innerLine, dropShadow: back.dropShadow, height: back.height }, `${where}：“换回图片”`).toEqual({
       ground: PLATE,
-      edge: `1px solid ${PLATE}`,
-      radius: '0px',
-      innerLine: true,
+      edge: `1px solid ${PLATE_EDGE}`,
+      radius: '3px',
+      innerLine: false,
       dropShadow: true,
       height: 22,
     });
@@ -300,19 +309,28 @@ test('绢上的字都是墨色，和绢比不低于 6 比 1；纸条上的字不
   await page.locator('.skip-to-stage').focus();
   await page.keyboard.press('Enter');
   await expect(pane).toBeFocused();
-  const ring = (selector: string): Promise<{ colour: string; style: string; width: string; offset: string }> =>
-    page.locator(selector).first().evaluate((el) => {
-      const style = getComputedStyle(el);
-      return { colour: style.outlineColor, style: style.outlineStyle, width: style.outlineWidth, offset: style.outlineOffset };
-    });
-  expect(await ring('.stage-pane'), '焦点在沙盘栏上时的框').toEqual({ colour: FRAME_INK, style: 'solid', width: '3px', offset: '-3px' });
+  const ring = (selector: string, pseudo?: string): Promise<{ colour: string; style: string; width: string; offset: string; shadow: string; edge: string }> =>
+    page.locator(selector).first().evaluate((el, which) => {
+      const style = getComputedStyle(el, which ?? null);
+      return { colour: style.outlineColor, style: style.outlineStyle, width: style.outlineWidth, offset: style.outlineOffset, shadow: style.boxShadow, edge: `${style.borderTopWidth} ${style.borderTopStyle} ${style.borderTopColor}` };
+    }, pseudo);
+  // 栏自己的框画在栏里面（栏贴着屏幕的边）：深灰的一道，2 像素
+  const paneRing = await ring('.stage-pane');
+  expect({ colour: paneRing.colour, style: paneRing.style, width: paneRing.width, offset: paneRing.offset }, '焦点在沙盘栏上时的框').toEqual({ colour: FRAME_INK, style: 'solid', width: '2px', offset: '-2px' });
+  // 摆着沙盘的时候栏被盖满了，另画一圈叠在所有东西上面：外面深灰 2 像素，里面贴着一圈白 2 像素
+  const paneOver = await ring('.stage-pane', '::after');
+  expect(paneOver.edge, '叠在栏里所有东西上面的那一圈：外面深灰').toBe(`2px solid ${FRAME_INK}`);
+  expect(paneOver.shadow, '叠在栏里所有东西上面的那一圈：里面一圈白').toBe(`${PLATE} 0px 0px 0px 2px inset`);
   // 沙盘的替身自己也有几个按钮，排在页面的按钮前面：一路按 Tab，走到“古名”上为止
   for (let presses = 0; presses < 8; presses++) {
     await page.keyboard.press('Tab');
     if (await page.evaluate(() => Boolean(document.activeElement?.closest('.names-switch')))) break;
   }
   await expect(pane.locator('.names-switch button').first()).toBeFocused();
-  expect(await ring('.names-switch button'), '焦点在沙盘栏的按钮上时的框').toEqual({ colour: FRAME_INK, style: 'solid', width: '3px', offset: '2px' });
+  // 按钮上的框是两道：外面一圈深灰（2 像素，离开 2 像素），里面贴着按钮的一圈白（画出来的影子，2 像素）
+  const buttonRing = await ring('.names-switch button');
+  expect({ colour: buttonRing.colour, style: buttonRing.style, width: buttonRing.width, offset: buttonRing.offset }, '焦点在沙盘栏的按钮上时的框：外面一圈深灰').toEqual({ colour: FRAME_INK, style: 'solid', width: '2px', offset: '2px' });
+  expect(buttonRing.shadow, '焦点在沙盘栏的按钮上时的框：里面一圈白').toContain(`${PLATE} 0px 0px 0px 2px`);
 });
 
 for (const size of WINDOWS) {
@@ -332,16 +350,17 @@ for (const size of WINDOWS) {
     await small('第 1 节');
 
     // 一样一样对：多大，什么字体
-    const of = (selector: string): Promise<{ size: number; family: string; colour: string }> =>
+    // 粗细也对：黑体的是 500（这套黑体只带了这一种），宋体的是 400
+    const of = (selector: string): Promise<{ size: number; family: string; weight: string; colour: string }> =>
       pane.locator(selector).first().evaluate((el) => {
         const style = getComputedStyle(el);
-        return { size: parseFloat(style.fontSize), family: style.fontFamily.replace(/^["']/, '').split(/["',]/)[0], colour: style.color };
+        return { size: parseFloat(style.fontSize), family: style.fontFamily.replace(/^["']/, '').split(/["',]/)[0], weight: style.fontWeight, colour: style.color };
       });
-    expect(await of('.stage-section-name'), '小节的名字').toEqual({ size: 17, family: 'Yanlu Kai', colour: FRAME_INK });
-    expect(await of('.stage-date'), '时间').toEqual({ size: 14, family: 'Yanlu Song', colour: INK_ON_SILK });
-    expect(await of('.stage-note-short'), '说明').toEqual({ size: 14, family: 'Yanlu Song', colour: INK_ON_SILK });
-    expect(await of('.stage-scale-label'), '比例尺上的数').toEqual({ size: 14, family: 'Yanlu Song', colour: FRAME_INK });
-    expect(await of('.stage-north span'), '“北”').toEqual({ size: 14, family: 'Yanlu Kai', colour: FRAME_INK });
+    expect(await of('.stage-section-name'), '小节的名字').toEqual({ size: 15, family: 'Yanlu Sans', weight: '500', colour: FRAME_INK });
+    expect(await of('.stage-date'), '时间').toEqual({ size: 14, family: 'Yanlu Sans', weight: '500', colour: FRAME_SOFT });
+    expect(await of('.stage-note-short'), '说明').toEqual({ size: 14, family: 'Yanlu Song', weight: '400', colour: FRAME_SOFT });
+    expect(await of('.stage-scale-label'), '比例尺上的数').toEqual({ size: 14, family: 'Yanlu Sans', weight: '500', colour: FRAME_INK });
+    expect(await of('.stage-north span'), '“北”').toEqual({ size: 14, family: 'Yanlu Sans', weight: '500', colour: FRAME_INK });
     // 指北针朝北的那一头是实心的，用的是强调色（照记号量：在页面上放一个读这个记号的小块，比它算出来的颜色）；另一头是一道线，颜色跟着字
     const needleLook = await pane.locator('.stage-north svg').evaluate((svg) => {
       const probe = document.createElement('i');
@@ -359,14 +378,14 @@ for (const size of WINDOWS) {
     expect(needleLook.accent).toBe(FRAME_ACCENT);
     expect(needleLook.shaftStroke, '指北针另一头那道线的颜色').toBe(needleLook.ink);
     expect(needleLook.shaftWidth, '那道线的粗细（画布上的单位）').toBeGreaterThanOrEqual(2);
-    expect(await of('.stage-note-button'), '“说明”按钮').toEqual({ size: 14, family: 'Yanlu Song', colour: FRAME_ACCENT });
-    expect(await of('.stage-reset'), '“回到这一节”').toMatchObject({ size: 17, family: 'Yanlu Kai' });
+    expect(await of('.stage-note-button'), '“说明”按钮').toEqual({ size: 14, family: 'Yanlu Sans', weight: '500', colour: FRAME_ACCENT });
+    expect(await of('.stage-reset'), '“回到这一节”').toMatchObject({ size: 15, family: 'Yanlu Sans', weight: '500' });
     // 题记那一行：字号照栏宽算；它是一句话，多大都是宋体
     const line = await of('.stage-line');
     const wanted = lineSize(width.inner);
     expect(line.size, `题记的字号（栏里面宽 ${width.inner}）`).toBe(wanted);
     expect(width.lineSize, '页面写在栏上的 --line-size').toBe(`${wanted}px`);
-    expect(line.family, `题记 ${line.size}px`).toBe('Yanlu Song');
+    expect({ family: line.family, weight: line.weight }, `题记 ${line.size}px`).toEqual({ family: 'Yanlu Song', weight: '400' });
     expect(width.kai, '栏上不挂 is-kai').toBe(false);
     expect(line.colour).toBe(FRAME_INK);
     console.log(`${nameOf(size)}：沙盘栏连边线 ${width.outer}、里面 ${width.inner} 像素宽；题记 ${line.size}px ${line.family}`);
@@ -375,21 +394,21 @@ for (const size of WINDOWS) {
     await scrollToBottom(page);
     await expectStageAt(page, headings[headings.length - 1]);
     await expect(pane.locator('.stage-caption')).toHaveAttribute('data-section', headings[headings.length - 1]);
-    if ((await pane.locator('.stage-far li').count()) > 0) expect(await of('.stage-far li'), '远处').toEqual({ size: 14, family: 'Yanlu Song', colour: FRAME_INK });
+    if ((await pane.locator('.stage-far li').count()) > 0) expect(await of('.stage-far li'), '远处').toEqual({ size: 14, family: 'Yanlu Song', weight: '400', colour: FRAME_INK });
     await tap(page, '.stage-note-button');
     await expect(pane.locator('.stage-note-panel')).toBeVisible();
     await small('最后一节，“说明”开着');
-    expect(await of('.stage-note-lines p'), '展开的说明').toMatchObject({ size: 15, family: 'Yanlu Song' });
+    expect(await of('.stage-note-lines p'), '展开的说明').toMatchObject({ size: 15, family: 'Yanlu Song', weight: '400' });
 
     // 只放图片：那一行话；读者要来的沙盘：“换回图片”
     await openStop(page, size, PANE_QUERIES.only);
     await expectPane(page, 'slow', 'still');
     await small('只放图片');
-    expect(await of('.stage-notice p'), '按钮下面的那一行话').toEqual({ size: 14, family: 'Yanlu Song', colour: FRAME_INK });
+    expect(await of('.stage-notice p'), '按钮下面的那一行话').toEqual({ size: 14, family: 'Yanlu Song', weight: '400', colour: FRAME_SOFT });
     await tap(page, '.stage-controls .stage-retry');
     await expectPane(page, 'ready', 'table');
     await small('读者要来的沙盘');
-    expect(await of('.stage-notice-button'), '“换回图片”').toEqual({ size: 14, family: 'Yanlu Song', colour: FRAME_ACCENT });
+    expect(await of('.stage-notice-button'), '“换回图片”').toEqual({ size: 14, family: 'Yanlu Sans', weight: '500', colour: FRAME_ACCENT });
   });
 }
 
@@ -408,7 +427,7 @@ test('窄的排法（窗口 1000 × 768，沙盘栏 560 宽）：题记那一块
     const at = last ? '最后一节' : '第 1 节';
     const runs = await paneRuns(page);
     expect(runs.filter((run) => run.size < 14).map((run) => `${run.where}“${run.text}”${run.size}px`), `${at}：小于 14px 的字`).toEqual([]);
-    expect(judge(runs).problems, `${at}：字的颜色`).toEqual([]);
+    expect(judge(runs).problems, `${at}：字垫着什么、够不够深`).toEqual([]);
     const caption = await pane.locator('.stage-caption').evaluate((el) => {
       const of = (selector: string): { size: number; family: string } => {
         const style = getComputedStyle(el.querySelector(selector)!);
@@ -430,7 +449,7 @@ test('窄的排法（窗口 1000 × 768，沙盘栏 560 宽）：题记那一块
     expect(caption, at).toEqual({
       height: 94,
       overflow: false,
-      name: { size: 16, family: 'Yanlu Kai' },
+      name: { size: 14, family: 'Yanlu Sans' },
       line: { size: 14, family: 'Yanlu Song' },
       brief: { size: 14, family: 'Yanlu Song' },
       wordsCut: false,
@@ -516,7 +535,7 @@ test('题记写满 40 个字：从 560 像素宽的栏往上，哪一种栏宽�
   expect(narrowSeen).toBeGreaterThan(3);
 });
 
-test('按钮是纸条，古名今名选中的是红字加小红方块、不铺红底，换着选按钮不挪地方；题记那一条是绢色、上边一道细线；题签脚上有印', async ({ page }) => {
+test('按钮是白底的板，古名今名选中的是墨蓝的字加实心的圆点、垫一块淡蓝，换着选按钮不挪地方；题记那一条是页面的颜色、上边一道细线；题签还是人物自己的样子：纸条、楷体、脚上有印', async ({ page }) => {
   test.setTimeout(120_000);
   const pane = stagePane(page);
   const { headings } = await openStop(page, WINDOWS[0]);
@@ -528,11 +547,15 @@ test('按钮是纸条，古名今名选中的是红字加小红方块、不铺�
       const style = getComputedStyle(el);
       return { ground: style.backgroundColor, edge: style.borderTopColor, shadow: style.boxShadow, radius: style.borderTopLeftRadius };
     });
-  for (const selector of ['.names-switch', '.stage-reset']) {
-    const got = await slip(selector);
-    expect({ ground: got.ground, edge: got.edge, radius: got.radius }, `${selector} 是一张方角的纸条，最外面一道是纸色`).toEqual({ ground: PLATE, edge: PLATE, radius: '0px' });
-    expect(got.shadow, `${selector} 里面有一圈深色的细线`).toContain('inset');
-  }
+  // 古名今名那一块：白底的板，一圈半透明深灰的细边，圆角，外面一道影子（没有画在里面的线）
+  const switchPlate = await slip('.names-switch');
+  expect({ ground: switchPlate.ground, edge: switchPlate.edge, radius: switchPlate.radius }, '.names-switch 是一块白底的板').toEqual({ ground: PLATE, edge: PLATE_EDGE, radius: '4px' });
+  expect(switchPlate.shadow, '.names-switch 有影子').not.toBe('none');
+  expect(switchPlate.shadow, '.names-switch 里面没有另画一圈线').not.toContain('inset');
+  // “回到这一节”：刚摆好、还没转动过，用不了——平的一块板，边是沙盘栏上的线，没有影子
+  await expect(pane.locator('.stage-reset')).toHaveAttribute('aria-disabled', 'true');
+  const resetOff = await slip('.stage-reset');
+  expect(resetOff, '.stage-reset 还用不了的时候').toEqual({ ground: PLATE, edge: LINE_PANE, shadow: 'none', radius: '4px' });
   const names = async (): Promise<{ text: string; pressed: string | null; colour: string; fill: string; mark: string; markLine: string; markSize: string; left: number; width: number }[]> =>
     pane.locator('.names-switch button').evaluateAll((buttons) =>
       buttons.map((button) => {
@@ -544,13 +567,12 @@ test('按钮是纸条，古名今名选中的是红字加小红方块、不铺�
     );
   const before = await names();
   expect(before.map((item) => item.pressed)).toEqual(['true', 'false']);
-  for (const item of before) {
-    expect(item.fill, `“${item.text}”不铺底色`).toBe('rgba(0, 0, 0, 0)');
-    expect(item.markSize, `“${item.text}”前面的小方块`).toBe('6px × 6px');
-  }
-  expect({ colour: before[0].colour, mark: before[0].mark, line: before[0].markLine }, '选中的：红字，实心的小红方块').toEqual({ colour: FRAME_ACCENT, mark: FRAME_ACCENT, line: 'none' });
-  expect({ colour: before[1].colour, mark: before[1].mark }, '没选中的：灰字，空心的小方块').toEqual({ colour: FRAME_SOFT, mark: 'rgba(0, 0, 0, 0)' });
-  expect(before[1].markLine, '没选中的小方块有一圈线').toContain('inset');
+  for (const item of before) expect(item.markSize, `“${item.text}”前面的圆点`).toBe('7px × 7px');
+  expect(before[0].fill, '选中的垫一块淡蓝').toBe(WASH);
+  expect(before[1].fill, '没选中的不铺底色').toBe('rgba(0, 0, 0, 0)');
+  expect({ colour: before[0].colour, mark: before[0].mark, line: before[0].markLine }, '选中的：墨蓝的字，实心的圆点').toEqual({ colour: FRAME_ACCENT, mark: FRAME_ACCENT, line: 'none' });
+  expect({ colour: before[1].colour, mark: before[1].mark }, '没选中的：灰字，空心的圆圈').toEqual({ colour: FRAME_SOFT, mark: 'rgba(0, 0, 0, 0)' });
+  expect(before[1].markLine, '没选中的圆圈有一圈线').toContain('inset');
   const resetLeft = (): Promise<number> => pane.locator('.stage-reset').evaluate((el) => el.getBoundingClientRect().left);
   const resetBefore = await resetLeft();
   await tap(page, '.names-switch button[aria-pressed="false"]');
@@ -558,21 +580,27 @@ test('按钮是纸条，古名今名选中的是红字加小红方块、不铺�
   const after = await names();
   expect(after.map((item) => ({ left: item.left, width: item.width })), '换着选，两个按钮都不变宽、不挪地方').toEqual(before.map((item) => ({ left: item.left, width: item.width })));
   expect(await resetLeft()).toBe(resetBefore);
-  expect({ colour: after[1].colour, mark: after[1].mark }).toEqual({ colour: FRAME_ACCENT, mark: FRAME_ACCENT });
-  expect(after[0].colour).toBe(FRAME_SOFT);
+  expect({ colour: after[1].colour, mark: after[1].mark, fill: after[1].fill }).toEqual({ colour: FRAME_ACCENT, mark: FRAME_ACCENT, fill: WASH });
+  expect({ colour: after[0].colour, fill: after[0].fill }).toEqual({ colour: FRAME_SOFT, fill: 'rgba(0, 0, 0, 0)' });
+  // 读者动过镜头以后（替身上有一个按钮说“动过了”），“回到这一节”用得了：和别的按钮一样是一块完整的板
+  await page.evaluate(() => document.querySelector<HTMLElement>('.fake-stage-nudge')?.click());
+  await expect(pane.locator('.stage-reset')).not.toHaveAttribute('aria-disabled', 'true');
+  const resetOn = await slip('.stage-reset');
+  expect({ ground: resetOn.ground, edge: resetOn.edge, radius: resetOn.radius }, '.stage-reset 用得了的时候').toEqual({ ground: PLATE, edge: PLATE_EDGE, radius: '4px' });
+  expect(resetOn.shadow, '.stage-reset 用得了的时候有影子').toBe(switchPlate.shadow);
 
   // ---- 题记那一条
   const foot = await pane.locator('.stage-foot').evaluate((el) => {
     const style = getComputedStyle(el);
     return { ground: style.backgroundColor, line: style.boxShadow, fadeAbove: getComputedStyle(el, '::before').content, fadeBelow: getComputedStyle(el, '::after').content };
   });
-  expect(foot.ground, '题记那一条的底').toBe(VEIL);
+  expect(foot.ground, '题记那一条的底').toBe(PAGE);
   expect(foot.line, '题记那一条上边的细线（画在里面，不占地方）').toMatch(/inset/);
   expect({ above: foot.fadeAbove, below: foot.fadeBelow }, '题记那一条上面没有另外垫着淡出去的一截').toEqual({ above: 'none', below: 'none' });
   const rule = await pane.locator('.stage-section-name').evaluate((el) => getComputedStyle(el).backgroundImage);
-  expect(rule, '小节名上面那道红线').toContain('176, 58, 42');
+  expect(rule, '小节名上面那道墨蓝的短线').toContain('31, 75, 110');
 
-  // ---- 题签：每一小节看一遍。脚上有印；水名是靛青；远处是虚线
+  // ---- 题签：每一小节看一遍。人物自己的样子，框架换了它一个数也不动：纸条、楷体，脚上有印；水名是靛青；远处是虚线
   const tones = new Set<string>();
   for (const [i, heading] of headings.entries()) {
     if (i === headings.length - 1) await scrollToBottom(page);
@@ -628,7 +656,7 @@ test('按钮是纸条，古名今名选中的是红字加小红方块、不铺�
   await expect.poll(readSmall, { message: '窄的栏上的题签：小一号，印也小一号' }).toEqual({ size: '14px', pad: '4px 5px 13px 5px', seal: '5px × 5px 4px' });
 });
 
-test('四种标准的窗口上，每一小节：题记那一条是不透明的绢色；说明那一句占满这一条的宽，“说明”按钮在右头，是纸条的打扮；没有截掉的字', async ({ page }) => {
+test('四种标准的窗口上，每一小节：题记那一条是不透明的页面颜色；说明那一句占满这一条的宽，“说明”按钮在右头，是白底小板的打扮；没有截掉的字', async ({ page }) => {
   test.setTimeout(240_000);
   const pane = stagePane(page);
   const rows: string[] = [];
@@ -693,8 +721,8 @@ test('四种标准的窗口上，每一小节：题记那一条是不透明的�
         };
       });
       const at = `${where}，“${heading}”`;
-      // 题记那一条：130 像素高（宽的排法），底就是那块绢，不透明
-      expect({ band: got.band, ground: got.ground }, `${at}：题记那一条`).toEqual({ band: 130, ground: VEIL });
+      // 题记那一条：130 像素高（宽的排法），底是页面的颜色，不透明
+      expect({ band: got.band, ground: got.ground }, `${at}：题记那一条`).toEqual({ band: 130, ground: PAGE });
       // 说明那一句从这一条的左边排起，一直占到“说明”按钮跟前：这一条有多宽，它一行就有多长（不再有 704 像素的上限）
       expect(got.noteLeft, `${at}：说明那一句从这一条的左边排起`).toBeCloseTo(0, 0);
       expect(got.noteRoom + got.gap + got.buttonWidth, `${at}：说明那一句、中间的空、按钮，合起来占满这一条`).toBeCloseTo(got.captionWidth, 0);
@@ -714,13 +742,13 @@ test('四种标准的窗口上，每一小节：题记那一条是不透明的�
       expect(got.ends, `${at}：最后一行字的下边，在这一条里面`).toBeLessThanOrEqual(130 - 10 + 0.5);
       rows.push(`  ${at}：说明 ${got.noteLines} 行（一行能有 ${Math.round(got.noteRoom)} 像素宽）${got.farTop === null ? '' : `，远处那一行在 ${Math.round(got.farTop)}`}，字到 ${Math.round(got.ends)} 为止`);
     }
-    // “说明”按钮是一个按钮，不是一枚小标签：纸条的打扮，能点的地方有 44 像素高
+    // “说明”按钮是一个按钮，不是一枚小标签：白底小板的打扮，能点的地方有 44 像素高
     const note = await slipDress(page, '.stage-note-button');
     expect({ ground: note.ground, edge: note.edge, radius: note.radius, innerLine: note.innerLine, dropShadow: note.dropShadow }, `${where}：“说明”按钮`).toEqual({
       ground: PLATE,
-      edge: `1px solid ${PLATE}`,
-      radius: '0px',
-      innerLine: true,
+      edge: `1px solid ${PLATE_EDGE}`,
+      radius: '3px',
+      innerLine: false,
       dropShadow: true,
     });
     expect(note.tapHeight, `${where}：“说明”按钮能点的地方`).toBeGreaterThanOrEqual(44);
@@ -779,7 +807,7 @@ test('“老平板”的替身（样式表照 iPadOS 15 的读法改过）：三
       const runs = await paneRuns(page);
       expect(runs.length).toBeGreaterThanOrEqual(6);
       expect(runs.filter((run) => run.size < 14).map((run) => `${run.where}“${run.text}”${run.size}px`), `${at}：小于 14px 的字`).toEqual([]);
-      expect(judge(runs).problems, `${at}：字的颜色`).toEqual([]);
+      expect(judge(runs).problems, `${at}：字垫着什么、够不够深`).toEqual([]);
     }
     // 题签是大的那一种
     // 读了再读，直到读出数来：题签会被重摆，单读一次可能读到刚被换掉的那一个

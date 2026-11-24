@@ -31,7 +31,8 @@
 
 import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import type { RouteScene } from '../../src/domain/scene';
+import type { RouteScene, StopScene } from '../../src/domain/scene';
+import { sectionHeadings, stripTexts } from '../../src/domain/sceneText';
 import type { LngLat, Figure, StopContent, StopMeta } from '../../src/domain/types';
 import { fontReport, withCommas } from '../content/budgetRules';
 import { fixtureScene, fixtureSources } from '../support/fixtureScene';
@@ -121,7 +122,7 @@ describe.skipIf(!MAKING)('做随站的字体（npm run fonts）', () => {
     const kai = plan.files.find((file) => file.group === 'kai');
     if (!kai) throw new Error('要做的文件里没有楷体的那一个');
     const bad = [...KAI_FORBIDDEN].filter((ch) => kai.characters.includes(ch));
-    if (bad.length > 0) throw new Error(`用楷体排的字里有弯引号 ${bad.map((ch) => `“${ch}”（${(kai.where.get(ch) ?? []).join('、')}里）`).join('，')}：这套楷体里它只有三分之一个字宽。换个说法，或者先问一声。`);
+    if (bad.length > 0) throw new Error(`题签上的字里有弯引号 ${bad.map((ch) => `“${ch}”（${(kai.where.get(ch) ?? []).join('、')}里）`).join('，')}：这套楷体里它只有三分之一个字宽。换个说法，或者先问一声。`);
 
     // 2 两个程序库的许可全文
     if (!trial) {
@@ -267,7 +268,6 @@ function madeUpSite(change: (site: SiteText) => void = () => {}): SiteText {
       'src/ui/a.tsx': "﻿// 藏一\nexport const A = '串';\n/* 藏二 */\nexport const B = <p>文{/* 藏三 */}</p>;\nexport const C = `模${A}`;\nexport const D = 'https://example.org/址';\n",
       'index.html': "<!-- 藏四 --><p>显</p><script>// 藏五\nvar s = '脚';</script>",
     },
-    kaiLabels: ['楷签'],
     sansLabels: ['黑签'],
     cards: [{ id: 'p', name: '某人', era: '某代', years: '1–9', sortYear: 1, tagline: '卡片上的一句', available: true }],
     figures: [
@@ -349,8 +349,8 @@ describe('数字：哪些字归哪一组（编出来的一位人物）', () => {
     expect(hasNone(plan, 'song', '﻿\n')).toBe(true);
     for (let code = 0x20; code < 0x7f; code++) expect(fileOf(plan, 'song').characters, codeOf(String.fromCodePoint(code))).toContain(String.fromCodePoint(code));
     // 只在程序里出现的字单独记着（英文不列）
-    // “的、今、天”三个字编出来的内容里也有，不算只在程序里出现；省略号是工具自己添进楷体那一组的（见下一项），内容里没有
-    expect(plan.onlyFromSrc).toBe(sortedString('串文模址显脚楷签黑真位置按史料摆示意点缀…'));
+    // “的、今、天”三个字编出来的内容里也有，不算只在程序里出现；省略号是工具自己添进黑体那一组的（见后面“黑体的一组”那一项），内容里没有
+    expect(plan.onlyFromSrc).toBe(sortedString('串文模址显脚签黑真位置按史料摆示意点缀…'));
   });
 
   it('字要点了才看得见的界面文件（“来源”页上的话）：只有它里面有的字归点开才看得见的一组，别处不点就看得见的字还在头一组；不列在名单里就照平常的界面文件算', () => {
@@ -433,14 +433,33 @@ describe('数字：哪些字归哪一组（编出来的一位人物）', () => {
     expect(isInterfaceSource('tests/support/fontTool.ts')).toBe(false);
   });
 
-  it('楷体的一组：界面上列着的字、类别名、人物的名字、站名、小节标题、小注的标题、空格', () => {
+  it('楷体的一组：题签上的字、印上的数字、空格，别的都不在', () => {
+    // 没有沙盘的时候，楷体那一组里只有一个空格：界面上列着的字、类别名、人物的名字、站名、小节标题、小注的标题都是黑体的了，
+    // 正文、卡片上的一句、图片的题记本来就不是；省略号也不在（题签不截）
     const plan = planFonts(madeUpSite());
-    expect(has(plan, 'kai', '楷签 真的今天位置按史料摆示意点缀某人甲站：头一乙后起初来未辰')).toBe(true);
-    // 正文、卡片上的一句、图片的题记不是楷体
-    expect(hasNone(plan, 'kai', '午共引卡片上句地许')).toBe(true);
-    // 省略号：哪儿也没写着，工具自己添的。一行楷体的字被截掉时，浏览器在行尾添的那个省略号要有楷体的字形可用
-    expect(has(plan, 'kai', '…')).toBe(true);
-    expect(fileOf(plan, 'kai').where.get('…')).toEqual(['一行楷体截掉时行尾的省略号']);
+    expect(fileOf(plan, 'kai').characters).toBe(' ');
+    expect(fileOf(plan, 'kai').where.get(' ')).toEqual(['空格']);
+    expect(hasNone(plan, 'kai', '黑签真的今天位置按史料摆示意点缀某人甲站：头一乙后起初来未辰午共引卡片上句地许…')).toBe(true);
+    // 一站有自己的沙盘、人物有全程沙盘：多出来的正好是题签上的字（古名、今名两种叫法，照页面拼题签的函数数），
+    // 和全程沙盘上站名的题签脚上的印（这位编出来的人物有两站：一、二）
+    const scene = fixtureScene();
+    const route = routeSample();
+    const withTables = planFonts(
+      madeUpSite((site) => {
+        site.figures[0].stops[0].scene = scene;
+        site.figures[0].route = route;
+      }),
+    );
+    const onStrips = new Set<string>();
+    for (const table of [scene, route]) {
+      for (const heading of sectionHeadings(table)) for (const names of ['ancient', 'modern'] as const) for (const strip of stripTexts(table, heading, names)) for (const ch of shippable(strip.text)) onStrips.add(ch);
+    }
+    expect(onStrips.size).toBeGreaterThan(10);
+    expect(fileOf(withTables, 'kai').characters).toBe(sortedString(new Set([' ', '一', '二', ...onStrips])));
+    // 小节名、时间、题记里有、题签上没有的字：不在楷体里
+    const offStrips = [...new Set([...scene.sections, ...route.sections].flatMap((section) => shippable(`${section.heading}${section.date}${section.line}`)))].filter((ch) => !onStrips.has(ch) && ch !== '一' && ch !== '二');
+    expect(offStrips.length).toBeGreaterThan(10);
+    expect(hasNone(withTables, 'kai', offStrips.join(''))).toBe(true);
     expect(fileOf(plan, 'kai').range).toBe(false);
     expect(fileOf(plan, 'kai').postscript).toBe('YanluKai-Regular');
     expect(fileOf(plan, 'kai').family).toBe('Yanlu Kai');
@@ -450,9 +469,9 @@ describe('数字：哪些字归哪一组（编出来的一位人物）', () => {
     const plan = planFonts(madeUpSite());
     // 界面上列着的、类别名、名字、朝代和年份、站名、每一站的时间、年纪、地点、小节标题、小注的标题、凭据里的小节名、空格
     expect(has(plan, 'sans', '黑签 真的今天位置按史料摆示意点缀某人某代1–9甲站：头一乙后2虚岁三十古地（今）起初来未辰')).toBe(true);
-    // 成句的话不是黑体：正文、卡片上的一句、人物页的介绍、目录里的摘要、图片的题记；楷体那张表里的字也不在
-    expect(hasNone(plan, 'sans', '午共引卡片句许概要他是谁楷')).toBe(true);
-    // 省略号：工具自己添的。黑体的一行被截掉时（沙盘旁边的时间只占一行），行尾的省略号要有黑体的字形可用
+    // 成句的话不是黑体：正文、卡片上的一句、人物页的介绍、目录里的摘要、图片的题记
+    expect(hasNone(plan, 'sans', '午共引卡片句许概要他是谁')).toBe(true);
+    // 省略号：哪儿也没写着，工具自己添的。黑体的一行被截掉时（站名、沙盘旁边的时间只占一行），浏览器在行尾添的那个省略号要有黑体的字形可用
     expect(has(plan, 'sans', '…')).toBe(true);
     expect(fileOf(plan, 'sans').where.get('…')).toEqual(['一行黑体截掉时行尾的省略号']);
     const sans = fileOf(plan, 'sans');
@@ -472,12 +491,12 @@ describe('数字：哪些字归哪一组（编出来的一位人物）', () => {
     expect(hasNone(withTable, 'sans', onlyOnStrips.join(''))).toBe(true);
   });
 
-  it('哪几个文件在 index.html 里预先声明：现在是头一个宋体文件和楷体；黑体的文件页面的样式还没有用，先不声明；点开才要的不声明', () => {
+  it('哪几个文件在 index.html 里预先声明：黑体和头一个宋体文件；楷体只有沙盘上的题签在用，题签摆出来才取，不声明；点开才要的不声明', () => {
     const plan = planFonts(madeUpSite());
     expect(plan.files.map((item) => [item.group, item.preload])).toEqual([
-      ['sans', false],
+      ['sans', true],
       ['song', true],
-      ['kai', true],
+      ['kai', false],
       ['song-more', false],
     ]);
   });
@@ -485,7 +504,7 @@ describe('数字：哪些字归哪一组（编出来的一位人物）', () => {
   it('楷体那一组、黑体那一组的每一个字，头一组宋体里也有一份（那个文件还在路上时先用宋体，不为它去取点开才要的文件）', () => {
     const plan = planFonts(madeUpSite());
     for (const group of ['kai', 'sans']) for (const ch of fileOf(plan, group).characters) expect(fileOf(plan, 'song').characters, `${group} “${ch}”`).toContain(ch);
-    // 小注的标题点开才看得见，但它是楷体（黑体里也备着），所以也在头一组里
+    // 小注的标题点开才看得见，但它是黑体，所以也在头一组里
     expect(has(plan, 'song', '未辰')).toBe(true);
   });
 
@@ -526,7 +545,7 @@ describe('数字：哪些字归哪一组（编出来的一位人物）', () => {
     expect(hasNone(moved, 'song-more', '申')).toBe(true);
   });
 
-  it('有沙盘的站：题签上的字、小节名是楷体；题记是一句话，是宋体，不进楷体也不进黑体；沙盘旁边别的字看得见；“说明”展开的、“沙盘上的东西”一栏点开才看得见', () => {
+  it('有沙盘的站：题签上的字是楷体；小节名和时间是黑体；题记是一句话，是宋体，不进楷体也不进黑体；沙盘旁边别的字看得见；“说明”展开的、“沙盘上的东西”一栏点开才看得见', () => {
     const scene = fixtureScene();
     const plan = planFonts(
       madeUpSite((site) => {
@@ -540,13 +559,17 @@ describe('数字：哪些字归哪一组（编出来的一位人物）', () => {
       if (strip.modern) expect(has(plan, 'kai', strip.modern), strip.modern).toBe(true);
     }
     for (const section of scene.sections) {
-      expect(has(plan, 'kai', section.heading)).toBe(true);
       expect(has(plan, 'song', section.line)).toBe(true);
       expect(has(plan, 'song', section.date)).toBe(true);
-      // 小节名和时间在黑体的文件里也备着
+      // 小节名和时间是黑体
       expect(has(plan, 'sans', section.heading)).toBe(true);
       expect(has(plan, 'sans', section.date)).toBe(true);
     }
+    // 只在小节名里有的字（题签上没有）：不在楷体里
+    const stripChars = new Set(scene.strips.flatMap((strip) => shippable(`${strip.text}${strip.modern ?? ''}`)));
+    const onlyInHeadings = [...new Set(scene.sections.flatMap((section) => shippable(section.heading)))].filter((ch) => !stripChars.has(ch));
+    expect(onlyInHeadings.length, '那座小沙盘的小节名里要有题签上没有的字，这一句才查得到东西').toBeGreaterThan(0);
+    expect(hasNone(plan, 'kai', onlyInHeadings.join(''))).toBe(true);
     // 只在题记里有的字（题签、小节名、别的楷体和黑体的字里都没有）：楷体那一组、黑体那一组里都没有它
     const bare = planFonts(madeUpSite());
     const elsewhere = new Set([...fileOf(bare, 'kai').characters, ...fileOf(bare, 'sans').characters, ...scene.strips.flatMap((strip) => shippable(`${strip.text}${strip.modern ?? ''}`)), ...scene.sections.flatMap((section) => shippable(`${section.heading}${section.date}`))]);
@@ -564,7 +587,7 @@ describe('数字：哪些字归哪一组（编出来的一位人物）', () => {
     for (const ch of onlyInCredits) expect(fileOf(plan, 'song-more').characters).toContain(ch);
   });
 
-  it('正文还没写、沙盘先做好的站：出处在场景文件自己的 sources 里，书名在点开才看得见的一组里；小节名照样是楷体，题记照样是宋体', () => {
+  it('正文还没写、沙盘先做好的站：出处在场景文件自己的 sources 里，书名在点开才看得见的一组里；小节名照样是黑体，题记照样是宋体', () => {
     const scene = fixtureScene();
     // 那座小沙盘的出处 id 不变，书名换成别处都没有的三个字
     const marks = ['鼍', '鼋', '鳌'];
@@ -583,7 +606,7 @@ describe('数字：哪些字归哪一组（编出来的一位人物）', () => {
       expect(hasNone(plan, 'song', cite), cite).toBe(true);
     }
     for (const section of scene.sections) {
-      expect(has(plan, 'kai', section.heading)).toBe(true);
+      expect(has(plan, 'sans', section.heading)).toBe(true);
       expect(has(plan, 'song', section.line)).toBe(true);
     }
     // 场景里不写 sources 的时候（写好了正文的站），这几个字哪一组里都没有
@@ -595,7 +618,7 @@ describe('数字：哪些字归哪一组（编出来的一位人物）', () => {
     for (const cite of cited) expect(hasNone(bare, 'song-more', cite), cite).toBe(true);
   });
 
-  it('全程沙盘（人物页上的那一座）：题签的古名今名、小节名是楷体，站名的题签脚上的印也是；题记、时间、那一句说明、远处的那句话看得见（宋体）；“说明”展开的、“沙盘上的东西”点开才看得见', () => {
+  it('全程沙盘（人物页上的那一座）：题签的古名今名是楷体，站名的题签脚上的印也是；小节名和时间是黑体；题记、那一句说明、远处的那句话看得见（宋体）；“说明”展开的、“沙盘上的东西”点开才看得见', () => {
     const route = routeSample();
     const plan = planFonts(madeUpSite((site) => (site.figures[0].route = route)));
     for (const strip of route.strips) {
@@ -603,7 +626,6 @@ describe('数字：哪些字归哪一组（编出来的一位人物）', () => {
       if (strip.modern) expect(has(plan, 'kai', strip.modern), strip.modern).toBe(true);
     }
     for (const section of route.sections) {
-      expect(has(plan, 'kai', section.heading)).toBe(true);
       expect(has(plan, 'song', section.line)).toBe(true);
       expect(has(plan, 'song', section.date)).toBe(true);
       expect(has(plan, 'sans', section.heading)).toBe(true);
@@ -666,7 +688,7 @@ describe('数字：哪些字归哪一组（编出来的一位人物）', () => {
     expect(fileOf(plan, 'song-more').where.get('亥')).toEqual(['甲站的原文']);
     expect(fileOf(plan, 'song').where.get('午')).toEqual(['甲站的正文']);
     expect(fileOf(plan, 'song').where.get('串')).toEqual(['程序里（src/ui/a.tsx）']);
-    expect(fileOf(plan, 'kai').where.get('楷')).toEqual(['界面上用楷体排的字']);
+    expect(fileOf(plan, 'kai').where.get(' ')).toEqual(['空格']);
     expect(fileOf(plan, 'sans').where.get('黑')).toEqual(['界面上用黑体排的字']);
   });
 });
@@ -682,7 +704,7 @@ describe('数字：宋体按站拆开（现在关着，规矩先写好）', () =
     expect(plan.files.map((file) => file.stop)).toEqual([null, null, null, 's1', 's2', null, 's1', 's2']);
     expect(plan.files.map((file) => file.first)).toEqual([true, true, true, true, true, false, false, false]);
     // 带 unicode-range 的文件没法在 index.html 里预先声明（它只有一份）：一站自己的文件都不声明
-    expect(plan.files.map((file) => file.preload)).toEqual([false, true, true, false, false, false, false, false]);
+    expect(plan.files.map((file) => file.preload)).toEqual([true, true, false, false, false, false, false, false]);
   });
 
   it('两站都用到的字归大家共用的文件：有一处看得见就归头一个，都要点开才归后一个', () => {
@@ -1020,12 +1042,12 @@ describe('文件里留没留提示信息（从文件里读，不是照规矩猜�
 describe('记录是不是新的；网站要的字在不在放进仓库的字体里', () => {
   const plan = planFonts(madeUpSite());
   const made = { 'subset-font': '2.9.0' };
-  const record = (): FontRecord => ({
+  const record = (from: FontPlan = plan): FontRecord => ({
     tool: RECORD_VERSION,
     recipe: RECIPE,
     made: { ...made },
     sources: { sans: sourceRecord('sans'), song: sourceRecord('song'), kai: sourceRecord('kai') },
-    files: plan.files.map((file) => ({
+    files: from.files.map((file) => ({
       file: `${file.name}.woff2`,
       family: file.family,
       postscript: file.postscript,
@@ -1182,13 +1204,26 @@ describe('记录是不是新的；网站要的字在不在放进仓库的字体�
   });
 
   it('要用楷体排的字、要用黑体排的字，只在宋体的文件里有：不算数', () => {
-    const more = planFonts(madeUpSite((site) => (site.kaiLabels = [...site.kaiLabels, '午'])));
-    expect(missingFromShipped(more, shipped())).toEqual(['“午”（U+5348，界面上用楷体排的字里）不在随站的字体里：运行 npm run fonts，再提交。']);
-    // 黑体的字只认黑体的文件：宋体的文件里有“午”，楷体的文件里有“楷”，都不算
-    const sansMore = planFonts(madeUpSite((site) => (site.sansLabels = [...site.sansLabels, '午楷'])));
-    expect(missingFromShipped(sansMore, shipped())).toEqual([
-      '“午”（U+5348，界面上用黑体排的字里）不在随站的字体里：运行 npm run fonts，再提交。',
-      '“楷”（U+6977，界面上用黑体排的字里）不在随站的字体里：运行 npm run fonts，再提交。',
-    ]);
+    // 楷体的字只有题签上的：甲站有一座沙盘，放进仓库的字体照它做
+    const withTable = (change: (site: SiteText, scene: StopScene) => void = () => {}): FontPlan =>
+      planFonts(
+        madeUpSite((site) => {
+          const scene = fixtureScene();
+          site.figures[0].stops[0].scene = scene;
+          change(site, scene);
+        }),
+      );
+    const tablePlan = withTable();
+    const tableShipped = shipped(record(tablePlan));
+    expect(missingFromShipped(tablePlan, tableShipped)).toEqual([]);
+    // 给头一条题签添一个正文里有的字：宋体的文件里有“午”，楷体的文件里没有
+    const more = withTable((_site, scene) => (scene.strips[0].text += '午'));
+    expect(missingFromShipped(more, tableShipped)).toEqual(['“午”（U+5348，甲站的题签里）不在随站的字体里：运行 npm run fonts，再提交。']);
+    // 黑体的字只认黑体的文件：宋体的文件里有“午”，楷体的文件里有只在题签上的一个字，都不算
+    const onlyKai = [...fileOf(tablePlan, 'kai').characters].find((ch) => ch !== ' ' && !fileOf(tablePlan, 'sans').characters.includes(ch));
+    expect(onlyKai, '那座小沙盘的题签上要有黑体那一组里没有的字').toBeDefined();
+    if (!onlyKai) return;
+    const sansMore = withTable((site) => (site.sansLabels = [...site.sansLabels, `午${onlyKai}`]));
+    expect(missingFromShipped(sansMore, tableShipped).sort()).toEqual([`“午”（U+5348，界面上用黑体排的字里）不在随站的字体里：运行 npm run fonts，再提交。`, `“${onlyKai}”（${codeOf(onlyKai)}，界面上用黑体排的字里）不在随站的字体里：运行 npm run fonts，再提交。`].sort());
   });
 });

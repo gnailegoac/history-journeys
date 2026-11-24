@@ -1,11 +1,10 @@
 /* 贴着底边的那一条，和“问讲解员”点开的面板。
-   那一条是那一页纸的下边：纸色、纸的纹理，上边一道细线，往上淡淡地晕开一点纸色（正文滚到它底下时不是一刀切断）。
+   那一条是文字栏的下边：页面的底色，上边一道细线，往上淡淡地晕开一点页面的底色（正文滚到它底下时不是一刀切断）。
    里面并排三格：左边上一站，中间“问讲解员”，右边下一站；两头的格子和正文那一栏的左右边对齐。
    正文底下留的空（见 layout.css 的 .reading）比这一条高，最后几行能滚到它上面。
    窄的排法（沙盘在上、文字在下）：这一条和屏幕一样宽；面板从底部升起，最高到屏幕的四分之三，里面的字和正文那一栏一样宽、居中。
-   宽的排法（文字在左、沙盘在右）：这一条只有那一页纸那么宽，纸两边的两道细线从它里面穿过去；
-   面板开在那一页纸的下半截，和纸一样宽、一直到纸的底边，不挡沙盘。
-   红色只做记号：“问讲解员”平常是一圈红线、红字，前面一个小红方块；只有按着（或者鼠标移上去）的那一下才铺红底。 */
+   宽的排法（文字在左、沙盘在右）：这一条只有文字栏那么宽；面板开在文字栏的下半截，和它一样宽、一直到底边，不挡沙盘。
+   墨蓝只做记号：“问讲解员”平常是一块白板、一圈墨蓝的细线、墨蓝的字；只有按着（或者鼠标移上去）的那一下才铺墨蓝的底。 */
 
 .guide-dock {
   position: fixed;
@@ -23,11 +22,10 @@
   padding: 0 max(var(--page-pad), calc(50% - 15 * var(--size-reading))) env(safe-area-inset-bottom, 0px);
   border-top: 1px solid var(--color-line);
   background-color: var(--color-paper);
-  background-image: var(--grain);
-  box-shadow: 0 -10px 14px -8px rgb(245 238 221 / 0.9);
+  box-shadow: var(--shadow-dock);
 }
 
-/* 两头的格子：整格都点得动，和这一条一样高。“上一站”“下一站”是宋体的小字，站名是楷体：上下两行，各是各的一块。 */
+/* 两头的格子：整格都点得动，和这一条一样高。“上一站”“下一站”是黑体的小字，站名也是黑体、大一些：上下两行，各是各的一块。 */
 .walk-link {
   display: flex;
   flex-direction: column;
@@ -43,21 +41,24 @@
 
 .walk-label {
   color: var(--color-ink-soft);
+  font-family: var(--font-sans);
   font-size: var(--size-small);
+  font-weight: var(--weight-sans);
   line-height: 1.25rem;
-  letter-spacing: 0.16em;
+  letter-spacing: 0.1em;
 }
 
 /* 字距放开以后，最后一个字后面多出一截空：靠右的那一格把它收回去，字才贴得到右边。 */
 .walk-link.is-next .walk-label {
-  margin-right: -0.16em;
+  margin-right: -0.1em;
 }
 
-/* 站名下面一道细细的淡墨线，和页面顶上“位置”那一行的链接一样：往下一站去只有这一处，要看得出它点得动
+/* 站名下面一道细细的灰线，和页面顶上“位置”那一行的链接一样：往下一站去只有这一处，要看得出它点得动
    （平板上没有“鼠标移上去”的那一下）。线的种类、颜色、粗细分开写（合成一句的写法 iPad 上的 Safari 不认）。 */
 .walk-name {
-  font-family: var(--font-kai);
+  font-family: var(--font-sans);
   font-size: var(--size-nav);
+  font-weight: var(--weight-sans);
   line-height: 1.75rem;
   white-space: nowrap;
   text-decoration-line: underline;
@@ -66,43 +67,28 @@
   text-underline-offset: 0.3em;
 }
 
-/* “问讲解员”：一圈印泥红的细线，红的楷体字，前面一个小红方块（画出来的）。不铺红底。 */
+/* “问讲解员”：一块白板，一圈墨蓝的细线，墨蓝的黑体字。平常不铺墨蓝的底。 */
 .guide-open {
   align-self: center;
   display: flex;
   align-items: center;
-  gap: 0.5rem;
   min-height: var(--tap);
-  padding: 0 var(--gap-4) 0 0.875rem;
+  padding: 0 1.125rem;
   border: 1px solid var(--color-accent);
   border-radius: var(--radius);
-  background: transparent;
+  background: var(--color-paper-raised);
   color: var(--color-accent);
-  font-family: var(--font-kai);
+  font-family: var(--font-sans);
   font-size: var(--size-ask);
+  font-weight: var(--weight-sans);
   line-height: 1;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.06em;
   white-space: nowrap;
-}
-
-.guide-open::before,
-.guide-head h2::before {
-  content: '';
-  flex: none;
-  width: 10px;
-  height: 10px;
-  border-radius: 1px;
-  background: currentColor;
-}
-
-/* 面板的标题是墨色的，只有前面的小方块是红的。 */
-.guide-head h2::before {
-  color: var(--color-accent);
 }
 
 /* ---------------------------------------------------------------- 面板 */
 
-/* 一张盖在页面上的纸：浅纸色带纹理，上边一道红线，红线上面压着一道影子——看得出它是盖上去的，不是把页面切断了。 */
+/* 一块盖在页面上的白板：上边一道细线，细线上面压着一道淡淡的影子——看得出它是盖上去的，不是把页面切断了。 */
 .guide-panel {
   position: fixed;
   left: 0;
@@ -112,10 +98,9 @@
   max-height: 75vh;
   overflow-y: auto;
   padding: var(--gap-2) max(var(--page-pad), calc(50% - 15 * var(--size-reading))) calc(var(--gap-5) + env(safe-area-inset-bottom, 0px));
-  border-top: 3px solid var(--color-accent);
+  border-top: 1px solid var(--color-line-strong);
   background-color: var(--color-paper-raised);
-  background-image: var(--grain);
-  box-shadow: 0 -1px 0 rgb(90 66 28 / 0.3), 0 -16px 28px -10px rgb(60 40 10 / 0.55);
+  box-shadow: var(--shadow-panel);
   font-family: var(--font-song);
   font-size: var(--size-note);
   line-height: var(--leading-note);
@@ -125,7 +110,7 @@
   outline: none;
 }
 
-/* 抬头：标题（楷体，前面一个小红方块）和“关闭”（宋体）是并排的两块。 */
+/* 抬头：标题（黑体）和“关闭”（黑体的小字）是并排的两块。 */
 .guide-head {
   display: flex;
   align-items: center;
@@ -134,17 +119,14 @@
 }
 
 .guide-head h2 {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-family: var(--font-kai);
+  font-family: var(--font-sans);
   font-size: var(--size-stop-title);
-  font-weight: var(--weight-heading);
+  font-weight: var(--weight-sans);
   line-height: 1.75rem;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.02em;
 }
 
-/* “关闭”：字小，淡墨；能点的地方有 44px 见方。 */
+/* “关闭”：字小，说明性的灰；能点的地方有 44px 见方。 */
 .guide-close {
   min-width: var(--tap);
   min-height: var(--tap);
@@ -153,8 +135,10 @@
   border: 0;
   background: transparent;
   color: var(--color-ink-soft);
+  font-family: var(--font-sans);
   font-size: var(--size-small);
-  letter-spacing: 0.1em;
+  font-weight: var(--weight-sans);
+  letter-spacing: 0.06em;
 }
 
 .guide-panel p {
@@ -163,8 +147,10 @@
 
 .guide-panel h3 {
   margin-top: var(--gap-4);
+  font-family: var(--font-sans);
   font-size: var(--size-small);
-  font-weight: 400;
+  font-weight: var(--weight-sans);
+  letter-spacing: 0.04em;
   color: var(--color-ink-soft);
 }
 
@@ -179,7 +165,10 @@
 
 .guide-form label {
   display: block;
+  font-family: var(--font-sans);
   font-size: var(--size-small);
+  font-weight: var(--weight-sans);
+  letter-spacing: 0.04em;
   color: var(--color-ink-soft);
 }
 
@@ -194,35 +183,37 @@
   min-width: 0;
   min-height: var(--tap);
   padding: var(--gap-2) var(--gap-3);
-  border: 1px solid var(--color-line);
+  border: 1px solid var(--color-ink-faint);
   border-radius: var(--radius);
-  background: var(--color-paper);
+  background: var(--color-paper-raised);
   line-height: 1.5;
   resize: none;
 }
 
-/* “发送”和“问讲解员”一个样子，只是前面没有小方块。 */
+/* “发送”和“问讲解员”一个样子。 */
 .guide-form button {
   flex: none;
   min-width: 4.5rem;
   min-height: var(--tap);
   border: 1px solid var(--color-accent);
   border-radius: var(--radius);
-  background: transparent;
+  background: var(--color-paper-raised);
   color: var(--color-accent);
-  font-family: var(--font-kai);
+  font-family: var(--font-sans);
   font-size: var(--size-ask);
-  letter-spacing: 0.08em;
+  font-weight: var(--weight-sans);
+  letter-spacing: 0.06em;
 }
 
-/* 还用不了的输入框和按钮：输入框是比纸深一点的纸色（和点开的小注一个颜色；不用沙盘栏的底色，那是绢的颜色，不是纸），
-   按钮的字和那一圈线都淡下去。 */
+/* 还用不了的输入框和按钮：输入框铺一层浅灰（和点开的小注一个颜色；不用沙盘栏的底色，那是人物自己的颜色，不是框架的），
+   按钮的字和那一圈线都淡下去，底也不铺白。 */
 .guide-form textarea:disabled {
   background: var(--color-paper-note);
 }
 
 .guide-form button:disabled {
   border-color: var(--color-ink-faint);
+  background: transparent;
   color: var(--color-ink-faint);
 }
 
@@ -255,34 +246,15 @@
 /* ---------------------------------------------------------------- 宽的排法 */
 
 @media (min-width: 960px) and (orientation: landscape) {
-  /* 这一条是那一页纸的下边：和纸一样宽，左右留的空和纸一样，两边稍深一点，纸的两道细线从它里面穿过去。 */
+  /* 这一条是文字栏的下边：和它一样宽，左右留的空也和它一样。 */
   .guide-dock {
     right: auto;
     width: var(--column-width);
     padding-left: var(--leaf-pad-start);
     padding-right: var(--leaf-pad-end);
-    background-image: linear-gradient(90deg, rgb(120 92 40 / 0.07), transparent 26px, transparent calc(100% - 60px), rgb(120 92 40 / 0.09)), var(--grain);
   }
 
-  .guide-dock::before,
-  .guide-dock::after {
-    content: '';
-    position: absolute;
-    top: 0;
-    bottom: 0;
-    width: 1px;
-    background: var(--color-line);
-  }
-
-  .guide-dock::before {
-    left: 18px;
-  }
-
-  .guide-dock::after {
-    right: 14px;
-  }
-
-  /* 面板和那一页纸一样宽，一直到纸的底边：它下面不露出正文，它右边就是纸的边。里面左右留的空和纸一样。 */
+  /* 面板和文字栏一样宽，一直到底边：它下面不露出正文，它右边就是文字栏的边。里面左右留的空和文字栏一样。 */
   .guide-panel {
     right: auto;
     width: var(--column-width);
@@ -301,7 +273,6 @@
   }
 
   .guide-open {
-    gap: 0.375rem;
     padding: 0 0.625rem;
     letter-spacing: 0;
   }

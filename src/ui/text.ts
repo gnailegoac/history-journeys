@@ -28,7 +28,7 @@ export const STOP_TEXT_LINES = [
   '带虚线的词可以点开，看小注。',
 ];
 
-/** 正文还没写、有自己的沙盘的一站：文字栏里那张单子的小标题（楷体），单子上的一行一行是沙盘上看的各处。 */
+/** 正文还没写、有自己的沙盘的一站：文字栏里那张单子的小标题（黑体），单子上的一行一行是沙盘上看的各处。 */
 export const VIEWS_HEADING = '沙盘上看的几处';
 
 /**
@@ -103,75 +103,27 @@ export function stageDebugLine(perf: StageReadout['perf'], readySeconds: number 
 }
 
 /**
- * 界面上用楷体排的固定的字，一处列全。做字体的工具照这张表把这些字放进楷体的文件
- *（tests/support/fontTool.ts；说明见 docs/data-spec.md“随站的字体”）：要用楷体排的字没有列在这里，
- * 楷体文件里就没有它，页面上它只能用宋体显示。
- * 不在这张表里、也用楷体排的，是内容里来的字（人物的名字、各站的标题、小节标题、小注的标题、题签、题记），
- * 和沙盘上东西的五个类别名（src/domain/scene.ts 的 SCENE_CLASS_LABEL），工具自己去数。
- * 用楷体排的字里不要有弯引号（这套楷体里它们只有三分之一个字宽）。
+ * 界面上用黑体排的固定的字，一处列全。做字体的工具照这张表把这些字放进黑体的文件
+ *（tests/support/fontTool.ts；说明见 docs/data-spec.md“随站的字体”）：要用黑体排的字没有列在这里，
+ * 黑体文件里就没有它，页面上它会掉到别的字体上（tests/e2e/fonts.spec.ts 会发现）。
+ * 不在这张表里、也用黑体排的，是内容里来的字（人物的名字、朝代和年份，各站的标题、年份、地点和年纪，小节标题，
+ * 小注的标题，沙盘旁边的小节名和时间），和沙盘上东西的五个类别名（src/domain/scene.ts 的 SCENE_CLASS_LABEL），工具自己去数。
+ * 楷体没有这样一张表：楷体只有沙盘上的题签和题签脚上的印在用，那些字工具照页面拼题签、拼印的函数去数。
  *
  * 前面几项就是上面那些常数（“沙盘上的东西”“没有画的”两项在 foldText.ts 里：它们跟着点开才下载的那一段程序走；
  * “来源”页的四个小标题在 sourcesText.ts 里，跟着那一页的程序走）；
- * 后面直接写着字的几项，现在还写在各个组件里。目录上的数字印（最后一项）写在
+ * 后面直接写着字的几项，现在还写在各个组件里。目录上圆点里的数字（“一二三……”那一项）写在
  * src/ui/FigureContents.tsx 里，“读原文”“凭据”写在用到它们的地方（StopText.tsx、Provenance.tsx），
  * “问讲解员”“发送”在 GuidePanel.tsx、GuideBody.tsx。
  *
  * 写成“叫一个函数”再标上 PURE，是为了页面的程序里不带它：页面不用这张表，直接写成数组的话，
  * 打包的时候数组虽然去掉了，取 STAGE_TEXT.ancient 这些的那一串会留下来（多一百多个字节）。
  */
-export const KAI_LABELS: readonly string[] = /* @__PURE__ */ kaiLabels();
-
-function kaiLabels(): string[] {
-  return [
-    SITE_TITLE,
-    STAGE_TEXT.ancient,
-    STAGE_TEXT.modern,
-    STAGE_TEXT.reset,
-    STAGE_TEXT.resetHere,
-    STAGE_TEXT.resetWhole,
-    STAGE_TEXT.resetRoad,
-    STAGE_TEXT.fold,
-    STAGE_TEXT.unfold,
-    STAGE_TEXT.retry,
-    STAGE_TEXT.rebuild,
-    STAGE_TEXT.tryTable,
-    STAGE_TEXT.noteTitle,
-    STAGE_TEXT.north,
-    REGISTER_TEXT.heading,
-    REGISTER_TEXT.notDrawn,
-    '时间',
-    '地点',
-    '年纪',
-    '各站目录',
-    VIEWS_HEADING,
-    '读原文',
-    '凭据',
-    '问讲解员',
-    '发送',
-    '没有找到这位人物',
-    '没有这一站',
-    START_READING,
-    SOURCES_LABEL,
-    ...SOURCES_TEXT.headings,
-    '一二三四五六七八九十',
-  ];
-}
-
-/**
- * 界面上用黑体排的固定的字，一处列全。做字体的工具照这张表把这些字放进黑体的文件
- *（tests/support/fontTool.ts；说明见 docs/data-spec.md“随站的字体”）：要用黑体排的字没有列在这里，
- * 黑体文件里就没有它，页面上它会掉到别的字体上（tests/e2e/fonts.spec.ts 会发现）。
- * 不在这张表里、也用黑体排的，是内容里来的字（人物的名字、朝代和年份，各站的标题、年份、地点和年纪，小节标题，
- * 小注的标题，沙盘旁边的小节名和时间），和沙盘上东西的五个类别名（src/domain/scene.ts 的 SCENE_CLASS_LABEL），工具自己去数。
- * 黑体的文件已经做好、随站带着；页面的样式眼下还没有用它（标题、按钮现在还是上面那张表里的楷体），换框架的样子时才换过来，
- * 那时上面那张楷体的表就不要了：楷体只剩沙盘上的题签和题签脚上的印在用，那些字工具照页面拼题签的函数去数。
- * 和上面那张表一样写成“叫一个函数”再标上 PURE：页面的程序里不带它。
- */
 export const SANS_LABELS: readonly string[] = /* @__PURE__ */ sansLabels();
 
 function sansLabels(): string[] {
   return [
-    // 上面那张楷体的表里列着的（标题、按钮、小标签）：照旧
+    // 标题、按钮、小标题
     SITE_TITLE,
     STAGE_TEXT.ancient,
     STAGE_TEXT.modern,

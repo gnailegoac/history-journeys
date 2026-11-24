@@ -128,7 +128,7 @@ test('浏览器画不了（状态 3）：一行话，没有按钮；图片跟着
   const controlsBox = (await pane.locator('.stage-controls').boundingBox())!;
   const noticeBox = (await notice(page).boundingBox())!;
   expect(Math.abs(noticeBox.y - (controlsBox.y + controlsBox.height))).toBeLessThanOrEqual(1);
-  // 这一行话连同上面那一排按钮，底下垫着一整条不透明的纸色，从栏顶起：图片是照这一行话下边以下的那一块摆的，
+  // 这一行话连同上面那一排按钮，底下垫着一整条不透明的页面颜色，从栏顶起：图片是照这一行话下边以下的那一块摆的，
   // 不垫的话栏顶露一条空、按钮后面露一截图片。按钮压在这一条上面，照样点得到。
   const band = await notice(page).evaluate((el) => {
     const before = getComputedStyle(el, '::before');
@@ -235,7 +235,7 @@ test.describe('竖着拿的平板（768×1024）', () => {
     expect(sizes.insetTop).toBe(sizes.noticeBottom);
     expect(sizes.free).toBeGreaterThanOrEqual(150);
     console.log(`竖着拿的平板上放着图片时：沙盘栏 ${sizes.paneHeight} 高，那一行话 ${sizes.noticeHeight} 高，上面留 ${sizes.insetTop}，下面留 ${sizes.insetBottom}，中间 ${sizes.free}`);
-    // 这一行话连同上面那一排按钮，底下垫着一整条不透明的纸色，从栏顶起：图片是照这一行话下边以下的那一块摆的，
+    // 这一行话连同上面那一排按钮，底下垫着一整条不透明的页面颜色，从栏顶起：图片是照这一行话下边以下的那一块摆的，
     // 不垫的话栏顶露一条空、按钮后面露一截图片。按钮压在这一条上面，照样点得到。
     const band = await notice(page).evaluate((el) => {
       const before = getComputedStyle(el, '::before');

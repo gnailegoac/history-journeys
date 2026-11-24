@@ -75,7 +75,7 @@ export function StopPage({ figure, stop, table, road, section, onSection }: Prop
       <header className="page-head">
         <p className="eyebrow">
           第 {index + 1} 站 · 共 {figure.stops.length} 站
-          {/* 一站一个小方块，这一站的那个是红的：只说它排在路上的第几个，不记读者读过哪几站。读屏不念：前面那句话已经说了。 */}
+          {/* 一站一个小圆圈，这一站的那个是实心的（强调色）：只说它排在路上的第几个，不记读者读过哪几站。读屏不念：前面那句话已经说了。 */}
           <span className="ticks" aria-hidden="true">
             {figure.stops.map((item, i) => (
               <span key={item.id} className={i === index ? 'is-here' : undefined} />
@@ -116,7 +116,7 @@ export function StopPage({ figure, stop, table, road, section, onSection }: Prop
             {scene ? '按下面的一行，沙盘就换到那一处；各处的时间写在每一行里，不一定都在上面这几年里。' : road && '沙盘上是到这一站的来路。'}
           </p>
           {/* 有自己的沙盘、正文还没写：沙盘上看的各处排成一张单子，一行是一个按钮（名字、年份、题记）。按一行，就是告诉上面
-              “该摆这一节了”，同写好了的一站读到另一小节是一回事，沙盘栏照旧做。摆着的那一处（没按过是头一处）左边一道红线、
+              “该摆这一节了”，同写好了的一站读到另一小节是一回事，沙盘栏照旧做。摆着的那一处（没按过是头一处）左边一道强调色的线、
               一个小标签，aria-current。名字不是标题，行上也不写 data-section：那是正文小节的记号。
               正文没读出来的一站不走到这里（上面那一句是“没能读出来”），所以认这种站看的是这张单子（.views），不是页面上那两个属性。 */}
           {scene && (
@@ -181,7 +181,7 @@ export function StopPage({ figure, stop, table, road, section, onSection }: Prop
         </>
       )}
 
-      {/* 正文完了：一个小菱形（样式表画的），下面并排两个链接：回到目录，“来源”页。上一站、下一站在贴着底边的那一条里。 */}
+      {/* 正文完了：一道短短的细线（样式表画的），下面并排两个链接：回到目录，“来源”页。上一站、下一站在贴着底边的那一条里。 */}
       <div className="stop-nav">
         <a className="stop-nav-list" href={figureHref(figure.id)}>
           回到各站目录

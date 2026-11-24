@@ -121,9 +121,13 @@ describe('场景里管地面的那一部分的记号（groundKey）', () => {
     let published = 0;
     for (const key of realSceneKeys()) {
       const { scene } = realSceneFile(key);
-      // 没写门槛的：新老两种算法一样；先画好的地面的清单里记着的也是这个记号（发布过的两座沙盘不用重画）
-      if (scene.water.calmUnderPx === undefined) {
-        expect(groundKey(scene), key).toBe(older(scene));
+      // 没写门槛的：新老两种算法一样。写了的：记号和“去掉门槛以后照老算法算”的一样，和“连门槛照老算法算”的不一样。
+      const bare = structuredClone(scene);
+      delete bare.water.calmUnderPx;
+      expect(groundKey(scene), key).toBe(older(bare));
+      // 先画好的地面的清单里记着的也是这个记号（发布过的两座沙盘不用重画）：没写门槛的黄州，和发布以后才写上门槛的徐州
+      if (scene.water.calmUnderPx === undefined || key === 'su-shi/xuzhou') {
+        if (scene.water.calmUnderPx !== undefined) expect(groundKey(scene), key).not.toBe(older(scene));
         const [figure, stop] = key.split('/');
         let manifest: { inputs: { ground: string } } | null = null;
         try {

@@ -71,7 +71,8 @@ interface Item {
 export function sectionStripSpecs(scene: TableScene, heading: string, texts: StripText[], marks?: Record<string, StopMark>): StripSpec[] {
   const here = scene.level === 'route' ? scene.sections.find((section) => section.heading === heading)?.stop : undefined;
   return texts.map((t) => {
-    const spec: StripSpec = { id: t.id, text: t.text, tone: t.tone, side: scene.strips.find((s) => s.id === t.id)?.side };
+    const written = scene.strips.find((s) => s.id === t.id);
+    const spec: StripSpec = { id: t.id, text: t.text, tone: t.tone, side: written?.side, lean: written?.lean };
     const seals: StripSeal[] = [];
     for (const stop of t.stops ?? []) {
       const mark = marks?.[stop];
@@ -258,7 +259,7 @@ export function mountStrips(container: HTMLElement): StripLayer {
   function arrange(): void {
     if (!last) return;
     // 传进来的先后就是要紧的先后。
-    const strips = items.map((item, rank) => ({ id: item.spec.id, w: item.w, h: item.h, rank, side: item.spec.side }));
+    const strips = items.map((item, rank) => ({ id: item.spec.id, w: item.w, h: item.h, rank, side: item.spec.side, lean: item.spec.lean }));
     const placed = placeStrips({ strips, anchors: last.anchors, size: last.size, insets: last.insets }, placements, { moving: last.moving });
     placements = placed;
     items.forEach((item, i) => show(item, placed[i]));

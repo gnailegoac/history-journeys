@@ -211,6 +211,8 @@ function buildPool(pass: Pass, thing: SceneThing): void {
  * deckM：桥板最窄多宽，和船占的那一段的几成比着取大的；stepM：沿桥线隔多远量一次水；postY：两头的桩多高；landY：岸上的桥板的顶面比它脚下看得见的地高多少。
  * midFrom、farFrom：读者把镜头推近了，船不能还是远看的那几条大船——桥造三套（贴近的、中间的、远看的），折算过的远近到了“最近的一节的距离”的
  * 这么多成，换中间的一套、换远看的一套（眉州：3840 米、6000 米；“正月上蟆颐山”在 573 到 1600 像素高的沙盘栏上都在 6700 米以外，都是远看的那一套，和定格图一样）。
+ * 摆好的画面显哪一套只看远近，不看镜头是从哪一节滑过来的（比 1600 像素还高的沙盘栏上这一节落在 6000 米上下，也是这样）；
+ * 界线上下留着上一套的那一成多，只在读者自己推近拉远的时候才有（kit/assemble.ts 的 STEP_HOLD）。
  */
 export const PONTOON = { pitchM: 10, farOver: 480, beam: 0.9, long: 3.8, freeY: 3, keelY: 1.4, deckM: 7, deckOfPitch: 0.45, stepM: 2, postY: 9, landY: 0.8, midFrom: 0.32, farFrom: 0.5 };
 

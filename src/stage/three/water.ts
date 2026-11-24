@@ -172,9 +172,18 @@ export const WATER_SHEEN_LIGHT = /* glsl */ `#include <lights_fragment_end>
  * （门槛到 1，一团也不剩）：留几成就把门槛从平常的数匀着挪到 1。着色器的原文一个字不动。
  */
 export function rippleFor(bearingDeg: number, distanceM: number, share = 1): { dense: number; turnDeg: number } {
-  const b = ((bearingDeg % 180) + 180) % 180;
+  return { dense: rippleDense(distanceM, share), turnDeg: rippleTurn(bearingDeg) };
+}
+
+/** rippleFor 的两个数，各算各的：每一帧都要算的地方（view.ts 里写了 calmUnderPx 的那一段）用这两个，不为了两个数每一帧另造一样东西。 */
+export function rippleDense(distanceM: number, share: number): number {
   const dense = distanceM < 3000 ? 0.3 : 0.5;
-  return { dense: dense + (1 - share) * (1 - dense), turnDeg: b >= 45 && b <= 135 ? 90 : 0 };
+  return dense + (1 - share) * (1 - dense);
+}
+
+export function rippleTurn(bearingDeg: number): number {
+  const b = ((bearingDeg % 180) + 180) % 180;
+  return b >= 45 && b <= 135 ? 90 : 0;
 }
 
 /** 最宽的河到了门槛的几倍，水纹照常画。门槛到这里之间匀着过去。 */
@@ -186,12 +195,20 @@ export const CALM_RANGE = 1.5;
  * （离对准的那一点 distanceM 米、视角 fovDeg 度）在一幅 900 像素高的画面上不到那么多个像素，一道也不画；
  * 到它的 CALM_RANGE 倍，照常画；中间匀着过去，没有哪一帧是一下子变的。照 900 像素高算，不照这块沙盘栏真的高：
  * 同一个镜头在高的、矮的沙盘栏上是同一幅画面，水纹也该一样（docs/data-spec.md“窄的河上不画水纹”）。没写的沙盘总是 1。
+ * widestM：最宽的一条河画多宽。一座沙盘的河不会变：每一帧都来问的地方（view.ts）算一次记着、交进来；不交就现算。
  */
-export function rippleShare(water: StopScene['water'], distanceM: number, fovDeg: number): number {
+export function rippleShare(water: StopScene['water'], distanceM: number, fovDeg: number, widestM = widestRiverM(water)): number {
   const under = water.calmUnderPx;
   if (!under) return 1;
-  const px = (Math.max(0, ...water.rivers.map((r) => r.drawWidthM)) * 2428) / equivalentDistance(distanceM, fovDeg, 900);
+  const px = (widestM * 2428) / equivalentDistance(distanceM, fovDeg, 900);
   return smoothstep(under, under * CALM_RANGE, px);
+}
+
+/** 最宽的一条河画多宽（米）；一条河也没有是 0。 */
+export function widestRiverM(water: StopScene['water']): number {
+  let widest = 0;
+  for (const river of water.rivers) widest = Math.max(widest, river.drawWidthM);
+  return widest;
 }
 
 /**
@@ -380,11 +397,14 @@ export function buildWater(input: WaterInput): Water {
       uniforms.uFlood.value = flood;
     },
     setRipple(dense, turnDeg) {
+      // 写了 calmUnderPx 的沙盘每一帧都叫到这里：两片水面一片一片写，不为了走一遍另造一个数组
       const turn = (turnDeg * Math.PI) / 180;
-      for (const u of [uniforms, dryUniforms]) {
-        u.uDense.value = dense;
-        (u.uRipRot.value as Vector2).set(Math.cos(turn), Math.sin(turn));
-      }
+      const x = Math.cos(turn);
+      const y = Math.sin(turn);
+      uniforms.uDense.value = dense;
+      dryUniforms.uDense.value = dense;
+      (uniforms.uRipRot.value as Vector2).set(x, y);
+      (dryUniforms.uRipRot.value as Vector2).set(x, y);
     },
     setPixelRatio(ratio) {
       const px = ratio > 0 ? ratio : 1;

@@ -221,6 +221,48 @@ describe('摆在哪一边', () => {
     expect(right.leader).toEqual([400, 300, box(right).left, 300]);
   });
 
+  it('写了 lean（往哪一头偏一格）：题签斜着站在那一点的一角上；那里摆不下，先试同一个位置远一档的，再试正对着的；没有写 side、两样不是一横一竖、远处的题签，都和没写一样', () => {
+    const leaning = (side: Side | undefined, lean: Side, parts: Partial<StripInput> = {}, anchor: Partial<Anchor> = {}): StripPlacement =>
+      placeStrips(input({ strips: [{ id: 'a', w: W, h: H, rank: 0, side, lean }], anchors: [at('a', 400, 300, anchor)], ...parts }))[0];
+    const stepAcross = (W + GUTTER) / 2;
+    const stepAlong = H / 3;
+
+    // 上边往左偏一格：题签整条在那一点的上面，右边让开那一点两个像素；引线从那一点连到题签的右下角
+    const upLeft = leaning('above', 'left');
+    expect(sideOfSlot(upLeft.slot!)).toBe('above');
+    expect(upLeft.x).toBe(400 - stepAcross);
+    expect(300 - box(upLeft).bottom).toBe(GAP);
+    expect(box(upLeft).right).toBe(400 - GUTTER / 2);
+    expect(upLeft.leader).toEqual([400, 300, box(upLeft).right, box(upLeft).bottom]);
+    // 四边、两头都一样：往右、往下是加
+    expect(leaning('above', 'right').x).toBe(400 + stepAcross);
+    expect(leaning('below', 'left').x).toBe(400 - stepAcross);
+    expect(box(leaning('below', 'left')).top - 300).toBe(GAP);
+    expect(leaning('left', 'above').y).toBe(300 - stepAlong);
+    expect(400 - box(leaning('left', 'above')).right).toBe(GAP);
+    expect(leaning('right', 'below').y).toBe(300 + stepAlong);
+    // 号认的是位置，不认先后：上边、最近的一档、往左一格是 2 号（左右挪的几格依次是 0、右 1、左 1、右 2、左 2……），写不写 lean 都是它
+    expect(upLeft.slot).toBe(2);
+    expect(leaning('above', 'right').slot).toBe(1);
+    // 照上一次的结果再摆一遍，还在原处
+    const again = placeStrips(input({ strips: [{ id: 'a', w: W, h: H, rank: 0, side: 'above', lean: 'left' }], anchors: [at('a', 400, 300)] }), [upLeft])[0];
+    expect(again).toEqual(upLeft);
+
+    // 偏一格的位置上有别的题签指的点：先试同一个位置远一档的（还是偏一格），不回到正对着的
+    const blockedNear = placeStrips(
+      input({ strips: [{ id: 'a', w: W, h: H, rank: 0, side: 'above', lean: 'left' }, { id: 'b', w: W, h: H, rank: 1 }], anchors: [at('a', 400, 300), at('b', 400 - stepAcross, 300 - GAP - 3)] }),
+    )[0];
+    expect(blockedNear.x).toBe(400 - stepAcross);
+    expect(300 - box(blockedNear).bottom).toBeCloseTo(GAP * 1.7, 0);
+
+    // 和没写一样的三种
+    expect(leaning(undefined, 'left')).toEqual(one());
+    expect(leaning('above', 'below')).toEqual(one('above'));
+    expect(leaning('left', 'right')).toEqual(one('left'));
+    const far = placeStrips(input({ strips: [{ id: 'a', w: W, h: H, rank: 0, side: 'above' }], anchors: [at('a', 400, 300, { out: [0, -1] })] }))[0];
+    expect(leaning('above', 'left', {}, { out: [0, -1] })).toEqual(far);
+  });
+
   it('摆出来的每一条都带着号；号说得出摆在哪一边', () => {
     for (const side of ['above', 'below', 'left', 'right'] as const) {
       const p = one(side);

@@ -409,12 +409,12 @@ describe('规则 12 类别和依据（全程沙盘）', () => {
     expect(routeProblems((s) => (s.water.lakes[0].except!.class = 'today'))).toEqual(['12 water.lakes[0].except.class']);
   });
 
-  it('一趟路的每一截只能是按正文摆的（实线）或示意的（虚线）', () => {
+  it('一趟路的每一截只能是按史料摆的（实线）或示意的（虚线）', () => {
     expect(routeProblems((s) => ((s.roads.journeys[1].parts[0].class = 'today'), (s.roads.journeys[1].parts[0].sourceIds = ['r2'])))).toEqual(['12 roads.journeys[1].parts[0].class']);
     expect(routeProblems((s) => ((s.roads.journeys[1].parts[0].class = 'text'), (s.roads.journeys[1].parts[0].sourceIds = ['r1'])))).toEqual([]);
   });
 
-  it('依据写了；真的、今天的位置、按正文摆的，至少一个出处；出处都在这个文件自己的 sources 里', () => {
+  it('依据写了；真的、今天的位置、按史料摆的，至少一个出处；出处都在这个文件自己的 sources 里', () => {
     expect(routeProblems((s) => (s.water.coast.basis = ' '))).toEqual(['12 water.coast.basis']);
     expect(routeProblems((s) => (s.roads.journeys[2].parts[0].basis = ''))).toEqual(['12 roads.journeys[2].parts[0].basis']);
     expect(routeProblems((s) => (s.terrain.sourceIds = []))).toEqual(['12 terrain.sourceIds']);

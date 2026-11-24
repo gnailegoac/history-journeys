@@ -477,6 +477,33 @@ describe('规则 11 范围', () => {
     expect(all(files)).toEqual([`11 ${SCENE} › dressing[4].area[1]`]);
   });
 
+  it('树的规则写的“这几圈里不种”（exceptAreas）：圈在沙盘里面的通过；哪一圈的哪一个点跑到外面都查得出', () => {
+    /** 样本里一圈在沙盘里面的线（一处修整的范围），抄一份。 */
+    const ringOf = (s: StopScene): [number, number][] => {
+      const found = s.terrain.edits.find((e) => e.id === 'low-field');
+      if (found?.op !== 'level' || !found.area) throw new Error('样本里没有 low-field');
+      return found.area.map((p): [number, number] => [p[0], p[1]]);
+    };
+    /** 加一条树的规则（样本里排第六条），不种的圈是 rings 给的。 */
+    const grove = (rings: (s: StopScene) => [number, number][][]) => (s: StopScene): void => {
+      s.dressing.push({ id: 'a-grove', name: '一片树', kind: 'trees', at: ringOf(s)[0], exceptAreas: rings(s), class: 'dressing', basis: '只表示有树。', sourceIds: [] });
+    };
+    const moved = (ring: [number, number][], j: number, to: [number, number]): [number, number][] => ring.map((p, k) => (k === j ? to : p));
+    expect(goodScene().dressing).toHaveLength(5);
+    // 圈在沙盘里面（一圈、两圈）：通过；压在沙盘的边上也算在里面，和别的点一样
+    expect(sceneProblems(grove((s) => [ringOf(s)]))).toEqual([]);
+    expect(sceneProblems(grove((s) => [ringOf(s), ringOf(s)]))).toEqual([]);
+    expect(sceneProblems(grove((s) => [moved(ringOf(s), 0, [110.0155, 30.0108])]))).toEqual([]);
+    // 第一圈的第二个点写到了沙盘东边外面
+    expect(sceneProblems(grove((s) => [moved(ringOf(s), 1, [110.02, 30.004])]))).toEqual(['11 dressing[5].exceptAreas[0][1]']);
+    // 第二圈的第一个点，纬度写错了一位数
+    expect(sceneProblems(grove((s) => [ringOf(s), moved(ringOf(s), 0, [110.004, 31.004])]))).toEqual(['11 dressing[5].exceptAreas[1][0]']);
+    // 整圈都挪到了外面：每个点各报一条，话里说的是哪一条规则的第几圈、第几个点
+    const away = validateContent(editScene(grove((s) => [ringOf(s).map((p): [number, number] => [p[0] + 0.05, p[1]])])), SIZES).filter((v) => v.rule === 11);
+    expect(away.map((v) => v.field)).toEqual(ringOf(goodScene()).map((_, j) => `dressing[5].exceptAreas[0][${j}]`));
+    expect(away[0].problem).toContain('点缀“a-grove”不种的第 1 圈的第 1 个点在沙盘外面');
+  });
+
   it('远处的地点在沙盘里面', () => {
     const found = validateContent(editScene((s) => (s.far[0].at = [110.005, 29.995])), SIZES);
     expect(found.map((v) => `${v.rule} ${v.field}`)).toEqual(['11 far[0].at']);
@@ -521,7 +548,7 @@ describe('规则 12 类别和依据', () => {
     const files = edit<{ things: { class: string }[] }>(SCENE, (scene) => (scene.things[0].class = '示意'));
     const found = validateContent(files, SIZES);
     expect(found.map((v) => `${v.rule} ${v.field}`)).toEqual(['12 things[0].class']);
-    expect(found[0].problem).toBe('摆件“wall”的类别是“示意”，只能是 real（真的）、today（今天的位置）、text（按正文摆的）、schematic（示意的）、dressing（点缀）之一');
+    expect(found[0].problem).toBe('摆件“wall”的类别是“示意”，只能是 real（真的）、today（今天的位置）、text（按史料摆的）、schematic（示意的）、dressing（点缀）之一');
   });
 
   it('依据是空的：带类别的十二处，哪一处都查', () => {
@@ -542,7 +569,7 @@ describe('规则 12 类别和依据', () => {
     for (const [path, change] of cases) expect(sceneProblems(change), path).toEqual([`12 ${path}.basis`]);
   });
 
-  it('真的、今天的位置、按正文摆的，没有出处', () => {
+  it('真的、今天的位置、按史料摆的，没有出处', () => {
     expect(sceneProblems((s) => (s.places[0].sourceIds = []))).toEqual(['12 places[0].sourceIds']);
     expect(sceneProblems((s) => (s.far[0].sourceIds = []))).toEqual(['12 far[0].sourceIds']);
     expect(sceneProblems((s) => (s.things[1].sourceIds = []))).toEqual(['12 things[1].sourceIds']);
@@ -571,7 +598,7 @@ describe('规则 12 类别和依据', () => {
     expect(outlineProblems((s) => delete s.sources)).toEqual(['12 sources']);
     const found = validateContent(outlineFiles((s) => delete s.sources), SIZES);
     expect(found[0].problem).toBe('“pass”这一站的正文还没写（figure.json 里是 outline），没有 stops/pass.json；沙盘的出处要写在场景文件自己的 sources 里');
-    // 写了一份空的：真的、今天的位置、按正文摆的那些出处就都找不到了（样本里不止一处）
+    // 写了一份空的：真的、今天的位置、按史料摆的那些出处就都找不到了（样本里不止一处）
     const empty = outlineProblems((s) => (s.sources = []));
     expect(empty.length).toBeGreaterThan(3);
     expect(empty.every((line) => /^12 .+\.sourceIds\[\d+\]$/.test(line)), empty.join('\n')).toBe(true);
@@ -596,7 +623,7 @@ describe('规则 12 类别和依据', () => {
     expect(all(files)).toEqual(['3 figures/demo/stops/pass.json', `12 ${OUTLINE_SCENE} › sources`]);
   });
 
-  it('点缀规则的类别只能是点缀或按正文摆的', () => {
+  it('点缀规则的类别只能是点缀或按史料摆的', () => {
     expect(sceneProblems((s) => (s.dressing[0].class = 'schematic'))).toEqual(['12 dressing[0].class']);
     expect(sceneProblems((s) => Object.assign(s.dressing[0], { class: 'real', sourceIds: ['s2'] }))).toEqual(['12 dressing[0].class']);
   });
@@ -1844,6 +1871,14 @@ describe('黄州的城添的几种写法：青苗的田、浅色的院子、照�
     expect(at(bridge(2, false))).toEqual(['13 things[新].when']);
     // 两个点是同一个点：什么也摆不出来
     expect(at(bridge(2, true, (s) => [across(s)[0], across(s)[0]]))).toEqual(['13 things[新].line']);
+    // 上面那一行只看规则号和字段：“同一个点”这一条不查了，同样的两个点会让“桥头对不上河”那一条报在同一处，分不出来。所以看报出来的那一句话
+    const same = validateContent(editScene(bridge(2, true, (s) => [across(s)[0], across(s)[0]])), SIZES).filter((v) => v.rule === 13);
+    expect(same).toHaveLength(1);
+    expect(same[0].problem).toContain('线的两个点是同一个点');
+    expect(same[0].problem).not.toContain('哪一条河也对不上');
+    // 反过来，两个不一样的点对不上河的，报的是另一句
+    const apart = validateContent(editScene(bridge(2, true, (s) => across(s, 100))), SIZES).filter((v) => v.rule === 13);
+    expect(apart.map((v) => v.problem)).toEqual([expect.stringContaining('哪一条河也对不上')]);
     // 两个桥头要各在同一条河的一边、在干地上、离岸不到 60 米（河岸画出来有二三十米的出入，各留 30 米的量）
     expect(at(bridge(2, true, (s) => across(s, 55)))).toEqual([]);
     expect(at(bridge(2, true, (s) => across(s, -25)))).toEqual([]);
@@ -1893,6 +1928,42 @@ describe('黄州的城添的几种写法：青苗的田、浅色的院子、照�
     expect(sceneProblems(grove('trees', () => []))).toEqual([]);
     expect(sceneProblems(grove('rocks', (s) => [someArea(s)]))).toEqual(['13 dressing[5].exceptAreas']);
     expect(sceneProblems(grove('trees', (s) => [someArea(s), someArea(s).slice(0, 2)]))).toEqual(['13 dressing[5].exceptAreas[1]']);
+  });
+
+  it('题签的 lean（往哪一头偏一格）：要同 side 一起写，两样一横一竖；指着远处的题签不能写（规则 15）', () => {
+    let index = -1;
+    const found = (run: (s: StopScene) => void): string[] => sceneProblems(run).map((line) => line.replace(`strips[${index}]`, '题签'));
+    /** 头一条不指着远处的题签写上这两样（不写的那一样去掉）。 */
+    const written = (side: StopScene['strips'][number]['side'], lean: StopScene['strips'][number]['lean'], far = false) => (s: StopScene): void => {
+      const strip = s.strips.find((t) => s.far.some((f) => f.id === t.of) === far);
+      if (!strip) throw new Error('样本里没有这样的题签');
+      index = s.strips.indexOf(strip);
+      delete strip.side;
+      delete strip.lean;
+      if (side) strip.side = side;
+      if (lean) strip.lean = lean;
+    };
+    // 一横一竖，四边各两头：都行
+    for (const [side, lean] of [['above', 'left'], ['above', 'right'], ['below', 'left'], ['below', 'right'], ['left', 'above'], ['left', 'below'], ['right', 'above'], ['right', 'below']] as const) {
+      expect(found(written(side, lean)), `${side} ${lean}`).toEqual([]);
+    }
+    expect(found(written('above', undefined))).toEqual([]);
+    // 没有写 side；两样都是横的、都是竖的、同一个词
+    expect(found(written(undefined, 'left'))).toEqual(['15 题签.lean']);
+    expect(found(written('above', 'below'))).toEqual(['15 题签.lean']);
+    expect(found(written('above', 'above'))).toEqual(['15 题签.lean']);
+    expect(found(written('left', 'right'))).toEqual(['15 题签.lean']);
+    // 指着远处的题签
+    expect(found(written('above', 'left', true))).toEqual(['15 题签.lean']);
+    // 句子说得出毛病在哪
+    const said = (run: (s: StopScene) => void): string => {
+      const copy = structuredClone(goodScene());
+      run(copy);
+      return checkSceneStrips(copy, 'a.json').map((v) => v.problem).join('\n');
+    };
+    expect(said(written(undefined, 'left'))).toContain('却没有写 side');
+    expect(said(written('above', 'below'))).toContain('side 是 above、below 时 lean 写 left 或 right');
+    expect(said(written('above', 'left', true))).toContain('不能写 lean');
   });
 
   it('指着远处的题签可以不挂在正对着它的那一点上：还在沙盘的边上、离那一点不超过两公里、依据里有一句说为什么，才行（规则 15）', () => {

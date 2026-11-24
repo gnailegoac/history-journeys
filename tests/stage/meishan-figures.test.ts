@@ -6,7 +6,8 @@
 //   浮桥    只在“正月上蟆颐山”一节有；有水的一截是从地形板上读出来的，船只摆在这一截里，一条挨一条；
 //           两头在干地上，离山脚下那一股水的岸不到 60 米；在那一节的画面上一条船至少 4 个像素宽。
 //           造三套（贴近的、中间的、远看的），读者把镜头推近就换；桥板在岸上贴着看得见的地，不埋、不悬。
-//           路的尽头是“蟆颐津”，“浮桥”的点在卵石滩上、不压着桥；嘉州的题签挂在江流出沙盘的地方。
+//           路的尽头是“蟆颐津”；“浮桥”的点就在卵石滩上的桥头，题签站在它的左上角（上游那一边），不压桥、渡船、殿和别的题签；
+//           嘉州的题签挂在江流出沙盘的地方。
 //   坟      一大一小挨着，小的没有被大的吞掉；每座的脚落在读者看得见的那块地上（高程和地形板里低的那个），不悬着；
 //           墓地是一组（大坟是主角，小坟、泉、亭子跟着它放大）；“老翁泉”一节电脑上大坟 40 个像素以上、竖着拿的平板上 24 个以上；
 //           三条题签（父母的墓、王弗的墓、老翁泉）的点两两 30 个像素以上，“老翁泉”的点在池沿外面；平常的树不长到坟的跟前。
@@ -45,8 +46,10 @@ import { FULL_QUALITY } from '../../src/stage/three/quality';
 import { centreShift, placeCamera, project, screenAnchors } from '../../src/stage/three/rig';
 import { styleFor } from '../../src/stage/three/style';
 import { CALM_RANGE, rippleFor, rippleShare } from '../../src/stage/three/water';
+import { placeStrips, sideOfSlot } from '../../src/stage/overlay';
 import { realScene, realSceneKeys } from './support/realScenes';
 import { STANDARD_PANES, UPRIGHT_PANES } from './support/standardPanes';
+import { sectionStrips } from './support/stripSizes';
 
 const KEY = 'su-shi/meishan';
 const VIEW_ALL = '眉州';
@@ -173,7 +176,7 @@ describe.runIf(realSceneKeys().includes(KEY))('眉州的模型', { timeout: 60_0
     for (const heading of headings.filter((h) => h !== VIEW_ALL)) expect(Math.min(...(seen.get(heading)?.at900 ?? [])), heading).toBeGreaterThan(48 * CALM_RANGE * 1.2);
   });
 
-  it('水纹：门槛到一倍半之间匀着过去，不是一下子换；没有写门槛的沙盘（徐州、黄州）哪一节、多远都照常画，和原来一个数不差', () => {
+  it('水纹：门槛到一倍半之间匀着过去，不是一下子换；没有写门槛的沙盘（黄州）哪一节、多远都照常画，和原来一个数不差；徐州写的是它自己的数（xuzhou-figures.test.ts 查）', () => {
     const widest = Math.max(...scene.water.rivers.map((r) => r.drawWidthM));
     /** 在 900 像素高、视角 21 度的画面上，最宽的河正好 px 个像素的时候离多远。 */
     const distanceFor = (px: number): number => (widest * 2428) / px;
@@ -198,7 +201,8 @@ describe.runIf(realSceneKeys().includes(KEY))('眉州的模型', { timeout: 60_0
     expect(rippleFor(38, 36000, 0)).toEqual({ dense: 1, turnDeg: 0 });
     expect(rippleFor(70, 2000, 0)).toEqual({ dense: 1, turnDeg: 90 });
     expect(rippleFor(70, 2000)).toEqual({ dense: 0.3, turnDeg: 90 });
-    for (const key of realSceneKeys().filter((k) => k !== KEY)) {
+    expect(realScene('su-shi/xuzhou').scene.water.calmUnderPx).toBe(26);
+    for (const key of realSceneKeys().filter((k) => k !== KEY && k !== 'su-shi/xuzhou')) {
       const other = realScene(key).scene;
       expect(other.water.calmUnderPx, key).toBeUndefined();
       for (const distance of [500, 5000, 50000, 5e6]) expect(rippleShare(other.water, distance, 21), `${key} ${distance}`).toBe(1);
@@ -229,8 +233,8 @@ describe.runIf(realSceneKeys().includes(KEY))('眉州的模型', { timeout: 60_0
       for (const heading of headings.filter((h) => h !== VIEW_HILL)) expect(section(heading).line).not.toContain('桥');
     });
 
-    it('过江的两步画面上都有名字：路到宽的一股水边是“蟆颐津”（题签指着路的尽头，渡船在那里），卵石滩到山脚是“浮桥”；题记两样都说；“浮桥”的点在卵石滩那一头的外面，不压着桥', () => {
-      // 题记：从蟆颐津过江，走过浮桥
+    it('过江的两步画面上都有名字：路到宽的一股水边是“蟆颐津”（题签指着路的尽头，渡船在那里），卵石滩到山脚是“浮桥”；题记两样都说；“浮桥”的点就在卵石滩上的桥头，题签站在它的左上角（上游那一边），不压桥、渡船、殿和别的题签', () => {
+      // 题记：到蟆颐津过江，上蟆颐山踏青。路上有一座浮桥（不说先过渡口再过桥：浮桥架在哪一股水上没有查到）
       const line = section(VIEW_HILL).line;
       expect(line).toContain('蟆颐津');
       expect(line.indexOf('蟆颐津')).toBeLessThan(line.indexOf('浮桥'));
@@ -248,34 +252,68 @@ describe.runIf(realSceneKeys().includes(KEY))('眉州的模型', { timeout: 60_0
       expect(distLine(fx, fz, main.line.map((p) => coords.toLocal(p)))).toBeLessThan(distLine(fx, fz, foot.line.map((p) => coords.toLocal(p))));
       const boats = scene.dressing.find((d) => d.id === 'boats-ferry');
       expect(Math.hypot(local(boats?.at)[0] - fx, local(boats?.at)[1] - fz)).toBeLessThan(300);
-      // “浮桥”的点：在桥线的延长线上、卵石滩那一头（西头）的外面 50 到 70 米，不在桥上
+      // “浮桥”的点：就是桥线的头一个点——卵石滩上的桥头（2026-11-24 检查以后改的：原来在桥头外面 60 米的卵石上，
+      // 孩子顺着引线找到的是一堆白石头）。题签写 above 加 lean: left：站在桥头的左上角，上游那一边
       const strip = scene.strips.find((s) => s.id === 't-bridge');
-      const [bx, bz] = local(strip?.at);
+      expect(strip?.at).toEqual(bridge.line?.[0]);
+      expect(strip).toMatchObject({ side: 'above', lean: 'left' });
       const ux = (plan.b[0] - plan.a[0]) / plan.length;
       const uz = (plan.b[1] - plan.a[1]) / plan.length;
-      const along = (bx - plan.a[0]) * ux + (bz - plan.a[1]) * uz;
-      const off = Math.abs((bx - plan.a[0]) * -uz + (bz - plan.a[1]) * ux);
-      expect(along).toBeLessThan(-50);
-      expect(along).toBeGreaterThan(-70);
-      expect(off).toBeLessThan(5);
-      // 画面上：这个点（半径四个像素）离最近的一条船（远看的一套）的船身，电脑和横着拿的平板上 8 个像素以上，
-      // 竖着拿的平板上（画面小一半，船只有三个像素宽）5 个以上——点盖不到桥
-      for (const pane of [WIDE, STANDARD_PANES[1], UPRIGHT]) {
+      const temple = thing('temple');
+      const ferryAt = local(boats?.at);
+      const ferryReachM = Number(boats?.params?.radiusM) + 30;
+      // 四种标准的沙盘栏上，照页面的摆法摆一遍
+      for (const pane of STANDARD_PANES) {
         const view = look(VIEW_HILL, pane);
-        const strips = section(VIEW_HILL).strips.map((id) => scene.strips.find((s) => s.id === id)).filter((s) => s !== undefined);
-        const dot = screenAnchors(strips, scene, samplers, coords, style, view.D, view.camera, pane.size).find((a) => a.id === 't-bridge');
-        if (!dot) throw new Error('没有“浮桥”的题签');
-        let nearest = Infinity;
-        for (const d of plan.hulls) {
+        const written = section(VIEW_HILL).strips.map((id) => scene.strips.find((s) => s.id === id)).filter((s) => s !== undefined);
+        const anchors = screenAnchors(written, scene, samplers, coords, style, view.D, view.camera, pane.size);
+        const sized = sectionStrips(scene, VIEW_HILL, pane.size.width);
+        const placed = placeStrips({ strips: sized, anchors, size: pane.size, insets: pane.insets });
+        const dot = anchors.find((a) => a.id === 't-bridge');
+        const mine = placed.find((p) => p.id === 't-bridge');
+        const size = sized.find((x) => x.id === 't-bridge');
+        if (!dot || !mine || !size || mine.hidden) throw new Error(`${pane.name} 上“浮桥”的题签没有摆出来`);
+        // 点就在桥头上：离桥头那一点的地面不到 2 个像素；它比地面抬高了 8（样式里浮桥的数），桥板的头搭在看得见的那块地上、
+        // 低一些，所以离桥板那一头的顶面远一点，电脑上 2.5 个像素——点连它的浅色边半径 3.3 个像素，盖着桥板的头
+        const ground = view.on(plan.a[0], coords.y(samplers.height(plan.a[0], plan.a[1])), plan.a[1]);
+        expect(Math.hypot(dot.x - ground.x, dot.y - ground.y), `${pane.name} 上“浮桥”的点离桥头的地面`).toBeLessThan(2);
+        const head = view.on(plan.a[0], seenY(plan.a[0], plan.a[1]) + PONTOON.landY, plan.a[1]);
+        expect(Math.hypot(dot.x - head.x, dot.y - head.y), `${pane.name} 上“浮桥”的点离桥板的头`).toBeLessThan(3);
+        // 题签在点的左上角：整条在点的上面，右边不过那一点
+        const box = { left: mine.x - size.w / 2, right: mine.x + size.w / 2, top: mine.y - size.h / 2, bottom: mine.y + size.h / 2 };
+        expect(sideOfSlot(mine.slot ?? -1), pane.name).toBe('above');
+        expect(box.bottom, pane.name).toBeLessThan(dot.y - 12);
+        expect(box.right, pane.name).toBeLessThanOrEqual(dot.x);
+        const inBox = (p: { x: number; y: number }, grow = 0): boolean => p.x > box.left - grow && p.x < box.right + grow && p.y > box.top - grow && p.y < box.bottom + grow;
+        // 不压桥：远看的一套每条船的两头和中间、桥板的两头都在题签外面
+        for (const d of [0, plan.length, ...plan.hulls]) {
           for (const k of [-0.5, 0, 0.5]) {
             const x = plan.a[0] + ux * d - uz * plan.longM * k;
             const z = plan.a[1] + uz * d + ux * plan.longM * k;
-            const p = view.on(x, plan.waterY, z);
-            nearest = Math.min(nearest, Math.hypot(p.x - dot.x, p.y - dot.y));
+            expect(inBox(view.on(x, plan.waterY, z), 2), `${pane.name} 上“浮桥”的题签压着桥`).toBe(false);
           }
         }
-        expect(nearest, `${pane.name} 上“浮桥”的点离最近的船`).toBeGreaterThan(pane === UPRIGHT ? 5 : 8);
-        expect(nearest, `${pane.name} 上“浮桥”的点离最近的船`).toBeLessThan(40);
+        // 不压渡船：渡船摆在渡口那一点周围 radiusM 以内，这一圈（再让出一条船长）整个在题签外面
+        for (let k = 0; k < 24; k++) {
+          const turn = (k / 24) * Math.PI * 2;
+          const x = ferryAt[0] + Math.cos(turn) * ferryReachM;
+          const z = ferryAt[1] + Math.sin(turn) * ferryReachM;
+          expect(inBox(view.on(x, coords.y(normal), z)), `${pane.name} 上“浮桥”的题签压着渡船`).toBe(false);
+        }
+        expect(inBox(view.on(ferryAt[0], coords.y(normal), ferryAt[1])), pane.name).toBe(false);
+        // 不压殿：题签的右边比殿的正中靠左 12 个像素以上（殿在画面上宽 14 到 22 个像素，量的是图）
+        const [tx, tz] = local(temple.at);
+        const hall = view.on(tx, seenY(tx, tz), tz);
+        expect(hall.x - box.right, `${pane.name} 上“浮桥”的题签离殿`).toBeGreaterThan(12);
+        // 不压别的题签（“蟆颐津”“蟆颐山”也在里面），别的题签也都摆出来了
+        for (const other of placed) {
+          if (other.id === 't-bridge') continue;
+          const o = sized.find((x) => x.id === other.id);
+          if (!o) throw new Error('题签对不上');
+          expect(other.hidden, `${pane.name} 上 ${other.id}`).toBe(false);
+          const apart = box.left >= other.x + o.w / 2 || box.right <= other.x - o.w / 2 || box.top >= other.y + o.h / 2 || box.bottom <= other.y - o.h / 2;
+          expect(apart, `${pane.name} 上“浮桥”的题签和 ${other.id}`).toBe(true);
+        }
       }
     });
 

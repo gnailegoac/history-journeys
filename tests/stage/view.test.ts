@@ -493,9 +493,21 @@ describe('沙盘自己的几条规矩（零件库、上色、地形板是假的�
     const turnOf = (i: number): number => rippleFor(scene.sections[i].camera.bearing, 9000).turnDeg;
     expect(read().turn).toEqual([turnOf(4), turnOf(4)]);
 
-    // 没写门槛的沙盘（内容里的徐州）：同样滑一趟，水面的数从头到尾是摆好那一节的数
+    // 内容里的徐州自己写着门槛 26：摆好的头一节（看整块沙盘）一道不画，换到云龙山和百步洪那一节照常画
+    expect(scene.water.calmUnderPx).toBe(26);
+    const s3 = stage(size.width, size.height);
+    const real = await openView(s3, { section: headings[0] });
+    await until(real.ready);
+    const read3 = waterOf(s3);
+    expect(read3().dense).toEqual([1, 1]);
+    await glide(real, headings[4], read3);
+    expect(read3().dense).toEqual([0.5, 0.5]);
+
+    // 没写门槛的沙盘（徐州的场景去掉门槛的一份）：同样滑一趟，水面的数从头到尾是摆好那一节的数
+    const bare = structuredClone(scene);
+    delete bare.water.calmUnderPx;
     const s2 = stage(size.width, size.height);
-    const plain = await openView(s2, { section: headings[4] });
+    const plain = await openView(s2, { section: headings[4], scene: bare });
     await until(plain.ready);
     const read2 = waterOf(s2);
     expect(read2().dense).toEqual([0.5, 0.5]);

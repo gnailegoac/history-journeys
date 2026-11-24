@@ -340,7 +340,7 @@ describe('数字：哪些字归哪一组（编出来的一位人物）', () => {
     for (let code = 0x20; code < 0x7f; code++) expect(fileOf(plan, 'song').characters, codeOf(String.fromCodePoint(code))).toContain(String.fromCodePoint(code));
     // 只在程序里出现的字单独记着（英文不列）
     // “的、今、天”三个字编出来的内容里也有，不算只在程序里出现；省略号是工具自己添进楷体那一组的（见下一项），内容里没有
-    expect(plan.onlyFromSrc).toBe(sortedString('串文模址显脚楷签真位置按正摆示意点缀…'));
+    expect(plan.onlyFromSrc).toBe(sortedString('串文模址显脚楷签真位置按史料摆示意点缀…'));
   });
 
   it('字要点了才看得见的界面文件（“来源”页上的话）：只有它里面有的字归点开才看得见的一组，别处不点就看得见的字还在头一组；不列在名单里就照平常的界面文件算', () => {
@@ -425,7 +425,7 @@ describe('数字：哪些字归哪一组（编出来的一位人物）', () => {
 
   it('楷体的一组：界面上列着的字、类别名、人物的名字、站名、小节标题、小注的标题、题记、空格', () => {
     const plan = planFonts(madeUpSite());
-    expect(has(plan, 'kai', '楷签 真的今天位置按正文摆示意点缀某人甲站：头一乙后起初来未辰')).toBe(true);
+    expect(has(plan, 'kai', '楷签 真的今天位置按史料摆示意点缀某人甲站：头一乙后起初来未辰')).toBe(true);
     // 正文、卡片上的一句、图片的题记不是楷体
     expect(hasNone(plan, 'kai', '午共引卡片上句地许')).toBe(true);
     // 省略号：哪儿也没写着，工具自己添的。一行楷体的字被截掉时，浏览器在行尾添的那个省略号要有楷体的字形可用

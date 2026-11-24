@@ -37,7 +37,7 @@ export const SCENE_CLASS_LABEL: Record<SceneClass, string> = {
   /** 今天还找得到的地点，不一定是当时的原处。 */
   today: '今天的位置',
   /** 正文或史料说了在哪，细节说不准。 */
-  text: '按正文摆的',
+  text: '按史料摆的',
   /** 没有可靠依据。 */
   schematic: '示意的',
   /** 只为让人看出这是城、是村、是岸。 */
@@ -330,6 +330,11 @@ export interface SceneStrip {
   at?: LngLat;
   /** 题签最好摆在那一点的哪一边。不写由程序定。 */
   side?: 'above' | 'below' | 'left' | 'right';
+  /**
+   * 沿着 side 那一边往哪一头偏一格：题签斜着站在那一点的一角上。要同 side 一起写，两样一横一竖
+   *（side 是 above、below 时写 left 或 right，是 left、right 时写 above 或 below）；指着远处的题签不能写。
+   */
+  lean?: 'above' | 'below' | 'left' | 'right';
 }
 
 /** 正文提到、却在沙盘外面的地方。题签摆在沙盘边上朝着它的那一点，方向和距离由程序按坐标算。 */

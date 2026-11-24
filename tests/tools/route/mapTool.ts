@@ -9,7 +9,7 @@
 //   今天的湖：场景挑中的蓝，没挑中的灰；从湖里裁掉的角：橙色的边，里面还原成陆地的颜色。
 //   只染水色的水：浅青，青色的虚线边。
 //   今天的河：场景挑中的蓝（越粗越要紧），没挑中的灰。场景自己写的河：示意的是青绿色，照今天手连的是蓝色；运河是细的紫红线。
-//   路：陆路黑，水路深红，海路紫；有“按正文摆的”一截走到的画实线，只有“示意的”走到的画虚线。
+//   路：陆路黑，水路深红，海路紫；有“按史料摆的”一截走到的画实线，只有“示意的”走到的画虚线。
 //   地名点：是站的画实心红点，别的画空心黑圈；题签指在水上、线上的点是小蓝方块；远处的题签指的点是红三角。
 
 import type { RouteScene } from '../../../src/domain/scene';
@@ -71,7 +71,7 @@ const DIGITS: Record<string, string[]> = {
   '9': ['111', '101', '111', '001', '111'],
 };
 
-/** 一条路在图上画实线还是虚线：有“按正文摆的”一截走到它就是实线。 */
+/** 一条路在图上画实线还是虚线：有“按史料摆的”一截走到它就是实线。 */
 export function waySolid(scene: RouteScene, wayId: string): boolean {
   return scene.roads.journeys.some((journey) => journey.parts.some((part) => part.class === 'text' && part.ways.some((written) => (written.startsWith('-') ? written.slice(1) : written) === wayId)));
 }

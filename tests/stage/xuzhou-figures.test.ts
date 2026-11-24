@@ -20,9 +20,11 @@ import type { Vec3 } from '../../src/stage/ground/types';
 import type { FigureClass } from '../../src/stage/three/internal';
 import { detailGone, equivalentDistance, figureGroups, figureNow, liftClass } from '../../src/stage/three/kit/figure';
 import { placeCamera } from '../../src/stage/three/rig';
+import { CALM_RANGE, rippleFor, rippleShare } from '../../src/stage/three/water';
 import { styleFor } from '../../src/stage/three/style';
 import type { StageInsets } from '../../src/stage/types';
 import { realScene } from './support/realScenes';
+import { STANDARD_PANES, UPRIGHT_PANES } from './support/standardPanes';
 
 interface Pane {
   name: string;
@@ -211,5 +213,60 @@ describe('徐州：每一节要看的东西在画面上够不够大', () => {
     }
     console.log(lines.join('\n'));
     expect(lines.length).toBe(2 + SUBJECTS.length + 1 + R.scene.sections.length);
+  });
+});
+
+// ---------------------------------------------------------------- 窄的河上不画水纹
+
+describe('徐州：窄的河上不画水纹（water.calmUnderPx）', () => {
+  it('门槛是 26（照 900 像素高的画面算）：看整块沙盘的“到徐州”在 573 到 1600 像素高的各种沙盘栏上一道水纹也不画，另外六节在哪一种上都照常画、和没写门槛的时候一个数不差；眉州的 48 在这里分不开', () => {
+    const { scene, coords, samplers } = realScene('su-shi/xuzhou');
+    const style = styleFor(scene.style);
+    expect(scene.water.calmUnderPx).toBe(26);
+    const widest = Math.max(...scene.water.rivers.map((r) => r.drawWidthM));
+    expect(widest).toBe(400);
+    const leave = (top: number, bottom: number): StageInsets => ({ top, right: 0, bottom, left: 0 });
+    // 和眉州那一条同一批沙盘栏：四种标准的、别的竖着拿的平板、定格图的两种形状、宽屏上高的矮的窗口、竖着的大屏幕
+    const panes = [
+      ...[...STANDARD_PANES, ...UPRIGHT_PANES].map((p) => ({ size: p.size, insets: p.insets })),
+      { size: { width: 1200, height: 900 }, insets: leave(62, 130) },
+      { size: { width: 960, height: 573 }, insets: leave(54, 131) },
+      ...[[780, 600], [780, 720], [1180, 1050], [1420, 1080], [1420, 1200], [2060, 1300], [2060, 1440], [2060, 1600], [3340, 1600], [700, 1600], [600, 1600], [500, 573]].map(([width, height]) => ({ size: { width, height }, insets: leave(62, 130) })),
+      ...[[900, 896], [1080, 1075], [1440, 1434], [1600, 1600]].map(([width, height]) => ({ size: { width, height }, insets: leave(54, 131) })),
+    ];
+    expect(Math.min(...panes.map((p) => p.size.height))).toBe(573);
+    expect(Math.max(...panes.map((p) => p.size.height))).toBe(1600);
+    const first = scene.sections[0].heading;
+    expect(first).toBe('到徐州');
+    const seen = new Map<string, number[]>();
+    for (const pane of panes) {
+      for (const section of scene.sections) {
+        const placed = placeCamera(section, scene, samplers, coords, style, pane.size, pane.insets);
+        const share = rippleShare(scene.water, placed.distanceM, placed.pose.fov);
+        expect(share, `${section.heading} ${pane.size.width} × ${pane.size.height}`).toBe(section.heading === first ? 0 : 1);
+        // 交给水面的数：头一节是 1（一道不画），别的节就是没写门槛时的数
+        const ripple = rippleFor(section.camera.bearing, placed.distanceM, share);
+        if (section.heading === first) expect(ripple.dense).toBe(1);
+        else expect(ripple).toEqual(rippleFor(section.camera.bearing, placed.distanceM));
+        const at900 = (widest * 2428) / equivalentDistance(placed.distanceM, placed.pose.fov, 900);
+        seen.set(section.heading, [...(seen.get(section.heading) ?? []), at900]);
+      }
+    }
+    const range = (list: number[]): string => `${Math.min(...list).toFixed(1)} 到 ${Math.max(...list).toFixed(1)}`;
+    console.log(`徐州的水纹（最宽的河 ${widest} 米，${panes.length} 种沙盘栏，照 900 高算）：${scene.sections.map((s) => `${s.heading} ${range(seen.get(s.heading) ?? [])}`).join('；')}`);
+    const calm = Math.max(...(seen.get(first) ?? []));
+    const rippled = Math.min(...scene.sections.filter((s) => s.heading !== first).flatMap((s) => seen.get(s.heading) ?? []));
+    // 头一节最宽 21.9，别的节最窄 44.2（沙盘栏又高又窄、镜头退得最远的时候）：门槛要在 21.9 以上，它的一倍半要在 44.2 以下，
+    // 就是 21.9 到 29.4 之间。取 26：两头各留一成多
+    expect(calm).toBeLessThan(26 / 1.15);
+    expect(rippled).toBeGreaterThan(26 * CALM_RANGE * 1.1);
+    // 眉州的 48 在这里不行：“要走了”在电脑上是 64.7，落在 48 到 72 之间，水纹会少掉一截
+    const leaving = scene.sections.find((s) => s.heading === '要走了');
+    if (!leaving) throw new Error('没有“要走了”一节');
+    const [wide] = STANDARD_PANES;
+    const placed = placeCamera(leaving, scene, samplers, coords, style, wide.size, wide.insets);
+    const shareAt48 = rippleShare({ ...scene.water, calmUnderPx: 48 }, placed.distanceM, placed.pose.fov);
+    expect(shareAt48).toBeGreaterThan(0);
+    expect(shareAt48).toBeLessThan(1);
   });
 });

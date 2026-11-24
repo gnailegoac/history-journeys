@@ -213,7 +213,7 @@ const RECIPE_SAY: Record<TableScene['terrain']['recipe']['kind'], { full: string
 };
 
 /** 模型和河都放大了。 */
-const ENLARGED = { full: '摆在沙盘上的模型都放大了，镜头离得越远放得越大，不按比例；河画宽了。', short: '模型和河都放大了', brief: '模型和河放大了' };
+const ENLARGED = { full: '摆在沙盘上的模型都放大了，从越远的地方看放得越大，不按比例；河画宽了。', short: '模型和河都放大了', brief: '模型和河放大了' };
 /** 全程沙盘上没有模型，第四样说的是河和路。 */
 const WIDENED = { full: '河和路都画宽了，不按比例。', short: '河和路都画宽了', brief: '河画宽了' };
 
@@ -318,7 +318,7 @@ function named(item: Grounds & { id: string; name: string }): Grounded {
   return { id: item.id, name: item.name, grounds: item };
 }
 
-/** 说明里的一样示意的东西。whole：整样都是示意；不然是按正文摆的，只有 unsure 写的那部分是示意。 */
+/** 说明里的一样示意的东西。whole：整样都是示意；不然是按史料摆的，只有 unsure 写的那部分是示意。 */
 interface Unsure {
   whole: boolean;
   /** 宽屏的写法：名字，或“某某的某某”。 */
@@ -339,7 +339,7 @@ function lineOnly(scene: TableScene, section: Section): SceneFarPlace[] {
 }
 
 /**
- * 这一小节沙盘上有的东西里，哪些是示意：类别是示意的，和按正文摆、又写了 unsure 的。
+ * 这一小节沙盘上有的东西里，哪些是示意：类别是示意的，和按史料摆、又写了 unsure 的。
  * explain 里点到的排在前面；其余的先是水，再是摆在上面的东西，最后是地形的修整（读的人先看到的在前）。
  * 全程沙盘上看来路的一节不看 explain：到这一站去的路里整截示意的在最前，再是水，再是别的。
  * 摆件和点缀看 when；远处只算这一节的题签指到的（只在题记下面说的那种不在沙盘上，不算）。全程沙盘上，这一节还没有画的路（后面各站的）不算。

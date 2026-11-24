@@ -248,6 +248,9 @@ function candidates(strip: Strip, anchor: Anchor, free: Rect, gap: number, stay:
     const upright = vx === 0;
     const slides = upright ? SLIDES_ACROSS : SLIDES_ALONG;
     const step = upright ? (strip.w + GUTTER) / 2 : strip.h / 3;
+    // 场景里写了 lean：在它想摆的那一边，往那一头偏一格的位置最便宜，离它越远越贵（−1 是往左、往上，1 是往右、往下）。
+    // 号还是认位置，只是先后换了；没写 lean、别的三边、远处的题签，代价和原来一个数不差
+    const lean = !out && strip.lean && side === strip.side ? SIDE_VEC[strip.lean][upright ? 0 : 1] : 0;
     GAPS.forEach((times, gapIndex) => {
       slides.forEach((slide, slideIndex) => {
         const wantX = anchor.x + vx * (gap * times + halfW) + (upright ? slide * step : 0);
@@ -256,7 +259,7 @@ function candidates(strip: Strip, anchor: Anchor, free: Rect, gap: number, stay:
         const pushed = Math.hypot(clamp(wantX, free.x0 + halfW, free.x1 - halfW) - wantX, clamp(wantY, free.y0 + halfH, free.y1 - halfH) - wantY);
         add(
           SIDE_CODE[side] * 100 + gapIndex * 10 + slideIndex,
-          sideIndex * COST_SIDE + gapIndex * COST_GAP + slideIndex * COST_SLIDE + pushed * COST_PUSHED,
+          sideIndex * COST_SIDE + gapIndex * COST_GAP + (lean ? Math.abs(slide - lean) * 2 : slideIndex) * COST_SLIDE + pushed * COST_PUSHED,
           clamp(Math.round(wantX), loX, hiX),
           clamp(Math.round(wantY), loY, hiY),
         );

@@ -130,7 +130,7 @@ describe('一小节里的路排成一笔一笔（编出来的小场景）', () =
     expect(ROAD_STATES).toEqual(['now', 'ink', 'past']);
   });
 
-  it('全程：每截路只画一笔；有“按正文摆的”一截走到的是实线；接着走、虚实一样的连成一笔', () => {
+  it('全程：每截路只画一笔；有“按史料摆的”一截走到的是实线；接着走、虚实一样的连成一笔', () => {
     const runs = roadRuns(small(), FLAT, 0);
     expect(runs.map(say)).toEqual(['ink 实 wa+wb', 'ink 虚 wc', 'ink 虚 wd']);
     // 头一笔：两截各 100 公里，6 公里一段是 17 段；接头上的那一点只有一个，接头（城）不抹圆
@@ -151,7 +151,7 @@ describe('一小节里的路排成一笔一笔（编出来的小场景）', () =
     expect(third[0].points[0]).toEqual([100, -100]);
     expect(third[0].points[17]).toEqual([100, 0]);
     expect(third[0].points[34]).toEqual([200, 0]);
-    // 第四节：第三趟的 wa 是实线、wd 是虚线，虚实不一样不连；走过的两趟里 wb 只画一笔，是实线（第一趟按正文摆的）
+    // 第四节：第三趟的 wa 是实线、wd 是虚线，虚实不一样不连；走过的两趟里 wb 只画一笔，是实线（第一趟按史料摆的）
     expect(roadRuns(scene, FLAT, 3).map(say)).toEqual(['now 实 wa', 'now 虚 wd', 'past 实 wb', 'past 虚 wc']);
   });
 
@@ -247,7 +247,7 @@ describe.each(real)('$key 的路画成的线', ({ key, scene }) => {
     const whole = roadRuns(scene, coords, 0);
     expect(new Set(whole.flatMap((run) => run.ways.map((written) => written.replace(/^-/, '')))).size).toBe(scene.roads.ways.length);
     expect(whole.every((run) => run.state === 'ink')).toBe(true);
-    // 虚实和检查图（npm run route:map）另一个函数算出来的一样：有“按正文摆的”一截走到的是实线
+    // 虚实和检查图（npm run route:map）另一个函数算出来的一样：有“按史料摆的”一截走到的是实线
     for (const run of whole) for (const written of run.ways) expect(run.dotted, `全程里的 ${written}`).toBe(!waySolid(scene, written.replace(/^-/, '')));
   });
 

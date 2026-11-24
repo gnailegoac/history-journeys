@@ -114,8 +114,9 @@ interface Part {
 }
 
 /**
- * 换着显的东西，镜头过了界线多少才换（折算过的远近的倍数）：正在界线上来回的时候不来回换。
- * 所以远近落在界线上下这一成多里的时候，显哪一套要看镜头是从哪边来的；别处只看远近。
+ * 换着显的东西，镜头过了界线多少才换（折算过的远近的倍数）：读者自己推近拉远、正在界线上来回的时候不来回换。
+ * 所以读者动过镜头以后，远近落在界线上下这一成多里的时候，显哪一套要看镜头是从哪边来的；别处只看远近。
+ * 程序摆的画面（摆好的一节、滑动的一路上，apply 的 hold 是 false）不留：只看远近，同一个摆好的画面总是同一套。
  */
 export const STEP_HOLD = 1.12;
 
@@ -286,7 +287,7 @@ export function buildModels(ctx: KitContext): ModelSet {
   return {
     group,
 
-    apply(section, waterLevelM, viewDistanceM) {
+    apply(section, waterLevelM, viewDistanceM, hold = true) {
       if (disposed) return false;
       const si = headings.indexOf(section);
       if (si < 0) return false;
@@ -317,9 +318,14 @@ export function buildModels(ctx: KitContext): ModelSet {
         }
         if (waterY > p.waterFrom) watery = true;
         for (const s of p.steps) {
-          // 还显着的那一套，镜头出了它的那一段再多走一成多才换；换就换成这个远近该显的那一套
-          if (s.now < 0 || viewDistanceM < s.fromM[s.now] / STEP_HOLD || viewDistanceM >= (s.fromM[s.now + 1] ?? Infinity) * STEP_HOLD) s.now = s.fromM.filter((from) => viewDistanceM >= from).length - 1;
-          s.sets.forEach((set, k) => (set.visible = k === s.now));
+          // 还显着的那一套，镜头出了它的那一段再多走一成多才换（读者自己在动镜头的时候；程序摆的画面不留）；换就换成这个远近该显的那一套。
+          // 每一帧都走到这里：数界线、开关几套都用平常的循环，不另造数组和函数
+          if (!hold || s.now < 0 || viewDistanceM < s.fromM[s.now] / STEP_HOLD || viewDistanceM >= (s.fromM[s.now + 1] ?? Infinity) * STEP_HOLD) {
+            let now = -1;
+            for (let k = 0; k < s.fromM.length; k++) if (viewDistanceM >= s.fromM[k]) now += 1;
+            s.now = now;
+          }
+          for (let k = 0; k < s.sets.length; k++) s.sets[k].visible = k === s.now;
           key += `~${s.now}`;
           triangles += s.tris[s.now];
         }

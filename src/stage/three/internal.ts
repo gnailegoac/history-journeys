@@ -211,8 +211,10 @@ export interface ModelSet {
    * 镜头移动时每一帧都会调用，传的是这一帧真的数。大小、留几成、摊开多少都在显卡上算，这里只改几个数。
    * 这一节要用的模型还没造（没有先 prepare）时当场造。
    * 返回 true：显出来的东西变了（哪几组显着、船脚下的水位）。大小变了不算——那由 view 在镜头停下来以后补画一次影子。
+   * hold：照远近换着显的东西（浮桥的几套），远近落在界线上下的时候留不留着上一帧显的那一套。读者自己在动镜头的时候留
+   * （不写也是留）；程序摆的画面——摆好的一节、滑动的一路上——交 false：只照远近挑，同一个画面不管是怎么来的都是同一套。
    */
-  apply(section: string, waterLevelM: number, viewDistanceM: number): boolean;
+  apply(section: string, waterLevelM: number, viewDistanceM: number, hold?: boolean): boolean;
   /** 把这几个小节要用的模型先造好，一次造一小块，中间让出时间给页面。 */
   prepare(sections: string[]): Promise<void>;
   /** 现在显出来的模型一共多少个三角形。 */

@@ -8,7 +8,7 @@
 //   2 一小节里哪几趟路要画、画成哪一种：头一节（全程）每一趟都是墨线；后面的小节，到这一站去的几趟是“刚走的”，
 //     到前面各站去的是“走过的”，后面的不画。
 //   3 把要画的路排成一笔一笔：同一截路几趟都走的只画一笔（刚走的压过墨线，墨线压过走过的）；
-//     一截路在这一种里只要有“按正文摆的”一截走到它就是实线，不然是虚线；一趟路里接着走的几截、虚实一样的连成一笔
+//     一截路在这一种里只要有“按史料摆的”一截走到它就是实线，不然是虚线；一趟路里接着走的几截、虚实一样的连成一笔
 //     （虚线的一划一空要一路排下去，不能在接头上重来）。
 // 画线的程序拿到这些以后：一种状态的实线合成一份线段表，虚线一笔一条线，另有一份垫在下面的浅色线段表（全部的笔画）。
 
@@ -166,7 +166,7 @@ export function roadRuns(scene: RouteScene, coords: FrameCoords, section: number
   const taken = new Set<string>();
   for (const state of ROAD_STATES) {
     const mine = scene.roads.journeys.filter((journey) => states.get(journey.id) === state);
-    // 这一种里，哪几截路有“按正文摆的”一截走到
+    // 这一种里，哪几截路有“按史料摆的”一截走到
     const solid = new Set<string>();
     for (const journey of mine) for (const part of journey.parts) if (part.class === 'text') for (const written of part.ways) solid.add(wayRef(written).id);
     const seen = new Set<string>();

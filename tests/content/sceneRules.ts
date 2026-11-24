@@ -162,7 +162,7 @@ const SCENE: Shape = strict({
       when: optional(WHEN),
     }),
   ),
-  strips: list(strict({ id: text, text, modern: optional(text), of: text, at: optional(lngLat), side: optional(oneOf(['above', 'below', 'left', 'right'])) })),
+  strips: list(strict({ id: text, text, modern: optional(text), of: text, at: optional(lngLat), side: optional(oneOf(['above', 'below', 'left', 'right'])), lean: optional(oneOf(['above', 'below', 'left', 'right'])) })),
   far: list(strict({ ...GROUNDS, id: text, name: text, at: lngLat, gloss: optional(text), inHisWords: optional(text) })),
   sections: list(
     strict({
@@ -310,8 +310,8 @@ const inward = (value: number, round: (n: number) => number): string => (round(v
 // ---------------------------------------------------------------- 规则 11 范围
 
 /**
- * 规则 11 范围：摆件、点缀、地名点、题签指的点、修整的范围和土丘的中心、水漫不进去的地方、急滩、河上过路的地方、
- * 镜头对准的点，都在沙盘里面（压在边上也算）。河的线和路的线可以伸出去。远处的地点在沙盘外面。
+ * 规则 11 范围：摆件、点缀（连同树的规则写的“这几圈里不种”）、地名点、题签指的点、修整的范围和土丘的中心、水漫不进去的地方、
+ * 急滩、河上过路的地方、镜头对准的点，都在沙盘里面（压在边上也算）。河的线和路的线可以伸出去。远处的地点在沙盘外面。
  */
 export function checkSceneExtent(scene: StopScene, file: string): Violation[] {
   const out: Violation[] = [];
@@ -341,6 +341,8 @@ export function checkSceneExtent(scene: StopScene, file: string): Violation[] {
     points(rule.area, `dressing[${i}].area`, `点缀“${rule.id}”的范围`);
     // 路的线可以伸到沙盘外面；别的点缀沿着的线不行。
     if (rule.kind !== 'roads') points(rule.line, `dressing[${i}].line`, `点缀“${rule.id}”沿着的线`);
+    // “这几圈里不种”的圈也是写出来的点：写错一位数、经纬度写反了，圈就落在沙盘外面，什么也护不住
+    rule.exceptAreas?.forEach((area, k) => points(area, `dressing[${i}].exceptAreas[${k}]`, `点缀“${rule.id}”不种的第 ${k + 1} 圈`));
   });
   scene.strips.forEach((strip, i) => point(strip.at, `strips[${i}].at`, `题签“${strip.id}”指的点`));
   scene.sections.forEach((section, i) => point(section.camera.target, `sections[${i}].camera.target`, `小节“${section.heading}”的镜头对准的点`));
@@ -378,8 +380,8 @@ function grounded(scene: StopScene): { path: string; what: string; grounds: Grou
 }
 
 /**
- * 规则 12 类别和依据：class 是五类之一；basis 写了；真的、今天的位置、按正文摆的，至少有一个出处；
- * 出处都在这一站的 sources 里；点缀规则的类别只能是点缀或按正文摆的；recipe 和 levels 写了 note；
+ * 规则 12 类别和依据：class 是五类之一；basis 写了；真的、今天的位置、按史料摆的，至少有一个出处；
+ * 出处都在这一站的 sources 里；点缀规则的类别只能是点缀或按史料摆的；recipe 和 levels 写了 note；
  * unsure 写成能接在“某某的”后面的一个词组（见 unsureProblem）。
  * “这一站的 sources”只在一处：
  *   complete 的站在 stops/<站>.json 里——stopSources 是那里的 id，那个文件读不出来时给 null，出处在不在就先不查；
@@ -430,7 +432,7 @@ export function checkSceneGrounds(scene: StopScene, file: string, stopSources: s
     }
     sources(grounds.sourceIds, path, what);
     if (known && path.startsWith('dressing[') && !DRESSING_CLASSES.includes(cls)) {
-      out.push(violation(12, file, `${path}.class`, `${what}是点缀规则，类别只能是 dressing（点缀）或 text（按正文摆的），现在是“${cls}”`));
+      out.push(violation(12, file, `${path}.class`, `${what}是点缀规则，类别只能是 dressing（点缀）或 text（按史料摆的），现在是“${cls}”`));
     }
     const unsure = grounds.unsure === undefined ? null : unsureProblem(grounds.unsure);
     if (unsure) out.push(violation(12, file, `${path}.unsure`, `${what}的 unsure ${unsure}`));
@@ -953,6 +955,14 @@ export function checkSceneStrips(scene: StopScene, file: string): Violation[] {
         else if (Math.abs(edge) > FAR_STRIP_EDGE_M) bad(`${at}.at`, `${what}指的“${strip.of}”在沙盘外面，at 要写在沙盘的边上（现在离最近的一条边 ${Math.round(Math.abs(edge))} 米）`);
         else if (!far.basis.includes('题签')) bad(`${at}.at`, `${what}没有挂在沙盘边上正对着“${strip.of}”的那一点上（差 ${Math.round(away)} 米）：远处“${strip.of}”的依据里要有一句说题签为什么挂在这里（句子里要有“题签”两个字）`);
       } else if (away > STRIP_AT_MAX_M) bad(`${at}.at`, `${what}的 at 离它指的“${strip.of}”有 ${Math.round(away)} 米，不能超过 ${STRIP_AT_MAX_M} 米`);
+    }
+
+    // lean（往哪一头偏一格）要同 side 一起写，两样一横一竖；指着远处的题签朝沙盘外面摆，不能写
+    if (strip.lean !== undefined) {
+      const upright = (side: string): boolean => side === 'above' || side === 'below';
+      if (target.kind === 'far') bad(`${at}.lean`, `${what}指的“${strip.of}”在沙盘外面，题签朝外摆，不能写 lean`);
+      else if (strip.side === undefined) bad(`${at}.lean`, `${what}写了 lean（往哪一头偏一格），却没有写 side（摆在哪一边）；两样要一起写`);
+      else if (upright(strip.side) === upright(strip.lean)) bad(`${at}.lean`, `${what}的 side 是 ${strip.side}，lean 是 ${strip.lean}；side 是 above、below 时 lean 写 left 或 right，是 left、right 时写 above 或 below`);
     }
 
     const targetWhen = target.kind === 'thing' ? scene.things.find((t) => t.id === strip.of)?.when : target.kind === 'dressing' ? scene.dressing.find((d) => d.id === strip.of)?.when : undefined;

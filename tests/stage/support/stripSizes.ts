@@ -53,7 +53,7 @@ export function stripSize(text: string, kind: StripSizeKind, seals = 0): { w: nu
 
 /**
  * 一小节要摆的题签，照这么宽的沙盘栏算好大小：就是题签层自己量出来、交给 placeStrips 的那一份
- * （先后就是要紧的先后；side 是场景里写的愿望）。names 不写就用当时的名字。
+ * （先后就是要紧的先后；side、lean 是场景里写的愿望）。names 不写就用当时的名字。
  */
 export function sectionStrips(scene: StopScene, heading: string, paneWidth: number, names: NamesMode = 'ancient'): StripInput['strips'] {
   const kind = stripSizeKind(paneWidth);
@@ -62,6 +62,7 @@ export function sectionStrips(scene: StopScene, heading: string, paneWidth: numb
     ...stripSize(t.text, kind),
     rank,
     side: scene.strips.find((s) => s.id === t.id)?.side,
+    lean: scene.strips.find((s) => s.id === t.id)?.lean,
   }));
 }
 
@@ -77,5 +78,6 @@ export function routeSectionStrips(scene: RouteScene, heading: string, paneWidth
     ...stripSize(t.text, kind, t.stops?.length ?? 0),
     rank,
     side: scene.strips.find((s) => s.id === t.id)?.side,
+    lean: scene.strips.find((s) => s.id === t.id)?.lean,
   }));
 }

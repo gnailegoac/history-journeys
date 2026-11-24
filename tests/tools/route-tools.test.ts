@@ -329,7 +329,7 @@ describe('做全程沙盘的文件的工具自己（用编出来的小数据，�
       expect(back.pixels).toEqual(map.pixels);
     });
 
-    it('一条路画实线还是虚线：有“按正文摆的”一截走到它（正着、倒着都算）就是实线；路有多少公里照沙盘的投影量', { timeout: 30_000 }, () => {
+    it('一条路画实线还是虚线：有“按史料摆的”一截走到它（正着、倒着都算）就是实线；路有多少公里照沙盘的投影量', { timeout: 30_000 }, () => {
       const { scene } = routeMapOf(FIXTURE);
       expect(scene.roads.ways.map((way) => waySolid(scene, way.id))).toEqual([true, false, true, false]);
       const coords = routeCoords(scene.frame);

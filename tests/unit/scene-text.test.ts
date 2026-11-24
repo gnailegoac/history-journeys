@@ -254,7 +254,7 @@ describe('reliefSay', () => {
 
 describe('sectionInfo', () => {
   const RECIPE_NOTE = '平地是修整过的，压平、压低是示意。';
-  const SIZES = '山的高度夸大了 6 倍；摆在沙盘上的模型都放大了，镜头离得越远放得越大，不按比例；河画宽了。';
+  const SIZES = '山的高度夸大了 6 倍；摆在沙盘上的模型都放大了，从越远的地方看放得越大，不按比例；河画宽了。';
 
   it('第一节：时间、题记、说明的四样、没有远处', () => {
     expect(sectionInfo(fixtureScene(), FIRST)).toEqual({
@@ -270,7 +270,7 @@ describe('sectionInfo', () => {
     });
   });
 
-  it('第二节：explain 点到的排在前面，按正文摆的写成“某某的某某”，题签指到的远处带着方向和距离', () => {
+  it('第二节：explain 点到的排在前面，按史料摆的写成“某某的某某”，题签指到的远处带着方向和距离', () => {
     expect(sectionInfo(fixtureScene(), SECOND)).toEqual({
       section: '后来',
       date: '某年秋',
@@ -332,7 +332,7 @@ describe('sectionInfo', () => {
     expect(note.short).toBe('城墙、水位、样水等 5 样是示意；平地修整过；山高夸大 6 倍；模型和河都放大了');
   });
 
-  it('只有一样按正文摆、有一部分说不准的：拼成“某某的某某是示意”', () => {
+  it('只有一样按史料摆、有一部分说不准的：拼成“某某的某某是示意”', () => {
     const scene = sceneWith((s) => {
       for (const item of [s.terrain.edits[0], s.water.levels, s.water.banks, s.water.rivers[0], s.things[0]]) Object.assign(item, { class: 'text', sourceIds: ['f1'] });
       delete s.water.rivers[1].unsure;
@@ -439,7 +439,7 @@ describe('sectionInfo', () => {
 describe('sceneRegister', () => {
   it('五类都给，顺序固定，带页面上的叫法', () => {
     const register = sceneRegister(fixtureScene(), fixtureSources());
-    expect(register.groups.map((group) => `${group.class} ${group.label}`)).toEqual(['real 真的', 'today 今天的位置', 'text 按正文摆的', 'schematic 示意的', 'dressing 点缀']);
+    expect(register.groups.map((group) => `${group.class} ${group.label}`)).toEqual(['real 真的', 'today 今天的位置', 'text 按史料摆的', 'schematic 示意的', 'dressing 点缀']);
   });
 
   it('每样东西归在它的类别下面，按场景文件里写的先后', () => {
@@ -628,7 +628,7 @@ describe('全程沙盘：沙盘旁边的说明（sectionInfo）', () => {
     expect(['全程', '到示例城', '到南山口', '到东港'].map(count)).toEqual([7, 5, 6, 7]);
   });
 
-  it('看来路的一节：到这一站去的路里整截示意的排在最前面，再是水，再是别的（不看 explain）；按正文摆的那一截不算示意，写了 unsure 才算一部分示意', () => {
+  it('看来路的一节：到这一站去的路里整截示意的排在最前面，再是水，再是别的（不看 explain）；按史料摆的那一截不算示意，写了 unsure 才算一部分示意', () => {
     expect(sectionInfo(routeWith(), '到南山口').note.lines[0]).toBe('示例四年示例城到南山口的水路、南溪、新渠、镜湖的西南角、大泽等 6 样是示意。');
     // 这一节的 explain 还点了裁掉的角和抹成海的地方：裁掉的角照样排在水里，抹成海的地方照样排在最后，不提到前面
     expect(sectionInfo(routeWith(), '到东港').note.lines[0]).toBe('示例五年溪口到东港的水路、南溪、新渠、镜湖的西南角、大泽等 7 样是示意。');
@@ -706,7 +706,7 @@ describe('全程沙盘：凭据里“沙盘上的东西”（sceneRegister）', 
     expect(register.groups.map((group) => `${group.label}：${group.entries.map((entry) => entry.id).join(' ')}`)).toEqual([
       '真的：terrain p-ridge',
       '今天的位置：levels coast long mirror p-river p-pass p-port far-north',
-      '按正文摆的：j-river/1 j-port/1',
+      '按史料摆的：j-river/1 j-port/1',
       '示意的：recipe sea-east south-stream cut mirror-sw marsh j-pass/1 j-port/2',
       '点缀：',
     ]);
@@ -862,7 +862,7 @@ describe('content/ 里真实的场景', () => {
           expect(entry.basis, `${path} ${entry.id}`).not.toBe('');
         }
       }
-      // 出处在场景文件自己的 sources 里的（全程沙盘，正文还没写的站）：真的、今天的位置、按正文摆的三类，每一项都对得出至少一条写法
+      // 出处在场景文件自己的 sources 里的（全程沙盘，正文还没写的站）：真的、今天的位置、按史料摆的三类，每一项都对得出至少一条写法
       if (own) {
         for (const group of register.groups.slice(0, 3)) for (const entry of group.entries) expect(entry.cites.length, `${path} ${entry.id}`).toBeGreaterThan(0);
       }

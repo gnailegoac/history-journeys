@@ -39,7 +39,7 @@ import type { PaneMoment } from './helpers';
 
 const KINDS = /^(历史|地理|人文|科学)$/;
 const BASES = /^(他本人的话|史书和当时人的记载|后人的记载|编写时补的)$/;
-const CLASSES = /^(真的|今天的位置|按正文摆的|示意的|点缀)$/;
+const CLASSES = /^(真的|今天的位置|按史料摆的|示意的|点缀)$/;
 
 const FAILED = '沙盘没能摆出来，正文可以照常读。';
 const UNSUPPORTED = '这个浏览器画不出立体的沙盘。换一个新一点的浏览器，或者把手机、平板的系统升级以后再来看。正文可以照常读。';

@@ -37,7 +37,7 @@ import { styleFor } from './style';
 import { buildTable, type Stand } from './table';
 import { buildTerrainMesh, type TerrainMesh } from './terrainMesh';
 import { TRIAL_FRAMES, bigEnoughToTry, chooseTier, createGlideMeter, middle, type GlideMeter, type TierMode } from './tier';
-import { buildWater, rippleFor, rippleShare, type Water } from './water';
+import { buildWater, rippleDense, rippleFor, rippleShare, rippleTurn, widestRiverM, type Water } from './water';
 
 /** 浏览器里的画布主人。 */
 export type BrowserHost = StageHost<HTMLElement, HTMLCanvasElement, WebGLRenderer>;
@@ -207,6 +207,8 @@ class ThreeStopView implements StopStageView {
   private look: Look | null = null;
   /** 水纹朝哪边、平常多密，是照哪一小节的镜头定的（见 drawFrame 里写了 calmUnderPx 的那一段）。 */
   private rippleOf: Look | null = null;
+  /** 最宽的一条河画多宽（米）：写了 calmUnderPx 的沙盘头一回用到时算一次记着，不每一帧算。还没算是 null。 */
+  private widestM: number | null = null;
   /** 现在摆着的题签：哪一小节的、哪几条。 */
   private stripsFor: string;
   private shownStrips: SceneStrip[] = [];
@@ -1273,19 +1275,21 @@ class ThreeStopView implements StopStageView {
     fog.far = fogFar;
 
     // 写了 calmUnderPx 的沙盘：水纹留几成照这一帧真的镜头算——摆好的、滑到半路的、读者自己推近拉远的都是这一条。
-    // 一道也不剩的那一帧，朝向和疏密换成要去的那一节的（这时候换，看不见）
+    // 一道也不剩的那一帧，朝向和疏密换成要去的那一节的（这时候换，看不见）。
+    // 每一帧都走：最宽的河只算一次，两个数各算各的，不另造数组和东西
     const water = this.scene.water;
     const from = this.rippleOf;
     if (from && 'dry' in water && water.calmUnderPx) {
-      const share = rippleShare(water, distance, camera.fov);
+      const share = rippleShare(water, distance, camera.fov, (this.widestM ??= widestRiverM(water)));
       const of = share || !this.look ? from : (this.rippleOf = this.look);
-      const ripple = rippleFor(of.section.camera.bearing, of.distanceM, share);
-      b.water.setRipple(ripple.dense, ripple.turnDeg);
+      b.water.setRipple(rippleDense(of.distanceM, share), rippleTurn(of.section.camera.bearing));
     }
 
-    // 模型的大小、题签指着的点，都按这一帧真的远近来（不是按要去的那一节，也不是按起步的时候）
+    // 模型的大小、题签指着的点，都按这一帧真的远近来（不是按要去的那一节，也不是按起步的时候）。
+    // 照远近换着显的东西（浮桥的几套）：读者动过镜头（moved）才在界线上下留着上一帧的那一套；程序摆的画面——摆好的一节、
+    // 滑动的一路上——只照远近挑，所以同一个摆好的画面不管是从哪一节滑过来的、还是直接摆的，都是同一套
     const D = equivalentDistance(distance, camera.fov, size.height);
-    if (models.apply(this.shownSection, this.levelM, D)) sun.shadow.needsUpdate = true;
+    if (models.apply(this.shownSection, this.levelM, D, this.moved)) sun.shadow.needsUpdate = true;
     // 显出来的东西没变、只是大小变了：镜头还在动就先不重画影子（一路上每一帧都重画太慢），
     // 直接摆到位的这一帧当场补，别的等镜头停下来一小会儿以后补一次
     if (!sun.shadow.needsUpdate && this.shadowStale(D)) {

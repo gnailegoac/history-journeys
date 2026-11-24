@@ -489,9 +489,9 @@ function grounded(scene: RouteScene): { path: string; what: string; grounds: Gro
 
 /**
  * 规则 12 类别和依据（全程沙盘）：地形、地形的整理、每一处抹成海的地方、海面、海岸、每条河、每个湖和从它里面裁掉的角、
- * 每片只染水色的水、每个地名点、每个远处、每一趟路的每一截，都写了 class 和 basis；class 是真的、今天的位置、按正文摆的、
- * 示意的四类之一（全程沙盘上没有点缀）；真的、今天的位置、按正文摆的，至少有一个出处；出处都在场景文件自己的 sources 里；
- * 路的每一截只能是按正文摆的（画实线）或示意的（画虚线）；只染水色的水、抹成海的地方、从湖面里裁掉的角只能是示意的；
+ * 每片只染水色的水、每个地名点、每个远处、每一趟路的每一截，都写了 class 和 basis；class 是真的、今天的位置、按史料摆的、
+ * 示意的四类之一（全程沙盘上没有点缀）；真的、今天的位置、按史料摆的，至少有一个出处；出处都在场景文件自己的 sources 里；
+ * 路的每一截只能是按史料摆的（画实线）或示意的（画虚线）；只染水色的水、抹成海的地方、从湖面里裁掉的角只能是示意的；
  * recipe 和 levels 写了 note；unsure 的写法和站点沙盘一样；sources 里 id 不重复，依据是三种之一，出处写了。
  */
 export function checkRouteGrounds(scene: RouteScene, file: string): Violation[] {
@@ -517,7 +517,7 @@ export function checkRouteGrounds(scene: RouteScene, file: string): Violation[] 
     if (!isClass) bad(`${path}.class`, `${what}的类别是“${cls}”，只能是 ${CLASS_LIST}之一`);
     else if (cls === 'dressing') bad(`${path}.class`, `${what}的类别是 dressing（点缀）；全程沙盘上没有点缀，只用另外四类`);
     else if (only && !(only as readonly string[]).includes(cls)) {
-      const allowed = only.length === 1 ? SCHEMATIC_ONLY : '只能是 text（按正文摆的，画实线）或 schematic（示意的，画虚线）';
+      const allowed = only.length === 1 ? SCHEMATIC_ONLY : '只能是 text（按史料摆的，画实线）或 schematic（示意的，画虚线）';
       bad(`${path}.class`, `${what}的类别${allowed}，现在是“${cls}”`);
     }
     if (grounds.basis.trim() === '') bad(`${path}.basis`, `${what}没有写依据：为什么这样画，一两句话`);

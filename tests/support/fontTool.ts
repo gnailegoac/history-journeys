@@ -59,7 +59,7 @@ export const RECIPE = 1;
  *       一站自己的 …-<站>-more 要各带一个字，src/ui/StopPage.tsx 按站去取。
  *   二、一站自己的头一个文件带着 unicode-range，index.html 里没法预先声明它（index.html 只有一份）：
  *       这一站一打开，它比头两个文件晚到一步，要看一看那一会儿的样子，决定要不要由页面去催。
- *   三、tests/e2e/fonts.spec.ts 里“第三个字体文件什么时候取”那一项是照三个文件写的，要照新的文件重写。
+ *   三、tests/e2e/fonts.spec.ts 里“第三个字体文件什么时候取”那一项是照现在的四个文件写的，要照新的文件重写。
  * 做完这三件，再改成 true、跑 npm run fonts，并把 tests/fonts/font-files.test.ts 里守着这个开关的那一项删掉。
  * 规矩见 docs/data-spec.md“随站的字体·大小”。
  */
@@ -190,7 +190,7 @@ export function squeezeProblems(item: Pick<FontFileRecord, 'file' | 'source' | '
 /**
  * 哪几个文件在 index.html 里预先声明（浏览器不等样式表读完就去取）：按装的是哪一组字说。
  * 是黑体和头一个宋体文件：页面一打开，标题、标签、按钮要黑体，成句的话要宋体。楷体只有沙盘上的题签和印在用，
- * 题签摆出来的时候浏览器才取，不预先声明。改了这里，index.html 里的两行跟着改（构建以后的测试守着两头一致）。
+ * 不预先声明：页面知道要摆沙盘了，才叫浏览器去取（src/ui/StagePane.tsx）。改了这里，index.html 里的两行跟着改（构建以后的测试守着两头一致）。
  */
 export const PRELOAD_GROUPS: readonly string[] = ['sans', 'song'];
 
@@ -406,8 +406,9 @@ export function planFonts(
     first(home, label, text);
   };
   /**
-   * 用黑体排的。同一个字在头一组宋体里也放一份，道理和楷体一样：黑体文件还在路上、或者黑体的名单在哪里漏了一个字的时候，
-   * 这个字落到宋体上，不能为它去下载点开才要的那个文件。（这些字本来也都在头一组宋体里：两个宋体文件不因为黑体多一个字。）
+   * 用黑体排的。同一个字在头一组宋体里也记一份。道理和楷体不一样：楷体的文件还在路上时题签落到随站的宋体上，
+   * 黑体的名单（--font-sans）里没有宋体，黑体还在路上时顶着的是设备上的黑体。记这一份的规矩是：黑体的字不管点没点开都归头一组
+   * （小注的标题点开才看得见，也在头一组）；现在的内容里这些字本来就都在头一组宋体里，文件没有因此多一个字。
    */
   const sans = (home: string, label: string, text: string | undefined | null): void => {
     put('sans', label, text);
@@ -425,7 +426,7 @@ export function planFonts(
   for (const label of Object.values(SCENE_CLASS_LABEL)) sans('common', '沙盘上东西的类别名', label);
   put('kai', '空格', ' ');
   put('sans', '空格', ' ');
-  // 一行黑体的字放不下、被截掉的时候（站名、沙盘旁边的时间只占一行的地方），浏览器自己在行尾添一个省略号：黑体文件里有它，
+  // 一行黑体的字放不下、被截掉的时候（现在只有沙盘旁边的时间那一行会截，.stage-date），浏览器自己在行尾添一个省略号：黑体文件里有它，
   // 这个省略号才是黑体画的。没有的话 Chromium 改画三个半角的句点，用的是设备自带的字体（在浏览器里看过）。
   // 题签不截，楷体的文件里不放省略号。
   sans('common', '一行黑体截掉时行尾的省略号', '…');
@@ -956,9 +957,24 @@ export function recordIsFresh(plan: FontPlan, record: FontRecord, made: Record<s
   return { fresh: true, why: '' };
 }
 
+/** 记录里照文件写下来的几样（粗细、排版功能、提示信息、字节数、字数、字形数）：从一个文件的字节里再读一遍。 */
+function readFacts(bytes: Uint8Array, tables: FontTables): Record<'weight' | 'features' | 'hinting' | 'bytes' | 'count' | 'glyphs', string | number> {
+  return {
+    weight: weightOf(tables),
+    features: [...new Set([...featuresOf(tables, 'GSUB'), ...featuresOf(tables, 'GPOS')])].sort().join(' '),
+    hinting: hintingOf(tables),
+    bytes: bytes.length,
+    count: [...charactersOf(tables)].length,
+    glyphs: glyphCountOf(tables),
+  };
+}
+const FACT_NAMES = { weight: '粗细', features: '排版功能', hinting: '提示信息', bytes: '字节数', count: '字数', glyphs: '字形数' } as const;
+
 /**
  * 仓库里的字体文件对着记录和现在的做法查一遍（做字体的工具拿它定“要不要重做”）：每个文件都在，记号和记录里的一样，
- * 读出来的名称、提示信息合现在的做法（fontFileProblems）。read 给出一个文件的字节，不在是 null。都对是空的。
+ * 读出来的名称、提示信息合现在的做法（fontFileProblems）；记录里照文件写下来的那几样——粗细、排版功能、提示信息、字节数、
+ * 字数、字形数——和文件里再读出来的一样（记录被手改过、合并坏了的时候，文件的记号还对得上，这几样却不对：
+ * 不查的话，测试说对不上，工具却说“已经是新的”）。read 给出一个文件的字节，不在是 null。都对是空的。
  */
 export function shippedFileProblems(record: FontRecord, read: (file: string) => Uint8Array | null): string[] {
   const problems: string[] = [];
@@ -966,7 +982,15 @@ export function shippedFileProblems(record: FontRecord, read: (file: string) => 
     const bytes = read(item.file);
     if (!bytes) problems.push(`${item.file} 不在`);
     else if (sha256(bytes) !== item.sha256) problems.push(`${item.file} 和记录对不上（记号不一样）`);
-    else problems.push(...fontFileProblems(item, readWoff2(bytes).tables));
+    else {
+      const { tables } = readWoff2(bytes);
+      problems.push(...fontFileProblems(item, tables));
+      const inFile = readFacts(bytes, tables);
+      const inRecord = { weight: item.weight, features: [...item.features].join(' '), hinting: item.hinting, bytes: item.bytes, count: item.count, glyphs: item.glyphs };
+      for (const key of Object.keys(FACT_NAMES) as (keyof typeof FACT_NAMES)[]) {
+        if (inRecord[key] !== inFile[key]) problems.push(`${item.file} 的记录和文件对不上：${FACT_NAMES[key]}记录里写的是 ${inRecord[key] === '' ? '（没有）' : inRecord[key]}，文件里是 ${inFile[key] === '' ? '（没有）' : inFile[key]}`);
+      }
+    }
   }
   return problems;
 }
@@ -998,7 +1022,7 @@ export function fontFileProblems(item: Pick<FontFileRecord, 'file' | 'family' | 
   if (!(names.get(10) ?? '').startsWith(subsetSentence(source))) say(`名称表第 10 条（说明）开头不是“${subsetSentence(source)}”`);
   for (const id of [13, 14]) if (!names.get(id)) say(`名称表里没有第 ${id} 条（许可）`);
   for (const id of NAMING_IDS) for (const word of RESERVED_WORDS) if ((names.get(id) ?? '').includes(word)) say(`名称表第 ${id} 条里有原字体保留的名字“${word}”`);
-  // 题签和首页卡片上的名字是竖着写的：每个字往下走多少，靠这两张表
+  // 题签是竖着写的：每个字往下走多少，靠这两张表
   if (item.source === 'kai') for (const tag of ['vhea', 'vmtx']) if (!tables.has(tag)) say(`没有 ${tag} 这张表（竖着写的字靠它定每个字往下走多少）`);
   // 留没留提示信息：读文件自己，对着做法里写的
   const hinting = hintingOf(tables);

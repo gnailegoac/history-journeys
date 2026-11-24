@@ -33,6 +33,7 @@ import type { MutableRefObject, ReactNode, Ref } from 'react';
 import type { Loaded } from '../app/useLoaded';
 import { sectionHeadings, sectionInfo } from '../domain';
 import type { SectionInfo, TableScene } from '../domain';
+import { SHIPPED_FONTS } from '../fonts/shipped';
 import type { NamesMode, RouteTable, StageInsets, StageOptions, StageReadout, StageTable, StageTier, StageViewInfo, StopStageView, StopTable } from '../stage/types';
 import { NotePanel, SectionCaption } from './SectionCaption';
 import { cameByDive, preloadStop, watchDives } from './dive';
@@ -123,6 +124,15 @@ export function StagePane({ onStopPage, table, section, route, stopId, marks, wr
     if (reading) openedAt.current = Date.now();
   }, [reading]);
   const late = useLate(reading, LOADING_LINE_AFTER_MS);
+
+  // 题签用的楷体是这位人物自己的字，不预先声明：平常要等题签摆出来、浏览器排到它了才去取，那时图片刚显出来，
+  // 没有自带楷体的平板上，题签会先是宋体、过半秒才换成楷体。所以一知道这一栏要摆沙盘（数据读出来了，图片和沙盘程序都还没到），
+  // 就叫浏览器先把它取来；取过一次浏览器自己记着。没有沙盘可摆的栏不取，没有这一栏的页面（“来源”页、没找到的页面）更不取。
+  // 浏览器没有 document.fonts、或者没取成，都不要紧：题签摆出来的时候它照旧会去取。
+  const tableKnown = source.state === 'ready' && !!source.value;
+  useEffect(() => {
+    if (tableKnown) void document.fonts?.load(`1em "${SHIPPED_FONTS.kai.family}"`).catch(() => {});
+  }, [tableKnown]);
 
   if (source.state === 'loading') {
     return (

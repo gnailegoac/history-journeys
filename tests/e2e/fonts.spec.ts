@@ -34,7 +34,8 @@
 // 三、从打开网站走到最后，没有一个请求出了网站自己的地址。
 // 四、第三个字体文件（点开才看得见的字）什么时候取：首页、人物页上等五秒也不取；还没写的站上等三秒半也不取；
 //     写好的站上，从点开算起不到两秒不取，字体到齐以后五秒之内自己取来，只取一次；以后点开什么、换到哪一站，都不再取。
-//     黑体和头一个宋体文件各只取一次（index.html 里预先声明的那一份，样式表接着用）；楷体的文件不预先声明，题签摆出来的时候才取，
+//     黑体和头一个宋体文件各只取一次（index.html 里预先声明的那一份，样式表接着用）；楷体的文件不预先声明，页面一知道
+//     沙盘栏要摆沙盘就叫浏览器去取（不等图片、不等沙盘程序；另有一项把这两样压住来查），题签摆出来不再取第二次，
 //     也只取一次。这一项不用沙盘的替身：替身上那几行给测试看的字
 //     不在头两个文件里，有它在，第三个文件一打开就会被取来。用的是“只放图片”的样子。
 //     “来源”页上的话是点进那一页才看得见的，它们独有的字在第三个文件里（tests/support/fontTool.ts 的 PRESSED_SOURCES）：
@@ -43,7 +44,7 @@
 // 五、网慢的时候：把黑体文件压住不给，过一秒看，沙盘栏的按钮、底下“问讲解员”的按钮、标题上都有字
 //    （先用别的字体顶着，不空着），正文也有字；放行以后换成随站的黑体。把头两个文件（黑体和头一个宋体）都压住，也一样。
 //     楷体的文件不预先声明，总比页面晚到，这是平常的样子：把它压住，题签上照样有字（设备上有楷体就先用它，没有就先用随站的宋体），
-//     放行以后换成随站的楷体。各拍一张照（拍的是字体还没到的样子）。
+//     放行以后换成随站的楷体；换的前后每一条题签还在原处、还是那么大（差不过半个像素）。各拍一张照（拍的是字体还没到的样子）。
 //
 // 照片存到 tests/shots/fonts/（不进仓库）；想另存一处，设环境变量 SHOTS_DIR。
 // 这些只证明 Chromium 里是这样。iPad 上的 Safari 这台机器跑不了。
@@ -743,7 +744,7 @@ test('第三个字体文件：首页、人物页、还没写的站上不取；�
   expect(fonts.of('yanlu-song-more'), `第三个字体文件只该取一次（${fonts.all().join(' ')}）`).toHaveLength(1);
   expect(fonts.of('yanlu-sans'), `黑体文件只该取一次（${fonts.all().join(' ')}）`).toHaveLength(1);
   expect(fonts.of('yanlu-song'), `头一个宋体文件只该取一次（${fonts.all().join(' ')}）`).toHaveLength(1);
-  // 楷体的文件不预先声明：首页上全程沙盘的题签摆出来的时候才取，也只取一次
+  // 楷体的文件不预先声明：首页一知道要摆全程沙盘就去取，题签摆出来不再取，一共只取一次
   expect(fonts.of('yanlu-kai'), `楷体文件只该取一次（${fonts.all().join(' ')}）`).toHaveLength(1);
   console.log(
     `${figureId}/${stopId}：第三个字体文件是点开这一站以后 ${asked - clicked} 毫秒、字体到齐以后 ${took} 毫秒取的，以后没有再取；` +
@@ -877,7 +878,7 @@ for (const slow of [
   { name: '黑体文件来得慢', files: ['yanlu-sans'], shot: 'slow-sans', late: [SANS] },
   { name: '头两个字体文件都来得慢', files: ['yanlu-sans', 'yanlu-song'], shot: 'slow-both', late: [SANS, SONG] },
 ]) {
-  test(`${slow.name}（压住不给）：过了一秒，按钮和标题上都有字，先用别的字体顶着；放行以后换成随站的黑体`, async ({ page, browser, baseURL }) => {
+  test(`${slow.name}（压住不给）：过了一秒，按钮和标题上都有字，先用别的字体顶着；放行以后按钮和标题换成随站的黑体`, async ({ page, browser, baseURL }) => {
     test.setTimeout(180_000);
     await page.setViewportSize({ width: 1440, height: 900 });
     // 先不压，找到有沙盘的那一站
@@ -955,12 +956,23 @@ test('楷体文件来得慢（它不预先声明，总比页面晚到）：题�
     const strips = fresh.locator('.stage-still-host .strip');
     await expect(stagePane(fresh)).toHaveAttribute('data-stage-picture', 'still', { timeout: 60_000 });
     await expect.poll(() => strips.evaluateAll((items) => items.filter((item) => getComputedStyle(item).visibility === 'visible').length), { message: '题签该挂出来（楷体的文件压着也一样）' }).toBeGreaterThan(0);
-    // 题签摆出来了，浏览器才来要楷体的文件（它不预先声明）：压着没放
-    await expect.poll(() => gate.held(), { message: '题签摆出来以后，浏览器该来要楷体的文件' }).toBe(1);
+    // 楷体的文件浏览器来要过了（它不预先声明；页面一知道要摆沙盘就叫浏览器去取，题签摆出来的时候不再要第二次）：压着没放，只有一次
+    await expect.poll(() => gate.held(), { message: '题签摆出来以后，浏览器该来要过楷体的文件' }).toBe(1);
     await fresh.waitForTimeout(1_000);
+    expect(gate.held(), '楷体的文件只要了一次（页面先要的那一次和题签引来的是同一次）').toBe(1);
 
     const STRIP_WORDS = '.stage-still-host .strip';
-    const boxes = (): Promise<string[]> => strips.evaluateAll((items) => items.filter((item) => getComputedStyle(item).visibility === 'visible').map((item) => { const box = item.getBoundingClientRect(); return `${item.textContent}：${Math.round(box.width * 2) / 2} × ${Math.round(box.height * 2) / 2}`; }));
+    /** 显出来的每一条题签：写的什么，在哪，多大（像素，不取整）。 */
+    const boxes = (): Promise<{ text: string; x: number; y: number; width: number; height: number }[]> =>
+      strips.evaluateAll((items) =>
+        items
+          .filter((item) => getComputedStyle(item).visibility === 'visible')
+          .map((item) => {
+            const box = item.getBoundingClientRect();
+            return { text: item.textContent ?? '', x: box.x, y: box.y, width: box.width, height: box.height };
+          }),
+      );
+    const said = (list: { text: string; width: number; height: number }[]): string => list.map((item) => `${item.text}：${Math.round(item.width * 10) / 10} × ${Math.round(item.height * 10) / 10}`).join('、');
     const early = await fontsOfRuns(fresh, client, STRIP_WORDS, false);
     const earlyBoxes = await boxes();
     expect(early.length, '题签上的字').toBeGreaterThan(0);
@@ -987,8 +999,86 @@ test('楷体文件来得慢（它不预先声明，总比页面晚到）：题�
         { timeout: 30_000, message: '楷体的文件放行以后，题签没有换成随站的楷体' },
       )
       .toBe(true);
-    const lateBoxes = await boxes();
-    console.log(`楷体文件来得慢：放行以后，${saidOf(late)}。题签的大小，换字体以前：${earlyBoxes.join('、')}；以后：${lateBoxes.join('、')}${earlyBoxes.join() === lateBoxes.join() ? '（一样）' : '（不一样）'}`);
+    // 换了字体，题签不动：每一条还在原处，还是那么大（差不过半个像素）。换完字体页面要重排一遍，量一次不算数，等到量出来对上为止
+    const moved = (now: { text: string; x: number; y: number; width: number; height: number }[]): string[] => {
+      if (now.length !== earlyBoxes.length) return [`题签原来 ${earlyBoxes.length} 条，现在 ${now.length} 条`];
+      return now.flatMap((item, i) => {
+        const was = earlyBoxes[i];
+        const same = item.text === was.text && Math.abs(item.x - was.x) <= 0.5 && Math.abs(item.y - was.y) <= 0.5 && Math.abs(item.width - was.width) <= 0.5 && Math.abs(item.height - was.height) <= 0.5;
+        return same ? [] : [`“${was.text}”原来在 (${was.x.toFixed(1)}, ${was.y.toFixed(1)})、${was.width.toFixed(1)} × ${was.height.toFixed(1)}，现在“${item.text}”在 (${item.x.toFixed(1)}, ${item.y.toFixed(1)})、${item.width.toFixed(1)} × ${item.height.toFixed(1)}`];
+      });
+    };
+    let lateBoxes = earlyBoxes;
+    await expect.poll(async () => moved((lateBoxes = await boxes())), { message: '楷体的文件到了以后，题签挪了地方或者变了大小（差过了半个像素）' }).toEqual([]);
+    console.log(`楷体文件来得慢：放行以后，${saidOf(late)}。题签的大小，换字体以前：${said(earlyBoxes)}；以后：${said(lateBoxes)}（一样，差不过半个像素）`);
+  } finally {
+    await context.close();
+  }
+});
+
+/** 沙盘程序那一块代码的网址：构建出来叫 assets/engine-一串字符.js；对着开发服务跑时是源文件。和 pane-stills.spec.ts 里的是同一句。 */
+const ENGINE_REQUEST = /\/engine(-[\w-]+)?\.(js|ts)(\?.*)?$/;
+/** 图片的网址：每一小节的定格图、先画好的地面都是图片文件。 */
+const PICTURE_REQUEST = /\.(jpe?g|png|webp)(\?.*)?$/;
+
+test('楷体的文件先要：一知道这一栏要摆沙盘，页面就叫浏览器去取，不等图片、也不等沙盘程序——把图片和沙盘程序都压住，栏上还没有画面、题签一条也没摆，楷体的文件照样来要了；放行以后题签是随站的楷体，文件一共只要一次', async ({ page, browser, baseURL }) => {
+  test.setTimeout(180_000);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  // 先不压，找到有沙盘的那一站
+  const { figureId, found } = await openFigureWithTable(page, fakeUrl('#/'));
+  expect(found, '要有一站有自己的沙盘，这一项才查得到东西').not.toBeNull();
+  if (!found) return;
+  await page.goto('about:blank');
+
+  // 另开一个干净的页面（什么都没存着），压住图片和沙盘程序，从头打开这一站。用真的沙盘，指定完整的一档：读者平常看到的就是它
+  const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, reducedMotion: 'reduce', baseURL });
+  const fresh = await context.newPage();
+  try {
+    let open: () => void = () => {};
+    const gate = new Promise<void>((resolve) => {
+      open = resolve;
+    });
+    const held: string[] = [];
+    await fresh.route(
+      (url) => PICTURE_REQUEST.test(url.pathname) || ENGINE_REQUEST.test(url.pathname),
+      async (route) => {
+        held.push(new URL(route.request().url()).pathname.split('/').pop() ?? '');
+        await gate;
+        await route.continue().catch(() => {});
+      },
+    );
+    const fonts = watchFonts(fresh);
+    const client = await debugger_(fresh);
+    await fresh.goto(realUrl(`#/${figureId}/${found.stopId}`, 'full'), { waitUntil: 'commit' });
+
+    // 图片和沙盘程序都压着：楷体的文件照样来要了。没有页面里那一句“先去取”的话，它要等题签摆出来才要，这里就等不到
+    await expect
+      .poll(() => fonts.of('yanlu-kai').length, { timeout: 30_000, message: '图片和沙盘程序都压着的时候，页面该已经叫浏览器去取楷体的文件了（它不等题签摆出来）' })
+      .toBe(1);
+    // 这时候栏上什么画面都没有，题签一条也没有摆出来：这一次不是排题签引来的
+    const atAsk = await fresh.evaluate(() => ({
+      picture: document.querySelector('.stage-pane')?.getAttribute('data-stage-picture') ?? null,
+      strips: Array.from(document.querySelectorAll('.stage-pane .strip')).filter((strip) => getComputedStyle(strip).visibility === 'visible').length,
+    }));
+    expect(atAsk, '楷体的文件来要的时候，栏上还没有画面，也没有题签').toEqual({ picture: 'none', strips: 0 });
+    await expect.poll(() => held.length, { message: '图片或者沙盘程序该来要过了（压着没放）：不然这一项没有压住什么' }).toBeGreaterThanOrEqual(1);
+    const heldAtAsk = [...held];
+
+    // 放行：图片出来，题签摆出来，是随站的楷体画的；楷体的文件前后只要了一次
+    open();
+    const STRIP_WORDS = '.stage-pane .strip';
+    let drawn: { run: Run; fonts: UsedFont[] }[] = [];
+    await expect
+      .poll(
+        async () => {
+          drawn = await fontsOfRuns(fresh, client, STRIP_WORDS, false);
+          return drawn.length > 0 && drawn.every((item) => item.fonts.length > 0 && item.fonts.every((font) => isShipped(font, KAI)));
+        },
+        { timeout: 60_000, message: '放行以后，题签该摆出来，是随站的楷体画的' },
+      )
+      .toBe(true);
+    expect(fonts.of('yanlu-kai').length, '楷体的文件一共只要一次（先要的那一次，题签摆出来不再要）').toBe(1);
+    console.log(`楷体的文件先要：打开 ${fonts.of('yanlu-kai')[0]} 毫秒时来要的，那时压着的是 ${heldAtAsk.join('、')}；放行以后题签 ${drawn.length} 段字都是随站的楷体，文件只要了一次`);
   } finally {
     await context.close();
   }

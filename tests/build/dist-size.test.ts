@@ -256,7 +256,7 @@ describe('随站的字体在构建出来的网站里', () => {
     expect(Object.keys(site.fonts)).toHaveLength(committed.length);
     expect(built.files.map((item) => item.file)).toEqual(committed.map((item) => item.file));
     // 一打开就下载的（index.html 里预先声明了的）：正好是记录里说要预先声明的那几个——黑体和头一个宋体文件
-    //（楷体的文件不带 unicode-range，也不预先声明：只有沙盘上的题签在用，题签摆出来的时候浏览器才取）
+    //（楷体的文件不带 unicode-range，也不预先声明：只有沙盘上的题签在用，页面知道要摆沙盘了才叫浏览器去取）
     expect(built.files.filter((item) => item.first).map((item) => item.file)).toEqual(committed.filter((item) => item.preload).map((item) => item.file));
     expect(built.files.filter((item) => item.first).map((item) => item.file).sort()).toEqual(['yanlu-sans.woff2', 'yanlu-song.woff2']);
     // 大小量的是 dist/ 里的文件；哪几个算首次打开要下载的、各归哪一站，照记录（宋体按站拆开以后按站分开算）

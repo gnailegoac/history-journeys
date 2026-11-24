@@ -399,6 +399,10 @@ for (const size of WINDOWS) {
     await expect(pane.locator('.stage-note-panel')).toBeVisible();
     await small('最后一节，“说明”开着');
     expect(await of('.stage-note-lines p'), '展开的说明').toMatchObject({ size: 15, family: 'Yanlu Song', weight: '400' });
+    // 那一块的抬头：标题是黑体；后面小节的名字是一个名字，也是黑体，小一号、颜色淡一些
+    expect(await of('.stage-note-panel-title'), '展开的说明的标题').toEqual({ size: 15, family: 'Yanlu Sans', weight: '500', colour: FRAME_INK });
+    expect(await of('.stage-note-panel-title span'), '展开的说明的标题后面小节的名字').toEqual({ size: 14, family: 'Yanlu Sans', weight: '500', colour: FRAME_SOFT });
+    expect(await pane.locator('.stage-note-panel-title span').first().textContent(), '标题后面写的是这一小节的名字').toBe(headings[headings.length - 1]);
 
     // 只放图片：那一行话；读者要来的沙盘：“换回图片”
     await openStop(page, size, PANE_QUERIES.only);

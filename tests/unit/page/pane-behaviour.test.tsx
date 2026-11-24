@@ -335,7 +335,7 @@ describe('沙盘栏 + 替身 + 题签层', () => {
     const shape = () => ({ cls: page.pane().className, w: page.pane().style.getPropertyValue('--pane-w'), scale: page.q('.stage-scale-label')?.textContent, bar: page.q('.stage-scale-bar')?.style.width });
     /** 页面写在栏上的题记字号：（栏里面的宽度 − 21）÷ 40 往下取整，最小 14、最大 19 像素。 */
     const lineSize = () => page.pane().style.getPropertyValue('--line-size');
-    // 假的页面上这一栏 800 像素宽：宽的排法，题记用楷体；比例尺是沙盘报来的那一段。
+    // 假的页面上这一栏 800 像素宽：宽的排法，题记 19px（题记是一句话，多大都是宋体）；比例尺是沙盘报来的那一段。
     expect(shape()).toEqual({ cls: 'stage-pane is-pinned is-wide', w: '800px', scale: '2 公里', bar: '96px' });
     expect(lineSize()).toBe('19px');
     // 把栏改成这么宽，再告诉页面窗口的大小变了。
@@ -345,7 +345,7 @@ describe('沙盘栏 + 替身 + 题签层', () => {
       win.fire('resize');
       await page.until(() => Number(attr(fake(), 'data-fake-resizes')) > before);
     };
-    // 660：还是宽的排法，题记不到 16px，不用楷体。
+    // 660：还是宽的排法，题记小下来，不到 16px。
     await resizeTo(660);
     expect(shape()).toEqual({ cls: 'stage-pane is-pinned is-wide', w: '660px', scale: '2 公里', bar: '96px' });
     // (660 − 21) ÷ 40 = 15.975：往下取整是 15，不是四舍五入的 16（16 × 40 = 640，这一行只有 640 − 1）

@@ -71,7 +71,7 @@ export function HomePage() {
   );
 }
 
-// 卡片：头一行是名字（黑体）、朝代和年份，还没写的在这一行的右头有一个“还没写”的小标签；下面是一句话介绍。
+// 卡片：头一行是名字（黑体）、朝代和年份（年份自己一小块，不拆开），还没写的在这一行的右头有一个“还没写”的小标签；下面是一句话介绍。
 // 可以点进去的是一块白底的板，最后一行是“从第一站读起”；还没写的只是单子上的一行，点不了。卡片上不记读者读过什么。
 function Card({ card }: { card: FigureCard }) {
   const body = (
@@ -79,7 +79,7 @@ function Card({ card }: { card: FigureCard }) {
       <span className="card-head">
         <span className="card-name">{card.name}</span>
         <span className="card-era">
-          {card.era} · {card.years}
+          {card.era} · <span className="card-years">{card.years}</span>
         </span>
         {!card.available && <span className="tag">{NOT_WRITTEN}</span>}
       </span>

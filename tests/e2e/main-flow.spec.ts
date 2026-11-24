@@ -854,6 +854,46 @@ test('竖着拿的平板上，“说明”比它那一块高的时候：在那�
     for (let i = 0; i < shot.width * shot.height; i++) sum += (shot.pixels[i * shot.channels] + shot.pixels[i * shot.channels + 1] + shot.pixels[i * shot.channels + 2]) / 3;
     return sum / (shot.width * shot.height);
   };
+  /**
+   * 展开的那一块底边的画法，从页面算出来的样式里读：两层各是什么、多高。
+   * 上面一层（跟着字滚的）由透明到白，白从 coverWhiteFrom（这一层高度的百分之几）起；下面一层（钉在底边的）是影子，
+   * 由透明到 shadeAlpha 那么深的 shadeInk（0 黑，255 白）。sampleAt 是 bottomEdge() 量的那两排像素离影子的底边多远
+   *（影子铺到边线的里面为止，所以要减掉下边线的宽）；lineHeight 是说明里一行字的高。
+   */
+  const cueOf = (): Promise<{ attachment: string; layers: number; overflow: string; ground: string; coverHeight: number; coverWhiteFrom: number; shadeHeight: number; shadeAlpha: number; shadeInk: number; sampleAt: number; lineHeight: number }> =>
+    panel.evaluate((el) => {
+      const style = getComputedStyle(el);
+      const colours = Array.from(style.backgroundImage.matchAll(/rgba?\(([^)]+)\)(?:\s+([\d.]+)%)?/g)).map((found) => {
+        const parts = found[1].split(/[,/\s]+/).filter((part) => part !== '').map(Number);
+        return { ink: (parts[0] + parts[1] + parts[2]) / 3, alpha: parts.length > 3 ? parts[3] : 1, stop: found[2] === undefined ? null : Number(found[2]) };
+      });
+      const heights = style.backgroundSize.split(',').map((size) => parseFloat(size.trim().split(/\s+/)[1] ?? ''));
+      const line = el.querySelector('.stage-note-lines p');
+      return {
+        attachment: style.backgroundAttachment,
+        layers: style.backgroundImage.split('linear-gradient(').length - 1,
+        overflow: style.overflowY,
+        ground: style.backgroundColor,
+        coverHeight: heights[0],
+        coverWhiteFrom: colours[1]?.stop ?? 100,
+        shadeHeight: heights[1],
+        shadeAlpha: colours[3]?.alpha ?? 0,
+        shadeInk: colours[3]?.ink ?? 255,
+        sampleAt: 3 - parseFloat(style.borderBottomWidth),
+        lineHeight: line ? parseFloat(getComputedStyle(line).lineHeight) : 0,
+      };
+    });
+  /** 这样画对不对（放得下的一节和放不下的一节都照这个查）。 */
+  const expectCue = (cue: Awaited<ReturnType<typeof cueOf>>, where: string): void => {
+    // 两层，上面一层跟着字滚（local），下面一层钉在这一块的底边（scroll）；底是板的白
+    expect({ attachment: cue.attachment, layers: cue.layers, overflow: cue.overflow, ground: cue.ground }, `${where}：展开的那一块的画法`).toEqual({ attachment: 'local, scroll', layers: 2, overflow: 'auto', ground: 'rgb(255, 255, 255)' });
+    // 影子至少有一行字那么高：底边正好停在一段话的末尾、没有哪一行被切掉的时候，也看得出是“下面还有”，不像这块板自己的边
+    expect(cue.shadeHeight, `${where}：底边那一道影子 ${cue.shadeHeight} 像素高，说明里一行字 ${cue.lineHeight} 像素高，影子不该比一行字矮`).toBeGreaterThanOrEqual(cue.lineHeight);
+    expect(cue.lineHeight, `${where}：说明里一行字的高`).toBeGreaterThan(0);
+    // 跟着字滚的那一层，全白的那一截不比影子矮：滚到底、或者字不用滚的时候，白把影子整个盖住
+    const white = cue.coverHeight * (1 - cue.coverWhiteFrom / 100);
+    expect(white, `${where}：跟着字滚的那一层全白的一截有 ${white.toFixed(1)} 像素，影子 ${cue.shadeHeight} 像素高，白该盖得住它`).toBeGreaterThanOrEqual(cue.shadeHeight);
+  };
 
   // 写好了正文、有自己的沙盘的站，一站一站、一节一节点开“说明”看：找一节比它那一块高的，和一节放得下的
   const seen: string[] = [];
@@ -881,29 +921,47 @@ test('竖着拿的平板上，“说明”比它那一块高的时候：在那�
       const size = await sizeOf();
       const where = `${stopId}“${heading}”`;
       seen.push(`${where} ${size.scroll}/${size.client}`);
-      if (size.scroll > size.client + 1) {
-        if (tall === null) tall = { where, scroll: size.scroll, client: size.client, open: () => openAt(i) };
-      } else if (fits === null) fits = { where, edge: await bottomEdge() };
+      // “比那一块高”要高出上面那一层（跟着字滚的白）那么多：高出得少的时候，白已经盖上来一截，影子是淡的，不拿它来量
+      const over = size.scroll - size.client;
+      if (over > 1) {
+        if (tall === null && over >= (await cueOf()).coverHeight) tall = { where, scroll: size.scroll, client: size.client, open: () => openAt(i) };
+      } else if (fits === null) {
+        // 放得下的一节（不用滚）：画法是同一种；底边是白的，看不出影子。刚点开，量一次不算数，等到量出来是白的为止
+        expectCue(await cueOf(), where);
+        let edge = 0;
+        await expect
+          .poll(async () => (edge = await bottomEdge()), { message: `${where}：说明放得下的时候，底边没有影子（白是 255）` })
+          .toBeGreaterThan(250);
+        fits = { where, edge };
+      }
       // 两样都找到了就不往下看了
       if (tall !== null && fits !== null) break search;
     }
   }
-  test.skip(tall === null, `竖着拿的平板上，没有哪一节的“说明”比它那一块高（看过：${seen.join('、')}）`);
+  // 一节也不比它那一块高：这一项不许悄悄跳过去——那样底边的影子就没有谁查了
+  expect(
+    tall,
+    `竖着拿的平板（768 × 1024）上，没有哪一节的“说明”比它那一块高出一截了（看过：${seen.join('、')}；每一条是“说明有多高/那一块有多高”）。这样底边那一道影子就没有东西可查了。` +
+      '要接着查：还是用沙盘的替身，把窗口换成更窄、更矮的（沙盘栏跟着变小，说明折成更多行、那一块更矮），到有一节放不下为止，再照下面的量法查',
+  ).not.toBeNull();
   if (tall === null) return;
   // 回到比那一块高的那一节，再点开
   await tall.open();
 
-  // 画法：两层，上面一层跟着字滚（local），下面一层钉在这一块的底边（scroll）
-  const look = await panel.evaluate((el) => {
-    const style = getComputedStyle(el);
-    return { attachment: style.backgroundAttachment, layers: style.backgroundImage.split('linear-gradient(').length - 1, overflow: style.overflowY, ground: style.backgroundColor };
-  });
-  expect(look, `${tall.where}：展开的那一块的画法`).toEqual({ attachment: 'local, scroll', layers: 2, overflow: 'auto', ground: 'rgb(255, 255, 255)' });
+  // 画法：两层；影子至少一行字高；白盖得住影子
+  const cue = await cueOf();
+  expectCue(cue, tall.where);
 
-  // 在开头：下面还有字，底边是一道影子，比白暗
+  // 在开头：下面还有字，底边是一道影子，比白暗；有多暗，照样式表里写的那一道影子算（量的那两排像素离影子的底边 sampleAt 像素）。
+  // 刚点开，量一次不算数，等到量出来是暗的为止
   expect((await sizeOf()).top, `${tall.where}：刚展开，从头读起`).toBe(0);
-  const edgeAtTop = await bottomEdge();
-  expect(edgeAtTop, `${tall.where}：下面还有字的时候，底边该有一道影子（量到的亮度 ${edgeAtTop.toFixed(0)}，白是 255）`).toBeLessThan(240);
+  const wantedEdge = 255 - cue.shadeAlpha * (1 - cue.sampleAt / cue.shadeHeight) * (255 - cue.shadeInk);
+  expect(wantedEdge, `${tall.where}：照样式表算，底边那一道影子在量的地方的亮度（白是 255）`).toBeLessThan(240);
+  let edgeAtTop = 255;
+  await expect
+    .poll(async () => (edgeAtTop = await bottomEdge()), { message: `${tall.where}：下面还有字的时候，底边该有一道影子（照样式表算是 ${wantedEdge.toFixed(0)}，白是 255）` })
+    .toBeLessThan(wantedEdge + 8);
+  expect(edgeAtTop, `${tall.where}：底边的影子比样式表里写的还暗（量到 ${edgeAtTop.toFixed(0)}，照样式表算是 ${wantedEdge.toFixed(0)}）`).toBeGreaterThan(wantedEdge - 8);
 
   // 在那一块里滚到底：滚得动；最后一行整个在这一块里面；底边的影子没有了（白盖住了它）；这一块自己没有变大、没有挪
   const boxBefore = (await panel.boundingBox())!;
@@ -922,9 +980,11 @@ test('竖着拿的平板上，“说明”比它那一块高的时候：在那�
   expect(last.lineTop, `${tall.where}：滚到底，最后一行的上边在这一块里面`).toBeGreaterThanOrEqual(last.top - 0.5);
   await expect.poll(bottomEdge, { message: `${tall.where}：滚到底以后，底边的影子该没有了` }).toBeGreaterThan(250);
   expect((await panel.boundingBox())!, `${tall.where}：这一块没有变大、没有挪`).toEqual(boxBefore);
-  // 放得下的一节（不用滚）：底边一直是白的，看不出影子
-  if (fits !== null) expect(fits.edge, `${fits.where}：说明放得下的时候，底边没有影子（量到的亮度 ${fits.edge.toFixed(0)}）`).toBeGreaterThan(250);
-  console.log(`竖着拿的平板上，${tall.where}的“说明”有 ${tall.scroll} 像素高，那一块只有 ${tall.client}：在开头底边的亮度 ${edgeAtTop.toFixed(0)}，滚到底 ${(await bottomEdge()).toFixed(0)}${fits === null ? '' : `；放得下的 ${fits.where} 底边 ${fits.edge.toFixed(0)}`}（看过：${seen.join('、')}）`);
+  console.log(
+    `竖着拿的平板上，${tall.where}的“说明”有 ${tall.scroll} 像素高，那一块只有 ${tall.client}：影子 ${cue.shadeHeight} 像素高（一行字 ${cue.lineHeight}），底边最深 ${cue.shadeAlpha}；` +
+      `在开头底边的亮度 ${edgeAtTop.toFixed(0)}（照样式表算 ${wantedEdge.toFixed(0)}），滚到底 ${(await bottomEdge()).toFixed(0)}` +
+      `${fits === null ? '；没有找到放得下的一节' : `；放得下的 ${fits.where} 底边 ${fits.edge.toFixed(0)}`}（看过：${seen.join('、')}）`,
+  );
 });
 
 test('用键盘：标题后面有一步“到沙盘”，走到它上面才显出来；按了以后焦点到沙盘栏，下一步就是它的按钮', async ({ page }) => {

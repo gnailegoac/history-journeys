@@ -424,7 +424,7 @@ test('四种标准的窗口上：正文那一栏里能点的东西都不小于 4
   }
 });
 
-test('“读原文”“凭据”折着显加号、点开显减号；抬头里的一排小圆圈、目录里的数字圆点；宽屏上那一页到底，是平的一种颜色', async ({ page }) => {
+test('“读原文”“凭据”折着显加号、点开显减号；抬头里的一排小圆圈、目录里的数字圆点；宽屏上文字栏到底，是平的一种颜色', async ({ page }) => {
   const { figureId, found } = await openFigureWithTable(page, fakeUrl('#/'));
   test.skip(!found, '还没有哪一站有沙盘');
   if (!found) return;

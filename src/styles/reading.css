@@ -256,7 +256,7 @@
   letter-spacing: 0.02em;
 }
 
-/* 类别（历史、地理、人文、科学）：墨蓝的字、墨蓝的线的小标签（别的小标签是灰字灰线，见 base.css 的 .tag）。 */
+/* 类别（历史、地理、人文、科学）：墨蓝的字、墨蓝的线的小标签（别的小标签是灰字灰线，见 base.css 的 .tag；“正在看”除外，它也是墨蓝的）。 */
 .note-kind {
   flex: none;
   margin-left: 0;
@@ -638,7 +638,7 @@ details[open] > summary .fold-mark :first-child {
   border-left-color: var(--color-accent);
 }
 
-/* “正在看”：只有摆着的那一行有这个小标签（别的小标签是灰字灰线，见 base.css 的 .tag）。 */
+/* “正在看”：只有摆着的那一行有这个小标签（别的小标签是灰字灰线，见 base.css 的 .tag；小注的类别除外，它也是墨蓝的）。 */
 .view-item .tag {
   border-color: currentColor;
   color: var(--color-accent);

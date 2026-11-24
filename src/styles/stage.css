@@ -15,7 +15,7 @@
    那一圈 1px 的边、定死的高都照旧，换的是颜色、字、圆角和影子
    （那一行话里面上边多垫了 4px，小节的名字上面多垫了 1px，都在定死的高里面，外面的大小不变）。
    .stage-pane、.stage-canvas、.stage-host、.stage-still-host 上不写 font-weight、font-feature-settings、letter-spacing：
-   题签上的字从它们那里往下传。 */
+   题签上的字从它们那里往下传（tests/support/sourceScan.ts 守着这一条）。 */
 
 /* ================================================================ 框架的一层（从这里到“题签”之前）：只读 tokens.css 里 :root 上的那一套 */
 
@@ -745,13 +745,15 @@
   margin: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
-  /* 说明比这一块高的时候（竖着拿的平板上最长的两条），底边上有一道淡淡的影子：看得出下面还有字，要往下滚。
+  /* 说明比这一块高的时候（竖着拿的平板上常有），底边上有一道影子，一行字那么高（1.75rem），越靠底边越深：
+     看得出下面还有字，要往下滚——底边正好停在一段话的末尾、没有哪一行被切掉的时候也看得出。
      画了两层，都不占地方，也不盖在字上：下面一层影子钉在这一块的底边（scroll）；上面一层由透明到白，跟着字一起滚（local），
-     排在字的最后面。滚到底，白正好盖住影子；字不够长、不用滚的时候也是盖住的，什么都看不出。 */
+     排在字的最后面，全白的那一截（2.5rem 的四分之三）比影子高一点。滚到底，白正好盖住影子；字不够长、不用滚的时候也是盖住的，什么都看不出。
+     下面藏着的不到 2.5rem 的时候，白已经盖上来一截：影子只剩上面很淡的一道，贴着底边的那一截是白的。 */
   background-image: var(--fade-plate), var(--shade-more);
   background-repeat: no-repeat;
   background-position: bottom;
-  background-size: 100% 2.25rem, 100% 0.875rem;
+  background-size: 100% 2.5rem, 100% 1.75rem;
   background-attachment: local, scroll;
   box-shadow: var(--shadow-plate);
   pointer-events: auto;
@@ -776,7 +778,8 @@
   gap: var(--gap-3);
 }
 
-/* 标题是黑体，后面小节的名字是宋体（粗细写回 400）：两样各是一块，底边对齐，不挤在同一行字里。放不下时小节的名字折到下一行。 */
+/* 标题是黑体；后面小节的名字是一个名字，不是一句话，也是黑体（和题记那一条里的小节名一样），小一号、颜色淡一些。
+   两样各是一块，底边对齐，不挤在同一行字里。放不下时小节的名字折到下一行。 */
 .stage-note-panel-title {
   display: flex;
   flex-wrap: wrap;
@@ -791,9 +794,9 @@
 
 .stage-note-panel-title span {
   color: var(--color-ink-soft);
-  font-family: var(--font-song);
+  font-family: var(--font-sans);
   font-size: var(--size-small);
-  font-weight: 400;
+  font-weight: var(--weight-sans);
 }
 
 .stage-note-close {

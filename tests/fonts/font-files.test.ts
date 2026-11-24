@@ -122,7 +122,7 @@ describe('网站上显示的每一个字都在随站的字体里', () => {
     expect(found).toEqual([]);
   });
 
-  it('楷体那一组、黑体那一组的每一个字，头一组宋体里也有（那个文件还在路上时先用宋体显示，不为它去取点开才要的文件）', async () => {
+  it('楷体那一组、黑体那一组的每一个字，头一组宋体里也有（楷体还在路上时题签先用宋体，不为它去取点开才要的文件；黑体的字不管点没点开都归头一组）', async () => {
     const song = await planned('song');
     for (const group of ['kai', 'sans']) expect([...(await planned(group)).characters].filter((ch) => !song.characters.includes(ch)), group).toEqual([]);
   });
@@ -213,7 +213,7 @@ describe('放进仓库的字体文件和它的记录、样式表、许可全文�
     for (const ch of record.onlyFromSrc) expect(record.characters).toContain(ch);
   });
 
-  it('文件里的名称是自己的，没有原字体保留的名字；版权声明和原字体的一样；楷体带着竖排用的两张表；提示信息照做法里写的（宋体留着）', () => {
+  it('文件里的名称是自己的，没有原字体保留的名字；版权声明和原字体的一样；楷体带着竖排用的两张表；提示信息照做法里写的（宋体和黑体留着，楷体没有）', () => {
     const problems = shipped.files.flatMap((file) => fontFileProblems(file.record, file.tables));
     expect(problems, '字体文件和现在的做法对不上：运行 npm run fonts，再提交').toEqual([]);
     // 查得出来：把宋体的文件当成楷体的来查（楷体的做法是没有提示信息），说得出提示信息对不上
@@ -348,7 +348,7 @@ describe('源文件里的写法', () => {
     expect(tally(scanProgram('index.html', page.replace(/<!--[\s\S]*?-->/g, '')))).toEqual(['index.html | entity | &hellip; × 1', 'index.html | escape | \\u2026 × 1']);
   });
 
-  it('样式表里：每套字体只用它那一种粗细（黑体 500，别的 400）、不用斜体、字体只用三个记号（宋体、黑体、题签用的人物自己的一个）、设黑体的每一条都同时写粗细、框架的样式和题签的样式各读各的那一套记号、content 里不写字、不用 Safari 15 读不懂的写法（PENDING 里点了名的除外：现在一处也没有）', () => {
+  it('样式表里：每套字体只用它那一种粗细（黑体 500，别的 400）、不用斜体、字体只用三个记号（宋体、黑体、题签用的人物自己的一个）、设黑体的每一条都同时写粗细（黑体的粗细也只写在设黑体的规则里）、框架的字体记号只写在 :root 上、框架的样式和题签的样式各读各的那一套记号（题签不和别的东西写在同一条规则里，题签上面的四层上不写它会接过去的粗细、排版功能、字距）、content 里不写字、不用 Safari 15 读不懂的写法（PENDING 里点了名的除外：现在一处也没有）', () => {
     expect(styles.length).toBeGreaterThan(5);
     const found = tally(styles.flatMap((path) => scanStyle(path, text(path))));
     const allowed = PENDING.map((item) => `${item.file} | ${item.rule} | ${item.what} × ${item.times}`).sort();
@@ -359,7 +359,7 @@ describe('源文件里的写法', () => {
     for (const item of PENDING) expect(item.unit, `${item.file} ${item.what}：要写明由哪个单元去掉`).toMatch(/^U[2-6]$/);
   });
 
-  it('查得出来：样式表里加粗、斜体、别的字体、content 里的字、带颜色的 text-decoration 简写、color-mix、text-wrap、嵌套、框架和题签读错了记号、黑体没有写粗细', () => {
+  it('查得出来：样式表里加粗、斜体、别的字体、content 里的字、带颜色的 text-decoration 简写、color-mix、text-wrap、嵌套、框架和题签读错了记号、题签和别的东西写在同一条规则里、人物的那一块里写了框架的记号、题签上面的四层上写了字距、黑体没有写粗细、没设黑体的写了黑体的粗细、字体的记号写在了 :root 以外或者不是随站的字体打头', () => {
     const bad = `
       :root { --font-ui: system-ui, 'PingFang SC', 'Microsoft YaHei', sans-serif; --weight-heading: 700; --grain: url("data:image/svg+xml;utf8,<svg/>"); }
       h1 { font-weight: 700; font-style: italic; font-family: var(--font-ui); font: bold 1rem serif; }
@@ -380,35 +380,62 @@ describe('源文件里的写法', () => {
       .label { font-family: var(--font-sans); font-size: 1rem; }
       .label-fine { font-family: var(--font-sans); font-weight: var(--weight-sans); }
       .label-fine span { font-family: var(--font-song); font-weight: 400; }
-      .frame { --weight-sans: 400; --font-kai: 'Kaiti SC', serif; --font-sans: 'Yanlu Sans', 'PingFang SC', 'Microsoft YaHei', sans-serif; }
+      :root { --font-sans: 'Yanlu Sans', 'PingFang SC', 'Microsoft YaHei', sans-serif; --font-song: 'Songti SC', serif; }
+      .frame { --weight-sans: 400; --font-kai: 'Kaiti SC', serif; }
+      .guide-panel { --font-sans: 'Yanlu Sans', 'Microsoft YaHei', sans-serif; }
+      .strip, .tag { color: var(--color-ink); }
+      [data-figure='x'] .stage-pane { --color-accent: #000000; --figure-font: 'Yanlu Sans', serif; }
+      .prose strong { font-weight: var(--weight-sans); }
+      .label-last { font-family: var(--font-sans); font-weight: var(--weight-sans); font-weight: 400; }
+      .stage-pane.is-wide .stage-host { letter-spacing: 0.04em; }
+      .stage-pane::after { letter-spacing: 0.04em; }
+      .stage-pane .stage-reset { letter-spacing: 0.04em; }
     `;
     expect(tally(scanStyle('x.css', bad))).toEqual([
       'x.css | color-mix | color: color-mix(in srgb, red, blue) × 1',
       "x.css | content | content: '+' × 1",
       'x.css | font | font: bold 1rem serif × 1',
+      // 人物的字体记号不是随站的楷体打头
+      "x.css | font-family | --figure-font: 'Yanlu Sans', serif × 1",
       'x.css | font-family | --font-kai: … × 1',
+      // :root 上的宋体记号不是随站的宋体打头
+      "x.css | font-family | --font-song: 'Songti SC', serif × 1",
       'x.css | font-family | --font-ui: … × 1',
+      // 黑体的记号写在了 :root 以外（它里面那两个设备上的名字也就不算数了，见下面 sans 的两行各多一次）
+      'x.css | font-family | .guide-panel { --font-sans: … } × 1',
       'x.css | font-family | font-family: var(--font-kai) × 1',
       "x.css | font-family | font-family: var(--font-kai, 'Kaiti SC', serif) × 1",
       'x.css | font-family | font-family: var(--font-ui) × 1',
       'x.css | font-style | font-style: italic × 1',
       'x.css | font-weight | --weight-heading: … × 1',
       'x.css | font-weight | --weight-sans: 400 × 1',
+      // 黑体粗细的记号写在了 :root 以外
+      'x.css | font-weight | .frame { --weight-sans: … } × 1',
       'x.css | font-weight | font-weight: 700 × 1',
       'x.css | font-weight | font-weight: var(--weight-heading) × 1',
+      // 题签上面的那四层上写了题签会接过去的东西（.stage-pane::after 和栏里面的按钮不算）
+      'x.css | inherit | .stage-pane.is-wide .stage-host { letter-spacing: 0.04em } × 1',
       'x.css | nesting | &:hover × 1',
       'x.css | nesting | .inner × 1',
       'x.css | sans | PingFang × 1',
-      'x.css | sans | YaHei × 1',
-      'x.css | sans | sans-serif × 1',
+      'x.css | sans | YaHei × 2',
+      'x.css | sans | sans-serif × 2',
       'x.css | sans | system-ui × 1',
       'x.css | sans-weight | .label × 1',
+      // 设了黑体，可是这一条里最后写的粗细是 400
+      'x.css | sans-weight | .label-last × 1',
+      // 没有设黑体的规则写了黑体的粗细
+      'x.css | sans-weight | .prose strong { font-weight: var(--weight-sans) } × 1',
       'x.css | seam | .card-name { --figure-ink: … } × 1',
       'x.css | seam | .stage-pane:not(.is-wide) .strip { border-radius: var(--radius) } × 1',
       'x.css | seam | .stage-pane:not(.is-wide) .strip { color: var(--color-ink) } × 1',
       "x.css | seam | .strip { font-family: var(--font-kai, 'Kaiti SC', serif) } × 1",
+      // 题签和别的东西写在了同一条规则里
+      'x.css | seam | .strip, .tag × 1',
       'x.css | seam | .tag { background: var(--color-paper-sunk) } × 1',
       'x.css | seam | .tag { color: var(--figure-ink) } × 1',
+      // 人物的那一块里写了框架的记号
+      "x.css | seam | [data-figure='x'] .stage-pane { --color-accent: … } × 1",
       'x.css | text-decoration | text-decoration: underline dotted var(--color-accent) × 1',
       'x.css | text-wrap | text-wrap: balance × 1',
     ]);

@@ -6,7 +6,8 @@
 //     钉着不动。别的窗口：沙盘栏在上，和窗口一样宽，钉在顶上，高是屏幕的 56%（和人物页一样）；文字栏在下。
 //     沙盘栏里摆的是第一位可以点进去的人物的全程沙盘，和人物页上是同一栏、同一座：看的是“全程”那一节，按钮是“古名、今名”“回到全程”，
 //     下面是同一条题记；栏多大就是 tests/stage/support/standardPanes.ts 的 HOME_PANES 里写的；按一方印，就到那一站。
-//     网站的名字是黑体，一行；内容里的每一张卡片都在，名字横着写，和朝代、年份在一行；可以点进去的是链接，是一块白底的板，
+//     网站的名字是黑体，一行；内容里的每一张卡片都在，名字横着写，和朝代、年份在一行（四种窗口上都只占一行；
+//     窗口再窄、放不下的时候折在年份的前面，年份不拆开：另拿一个很窄的窗口查）；可以点进去的是链接，是一块白底的板，
 //     写着“从第一站读起”，点了进人物页；还没写的不是链接，只是单子上的一行，标着“还没写”，点了哪也不去。页面不比窗口宽。
 //     （能点的东西够不够 44 像素见方在 tests/e2e/leaf.spec.ts：首页和“来源”页都在那里一个一个点。）
 // 二、“来源”页：一栏字立在页面正中（最宽 640 像素，和屏幕一样高），没有沙盘栏，页面的底是平的一种颜色。标题和四个小标题是黑体，字是宋体 17 像素。
@@ -132,6 +133,7 @@ test('首页，四种标准的窗口上：文字栏（网站的名字、一句�
             era: era.textContent,
             eraFamily: type(era).family,
             eraLines: Math.round(era.getBoundingClientRect().height / parseFloat(getComputedStyle(era).lineHeight)),
+            years: Array.from(era.querySelectorAll<HTMLElement>('.card-years')).map((years) => ({ text: years.textContent, pieces: years.getClientRects().length })),
             nameBox: box(name),
             eraBox: box(era),
             tagline: { ...type(card.querySelector('.card-tagline')!), text: card.querySelector('.card-tagline')?.textContent },
@@ -210,6 +212,9 @@ test('首页，四种标准的窗口上：文字栏（网站的名字、一句�
       expect(shown.eraBox.y < shown.nameBox.bottom && shown.eraBox.bottom > shown.nameBox.y, `${at}：朝代和年份同名字在一行`).toBe(true);
       expect(shown.taglineBox.y, `${at}：一句话介绍在抬头下面`).toBeGreaterThanOrEqual(Math.max(shown.nameBox.bottom, shown.eraBox.bottom) - 1);
       if (shown.goTop !== null) expect(shown.goTop, `${at}：“从第一站读起”在一句话介绍下面`).toBeGreaterThanOrEqual(shown.taglineBox.bottom);
+      // 四种标准的窗口上，朝代和年份都只占一行；年份自己是一小块，整的
+      expect(shown.eraLines, `${at}：朝代和年份该只占一行`).toBe(1);
+      expect(shown.years, `${at}：年份自己是一小块，没有拆开`).toEqual([{ text: card.years, pieces: 1 }]);
       eraLines.push(`${card.name} ${shown.eraLines} 行`);
       expect(shown.box.right, `${at}在文字栏里`).toBeLessThanOrEqual(got.leaf.right);
       if (i > 0) expect(shown.box.y, `${at}排在上一张的下面`).toBeGreaterThanOrEqual(got.cards[i - 1].box.bottom + 8);
@@ -285,6 +290,49 @@ test('首页，四种标准的窗口上：文字栏（网站的名字、一句�
         `网站的名字 ${got.title.size}px 一行；卡片各高 ${got.cards.map((card) => Math.round(card.box.height)).join('、')}；朝代和年份那一行占几行：${eraLines.join('、')}`,
     );
   }
+
+  // ---- 很窄的窗口（420 × 900，比哪一种平板都窄；只为了让最长的那一行肯定放不下——差出几十个像素，
+  //      不是差两三个像素：字体在别的机器上宽窄差一点，这一项也还查得到）：最长的那一行要折。
+  //      折在年份的前面：年份自己总是整的一行（“1809–1882”不会拆成两半），排在第二行的开头。
+  //      左右排里最窄的窗口（960 × 700）上，“达尔文”那一行只差两三个像素放不下，也是这样折的；差得太少，不拿它来查。
+  const narrow = { width: 420, height: 900 };
+  await openAt(page, narrow, '#/');
+  await expect(page.locator('.cards .card')).toHaveCount(CARDS.length);
+  await tableShown(page);
+  const narrowCards = (): Promise<{ name: string; eraLines: number; yearsPieces: number; yearsLines: number; yearsStartLine: boolean; yearsLastLine: boolean }[]> =>
+    page.evaluate(() =>
+      Array.from(document.querySelectorAll<HTMLElement>('.cards .card')).map((card) => {
+        const era = card.querySelector<HTMLElement>('.card-era')!;
+        const years = era.querySelector<HTMLElement>('.card-years')!;
+        const lineHeight = parseFloat(getComputedStyle(era).lineHeight);
+        const eraBox = era.getBoundingClientRect();
+        const yearsBox = years.getBoundingClientRect();
+        return {
+          name: card.querySelector('.card-name')!.textContent ?? '',
+          eraLines: Math.round(eraBox.height / lineHeight),
+          yearsPieces: years.getClientRects().length,
+          yearsLines: Math.max(1, Math.round(yearsBox.height / lineHeight)),
+          yearsStartLine: Math.abs(yearsBox.x - eraBox.x) < 1,
+          yearsLastLine: eraBox.bottom - yearsBox.bottom < lineHeight / 2,
+        };
+      }),
+    );
+  //      刚换了窗口，量一次不算数：等到量出来有折了的一行为止（一张也不折，这一项就没有查到“折在年份前面”）
+  await expect
+    .poll(async () => (await narrowCards()).filter((card) => card.eraLines > 1).length, {
+      message: `${nameOf(narrow)}：这个窗口上该有卡片的朝代和年份一行放不下；一张也没有的话，“折在年份前面”就没有查到，要换一个更窄的窗口来查`,
+    })
+    .toBeGreaterThanOrEqual(1);
+  const folded: string[] = [];
+  for (const card of await narrowCards()) {
+    const at = `${nameOf(narrow)}，“${card.name}”的卡片`;
+    expect({ pieces: card.yearsPieces, lines: card.yearsLines }, `${at}：年份是整的一行，没有拆开`).toEqual({ pieces: 1, lines: 1 });
+    if (card.eraLines > 1) {
+      expect({ lines: card.eraLines, startsLine: card.yearsStartLine, lastLine: card.yearsLastLine }, `${at}：折成两行，折在年份的前面`).toEqual({ lines: 2, startsLine: true, lastLine: true });
+      folded.push(card.name);
+    }
+  }
+  rows.push(`  ${nameOf(narrow)}（比标准的窗口窄）：朝代和年份折成两行的是 ${folded.join('、')}，都折在年份的前面`);
   console.log(['首页：', ...rows].join('\n'));
 });
 

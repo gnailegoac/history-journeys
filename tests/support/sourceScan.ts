@@ -120,8 +120,14 @@ const hasQuotedText = (value: string): boolean => /"[^"]+"|'[^']+'/.test(value);
 const FONT_TOKENS = ['--font-song', '--font-sans'];
 /** font-family 的值只许是这几种：两个记号之一；跟着上一层；题签的规则里是人物自己的字体记号、后面带一串备用的字体（开发时单看沙盘的页面没有记号）。 */
 const familyAllowed = (value: string, strips: boolean): boolean => /^var\(--font-(song|sans)\)$/.test(value) || value === 'inherit' || (strips && /^var\(--figure-font,/.test(value));
-/** 设备自带的黑体一类：只许出现在 --font-sans 这一个记号的值里。 */
+/** 设备自带的黑体一类：只许出现在 :root 上 --font-sans 这一个记号的值里。 */
 const SANS_WORDS = ['system-ui', 'sans-serif', 'PingFang', 'YaHei'];
+/** 三个字体记号的值各是哪一套随站的字体打头（工具写进字体文件里的名字，src/fonts/fonts.css）。 */
+const FONT_STARTS: [string, string][] = [
+  ['--font-sans', 'Yanlu Sans'],
+  ['--font-song', 'Yanlu Song'],
+  ['--figure-font', 'Yanlu Kai'],
+];
 
 /** 一条规则的选择器，一个一个分开（括号里的逗号不算）。 */
 function selectorsOf(prelude: string): string[] {
@@ -153,16 +159,55 @@ const varsRead = (value: string): string[] => Array.from(value.matchAll(/var\(\s
 /** 人物自己的记号：--figure-… ，和沙盘栏的底色。 */
 const isFigureToken = (name: string): boolean => name.startsWith('--figure-') || name === '--color-paper-sunk';
 
+/** 这一条规则把题签和别的东西写在了一起：选择器里有题签的，也有不是题签的。 */
+const mixesStrips = (prelude: string): boolean => {
+  const strips = selectorsOf(prelude).filter((selector) => STRIP.test(selector)).length;
+  return strips > 0 && strips < selectorsOf(prelude).length;
+};
+/** 框架的记号是这几类打头的（人物的那两种——--figure-…、--color-paper-sunk——不算）。沙盘栏自己量出来的几个数（--stage-…、--caption-h、--note-…）不是这几类。 */
+const FRAME_TOKEN = /^--(color|font|weight|shadow|radius|size)-/;
+/**
+ * 题签的字体、字号、行高、颜色是它自己的规则写的；粗细、排版功能、字距它自己不全写，是从上面几层接下来的。
+ * 所以这四层（沙盘栏、画布、放题签的两层）上不许写这三样：写了，题签跟着变。
+ */
+const STRIP_PARENTS = /\.(stage-pane|stage-canvas|stage-host|stage-still-host)(?![\w-])/;
+const INHERITED_BY_STRIPS = ['font-weight', 'font-feature-settings', 'letter-spacing'];
+/** 一个选择器最后的那一截（最后一个空格、>、+、~ 后面的）：这条规则打扮的就是它。括号里的不算。 */
+function lastCompound(selector: string): string {
+  let depth = 0;
+  let piece = '';
+  for (const c of selector) {
+    if (c === '(' || c === '[') depth++;
+    if (c === ')' || c === ']') depth--;
+    if (depth === 0 && /[\s>+~]/.test(c)) piece = '';
+    else piece += c;
+  }
+  return piece;
+}
+/** 这一条规则打扮的是不是题签上面的那四层之一（它画出来的 ::before、::after 不算：题签不从那里接东西）。 */
+const dressesStripParent = (prelude: string): boolean => selectorsOf(prelude).some((selector) => STRIP_PARENTS.test(lastCompound(selector)) && !lastCompound(selector).includes('::'));
+
 /**
  * 框架的样式和人物的样式各读各的那一套记号（tokens.css 开头说的两套）。找这些，都记成 seam：
  *   人物的记号（--figure-…、--color-paper-sunk）写在了沙盘栏以外的规则上；
+ *   人物的那一块（选择器末尾是 .stage-pane 的规则）里写了框架的记号（--color-…、--font-…、--weight-…、--shadow-…、--radius-…、--size-…）：
+ *   那样沙盘栏上面框架的按钮和带子就跟着这位人物变了；
  *   题签的规则读了人物那一套以外的记号；
- *   别的规则读了人物的记号——沙盘栏自己和沙盘的替身读栏的底色除外。
+ *   别的规则读了人物的记号——沙盘栏自己和沙盘的替身读栏的底色除外；
+ *   一条规则把题签和别的东西写在了一起（.strip, .tag { … }）：它读哪一套都不对，整条算一处。
+ * 另有一种记成 inherit：题签上面的那四层上写了 font-weight、font-feature-settings、letter-spacing（题签会接过去）。
  */
 function seamFindings(declarations: Declaration[], add: (rule: string, what: string) => void): void {
-  for (const { selector, property, value } of declarations) {
+  const mixed = new Set<number>();
+  for (const { selector, property, value, rule } of declarations) {
     const strips = isStripRule(selector);
+    if (mixesStrips(selector) && !mixed.has(rule)) {
+      mixed.add(rule);
+      add('seam', selector);
+    }
     if (isFigureToken(property) && !isFigureBlock(selector)) add('seam', `${selector} { ${property}: … }`);
+    if (FRAME_TOKEN.test(property) && !isFigureToken(property) && isFigureBlock(selector)) add('seam', `${selector} { ${property}: … }`);
+    if (INHERITED_BY_STRIPS.includes(property) && dressesStripParent(selector)) add('inherit', `${selector} { ${property}: ${value} }`);
     for (const name of varsRead(value)) {
       if (strips ? !name.startsWith('--figure-') : isFigureToken(name) && !(name === '--color-paper-sunk' && READS_GROUND.includes(selector))) add('seam', `${selector} { ${property}: ${value} }`);
     }
@@ -171,13 +216,17 @@ function seamFindings(declarations: Declaration[], add: (rule: string, what: str
 
 /**
  * 扫一份样式表。找这些：
- *   font-weight   不是 400、也不是 var(--weight-sans) 的；--weight-sans 这个记号不是 500；又写了 --weight-heading
- *   sans-weight   用了黑体（font-family: var(--font-sans)）的规则，同一条里没有写 font-weight: var(--weight-sans)（黑体的文件只有 500 这一种粗细）
+ *   font-weight   不是 400、也不是 var(--weight-sans) 的；--weight-sans 这个记号不是 500，或者写在了 :root 以外；又写了 --weight-heading
+ *   sans-weight   用了黑体（font-family: var(--font-sans)）的规则，同一条里最后写的粗细不是 font-weight: var(--weight-sans)（黑体的文件只有 500 这一种粗细）；
+ *                 反过来，没有用黑体的规则写了 font-weight: var(--weight-sans)（宋体、楷体只有 400）。一条规则里写了几次粗细，算最后一次
  *   font-style    不是 normal 的；哪里写了 italic、oblique
  *   font          简写（只许 font: inherit）
- *   font-family   不是两个记号的（题签的规则里是人物自己的那一个）；别的 --font-… 记号
- *   sans          system-ui、sans-serif、PingFang、YaHei 这几个词写在了 --font-sans 的值以外
- *   seam          框架的规则读了人物的记号，题签的规则读了框架的记号，人物的记号写在了沙盘栏以外（见 seamFindings）
+ *   font-family   不是两个记号的（题签的规则里是人物自己的那一个）；别的 --font-… 记号；--font-sans、--font-song 写在了 :root 以外；
+ *                 三个字体记号的值不是随站的那一套打头（--font-sans 是 'Yanlu Sans'，--font-song 是 'Yanlu Song'，--figure-font 是 'Yanlu Kai'）
+ *   sans          system-ui、sans-serif、PingFang、YaHei 这几个词写在了 :root 上的 --font-sans 的值以外
+ *   seam          框架的规则读了人物的记号，题签的规则读了框架的记号，人物的记号写在了沙盘栏以外，人物的那一块里写了框架的记号，
+ *                 题签和别的东西写在了同一条规则里（见 seamFindings）
+ *   inherit       题签上面的那四层（.stage-pane、.stage-canvas、.stage-host、.stage-still-host）上写了题签会接过去的三样
  *   content       content: 里写了字（工具不看样式表，这些字进不了字体）
  *   text-decoration  简写里除了线的种类还写了别的（Safari 26.2 以前不认，线会没有）：要拆成 text-decoration-line 这几条
  *   color-mix、text-wrap  Safari 15 没有
@@ -191,30 +240,35 @@ export function scanStyle(file: string, css: string): Finding[] {
   };
   const { declarations, nested } = readCss(css);
   for (const prelude of nested) add('nesting', prelude);
-  /** 用了黑体的规则（排第几 → 选择器），和写了黑体的粗细的规则。 */
+  /** 用了黑体的规则（排第几 → 选择器），和每一条规则最后写的粗细（排第几 → 选择器、值）。 */
   const sansRules = new Map<number, string>();
-  const weighted = new Set<number>();
-  /** --font-sans 的值：设备自带的黑体的名字只许写在这里面。 */
+  const lastWeight = new Map<number, { selector: string; value: string }>();
+  /** :root 上 --font-sans 的值：设备自带的黑体的名字只许写在这里面。 */
   let sansValue = '';
   for (const { selector, property, value, rule } of declarations) {
     const line = `${property}: ${value}`;
     if (property === 'font-weight' && value !== '400' && value !== 'var(--weight-sans)') add('font-weight', line);
     if (property === '--weight-sans' && value !== '500') add('font-weight', line);
+    if (property === '--weight-sans' && selector !== ':root') add('font-weight', `${selector} { ${property}: … }`);
     if (property === '--weight-heading') add('font-weight', `${property}: …`);
     if (property === 'font-style' && value !== 'normal') add('font-style', line);
     if (property === 'font' && value !== 'inherit') add('font', line);
     if (property === 'font-family' && !familyAllowed(value, isStripRule(selector))) add('font-family', line);
     if (property.startsWith('--font-') && !FONT_TOKENS.includes(property)) add('font-family', `${property}: …`);
+    // 框架的两个字体记号只在 :root 上写一次；三个字体记号的值都得是随站的那一套打头
+    if (FONT_TOKENS.includes(property) && selector !== ':root') add('font-family', `${selector} { ${property}: … }`);
+    for (const [token, family] of FONT_STARTS) if (property === token && (selector === ':root' || token === '--figure-font') && !value.startsWith(`'${family}'`)) add('font-family', line);
     if (property === 'font-family' && value === 'var(--font-sans)') sansRules.set(rule, selector);
-    if (property === 'font-weight' && value === 'var(--weight-sans)') weighted.add(rule);
-    if (property === '--font-sans') sansValue += ` ${value}`;
+    if (property === 'font-weight') lastWeight.set(rule, { selector, value });
+    if (property === '--font-sans' && selector === ':root') sansValue += ` ${value}`;
     if (property === 'content' && hasQuotedText(value)) add('content', line);
     if ((property === 'text-decoration' || property === '-webkit-text-decoration') && value.split(/\s+/).length > 1) add('text-decoration', line);
     if (property !== 'font-style' && /\bitalic\b|\boblique\b/.test(value)) add('font-style', line);
     if (/color-mix\(/.test(value)) add('color-mix', line);
     if (property === 'text-wrap' || property.startsWith('text-wrap-')) add('text-wrap', line);
   }
-  for (const [rule, selector] of sansRules) if (!weighted.has(rule)) add('sans-weight', selector);
+  for (const [rule, selector] of sansRules) if (lastWeight.get(rule)?.value !== 'var(--weight-sans)') add('sans-weight', selector);
+  for (const [rule, { selector, value }] of lastWeight) if (value === 'var(--weight-sans)' && !sansRules.has(rule)) add('sans-weight', `${selector} { font-weight: ${value} }`);
   seamFindings(declarations, add);
   const text = stripCssComments(css);
   for (const word of SANS_WORDS) for (let i = 0; i < countIn(text, word) - countIn(sansValue, word); i++) add('sans', word);

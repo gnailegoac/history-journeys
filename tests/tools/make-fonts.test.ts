@@ -491,7 +491,7 @@ describe('数字：哪些字归哪一组（编出来的一位人物）', () => {
     expect(hasNone(withTable, 'sans', onlyOnStrips.join(''))).toBe(true);
   });
 
-  it('哪几个文件在 index.html 里预先声明：黑体和头一个宋体文件；楷体只有沙盘上的题签在用，题签摆出来才取，不声明；点开才要的不声明', () => {
+  it('哪几个文件在 index.html 里预先声明：黑体和头一个宋体文件；楷体只有沙盘上的题签在用，页面知道要摆沙盘了才去取，不声明；点开才要的不声明', () => {
     const plan = planFonts(madeUpSite());
     expect(plan.files.map((item) => [item.group, item.preload])).toEqual([
       ['sans', true],
@@ -501,7 +501,7 @@ describe('数字：哪些字归哪一组（编出来的一位人物）', () => {
     ]);
   });
 
-  it('楷体那一组、黑体那一组的每一个字，头一组宋体里也有一份（那个文件还在路上时先用宋体，不为它去取点开才要的文件）', () => {
+  it('楷体那一组、黑体那一组的每一个字，头一组宋体里也有一份（楷体还在路上时题签先用宋体，不为它去取点开才要的文件；黑体的字不管点没点开都归头一组）', () => {
     const plan = planFonts(madeUpSite());
     for (const group of ['kai', 'sans']) for (const ch of fileOf(plan, group).characters) expect(fileOf(plan, 'song').characters, `${group} “${ch}”`).toContain(ch);
     // 小注的标题点开才看得见，但它是黑体，所以也在头一组里
@@ -1165,6 +1165,41 @@ describe('记录是不是新的；网站要的字在不在放进仓库的字体�
     one.files[0].sha256 = sha256(Uint8Array.from([1, 2, 3]));
     expect(shippedFileProblems(one, () => Uint8Array.from([1, 2, 4]))).toEqual(['yanlu-sans.woff2 和记录对不上（记号不一样）']);
   });
+
+  it(
+    '仓库里的字体文件对着记录查：记录里照文件写下来的几样（粗细、排版功能、提示信息、字节数、字数、字形数）被改了一样，文件的记号还对得上，也说得出来——这时工具要重做，不说“已经是新的”',
+    () => {
+      // 拿放进仓库的记录和文件来查（真的文件才读得出这几样）
+      const real = (): FontRecord => JSON.parse(utf8.decode(readFileSync(at(`${FONTS_DIR}/fonts.json`)))) as FontRecord;
+      const read = (file: string): Uint8Array | null => (existsSync(at(`${FONTS_DIR}/${file}`)) ? readFileSync(at(`${FONTS_DIR}/${file}`)) : null);
+      // 没有改过：四个文件都对得上，没有话说
+      expect(shippedFileProblems(real(), read)).toEqual([]);
+      // 只留楷体的那一个文件（最小），一样一样改记录，文件不动
+      const kaiOnly = (): FontRecord => {
+        const record = real();
+        record.files = record.files.filter((item) => item.group === 'kai');
+        return record;
+      };
+      const was = kaiOnly().files[0];
+      expect(was.file).toBe('yanlu-kai.woff2');
+      const shown = (value: string | number): string | number => (value === '' ? '（没有）' : value);
+      const cases: [string, (item: FontRecord['files'][number]) => void, string | number, string | number][] = [
+        ['粗细', (item) => (item.weight = was.weight + 100), was.weight + 100, was.weight],
+        ['排版功能', (item) => item.features.push('zzzz'), [...was.features, 'zzzz'].join(' '), was.features.join(' ')],
+        ['提示信息', (item) => (item.hinting = was.hinting === 'kept' ? 'none' : 'kept'), was.hinting === 'kept' ? 'none' : 'kept', was.hinting],
+        ['字节数', (item) => (item.bytes = was.bytes + 1), was.bytes + 1, was.bytes],
+        ['字数', (item) => (item.count = was.count + 1), was.count + 1, was.count],
+        ['字形数', (item) => (item.glyphs = was.glyphs - 1), was.glyphs - 1, was.glyphs],
+      ];
+      for (const [name, change, inRecord, inFile] of cases) {
+        const changed = kaiOnly();
+        change(changed.files[0]);
+        // 这样改过的记录，recordIsFresh 看不出来（它只比字和几样说明，不读文件）：要靠读文件的这一步
+        expect(shippedFileProblems(changed, read), name).toContain(`yanlu-kai.woff2 的记录和文件对不上：${name}记录里写的是 ${shown(inRecord)}，文件里是 ${shown(inFile)}`);
+      }
+    },
+    20_000,
+  );
 
   it('字都在：没有话说', () => {
     expect(missingFromShipped(plan, shipped())).toEqual([]);

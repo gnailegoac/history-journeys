@@ -110,6 +110,10 @@ const STRIP_LIFT: Record<ThingKind, number> = {
   // 矮土墙高 11，小门连瓦顶 22 上下
   'earth-wall': 12,
   'small-gate': 24,
+  // 浮桥的桥面比水面高 4；池沿高 3；坟大的高 13、小的 8（题签指着大的那一座的顶）
+  'pontoon-bridge': 8,
+  pool: 5,
+  'grave-mound': 15,
 };
 
 /**

@@ -70,7 +70,7 @@ export function paintedRoads(scene: StopScene, coords: FrameCoords): Ground['roa
   const out: Ground['roads'] = [];
   for (const rule of scene.dressing) {
     if (rule.kind !== 'roads' || !rule.line || rule.line.length < 2) continue;
-    out.push({ type: dressingParams('roads', rule.params).type === 'street' ? 'street' : 'road', line: rule.line.map((p): Vec2 => coords.toLocal(p)) });
+    out.push({ type: dressingParams('roads', rule.params).type ?? 'road', line: rule.line.map((p): Vec2 => coords.toLocal(p)) });
   }
   return out;
 }

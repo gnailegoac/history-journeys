@@ -37,7 +37,7 @@ import { styleFor } from './style';
 import { buildTable, type Stand } from './table';
 import { buildTerrainMesh, type TerrainMesh } from './terrainMesh';
 import { TRIAL_FRAMES, bigEnoughToTry, chooseTier, createGlideMeter, middle, type GlideMeter, type TierMode } from './tier';
-import { buildWater, rippleFor, type Water } from './water';
+import { buildWater, calmWater, rippleFor, type Water } from './water';
 
 /** 浏览器里的画布主人。 */
 export type BrowserHost = StageHost<HTMLElement, HTMLCanvasElement, WebGLRenderer>;
@@ -983,7 +983,8 @@ class ThreeStopView implements StopStageView {
     this.look = look;
     this.shownSection = heading;
     this.applyLight(look, b);
-    const ripple = rippleFor(look.section.camera.bearing, look.distanceM);
+    const water = this.scene.water;
+    const ripple = rippleFor(look.section.camera.bearing, look.distanceM, 'dry' in water && calmWater(water, equivalentDistance(look.distanceM, look.state.fov, this.size().height)));
     b.water.setRipple(ripple.dense, ripple.turnDeg);
     this.applyState(look.state, b);
 

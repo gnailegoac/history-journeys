@@ -84,7 +84,8 @@ function Loaded({ figure, stopId }: { figure: Figure; stopId: string | null }) {
   // 这一站没有自己的沙盘，而全程沙盘上有到这一站去的那一节：正文那一栏可以说“沙盘上是到这一站的来路”。
   const road = !hasTable && !!routeScene?.sections.some((s) => s.stop === stopKey);
 
-  // 读者读到了哪一小节。记着是哪一站的：换了站，上一站的不算；离开又回到同一站，也从头算。
+  // 读者读到了哪一小节（正文还没写、有自己的沙盘的一站上：读者在文字栏的单子里按了哪一处）。
+  // 记着是哪一站的：换了站，上一站的不算；离开又回到同一站，也从头算。
   const [reading, setReading] = useState<{ stopId: string; section: string } | null>(null);
   useEffect(() => {
     setReading(null);
@@ -112,7 +113,7 @@ function Loaded({ figure, stopId }: { figure: Figure; stopId: string | null }) {
           </nav>
 
           {!stopId && <FigureContents figure={figure} route={routeScene} />}
-          {stopId && stop && <StopPage key={stop.id} figure={figure} stop={stop} table={table} road={road} onSection={onSection} />}
+          {stopId && stop && <StopPage key={stop.id} figure={figure} stop={stop} table={table} road={road} section={section} onSection={onSection} />}
           {stopId && !stop && <MissingStop figure={figure} />}
         </div>
       </main>

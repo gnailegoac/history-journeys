@@ -12,7 +12,7 @@
 import * as THREE from 'three';
 import type { SceneThing, ThingKind } from '../../../domain/scene';
 import type { FamilyThingKind } from '../../../domain/sceneKinds';
-import { yardLayout } from '../../ground';
+import { plotHalfM, yardLayout } from '../../ground';
 import type { Vec2, Vec3 } from '../../ground/types';
 import type { FigureClass, KitContext } from '../internal';
 import { Batch, FB, T, box, cyl, prism, segBox } from './geo';
@@ -553,6 +553,9 @@ function buildHouse(pass: Pass, thing: SceneThing): void {
   }
   const ry = houseRy(pass.ctx, thing, x, z);
   const y = groundY(pass, x, z) - 1;
+  // 城里一户带篱笆的人家：它那一块地民居让开（大街、小巷由地面那一边让开，是同一个数）
+  const half = plotHalfM(thing);
+  if (half && [...pass.survey.walls.values()].some((w) => insideRing(w.ring, x, z))) pass.yards.push({ cx: x, cz: z, ry, hx: half, hz: half });
   const joined = joinedTo(pass, thing.id);
   const cottage = joined && !joined.main ? COTTAGE_SMALL : COTTAGE;
   const { W, D } = cottage;

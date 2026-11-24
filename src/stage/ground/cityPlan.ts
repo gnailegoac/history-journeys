@@ -34,6 +34,21 @@ const GATE_END_ROOM_M = 10;
 /** 大街离院落的围墙这么远就停住（街画出来有十几米宽，再近就画到围墙底下去了）。 */
 const STREET_OFF_YARD_M = 20;
 
+/** 城里一户带篱笆的人家占的地块：从屋子往四边各这么多米。一口池的地块是它的半径再加 POOL_ROOM_M。 */
+const HOME_PLOT_M = 45;
+const POOL_ROOM_M = 15;
+/** 池的半径（米）。造池的零件（src/stage/three/families/works.ts）用的也是这两个数。 */
+export const POOL_RADIUS_M = { small: 9, large: 30 };
+
+/**
+ * 城里要给它留一块地的小东西，地块从它那一点往四边各多少米：带篱笆的单座的屋（一户人家），池。别的摆件是 0。
+ * 这一块里大街、小巷不过，民居不摆（零件库那一边照同一个数让开）。
+ */
+export function plotHalfM(thing: SceneThing): number {
+  if (thing.kind === 'pool') return POOL_RADIUS_M[thingParams('pool', thing.params).size ?? 'small'] + POOL_ROOM_M;
+  return thing.kind === 'house' && !thing.on && thingParams('house', thing.params).fence ? HOME_PLOT_M : 0;
+}
+
 /** 一道城墙的线：一圈，最后一点不重复第一点。 */
 export interface WallRing {
   id: string;
@@ -70,7 +85,10 @@ export function cityPlans(scene: StopScene, coords: FrameCoords, walls: WallRing
     const hasStreets = scene.dressing.some((d) => d.kind === 'roads' && d.inside === id);
     const hasLanes = scene.dressing.some((d) => d.kind === 'houses' && d.inside === id && dressingParams('houses', d.params).lanes === true);
     // 城里的院落（官署、寺）：大街不从它们的围墙里穿过去
-    const yards = scene.things.filter((t) => t.kind === 'hall-group' && t.at && ringSigned(...coords.toLocal(t.at), ring) < 0).map((t) => yardOf(t, coords));
+    const within = scene.things.filter((t) => t.at && ringSigned(...coords.toLocal(t.at), ring) < 0);
+    const yards = within.filter((t) => t.kind === 'hall-group').map((t) => yardOf(t, coords));
+    // 城里一户带篱笆的人家、一口池各占的一块地：大街、小巷都不从里面过。没有这样的东西的城（徐州），下面一个数也不变
+    const plots = within.filter((t) => plotHalfM(t) > 0).map((t) => yardOf(t, coords, plotHalfM(t)));
 
     return {
       wallId: id,
@@ -78,8 +96,8 @@ export function cityPlans(scene: StopScene, coords: FrameCoords, walls: WallRing
       centre,
       groundM,
       gates,
-      streets: hasStreets ? planStreets(gates, centre).flatMap((street) => aroundYards(street, yards)) : [],
-      lanes: hasLanes ? planLanes(ring, centre) : [],
+      streets: hasStreets ? planStreets(gates, centre).flatMap((street) => aroundYards(street, [...yards, ...plots])) : [],
+      lanes: hasLanes ? planLanes(ring, centre).flatMap((lane) => (plots.length ? aroundYards(lane, plots, false).filter((l) => Math.hypot(l[1][0] - l[0][0], l[1][1] - l[0][1]) >= LANE_MIN_M) : [lane])) : [],
     };
   });
 }
@@ -165,8 +183,9 @@ interface YardBox {
   halfWidth: number;
 }
 
-function yardOf(thing: SceneThing, coords: FrameCoords): YardBox {
-  const layout = yardLayout(thingParams('hall-group', thing.params).halls ?? 2);
+/** half 写了的是一块小地块（见 plotHalfM）：从那一点往四边各 half 米；不写是一组院落的围墙那一圈。 */
+function yardOf(thing: SceneThing, coords: FrameCoords, half?: number): YardBox {
+  const layout = half ? { back: -half, front: half, halfWidth: half } : yardLayout(thingParams('hall-group', thing.params).halls ?? 2);
   // facing：0 朝北，顺时针，度；不写是朝南（沙盘上南是 +z）
   const f = ((thing.facing ?? 180) * Math.PI) / 180;
   const az: Vec2 = [Math.sin(f), -Math.cos(f)];
@@ -190,13 +209,13 @@ export function paleCourts(scene: StopScene, coords: FrameCoords): Vec2[][] {
  * 一条大街让开各组院落：穿过围墙里面的那一截去掉，街在离围墙 STREET_OFF_YARD_M 的地方停住；
  * 停在院落正面的那一头，再顺着前墙接到大门口。
  */
-function aroundYards(street: Vec2[], yards: YardBox[]): Vec2[][] {
+function aroundYards(street: Vec2[], yards: YardBox[], toDoor = true): Vec2[][] {
   let pieces: Vec2[][] = [street];
-  for (const yard of yards) pieces = pieces.flatMap((piece) => aroundYard(piece, yard));
+  for (const yard of yards) pieces = pieces.flatMap((piece) => aroundYard(piece, yard, toDoor));
   return pieces;
 }
 
-function aroundYard(street: Vec2[], yard: YardBox): Vec2[][] {
+function aroundYard(street: Vec2[], yard: YardBox, toDoor: boolean): Vec2[][] {
   const m = STREET_OFF_YARD_M;
   const x1 = yard.halfWidth + m;
   const z0 = yard.back - m;
@@ -208,7 +227,7 @@ function aroundYard(street: Vec2[], yard: YardBox): Vec2[][] {
   };
   const toTable = (q: Vec2): Vec2 => [yard.at[0] + yard.ax[0] * q[0] + yard.az[0] * q[1], yard.at[1] + yard.ax[1] * q[0] + yard.az[1] * q[1]];
   /** 停在院落正面（前墙外）的一头：顺着前墙接到大门口。 */
-  const door = (q: Vec2): Vec2[] => (Math.abs(q[1] - z1) < 0.5 && Math.abs(q[0]) > 1 ? [toTable([0, z1])] : []);
+  const door = (q: Vec2): Vec2[] => (toDoor && Math.abs(q[1] - z1) < 0.5 && Math.abs(q[0]) > 1 ? [toTable([0, z1])] : []);
 
   const out: Vec2[][] = [];
   let current: Vec2[] = [];

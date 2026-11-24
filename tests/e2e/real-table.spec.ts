@@ -211,12 +211,13 @@ for (const { stopId } of stopsWithScenes().filter((one) => one.figureId === FIRS
   });
 }
 
-// 有自己的沙盘、正文还没写的站（眉州，2026-11-23 起）：页面上没有正文带着镜头走，沙盘停在头一个画面。
-// 它的模型、着色器也只有打开它才造得出来，所以两档各起一遍：摆得出来，头一个画面在预算里，页面不出错；
-// 再照页面上走得到的路走一遍——回各站目录，全程沙盘摆好；再进来，还摆得出来。
+// 有自己的沙盘、正文还没写的站（眉州，2026-11-23 起）：页面上没有正文带着镜头走，沙盘先停在头一个画面；
+// 文字栏里有一张单子“沙盘上看的几处”，按哪一行沙盘就换到哪一处（2026-11-24 起）。
+// 它的模型、着色器也只有打开它才造得出来，所以两档各起一遍：摆得出来，头一个画面在预算里；单子上一行一行按过去，
+// 每一处都换得到、都在预算里；页面不出错；再照页面上走得到的路走一遍——回各站目录，全程沙盘摆好；再进来，还摆得出来。
 for (const { stopId, scene } of stopsWithScenes().filter((one) => one.figureId === FIRST_FIGURE && !one.written)) {
   for (const tier of ['full', 'reduced'] as const) {
-    test(`真沙盘（${TIER_NAME[tier]}的一档），${stopId}（正文还没写）：这一站自己的沙盘摆得出来，停在头一个画面，三角形数和画几批在预算里；回目录再进来还摆得出来；页面不出错`, async ({ page }) => {
+    test(`真沙盘（${TIER_NAME[tier]}的一档），${stopId}（正文还没写）：这一站自己的沙盘摆得出来，先停在头一个画面；按单子上的每一行，沙盘都换得过去，每一处的三角形数和画几批都在预算里；回目录再进来还摆得出来；页面不出错`, async ({ page }) => {
       test.setTimeout(300_000);
       const tag = `真沙盘（${TIER_NAME[tier]}，${stopId}，正文还没写）`;
       await page.setViewportSize({ width: 1024, height: 640 });
@@ -246,23 +247,44 @@ for (const { stopId, scene } of stopsWithScenes().filter((one) => one.figureId =
       await expect(page.locator(`.stage-host .strip[data-strip-id="${stripsOf(scene, first.heading)[0].id}"]`)).toHaveCount(1);
       await expect(page.locator('.stage-scale-label')).toHaveText(/^\d+(\.\d+)? (米|公里)$/);
       await expect(page.locator('.stage-note-short')).toBeVisible();
-      // 正文那一栏：只有一句；按钮下面没有那一行话
-      await expect(page.locator('.not-written')).toHaveText('这一站的正文还没写。');
+      // 正文那一栏：一句话，一张单子（场景里有几处就有几行，头一行是摆着的）；按钮下面没有那一行话
+      await expect(page.locator('.not-written')).toHaveText('这一站的正文还没写。沙盘已经做好了，按下面的一行，沙盘就换到那一处。各处的年份写在每一行里，不一定都在上面这几年里。');
       await expect(page.locator('.text-section')).toHaveCount(0);
       await expect(pane.locator('.stage-notice')).toHaveCount(0);
+      const items = page.locator('.views .view-item');
+      await expect(items).toHaveCount(scene.sections.length);
+      await expect(page.locator('.views .view-item[aria-current="true"]')).toHaveAttribute('data-view', first.heading);
 
-      const readout = await stageReadout(page);
-      expect(readout, '带了 ?debug=1，页面上却没有读数').not.toBeNull();
-      if (readout) {
-        console.log(`${tag}：“${first.heading}”一个画面 ${readout.triangles} 个三角形，画了 ${readout.drawCalls} 批`);
+      /** 摆着的这一处：一个画面的三角形数和画了几批，在预算里，是指定的这一档。 */
+      const expectBudget = async (heading: string): Promise<void> => {
+        const readout = await stageReadout(page);
+        expect(readout, '带了 ?debug=1，页面上却没有读数').not.toBeNull();
+        if (!readout) return;
+        console.log(`${tag}：“${heading}”一个画面 ${readout.triangles} 个三角形，画了 ${readout.drawCalls} 批`);
         expect(readout.triangles).toBeGreaterThan(50_000);
         expect(readout.triangles).toBeLessThanOrEqual(TRIANGLES_MAX);
         expect(readout.drawCalls).toBeGreaterThan(10);
         expect(readout.drawCalls).toBeLessThanOrEqual(DRAW_CALLS_MAX);
         expect(readout.perf?.tier).toBe(tier);
-      }
+      };
+      await expectBudget(first.heading);
 
-      // 回各站目录：全程沙盘摆好（还是只有一块画布）。再进这一站：还摆得出来，还是头一个画面
+      // 单子上一行一行按过去（这个窗口是宽屏的排法，沙盘栏在一边，文字栏自己滚）：真沙盘换到那一处，题记、头一条题签是那一处的，
+      // 还是这一档的立体沙盘，每一处的画面都在预算里。这是页面上到得了后面几处的唯一一条路。
+      for (const section of scene.sections.slice(1)) {
+        from = Date.now();
+        await page.locator(`.views .view-item[data-view="${section.heading}"]`).click();
+        await expect(page.locator('.views .view-item[aria-current="true"]')).toHaveAttribute('data-view', section.heading);
+        await expect(pane).toHaveAttribute('data-stage-section', section.heading, { timeout: SECTION_MS });
+        console.log(`${tag}：按了“${section.heading}”，换过去用了 ${Date.now() - from} 毫秒（不带动画）`);
+        await expect(page.locator('.stage-caption')).toHaveAttribute('data-section', section.heading);
+        await expect(page.locator(`.stage-host .strip[data-strip-id="${stripsOf(scene, section.heading)[0].id}"]`)).toHaveCount(1);
+        await expectRealTable(page, tier);
+        await expectBudget(section.heading);
+      }
+      await expect(canvas).toHaveCount(1);
+
+      // 回各站目录：全程沙盘摆好（还是只有一块画布）。再进这一站：还摆得出来，是头一个画面（不带着刚才按到的那一处）
       await page.locator('.stop-nav-list').click();
       await expect(pane).toHaveAttribute('data-stage-level', 'route', { timeout: RETURN_MS });
       await expectRealTable(page, tier, RETURN_MS);
@@ -275,6 +297,7 @@ for (const { stopId, scene } of stopsWithScenes().filter((one) => one.figureId =
       console.log(`${tag}：回到这一站再摆好用了 ${Date.now() - from} 毫秒`);
       await expectRealTable(page, tier);
       await expect(pane).toHaveAttribute('data-stage-section', first.heading);
+      await expect(page.locator('.views .view-item[aria-current="true"]')).toHaveAttribute('data-view', first.heading);
       await expect(page.locator('canvas')).toHaveCount(1);
 
       expect(problems).toEqual([]);

@@ -135,6 +135,7 @@ const SCENE: Shape = strict({
     rivers: list(strict({ ...GROUNDS, id: text, name: text, kind: oneOf(['river', 'moat']), line: list(lngLat), drawWidthM: positive, crossings: optional(list(lngLat)) })),
     rapids: list(strict({ ...GROUNDS, id: text, name: text, river: text, at: lngLat, lengthM: positive })),
     dry: list(strict({ ...GROUNDS, id: text, name: text, area: list(lngLat) })),
+    calmUnderPx: optional(positive),
   }),
   places: list(strict({ ...GROUNDS, id: text, name: text, at: lngLat })),
   things: list(
@@ -573,6 +574,12 @@ export function checkSceneParts(scene: StopScene, file: string): Violation[] {
       else if (placing === 'ring') ring(thing.line, `${at}.line`, what);
       else if (thing.line.length < 2) bad(`${at}.line`, `${what}的线至少要有两个点`);
     }
+    // 浮桥：线是两个点，从这一岸到那一岸；它是照平时的水位造的，不跟着水位走，所以它在场的小节水位都要是平时的
+    if (thing.kind === 'pontoon-bridge') {
+      if (thing.line !== undefined && thing.line.length > 2) bad(`${at}.line`, `${what}是浮桥，线只写两个点：这一岸的桥头和那一岸的桥头（现在写了 ${thing.line.length} 个）`);
+      const other = scene.sections.find((section) => section.water !== 'normal' && existsAt(thing.when, section.heading, headings));
+      if (other) bad(`${at}.when`, `${what}是浮桥，小节“${other.heading}”的水位是“${other.water}”：浮桥照平时的水位造，不跟着水位走，只能摆在水位是 normal 的小节里（用 when 写清楚它在哪几节）`);
+    }
 
     const hosts = THING_HOSTS[thing.kind];
     if (thing.on === undefined) {
@@ -626,6 +633,11 @@ export function checkSceneParts(scene: StopScene, file: string): Violation[] {
     const slim = rule.kind === 'trees' && (rule.params?.type === 'bamboo' || rule.params?.type === 'cypress');
     if (slim && rule.area === undefined && rule.at === undefined) {
       bad(`${at}.params.type`, `${what}是${rule.params?.type === 'bamboo' ? '竹' : '柏'}，位置要写 area（一块地方）或者 at（一个点周围）：沿一条线、摆满整块沙盘时程序种不出细高的竹和柏`);
+    }
+    // 小松树（young）只是把松种得小一半：别的树没有“小的”这一种；程序只在“一块地方”和“一个点周围”的种法里认它
+    if (rule.kind === 'trees' && rule.params?.young === true) {
+      if (rule.params.type !== 'pine') bad(`${at}.params.young`, `${what}写了 young（刚种下几年的小树），type 要写 pine：只有松有小的这一种`);
+      else if (rule.area === undefined && rule.at === undefined) bad(`${at}.params.young`, `${what}写了 young，位置要写 area（一块地方）或者 at（一个点周围）：沿一条线、摆满整块沙盘时种出来的还是平常大小的松`);
     }
     // 崖脚的石头只摆在“比最低的水位高 0.2 米、比平时的水位低 1.5 米”的那一带里：最低的水位离平时不到 1.7 米，一块也摆不下
     if (rule.kind === 'rocks' && rule.params?.type === 'shore') {

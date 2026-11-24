@@ -212,6 +212,8 @@ export interface SceneWater {
   rapids: SceneRapids[];
   /** 水漫不进去的地方。闭合的城墙里面不用写，程序自己算。 */
   dry: SceneDryArea[];
+  /** 可以不写。最宽的一条河在哪一节的画面上不到这么多个页面像素宽，那一节的水面不画水纹（规格“窄的河上不画水纹”）。 */
+  calmUnderPx?: number;
 }
 
 /** 水位。它的 note 必须写。 */

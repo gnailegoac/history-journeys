@@ -427,14 +427,28 @@ describe.runIf(realSceneKeys().includes(KEY))('眉州的地面', () => {
     expect(rx - fx).toBeLessThan(400);
     expect(rz - fz).toBeGreaterThan(300);
     expect(rz - fz).toBeLessThan(400);
-    // 墓：说明里“在蟆颐山的北偏东约七公里”
-    const [gx, gz] = place('dongying');
+    // 墓：说明里“在蟆颐山的北偏东约七公里”；依据里“方向差着约七十度”（他写的是“蟆颐山之东”，正东是 90 度）
+    const [gx, gz] = place('grave-parents');
     const [mx, mz] = place('mayishan');
     const bearing = (Math.atan2(gx - mx, -(gz - mz)) * 180) / Math.PI;
-    expect(scene.places.find((p) => p.id === 'dongying')?.note).toContain('在蟆颐山的北偏东约七公里');
+    const grave = scene.things.find((t) => t.id === 'grave-parents');
+    expect(grave?.note).toContain('在蟆颐山的北偏东约七公里');
     expect(Math.round(Math.hypot(gx - mx, gz - mz) / 1000)).toBe(7);
     expect(bearing).toBeGreaterThan(5);
     expect(bearing).toBeLessThan(40);
+    expect(grave?.basis).toContain('方向差着约七十度');
+    expect(Math.round((90 - bearing) / 10)).toBe(7);
+    // 墓：依据里“离地图上墓园的中心约一百四十米”（考证记录里今天“苏氏墓地”的中心点）
+    const CEMETERY_CENTRE: LngLat = [103.8973, 30.1181];
+    const [cx, cz] = local(CEMETERY_CENTRE);
+    console.log(`眉州的墓：大的一座离地图上墓园的中心 ${Math.hypot(gx - cx, gz - cz).toFixed(0)} 米；从蟆颐山看过去在北偏东 ${bearing.toFixed(0)} 度`);
+    expect(grave?.basis).toContain('离地图上墓园的中心约一百四十米');
+    expect(Math.round(Math.hypot(gx - cx, gz - cz) / 10)).toBe(14);
+    // 泉：依据里引苏辙“坟之西南十余步”，沙盘上泉在大坟的西南（往西、往南）
+    const [sx, sz] = place('spring');
+    expect(scene.things.find((t) => t.id === 'spring')?.basis).toContain('坟之西南十余步');
+    expect(sx).toBeLessThan(gx);
+    expect(sz).toBeGreaterThan(gz);
   });
 
   it('工具做的两样（先画好的地面、定格图）还没有做：名字在“还没做出来”的表里', () => {

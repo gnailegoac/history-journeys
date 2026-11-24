@@ -608,7 +608,8 @@ test('第三个字体文件：首页、人物页、还没写的站上不取；�
   await page.waitForTimeout(5_000);
   expect(fonts.of('yanlu-song-more'), `人物页上等了五秒，第三个字体文件不该取（${fonts.all().join(' ')}）`).toEqual([]);
 
-  // 还没写的一站：那里没有要点开的东西，等三秒半也不取
+  // 还没写的一站：等三秒半也不取。没有自己的沙盘的，那里没有要点开的东西；有自己的沙盘的（眉州）有一行折着的凭据，
+  // 同人物页一样，点开的那一刻才取——单子“沙盘上看的几处”上的字不用点就看得见，都得在头两个字体文件里
   const unwritten = page.locator('.stop-item:not([data-stop-status="complete"])').first();
   let unwrittenId: string | null = null;
   if ((await unwritten.count()) > 0) {

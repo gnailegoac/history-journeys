@@ -377,7 +377,8 @@
       }
     ],
     "rapids": [],
-    "dry": []
+    "dry": [],
+    "calmUnderPx": 48
   },
   "places": [
     {
@@ -429,22 +430,17 @@
       "note": "渡口在蟆颐山下的江上，是按当时的记载摆的；在哪一点没有查到。"
     },
     {
-      "id": "dongying",
-      "name": "父母的墓（今苏氏墓地）",
+      "id": "bend",
+      "name": "江在蟆颐山北面的大弯",
       "at": [
-        103.8984,
-        30.1173
+        103.8909,
+        30.0913
       ],
-      "class": "today",
-      "basis": "照今天苏氏墓地的位置，摆在墓园东南边上坡最缓的一处；墓园里各座坟在哪一点没有查到。他写父母葬在“眉之东北”，又写“蟆颐山之东二十余里，地名老翁泉”：今天的墓园同前一句相合，同后一句方向差着约七十度。",
+      "class": "real",
+      "basis": "岷江从北边流下来，在蟆颐山的北面拐了一个大弯，位置照今天的河线。沙盘上没有给它立题签；记下这一点，是为了让看全景的时候这一段江留在画面里。",
       "sourceIds": [
-        "w-wangshi-muzhi",
-        "w-songjiane",
-        "r-suxun-jiwang",
-        "l-osm",
-        "l-mudi"
-      ],
-      "note": "他写父母葬在眉州东北、“蟆颐山之东二十余里”的老翁泉。今天的苏家墓园在蟆颐山的北偏东约七公里：同“眉州东北”相合，同“蟆颐山之东”不全相合。这里照今天墓园的位置摆。今天的坟是明代、清代重新立，1984 年修复的；原来的墓穴没有找到过。"
+        "l-osm"
+      ]
     }
   ],
   "things": [
@@ -601,15 +597,14 @@
     {
       "id": "home",
       "name": "纱縠行的家",
-      "kind": "hall-group",
+      "kind": "house",
       "at": [
         103.8289,
         30.0434
       ],
       "params": {
-        "halls": 1,
-        "galleries": false,
-        "enclosed": true
+        "roof": "tile",
+        "fence": true
       },
       "facing": 180,
       "class": "today",
@@ -624,6 +619,75 @@
       ],
       "unsure": "房子的样子和它在纱縠行的哪一处",
       "note": "他自己写过家在纱縠行。今天的三苏祠是后人立的祠，明代的书说它本是苏家的旧宅；这里照三苏祠的位置摆，房子的样子是示意。"
+    },
+    {
+      "id": "home-pool",
+      "name": "家里的小池",
+      "kind": "pool",
+      "at": [
+        103.829191,
+        30.042985
+      ],
+      "params": {
+        "size": "small"
+      },
+      "class": "text",
+      "basis": "他梦里回到纱縠行的家，见人“运土塞小池”：园里有一口小池。池在园里哪一处没有查到。它同城外的水不相连。",
+      "sourceIds": [
+        "w-zhilin"
+      ],
+      "unsure": "位置和大小"
+    },
+    {
+      "id": "pond-1",
+      "name": "城里的池塘（一）",
+      "kind": "pool",
+      "at": [
+        103.8322,
+        30.0462
+      ],
+      "params": {
+        "size": "large"
+      },
+      "class": "dressing",
+      "basis": "范成大 1177 年写眉州“城中荷花特盛，处处有池塘”，那是他走后一百多年的人所见。哪里有塘没有查到，这几口只表示城里有池塘。",
+      "sourceIds": [
+        "r-fanchengda"
+      ]
+    },
+    {
+      "id": "pond-2",
+      "name": "城里的池塘（二）",
+      "kind": "pool",
+      "at": [
+        103.8352,
+        30.0428
+      ],
+      "params": {
+        "size": "large"
+      },
+      "class": "dressing",
+      "basis": "同上一条。",
+      "sourceIds": [
+        "r-fanchengda"
+      ]
+    },
+    {
+      "id": "pond-3",
+      "name": "城里的池塘（三）",
+      "kind": "pool",
+      "at": [
+        103.8318,
+        30.0398
+      ],
+      "params": {
+        "size": "large"
+      },
+      "class": "dressing",
+      "basis": "同上一条。",
+      "sourceIds": [
+        "r-fanchengda"
+      ]
     },
     {
       "id": "temple",
@@ -651,12 +715,123 @@
       "note": "蟆颐山上的道观照今天重瞳观的位置摆在半山，房子的样子是示意。今天观里叫“老人泉”的那一处，同苏家墓旁的老翁泉不是一处。"
     },
     {
+      "id": "bridge",
+      "name": "浮桥",
+      "kind": "pontoon-bridge",
+      "line": [
+        [
+          103.87065,
+          30.0558
+        ],
+        [
+          103.8723,
+          30.05509
+        ]
+      ],
+      "when": {
+        "only": [
+          "正月上蟆颐山"
+        ]
+      },
+      "class": "text",
+      "basis": "苏辙写正月过江：“浮桥没水不胜重”。浮桥是用船并排连起来、上面铺板的桥。他只说路上有浮桥：架在哪一股水上、哪一点、多长，是不是只在冬春搭，都没有查到。",
+      "sourceIds": [
+        "r-suzhe-taqing"
+      ],
+      "unsure": "位置（架在哪一股水上、哪一点）、长短和是不是只在冬春搭",
+      "note": "浮桥有苏辙的诗：“浮桥没水不胜重”。沙盘上把它画在蟆颐山脚下的那一股水上，从卵石滩连到山脚的岸，是示意；桥架在哪一股水上、哪一点没有查到。西边宽的一股怎么过也没有查到，那里摆了渡船。"
+    },
+    {
+      "id": "grave-parents",
+      "name": "父母的墓",
+      "kind": "grave-mound",
+      "at": [
+        103.8984,
+        30.1173
+      ],
+      "params": {
+        "size": "large"
+      },
+      "when": {
+        "only": [
+          "老翁泉"
+        ]
+      },
+      "class": "today",
+      "basis": "他写父母葬在“眉之东北”的老翁泉，“一坟而异藏”：一座坟、两个墓室。点位照今天的苏氏墓地：定位靠的是泉，坟照苏辙的话摆在泉的东北。墓园里各座坟和井在哪一点没有查到，沙盘上把它们摆在墓园东南边上坡最缓的一处，离地图上墓园的中心约一百四十米。他另一句“蟆颐山之东二十余里”同今天的墓园方向差着约七十度。今天墓园里的坟是明代在泉旁设的虚冢、清代重新封筑、1984 年修复的；有没有做过考古勘探没有查到。",
+      "sourceIds": [
+        "w-wangshi-muzhi",
+        "w-songjiane",
+        "w-yikuang",
+        "w-zian",
+        "r-suxun-jiwang",
+        "r-suzhe-fenyuan",
+        "l-shuzhongguangji",
+        "l-kangxizhi",
+        "l-mudi",
+        "l-osm"
+      ],
+      "unsure": "坟的样子和大小",
+      "note": "他写父母葬在眉州东北、“蟆颐山之东二十余里”的老翁泉。今天的苏家墓园在蟆颐山的北偏东约七公里：同“眉州东北”相合，同“蟆颐山之东”不全相合。这里照今天墓园的位置摆。今天的坟是明代、清代重新立，1984 年修复的；原来的墓穴没有找到过。他在信里把这里叫“东茔”。"
+    },
+    {
+      "id": "grave-wangfu",
+      "name": "王弗的墓",
+      "kind": "grave-mound",
+      "at": [
+        103.898158,
+        30.11751
+      ],
+      "params": {
+        "size": "small"
+      },
+      "when": {
+        "only": [
+          "老翁泉"
+        ]
+      },
+      "class": "text",
+      "basis": "他写妻子王弗葬在“先君先夫人墓之西北八步”。八步约 12 米，沙盘上分不开，画成一大一小挨着。下葬的日子没有查清。",
+      "sourceIds": [
+        "w-wangshi-muzhi"
+      ],
+      "unsure": "坟的样子"
+    },
+    {
+      "id": "spring",
+      "name": "老翁泉",
+      "kind": "pool",
+      "at": [
+        103.8977,
+        30.11708
+      ],
+      "params": {
+        "size": "small",
+        "stone": true
+      },
+      "when": {
+        "only": [
+          "老翁泉"
+        ]
+      },
+      "class": "text",
+      "basis": "地名“老翁泉”有他自己的话。苏洵写泉“畜为大井”，他在泉上盖了亭子、砌了石；苏辙写“坟之西南十余步有泉焉”。明代、清代两次找墓，认的都是这口泉。今天墓园里的井在哪一点没有查到；沙盘上泉摆在坟的西南，同坟一起在墓园东南边上坡最缓的一处。",
+      "sourceIds": [
+        "w-songjiane",
+        "r-suxun-laowengjing",
+        "r-suzhe-fenyuan",
+        "l-shuzhongguangji"
+      ],
+      "unsure": "位置和样子",
+      "note": "老翁泉在坟的西南十几步，苏洵在泉上盖过一座亭子。几百年里一直有人认得的是这口泉，不是坟。"
+    },
+    {
       "id": "spring-pavilion",
       "name": "泉上的亭子",
       "kind": "pavilion",
       "at": [
-        103.8977,
-        30.11708
+        103.89743,
+        30.117287
       ],
       "params": {
         "roof": "thatch"
@@ -667,11 +842,11 @@
         ]
       },
       "class": "text",
-      "basis": "苏洵《老翁井铭》：“因为作亭于其上，又甃石以御水潦之暴。”亭子什么样没有记载。",
+      "basis": "苏洵《老翁井铭》：“因为作亭于其上，又甃石以御水潦之暴。”亭子什么样没有记载。沙盘上亭子摆在泉的西北边上，没有正罩在水面上，好让泉露在外面。",
       "sourceIds": [
         "r-suxun-laowengjing"
       ],
-      "unsure": "样子"
+      "unsure": "样子和它同泉怎么挨着"
     }
   ],
   "dressing": [
@@ -935,28 +1110,199 @@
       "sourceIds": []
     },
     {
-      "id": "home-bamboo",
-      "name": "家里园子北边的一丛树",
+      "id": "trees-flat-1",
+      "name": "山里平地上的树（一）",
       "kind": "trees",
-      "at": [
-        103.82925,
-        30.0437
+      "area": [
+        [
+          103.8785,
+          30.0515
+        ],
+        [
+          103.88185,
+          30.0515
+        ],
+        [
+          103.88185,
+          30.04616
+        ],
+        [
+          103.8785,
+          30.04616
+        ]
       ],
       "params": {
         "type": "mixed",
-        "radiusM": 70,
+        "density": 12,
+        "seed": 1060
+      },
+      "class": "dressing",
+      "basis": "江东的山里今天有几处水库和塘，高程里是一块块平地，摆到沙盘上成了山里几块浅色的空地。宋代这些地方什么样没有查到。沙盘上不把它们画成水，种上同四周一样的杂树。",
+      "sourceIds": [
+        "l-dem"
+      ]
+    },
+    {
+      "id": "trees-flat-2",
+      "name": "山里平地上的树（二）",
+      "kind": "trees",
+      "area": [
+        [
+          103.88113,
+          30.04309
+        ],
+        [
+          103.88352,
+          30.04309
+        ],
+        [
+          103.88352,
+          30.04093
+        ],
+        [
+          103.88113,
+          30.04093
+        ]
+      ],
+      "params": {
+        "type": "mixed",
+        "density": 12,
+        "seed": 1061
+      },
+      "class": "dressing",
+      "basis": "同上一条。",
+      "sourceIds": []
+    },
+    {
+      "id": "trees-flat-3",
+      "name": "山里平地上的树（三）",
+      "kind": "trees",
+      "area": [
+        [
+          103.88621,
+          30.07139
+        ],
+        [
+          103.894,
+          30.07139
+        ],
+        [
+          103.894,
+          30.06779
+        ],
+        [
+          103.88621,
+          30.06779
+        ]
+      ],
+      "params": {
+        "type": "mixed",
+        "density": 12,
+        "seed": 1062
+      },
+      "class": "dressing",
+      "basis": "同上一条。",
+      "sourceIds": []
+    },
+    {
+      "id": "trees-flat-4",
+      "name": "山里平地上的树（四）",
+      "kind": "trees",
+      "area": [
+        [
+          103.89691,
+          30.04066
+        ],
+        [
+          103.90012,
+          30.04066
+        ],
+        [
+          103.90012,
+          30.03345
+        ],
+        [
+          103.89691,
+          30.03345
+        ]
+      ],
+      "params": {
+        "type": "mixed",
+        "density": 12,
+        "seed": 1063
+      },
+      "class": "dressing",
+      "basis": "同上一条。",
+      "sourceIds": []
+    },
+    {
+      "id": "trees-flat-5",
+      "name": "山里平地上的树（五）",
+      "kind": "trees",
+      "area": [
+        [
+          103.90438,
+          30.04409
+        ],
+        [
+          103.90615,
+          30.04409
+        ],
+        [
+          103.90615,
+          30.04246
+        ],
+        [
+          103.90438,
+          30.04246
+        ]
+      ],
+      "params": {
+        "type": "mixed",
+        "density": 12,
+        "seed": 1064
+      },
+      "class": "dressing",
+      "basis": "同上一条。",
+      "sourceIds": []
+    },
+    {
+      "id": "home-bamboo",
+      "name": "家里的竹子",
+      "kind": "trees",
+      "params": {
+        "type": "bamboo",
+        "density": 50,
         "seed": 21
       },
       "class": "text",
-      "basis": "他梦里回到家，“坐于南轩，对修竹数百”：园里有一片竹子。沙盘上这里摆的是一丛杂树，不是竹子的样子；竹子种在园里哪一处没有查到。",
+      "basis": "他梦里回到家，“坐于南轩，对修竹数百”：园里有一片竹子。竹子种在园里哪一处没有查到，沙盘上摆在屋子的北面。",
       "sourceIds": [
         "w-zhilin"
       ],
-      "unsure": "位置、多少和树的样子"
+      "unsure": "位置和多少",
+      "area": [
+        [
+          103.828464,
+          30.044013
+        ],
+        [
+          103.829336,
+          30.044013
+        ],
+        [
+          103.829336,
+          30.043706
+        ],
+        [
+          103.828464,
+          30.043706
+        ]
+      ]
     },
     {
       "id": "home-garden",
-      "name": "家里园子的矮树",
+      "name": "家里园子的树",
       "kind": "trees",
       "at": [
         103.8286,
@@ -997,23 +1343,23 @@
     },
     {
       "id": "temple-bamboo",
-      "name": "蟆颐山上道观旁的杂树",
+      "name": "蟆颐山上的竹",
       "kind": "trees",
       "at": [
         103.8738,
         30.0548
       ],
       "params": {
-        "type": "mixed",
+        "type": "bamboo",
         "radiusM": 110,
         "seed": 24
       },
       "class": "text",
-      "basis": "苏辙写山上“有亭榭松竹”。沙盘上道观旁这一片摆的是杂树，不是竹子的样子。",
+      "basis": "苏辙写山上“有亭榭松竹”。竹子在山上哪一处、多少没有查到。",
       "sourceIds": [
         "r-suzhe-taqing"
       ],
-      "unsure": "位置、多少和树的样子"
+      "unsure": "位置和多少"
     },
     {
       "id": "grave-pines",
@@ -1072,7 +1418,8 @@
       "params": {
         "type": "pine",
         "density": 4,
-        "seed": 25
+        "seed": 25,
+        "young": true
       },
       "when": {
         "only": [
@@ -1148,7 +1495,7 @@
         ]
       ],
       "params": {
-        "type": "road"
+        "type": "wide"
       },
       "class": "dressing",
       "basis": "苏辙写正月“出东郊，渡江”上蟆颐山：路从东门出去，有他的话。路怎么走没有查到，这条线只表示有路。路到小河边为止：这里怎么过河没有查到，没有摆桥。",
@@ -1176,7 +1523,7 @@
         ]
       ],
       "params": {
-        "type": "road"
+        "type": "wide"
       },
       "class": "dressing",
       "basis": "同上一条：从小河东岸到江边的渡口。路怎么走没有查到，这条线只表示有路。",
@@ -1200,7 +1547,7 @@
         ]
       ],
       "params": {
-        "type": "road"
+        "type": "wide"
       },
       "class": "dressing",
       "basis": "从西边那股水的东岸到浮桥西头，只表示有路。西边那股水怎么过没有查到，路在两岸各到水边为止。",
@@ -1334,9 +1681,10 @@
       "modern": "岷江",
       "of": "minjiang",
       "at": [
-        103.8802,
-        30.0991
-      ]
+        103.8843,
+        30.0792
+      ],
+      "side": "left"
     },
     {
       "id": "t-river-ferry",
@@ -1358,22 +1706,29 @@
       "id": "t-home",
       "text": "纱縠行",
       "modern": "三苏祠",
-      "of": "home"
+      "of": "home",
+      "side": "below"
     },
     {
       "id": "t-eastgate",
       "text": "东门",
-      "of": "gate-east"
+      "of": "gate-east",
+      "side": "left"
     },
     {
       "id": "t-spring",
       "text": "老翁泉",
-      "of": "spring-pavilion"
+      "of": "spring",
+      "at": [
+        103.897615,
+        30.117025
+      ],
+      "side": "below"
     },
     {
       "id": "t-graves",
       "text": "父母的墓",
-      "of": "dongying"
+      "of": "grave-parents"
     },
     {
       "id": "t-laowengshan",
@@ -1387,9 +1742,14 @@
       "of": "jiazhou"
     },
     {
-      "id": "t-ferry",
-      "text": "蟆颐津",
-      "of": "ferry"
+      "id": "t-bridge",
+      "text": "浮桥",
+      "of": "bridge",
+      "at": [
+        103.87222,
+        30.05513
+      ],
+      "side": "right"
     }
   ],
   "far": [
@@ -1417,15 +1777,18 @@
       "line": "从城的西南边往东北看：他生在眉州。先走陆路去汴京，后坐船过嘉州。",
       "camera": {
         "target": [
-          103.864,
-          30.08
+          103.858,
+          30.052
         ],
-        "distanceM": 63000,
+        "distanceM": 36000,
         "pitch": 48,
         "bearing": 38,
         "fov": 18,
         "mustShow": [
-          "frame"
+          "wall",
+          "mayishan",
+          "bend",
+          "jiazhou"
         ]
       },
       "water": "normal",
@@ -1448,7 +1811,7 @@
     {
       "heading": "纱縠行的家",
       "date": "庆历三年到七年（1043–1047）",
-      "line": "家在眉州城里的纱縠行，有一个园子。房子的样子是示意。",
+      "line": "家在眉州城里的纱縠行，有园子、竹子和一口小池。房子的样子是示意。",
       "camera": {
         "target": [
           103.8296,
@@ -1477,18 +1840,18 @@
     {
       "heading": "正月上蟆颐山",
       "date": "每年正月（人日前后）",
-      "line": "正月里，城里人出东门，过江，到蟆颐山上踏青。",
+      "line": "正月里，城里人出东门，过江上的浮桥，到蟆颐山上踏青。",
       "camera": {
         "target": [
-          103.858,
-          30.0505
+          103.856,
+          30.0553
         ],
         "distanceM": 12000,
         "pitch": 55,
         "bearing": 70,
         "mustShow": [
           "gate-east",
-          "ferry",
+          "bridge",
           "temple",
           "mayishan"
         ]
@@ -1496,19 +1859,21 @@
       "water": "normal",
       "strips": [
         "t-eastgate",
-        "t-ferry",
+        "t-bridge",
         "t-mayishan",
         "t-river-ferry"
       ],
       "explain": [
-        "ferry",
+        "bridge",
         "minjiang-foot",
+        "ferry",
         "side-channel",
         "temple",
         "temple-bench",
         "minjiang",
         "levels"
-      ]
+      ],
+      "mist": 0
     },
     {
       "heading": "老翁泉",
@@ -1523,7 +1888,9 @@
         "pitch": 55,
         "bearing": 55,
         "mustShow": [
-          "dongying",
+          "grave-parents",
+          "grave-wangfu",
+          "spring",
           "spring-pavilion",
           "laowengshan"
         ]
@@ -1535,9 +1902,11 @@
         "t-laowengshan"
       ],
       "explain": [
-        "dongying",
+        "grave-parents",
+        "spring",
         "grave-pines"
-      ]
+      ],
+      "mist": 0
     }
   ],
   "notDrawn": [
@@ -1683,14 +2052,6 @@
       "sourceIds": [
         "l-mingyitongzhi",
         "l-mudi"
-      ]
-    },
-    {
-      "id": "bridge-later",
-      "name": "浮桥",
-      "why": "苏辙写正月过江有浮桥：“浮桥没水不胜重”。沙盘上没有摆浮桥，江上摆的是渡船。",
-      "sourceIds": [
-        "r-suzhe-taqing"
       ]
     },
     {

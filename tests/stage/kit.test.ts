@@ -100,7 +100,7 @@ const testStyle: StageStyle = {
   ground: { colours: GROUND_COLOURS, bands: { foot: [2.4, 8], green: [7, 22], blue: [40, 84], deepBlue: [88, 125] } },
   // 模型跟着远近怎么变：用真的那一份表
   figure: SONG_QINGLV_FIGURE,
-  stripLift: { wall: 62, gate: 8, tower: 76, pavilion: 30, 'hall-group': 40, house: 14, dike: 30, bank: 6, 'timber-bank': 10, cliff: 100, 'earth-wall': 12, 'small-gate': 24 },
+  stripLift: { wall: 62, gate: 8, tower: 76, pavilion: 30, 'hall-group': 40, house: 14, dike: 30, bank: 6, 'timber-bank': 10, cliff: 100, 'earth-wall': 12, 'small-gate': 24, 'pontoon-bridge': 8, pool: 5, 'grave-mound': 15 },
   light: () => ({ dir: [-0.66, 0.6, -0.42], sun: 2.6, sunColor: '#fff4e2', hemi: 1.55, sky: '#fffaf0', ground: '#c4b494' }),
   fogFor: () => [40000, 140000],
   mistFor: () => 1,

@@ -99,7 +99,9 @@ export function paintColour(ground: Ground, style: GroundStyle): { colour: Uint8
   // 路只在几条窄带里，先粗筛
   const roads = ground.roads.map((r) => {
     const line = smoothLine(r.line, 80);
-    return { type: r.type, line, box: boxOf(line, 40) };
+    // 大路（wide）宽一倍半，颜色上到九成；别的路 k 是 1，和原来一个数不差
+    const k = r.type === 'wide' ? 1.5 : 1;
+    return { type: r.type, line, box: boxOf(line, 40 * k), k };
   });
   const cities = ground.cities.map((c): CityPaint => {
     const streets = [...c.streets];
@@ -203,7 +205,7 @@ export function paintColour(ground: Ground, style: GroundStyle): { colour: Uint8
       let onRoad = 0;
       for (const road of roads) {
         if (!inBox(x, z, road.box)) continue;
-        onRoad = Math.max(onRoad, 1 - smoothstep(9, 24, distLine(x, z, road.line)));
+        onRoad = Math.max(onRoad, (1 - smoothstep(9 * road.k, 24 * road.k, distLine(x, z, road.line))) * road.k);
       }
 
       // 远看的田：四五百米一块的不规则大田块，三种浅色轮着上，块和块之间留一道底色
@@ -231,7 +233,7 @@ export function paintColour(ground: Ground, style: GroundStyle): { colour: Uint8
           fieldMask = k;
         }
       }
-      if (onRoad > 0) col = mix3(col, C.path, onRoad * 0.6 * (1 - inCity));
+      if (onRoad > 0) col = mix3(col, C.path, Math.min(1, onRoad * 0.6) * (1 - inCity));
 
       // 城里：浅灰黄的地，从城门到城门的大街和几条小巷
       if (inCity > 0 && city) {
@@ -260,7 +262,7 @@ export function paintColour(ground: Ground, style: GroundStyle): { colour: Uint8
       col = [col[0] + grain, col[1] + grain, col[2] + grain * 0.9];
 
       // 近看的田垄只画在上了色的田块里（着色器里画）
-      const field = fieldMask * (1 - onRoad);
+      const field = fieldMask * (1 - Math.min(1, onRoad));
 
       const k = (j * w + i) * 4;
       out[k] = clamp(Math.round(col[0]), 0, 255);

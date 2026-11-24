@@ -11,7 +11,8 @@
 //   state-register-…                凭据里“沙盘上的东西”一栏
 //   state-guide-…                   讲解员面板开着（也等里面的东西到了再拍）
 //   state-no-table-…                写好了正文、还没有沙盘的一站
-//   state-not-written-…             还没写的一站
+//   state-not-written-…             还没写的一站（没有自己的沙盘的那一种）
+//   state-views-…                   还没写、有自己的沙盘的一站：一句话和单子“沙盘上看的几处”
 //   state-no-stop-…、state-no-figure-…  两种“没找到”
 // 平时不跑：设环境变量 REAL_SHOTS=1 才跑。拍四种标准的窗口；只拍一种，命令后面加 -g "1440"、-g "横着"、-g "竖着"
 // 或 -g "1366"（竖放的大平板，1024 × 1366）。
@@ -22,7 +23,7 @@
 import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
 import type { StageTier } from '../../src/stage/types';
-import { expectRealTable, firstUnwrittenStopWithoutScene, firstWrittenStopWithoutScene, foldBodiesReady, openFigureWithTable, realUrl, shoot, stagePane } from './helpers';
+import { expectRealTable, firstUnwrittenStopWithoutScene, firstWrittenStopWithoutScene, foldBodiesReady, openFigureWithTable, realUrl, shoot, stagePane, stopsWithScenes } from './helpers';
 
 const env = (globalThis as { process?: { env: Record<string, string | undefined> } }).process?.env ?? {};
 const DIR = env.SHOTS_DIR ?? 'tests/shots/real';
@@ -168,6 +169,16 @@ async function shootStates(page: Page, size: { width: number; height: number }):
     await expect(page.locator('.not-written')).toBeVisible();
     await paneSettled();
     await snap('state-not-written');
+  }
+
+  // 还没写、可是有自己的沙盘的一站（眉州）：文字栏里是一句话和单子“沙盘上看的几处”，头一处摆着
+  const withViews = stopsWithScenes().find((one) => one.figureId === figureId && !one.written);
+  if (withViews) {
+    await page.goto('about:blank');
+    await page.goto(url(`#/${figureId}/${withViews.stopId}`));
+    await expect(page.locator('.views')).toBeVisible({ timeout: 120_000 });
+    await paneSettled();
+    await snap('state-views');
   }
 
   // 两种“没找到”

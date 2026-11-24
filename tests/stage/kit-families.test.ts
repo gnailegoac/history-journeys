@@ -47,16 +47,18 @@ describe('按家分块的零件：登记表', () => {
     }
   });
 
-  it('现在是两家：石和土（崖壁、矮土墙、单立的小门、崖脚的石头），草木（竹、柏）', () => {
+  it('现在是三家：石和土（崖壁、矮土墙、单立的小门、崖脚的石头），草木（竹、柏），小工程（浮桥、池、坟）', () => {
     expect(FAMILIES.map((family) => [family.name, [...family.holds]])).toEqual([
       ['rock', ['cliff', 'earth-wall', 'small-gate', 'rocks:shore']],
       ['plants', ['trees:bamboo', 'trees:cypress']],
+      ['works', ['pontoon-bridge', 'pool', 'grave-mound']],
     ]);
   });
 });
 
 describe('按家分块的零件：哪座沙盘取哪几家', () => {
-  it('徐州一家也不取；黄州取两家', () => {
+  // 每座沙盘的地面各算一遍：整套测试一起跑的时候要五六秒，单给一个时限
+  it('徐州一家也不取；黄州取两家', { timeout: 60_000 }, () => {
     expect(familyNamesFor(realScene('su-shi/xuzhou').scene)).toEqual([]);
     expect(familyNamesFor(realScene('su-shi/huangzhou').scene)).toEqual(['rock', 'plants']);
     // content/ 里别的站点沙盘，登记表里没有的家一概不会冒出来

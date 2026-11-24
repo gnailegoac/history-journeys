@@ -10,4 +10,6 @@ export const FAMILIES: readonly FamilyEntry[] = [
   { name: 'rock', holds: ['cliff', 'earth-wall', 'small-gate', 'rocks:shore'], load: () => import('./three/families/rock') },
   /** 草木：竹，柏。 */
   { name: 'plants', holds: ['trees:bamboo', 'trees:cypress'], load: () => import('./three/families/plants') },
+  /** 小工程：浮桥，池，坟。 */
+  { name: 'works', holds: ['pontoon-bridge', 'pool', 'grave-mound'], load: () => import('./three/families/works') },
 ];

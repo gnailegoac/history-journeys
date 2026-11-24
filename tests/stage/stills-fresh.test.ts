@@ -134,7 +134,8 @@ describe.each(tables)('$figureId/$stopId：照磁盘上现在的文件算“照�
   const dir = `content/figures/${figureId}`;
   const sceneText = (): string => new TextDecoder().decode(readFile(`${dir}/scenes/${stopId}.json`));
 
-  it('四个记号都算得出来，底色读得到；算两遍一样', () => {
+  // 四个记号要把程序和场景的文件都读一遍、算一遍：整套测试一起跑的时候要五到七秒，单给一个时限（下一条也是）
+  it('四个记号都算得出来，底色读得到；算两遍一样', { timeout: 60_000 }, () => {
     const now = madeFromNow(figureId, stopId);
     for (const key of ['scene', 'terrain', 'ground', 'program'] as const) expect(now.madeFrom[key], key).toMatch(/^[0-9a-f]{16}$/);
     expect(now.background).toMatch(/^#[0-9a-f]{6}$/);
@@ -146,7 +147,7 @@ describe.each(tables)('$figureId/$stopId：照磁盘上现在的文件算“照�
     expect(now.madeFrom.program).toBe(programKey(readProgramFiles(), programVersions()));
   });
 
-  it('刚拍好的清单不旧；场景里改一个镜头的数、程序里改一个字节、换一个库的版本，各说各的', () => {
+  it('刚拍好的清单不旧；场景里改一个镜头的数、程序里改一个字节、换一个库的版本，各说各的', { timeout: 60_000 }, () => {
     const name = stopName(figureId, stopId);
     const now = madeFromNow(figureId, stopId);
     const manifest = { madeFrom: { ...now.madeFrom }, made: { background: now.background ?? '' } };

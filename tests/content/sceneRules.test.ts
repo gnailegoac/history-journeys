@@ -1789,6 +1789,63 @@ describe('黄州的城添的几种写法：青苗的田、浅色的院子、照�
     expect(sceneProblems(grove('pine', 'all'))).toEqual([]);
   });
 
+  it('小松树（young）只给松，只写在“一块地方”和“一个点周围”（规则 13）', () => {
+    const pines = (type: string, where: 'area' | 'at' | 'line' | 'all', young: unknown = true) => (s: StopScene): void => {
+      const ring = someArea(s);
+      const place = where === 'area' ? { area: ring } : where === 'at' ? { at: ring[0] } : where === 'line' ? { line: ring.slice(0, 2) } : {};
+      s.dressing.push({ id: 'saplings', name: '小松树', kind: 'trees', ...place, params: { type, young } as never, class: 'dressing', basis: '只表示有树。', sourceIds: [] });
+    };
+    expect(sceneProblems(pines('pine', 'area'))).toEqual([]);
+    expect(sceneProblems(pines('pine', 'at'))).toEqual([]);
+    expect(sceneProblems(pines('pine', 'line'))).toEqual(['13 dressing[5].params.young']);
+    expect(sceneProblems(pines('pine', 'all'))).toEqual(['13 dressing[5].params.young']);
+    for (const type of ['mixed', 'willow', 'fruit']) expect(sceneProblems(pines(type, 'area')), type).toEqual(['13 dressing[5].params.young']);
+    // 写了 false 就是平常的树，哪种都行；写的不是“是或否”，照参数的样子查出来
+    expect(sceneProblems(pines('willow', 'line', false))).toEqual([]);
+    expect(sceneProblems(pines('pine', 'area', 'yes'))).toEqual(['13 dressing[5].params.young']);
+  });
+
+  it('眉州添的三种零件：浮桥写两个点的一条线，只摆在水位是平时的小节里；池、坟各写一个点，都只能摆在地上（规则 13）', () => {
+    const grounds = { class: 'schematic' as const, basis: '只表示有这样东西。', sourceIds: [] };
+    /** calm：只摆在水位是平时的那几节里（样本里有大水的小节）；不写 when 就是每一节都在。 */
+    const bridge = (points: number, calm = true) => (s: StopScene): void => {
+      const ring = someArea(s);
+      const when = calm ? { when: { only: s.sections.filter((section) => section.water === 'normal').map((section) => section.heading) } } : {};
+      s.things.push({ id: 'boats-bridge', name: '浮桥', kind: 'pontoon-bridge', line: ring.slice(0, points), ...when, ...grounds });
+    };
+    const last = (s: StopScene): number => s.things.length;
+    const at = (run: (s: StopScene) => void): string[] => {
+      let index = 0;
+      const found = sceneProblems((s) => {
+        index = last(s);
+        run(s);
+      });
+      return found.map((line) => line.replace(`things[${index}]`, 'things[新]'));
+    };
+    expect(at(bridge(2))).toEqual([]);
+    expect(at(bridge(3))).toEqual(['13 things[新].line']);
+    expect(at(bridge(1))).toEqual(['13 things[新].line']);
+    // 样本里有水位不是平时的小节：浮桥不写 when（每一节都在）就查出来
+    expect(at((s) => expect(s.sections.some((section) => section.water !== 'normal')).toBe(true))).toEqual([]);
+    expect(at(bridge(2, false))).toEqual(['13 things[新].when']);
+    // 池、坟
+    const point = (kind: 'pool' | 'grave-mound', extra: Partial<StopScene['things'][number]> = {}) => (s: StopScene): void => {
+      s.things.push({ id: 'small-work', name: '一样小东西', kind, at: someArea(s)[0], ...grounds, ...extra });
+    };
+    expect(at(point('pool', { params: { size: 'large', stone: true } }))).toEqual([]);
+    expect(at(point('grave-mound', { params: { size: 'small' } }))).toEqual([]);
+    expect(at(point('pool', { params: { size: 'huge' } }))).toEqual(['13 things[新].params.size']);
+    expect(at(point('grave-mound', { params: { stone: true } }))).toEqual(['13 things[新].params.stone']);
+    expect(at((s) => point('pool', { on: s.things[0].id })(s))).toEqual(['13 things[新].on']);
+    expect(at((s) => point('grave-mound', { at: undefined, line: someArea(s).slice(0, 2) })(s))).toEqual(['13 things[新].at', '13 things[新].line']);
+  });
+
+  it('窄的河上不画水纹的门槛（water.calmUnderPx）可以不写；写了要是正数', () => {
+    expect(sceneProblems((s) => (s.water.calmUnderPx = 48))).toEqual([]);
+    expect(sceneProblems((s) => (s.water.calmUnderPx = 0))).toEqual(['0 water.calmUnderPx']);
+    expect(sceneProblems((s) => ((s.water as unknown as { calmUnderPx: unknown }).calmUnderPx = '48'))).toEqual(['0 water.calmUnderPx']);
+  });
+
   it('崖脚的石头（rocks 的 shore）要有一个比平时低 1.7 米以上的水位；这个数就是石头那一带的两个门槛加起来（规则 13）', () => {
     expect(SHORE_ROCKS_NEED_M).toBeCloseTo(SHORE_ABOVE_LOWEST_M + SHORE_UNDER_NORMAL_M, 9);
     const stones = (lowBy: number | null) => (s: StopScene): void => {

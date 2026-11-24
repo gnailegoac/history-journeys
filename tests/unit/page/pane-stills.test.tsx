@@ -113,7 +113,7 @@ async function mount(search: string, opts: { reducedMotion?: boolean } = {}) {
   let section: string | null = null;
   const render = () =>
     act(async () => {
-      root.render(<StagePane onStopPage table={{ state: 'ready', value: table }} section={section} route={{ state: 'ready', value: null }} onReloadTable={() => {}} />);
+      root.render(<StagePane onStopPage written table={{ state: 'ready', value: table }} section={section} route={{ state: 'ready', value: null }} onReloadTable={() => {}} />);
     });
   await render();
 

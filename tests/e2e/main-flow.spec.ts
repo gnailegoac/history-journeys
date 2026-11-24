@@ -48,7 +48,6 @@ const NO_ROUTE = '全程沙盘还没接进来。';
 const ROAD_NOTICE = '这一站的沙盘还没做好，沙盘上是到这一站的来路。';
 const NOT_WRITTEN = '这一站的正文还没写。';
 const NOT_WRITTEN_ROAD = '这一站的正文还没写。沙盘上是到这一站的来路。';
-const NOT_WRITTEN_FIRST = '这一站的正文还没写。沙盘上是他从这一站出发的路。';
 
 /** 从首页一路点进第一个写好的站。 */
 async function openWrittenStop(page: Page): Promise<{ figureId: string; stopId: string }> {
@@ -1083,19 +1082,11 @@ test('还没写、也没有自己的沙盘的站：有抬头和一句话；沙�
   await expect(stagePane(page)).toHaveAttribute('data-stage-section', road!);
   await expect(stagePane(page).locator('.stage-notice')).toHaveCount(0);
   await expect(stagePane(page).locator('.stage-reset')).toHaveText('回到这一段');
-  // 头一站没有来路（他是从这里出发的）：正文那一栏说的是出发的路；别的站说来路。两种都到页面上看一遍。
-  await expect(page.locator('.not-written')).toHaveText(at === 0 ? NOT_WRITTEN_FIRST : NOT_WRITTEN_ROAD);
-  await page.goBack();
-  await expect(page.locator('.stop-item').first()).toBeVisible();
-  // 另一句只有另一种站（是不是头一站）看得到，而且那一站也得没有自己的沙盘。头一站（眉州）有了自己的沙盘以后，
-  // “出发的路”那半句在浏览器里走不到了：它由 tests/unit/page/page-behaviour.test.tsx 拿替身查
-  const outlines = (await page.locator('.stop-item[data-stop-status="outline"]').evaluateAll((items) => items.map((item) => item.getAttribute('data-stop-id') ?? ''))).filter((id) => sceneOnDisk(figureId, id) === null);
-  const other = outlines.find((id) => (order.indexOf(id) === 0) !== (at === 0));
-  if (other) {
-    await page.goto(fakeUrl(`#/${figureId}/${other}`));
-    expect(await expectRoute(page)).toBe(true);
-    await expect(page.locator('.not-written')).toHaveText(order.indexOf(other) === 0 ? NOT_WRITTEN_FIRST : NOT_WRITTEN_ROAD);
-  } else console.log(`还没写的站只有${at === 0 ? '头一站' : '不是头一站的'}：正文那一栏的另一句没有看到`);
+  // 正文那一栏说沙盘上是来路。（“头一站说的是出发的路”那半句 2026-11-24 拿掉了：头一站有了自己的沙盘，哪一站也走不到它。）
+  await expect(page.locator('.not-written')).toHaveText(NOT_WRITTEN_ROAD);
+  // 这样的站上没有“沙盘上看的几处”那张单子，也没有凭据那一行
+  await expect(page.locator('.views')).toHaveCount(0);
+  await expect(page.locator('details.provenance')).toHaveCount(0);
 
   // 这位人物还没有全程沙盘（?route=none）：正文那一栏只说前半句。
   await page.goto('about:blank');

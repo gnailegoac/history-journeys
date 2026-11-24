@@ -128,12 +128,8 @@ export function liftClass(thing: SceneThing, scene: StopScene): FigureClass | nu
       return hostKind(thing, scene) === 'wall' ? 'shed' : 'hut';
     case 'hall-group':
       return thing.at && insideAWall(thing.at, scene) ? 'yardCity' : 'yardOut';
-    case 'dike':
-    case 'bank':
-    case 'timber-bank':
-    case 'cliff':
-    case 'earth-wall':
-    case 'small-gate':
+    // 堤、土坡、木岸、崖壁、矮土墙、小门、浮桥、池、坟：不乘
+    default:
       return null;
   }
 }

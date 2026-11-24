@@ -216,10 +216,10 @@ function plantAlong(pl: Planter, ctx: KitContext, rule: number, line: Vec2[], ty
 }
 
 /** 一个点四周种几棵细做的：离那一点半个半径以外，一圈。 */
-function plantAround(pl: Planter, ctx: KitContext, rule: number, at: Vec2, radius: number, type: TreeType, density: number, seed: number): void {
+function plantAround(pl: Planter, ctx: KitContext, rule: number, at: Vec2, radius: number, type: TreeType, density: number, seed: number, young?: boolean): void {
   const rnd = mulberry32(seed);
   const want = Math.min(60, Math.max(3, Math.round(8 * density * (radius / 150) ** 2)));
-  const size = type === 'fruit' ? 0.7 : type === 'pine' ? 1.1 : 1;
+  const size = type === 'fruit' ? 0.7 : type === 'pine' ? (young ? 0.55 : 1.1) : 1;
   let placed = 0;
   for (let tries = 0; tries < want * 10 && placed < want; tries++) {
     const a = rnd() * 6.28;
@@ -256,8 +256,8 @@ function plantBeside(pl: Planter, ctx: KitContext, rule: number, at: Vec2, front
   }
 }
 
-/** 一块地方里散着种。 */
-function plantArea(pl: Planter, ctx: KitContext, rule: number, area: Vec2[], type: TreeType, density: number, seed: number): void {
+/** 一块地方里散着种。young：刚种下几年的小松树，一半大，矮胖一点。 */
+function plantArea(pl: Planter, ctx: KitContext, rule: number, area: Vec2[], type: TreeType, density: number, seed: number, young?: boolean): void {
   const rnd = mulberry32(seed);
   const xs = area.map((p) => p[0]);
   const zs = area.map((p) => p[1]);
@@ -277,8 +277,8 @@ function plantArea(pl: Planter, ctx: KitContext, rule: number, area: Vec2[], typ
       placed++;
       continue;
     }
-    const s = 13 + rnd() * 10;
-    pl.put({ kind: 'grove', rule, x, y: pl.y(x, z) - 2, z, s, sy: s * 1.1, ry: rnd() * 6.28, color: pl.colour(type, rnd) });
+    const s = (13 + rnd() * 10) * (young ? 0.5 : 1);
+    pl.put({ kind: 'grove', rule, x, y: pl.y(x, z) - 2, z, s, sy: s * (young ? 0.9 : 1.1), ry: rnd() * 6.28, color: pl.colour(type, rnd) });
     placed++;
   }
 }
@@ -367,9 +367,9 @@ export function plantTrees(ctx: KitContext, survey: Survey, colours: TreeColours
     else if (rule.at) {
       const house = houseOf(rule.id);
       if (house) plantBeside(pl, ctx, index, house.at, house.front, p.radiusM ?? 150, type, density, seed);
-      else plantAround(pl, ctx, index, ctx.coords.toLocal(rule.at), p.radiusM ?? 150, type, density, seed);
+      else plantAround(pl, ctx, index, ctx.coords.toLocal(rule.at), p.radiusM ?? 150, type, density, seed, p.young);
     }
-    else if (rule.area) plantArea(pl, ctx, index, rule.area.map((q) => ctx.coords.toLocal(q)), type, density, seed);
+    else if (rule.area) plantArea(pl, ctx, index, rule.area.map((q) => ctx.coords.toLocal(q)), type, density, seed, p.young);
     else plantEverywhere(pl, ctx, index, type, density, seed);
   });
   // 规则写了“这几处不种”（except：修整的 id）的：种下以后落在那几处修整的范围里的去掉

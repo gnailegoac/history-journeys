@@ -28,7 +28,14 @@ export const STOP_TEXT_LINES = [
   '带虚线的词可以点开，看小注。',
 ];
 
-/** 沙盘栏上的话。给读者的只说发生了什么、还能做什么；技术上的原因写在控制台里。 */
+/** 正文还没写、有自己的沙盘的一站：文字栏里那张单子的小标题（楷体），单子上的一行一行是沙盘上看的各处。 */
+export const VIEWS_HEADING = '沙盘上看的几处';
+
+/**
+ * 沙盘栏上的话。给读者的只说发生了什么、还能做什么；技术上的原因写在控制台里。
+ * failed、unsupported、slow 三句末尾的“正文可以照常读”，在没有正文的一站上不说（StagePane.tsx 的 say）：
+ * 那三句都要写成“，正文可以照常读。”或者“。正文可以照常读。”收尾，去掉以后还是一句完整的话。
+ */
 export const STAGE_TEXT = {
   label: '沙盘',
   loading: '沙盘正在摆出来，要等一会儿…',
@@ -61,6 +68,8 @@ export const STAGE_TEXT = {
   ancient: '古名',
   modern: '今名',
   reset: '回到这一节',
+  /** 正文还没写的一站自己的沙盘上，中间的那个按钮：那一页上没有“节”，文字栏里说的是“那一处”。 */
+  resetHere: '回到这一处',
   /** 全程沙盘上中间的那个按钮：人物页上，和没有自己的沙盘的一站上。 */
   resetWhole: '回到全程',
   resetRoad: '回到这一段',
@@ -118,6 +127,7 @@ function kaiLabels(): string[] {
     STAGE_TEXT.ancient,
     STAGE_TEXT.modern,
     STAGE_TEXT.reset,
+    STAGE_TEXT.resetHere,
     STAGE_TEXT.resetWhole,
     STAGE_TEXT.resetRoad,
     STAGE_TEXT.fold,
@@ -133,6 +143,7 @@ function kaiLabels(): string[] {
     '地点',
     '年纪',
     '各站目录',
+    VIEWS_HEADING,
     '读原文',
     '凭据',
     '问讲解员',

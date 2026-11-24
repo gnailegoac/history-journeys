@@ -6,14 +6,14 @@
 // ---------------------------------------------------------------- 摆件
 
 /** 零件库里有的东西。添一种零件要改程序，先添在这里和下面三张表里。 */
-export const THING_KINDS = ['wall', 'gate', 'tower', 'pavilion', 'hall-group', 'house', 'dike', 'bank', 'timber-bank', 'cliff', 'earth-wall', 'small-gate'] as const;
+export const THING_KINDS = ['wall', 'gate', 'tower', 'pavilion', 'hall-group', 'house', 'dike', 'bank', 'timber-bank', 'cliff', 'earth-wall', 'small-gate', 'pontoon-bridge', 'pool', 'grave-mound'] as const;
 export type ThingKind = (typeof THING_KINDS)[number];
 
 /**
  * 只有一部分沙盘用得着的零件：造它的程序不在沙盘程序里，按“家”分块，用到时才下载（登记在 src/stage/families.ts）。
  * 树、石头的 type 里也有这样的（bamboo、cypress、shore），登记在同一处。
  */
-export const FAMILY_THING_KINDS = ['cliff', 'earth-wall', 'small-gate'] as const satisfies readonly ThingKind[];
+export const FAMILY_THING_KINDS = ['cliff', 'earth-wall', 'small-gate', 'pontoon-bridge', 'pool', 'grave-mound'] as const satisfies readonly ThingKind[];
 export type FamilyThingKind = (typeof FAMILY_THING_KINDS)[number];
 
 /** 参数的样子：一个数，是或否，或者几个词里选一个。 */
@@ -50,6 +50,12 @@ export const THING_PARAMS = {
   'earth-wall': { ruined: 'boolean', fence: 'boolean', low: 'boolean' },
   /** 单立的小门。 */
   'small-gate': {},
+  /** 浮桥：线是两个点，从这一岸到那一岸。 */
+  'pontoon-bridge': {},
+  /** 一口池（不是沙盘上那一片水面）：小的半径 9 米，大的 30 米。stone：池沿砌石。 */
+  pool: { size: ['small', 'large'], stone: 'boolean' },
+  /** 坟：一座圆的土冢。 */
+  'grave-mound': { size: ['small', 'large'] },
 } as const satisfies Record<ThingKind, Record<string, ParamType>>;
 
 /** 各种零件的位置怎么写：point 是一个点（at），line 是一条线（line），ring 是一圈闭合的线（line，最后一点不用重复第一点）。 */
@@ -66,6 +72,9 @@ export const THING_PLACING: Record<ThingKind, 'point' | 'line' | 'ring'> = {
   cliff: 'line',
   'earth-wall': 'line',
   'small-gate': 'point',
+  'pontoon-bridge': 'line',
+  pool: 'point',
+  'grave-mound': 'point',
 };
 
 /**
@@ -85,6 +94,9 @@ export const THING_HOSTS: Record<ThingKind, readonly ThingKind[]> = {
   cliff: [],
   'earth-wall': [],
   'small-gate': [],
+  'pontoon-bridge': [],
+  pool: [],
+  'grave-mound': [],
 };
 
 // ---------------------------------------------------------------- 点缀
@@ -100,14 +112,14 @@ export const DRESSING_PARAMS = {
   villages: { count: 'number', seed: 'number' },
   /** 田。green：青苗，整块画成草绿色（只给写了 area 的）。 */
   fields: { seed: 'number', green: 'boolean' },
-  /** 树。type：杂树、松、柳、果树、竹、柏（后两种的程序按家分块）。 */
-  trees: { type: ['mixed', 'pine', 'willow', 'fruit', 'bamboo', 'cypress'], density: 'number', radiusM: 'number', seed: 'number' },
+  /** 树。type：杂树、松、柳、果树、竹、柏（后两种的程序按家分块）。young：刚种下几年的小松树（只给松）。 */
+  trees: { type: ['mixed', 'pine', 'willow', 'fruit', 'bamboo', 'cypress'], density: 'number', radiusM: 'number', seed: 'number', young: 'boolean' },
   /** 船。type：货船还是小船；moored：系着不动。 */
   boats: { type: ['cargo', 'small'], count: 'number', moored: 'boolean', radiusM: 'number', seed: 'number' },
   /** 露着的石头。shore 是只在水落时露出来的（程序按家分块）。 */
   rocks: { type: ['grey', 'pale', 'shore'], count: 'number', radiusM: 'number', seed: 'number' },
-  /** 路。street 是城里的街，road 是城外的路。 */
-  roads: { type: ['street', 'road'] },
+  /** 路。street 是城里的街，road 是城外的路，wide 是城外要人一眼找得到的大路。 */
+  roads: { type: ['street', 'road', 'wide'] },
 } as const satisfies Record<DressingKind, Record<string, ParamType>>;
 
 /** 点缀摆在哪：城墙里面、一块地方、沿一条线、一个点周围，或者整块沙盘（all，就是哪个都不写）。 */

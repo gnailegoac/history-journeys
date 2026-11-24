@@ -9,9 +9,13 @@
 //
 // 眉州（头一站，正文还没写）2026-11-23 起有了自己的沙盘。原来拿它当“还没写、也没有自己的沙盘的一站”的地方，
 // 现在都换成 BARE：照 figure.json 和 content/ 里有哪些场景文件找出来的头一个这样的站（现在是杭州）。
-// 只有一处换不了：“头一站没有来路，说的是出发的路”那半句只有头一站走得到，而头一站现在有沙盘了。那半句还在页面的程序里
-// （页面改成“有沙盘、没有正文”的样子时一起拿掉），所以那一处同黄州一样用替身：只在那几行里把眉州的沙盘拿走（g.__noTable）。
-// 眉州现在真的样子（沙盘栏摆它自己的沙盘、停在头一个画面，正文那一栏只有一句）在这个文件的最后一条里查。
+// “头一站没有来路，说的是出发的路”那半句 2026-11-24 从页面的程序里拿掉了（头一站有了沙盘，哪一站也走不到它），查它的那几行一起拿掉。
+//
+// “有自己的沙盘、正文还没写的一站”（文字栏里是一句话、一张单子“沙盘上看的几处”、沙盘的凭据）也用替身查：哪一天六站的正文
+// 都写好了，content/ 里就没有这样的站，页面上这条路还在。替身是 STAND_IN——最后一个还没写、也没有场景文件的站：
+// 只在查它的那几条里（g.__standIn），hasStopTable 答“有”，loadStopTable 给的是徐州的沙盘，场景里的 stopId 换成它、
+// 出处（sources）换成徐州 stops/xuzhou.json 里的那一份。眉州真的样子另有一条，content/ 里没有这样的站时自己跳过。
+// 沙盘的数据读得慢、读不出来（g.__tableGate、g.__tableFails），正文读不出来（g.__textFails），也在这里装。
 import { describe, expect, it, vi } from 'vitest';
 import { stopHref } from '../../../src/app/router';
 import { stopMarks, stripTexts } from '../../../src/domain';
@@ -38,15 +42,43 @@ vi.mock('../../../src/ui/stageEngineSource', async (original) => {
 });
 
 // 黄州的沙盘在这个文件里拿走（见文件开头）。全程沙盘也是从这个模块读的（loadRouteTable），它不受影响。
-// 拿走哪几站的沙盘记在 g.__noTable 里：平常只有黄州；查“头一站说的是出发的路”那几行临时添上眉州。
+// 拿走哪几站的沙盘记在 g.__noTable 里：只有黄州。
+// g.__standIn 是借徐州的沙盘当“有沙盘、没有正文”的那一站（平常是 null，谁也不借）；g.__standInSources 是换进场景里的出处。
+// g.__tableFails 是接下来沙盘的数据还要读不出来几次；g.__tableGate 是一个还没兑现的 Promise 时，沙盘的数据等它兑现了才给。
 g.__noTable = new Set<string>(['huangzhou']);
+g.__standIn = null;
+g.__tableFails = 0;
+g.__tableGate = null;
 vi.mock('../../../src/domain/sceneContent', async (original) => {
   const actual = await original<typeof import('../../../src/domain/sceneContent')>();
-  const gone = (stopId: string): boolean => ((globalThis as any).__noTable as Set<string>).has(stopId);
+  const flags = globalThis as any;
+  const gone = (stopId: string): boolean => (flags.__noTable as Set<string>).has(stopId);
   return {
     ...actual,
-    hasStopTable: (figureId: string, stopId: string) => !gone(stopId) && actual.hasStopTable(figureId, stopId),
-    loadStopTable: (figureId: string, stopId: string) => (gone(stopId) ? Promise.resolve(null) : actual.loadStopTable(figureId, stopId)),
+    hasStopTable: (figureId: string, stopId: string) => flags.__standIn === stopId || (!gone(stopId) && actual.hasStopTable(figureId, stopId)),
+    loadStopTable: async (figureId: string, stopId: string) => {
+      if (flags.__tableGate) await flags.__tableGate;
+      if (flags.__tableFails > 0) {
+        flags.__tableFails -= 1;
+        throw new Error('这一次没读出来');
+      }
+      if (flags.__standIn === stopId) {
+        // 只借场景和地形文件，不借徐州的定格图和先画好的地面：这样的站刚有沙盘的时候多半也还没有它们
+        const found = await actual.loadStopTable(figureId, 'xuzhou');
+        return found && { terrainUrl: found.terrainUrl, scene: { ...found.scene, stopId, sources: flags.__standInSources } };
+      }
+      return gone(stopId) ? null : actual.loadStopTable(figureId, stopId);
+    },
+  };
+});
+
+// 正文读不出来的情形：g.__textFails 是真的时候，loadStop 抛错（平常照常读）。
+g.__textFails = false;
+vi.mock('../../../src/domain/content', async (original) => {
+  const actual = await original<typeof import('../../../src/domain/content')>();
+  return {
+    ...actual,
+    loadStop: (figureId: string, stopId: string) => ((globalThis as any).__textFails ? Promise.reject(new Error('正文这一次没读出来')) : actual.loadStop(figureId, stopId)),
   };
 });
 
@@ -55,6 +87,7 @@ const { createRoot } = await import('react-dom/client');
 const { FigureLayout } = await import('../../../src/ui/FigureLayout');
 const { FigureContents } = await import('../../../src/ui/FigureContents');
 const { useOnDemand } = await import('../../../src/app/useLoaded');
+const { resetFakeVisit } = await import('../../../src/ui/dev/fakeStage');
 
 const scene = JSON.parse(new TextDecoder().decode(readBytes('content/figures/su-shi/scenes/xuzhou.json'))) as StopScene;
 const headings = scene.sections.map((s) => s.heading);
@@ -72,6 +105,17 @@ const hasSceneFile = (stopId: string): boolean => sceneFiles.includes(`/content/
 const BARE = figure.stops.find((stop) => stop.status === 'outline' && !hasSceneFile(stop.id))!.id;
 /** 头一个还没写、可是有自己的沙盘的站（眉州）；没有这样的站是 undefined，查它的那一条自己跳过。 */
 const UNWRITTEN_WITH_TABLE = figure.stops.find((stop) => stop.status === 'outline' && hasSceneFile(stop.id))?.id;
+/** 借徐州的沙盘当“有沙盘、没有正文”的那一站：最后一个还没写、也没有场景文件的站（见文件开头）。 */
+const STAND_IN = [...figure.stops].reverse().find((stop) => stop.status === 'outline' && !hasSceneFile(stop.id))!.id;
+/** 换进替身的场景里的出处：徐州 stops/xuzhou.json 里的那一份（徐州场景里的 sourceIds 指的就是它们）。 */
+const standInSources = (JSON.parse(new TextDecoder().decode(readBytes('content/figures/su-shi/stops/xuzhou.json'))) as { sources: { id: string; cite: string }[] }).sources;
+g.__standInSources = standInSources;
+/** 文字栏里那一句的两半，和沙盘摆不出来时没有正文的一站上说的三句。 */
+const LEAF_FIRST = '这一站的正文还没写。';
+const LEAF_REST = '沙盘已经做好了，按下面的一行，沙盘就换到那一处。各处的年份写在每一行里，不一定都在上面这几年里。';
+const BARE_FAILED = '沙盘没能摆出来。';
+const BARE_UNSUPPORTED = '这个浏览器画不出立体的沙盘。换一个新一点的浏览器，或者把手机、平板的系统升级以后再来看。';
+const BARE_SLOW = '立体的沙盘在这台设备上太慢，先不摆了。';
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 const settle = (ms = 60) => act(async () => void (await sleep(ms)));
 const attr = (el: MiniElement | null, name: string) => el?.getAttribute(name) ?? null;
@@ -173,7 +217,9 @@ describe('整个版面 + 真的内容 + 沙盘的替身', () => {
     g.__routeFails = 2;
     const page = await mount('?stage=fake', 'mizhou');
     expect(attr(page.pane(), 'data-stage-state')).toBe('failed');
-    expect(page.q('.stage-message p')?.textContent).toBe('沙盘没能摆出来，正文可以照常读。');
+    // 密州的正文还没写：那一句不说“正文可以照常读”
+    expect(figure.stops.find((stop) => stop.id === 'mizhou')?.status).toBe('outline');
+    expect(page.q('.stage-message p')?.textContent).toBe(BARE_FAILED);
     expect(page.q('.stage-still-line')).toBeNull();
     expect(page.q('.fake-stage')).toBeNull();
     await waitFor(() => attr(page.q('.stop-page'), 'data-stop-text') === 'none');
@@ -321,24 +367,9 @@ describe('整个版面 + 真的内容 + 沙盘的替身', () => {
     const routeTable = page.q('.fake-stage');
     expect(attr(routeTable, 'data-fake-animated')).toBe('false');
 
-    // 头一站没有来路（他是从这里出发的）：说的是出发的路。头一站（眉州）现在有自己的沙盘，这半句只有拿走它的沙盘才走得到
-    // （见文件开头）：还是同一座全程沙盘，滑到头一站的那一节。
-    expect(figure.stops[0].id).toBe('meishan');
-    g.__noTable.add('meishan');
-    try {
-      await page.show('meishan');
-      await waitFor(() => attr(page.pane(), 'data-stage-section') === roadOf('meishan') && attr(page.q('.stop-page'), 'data-stop-id') === 'meishan' && attr(page.q('.stop-page'), 'data-stop-text') === 'none');
-      expect(page.q('.fake-stage')).toBe(routeTable);
-      expect(attr(page.pane(), 'data-stage-level')).toBe('route');
-      expect(page.q('.stage-notice')).toBeNull();
-      expect(page.q('.not-written')?.textContent).toBe('这一站的正文还没写。沙盘上是他从这一站出发的路。');
-      expect(attr(page.q('.stop-page'), 'data-stop-scene')).toBe('none');
-      // 回到 BARE 再往下走：下面几行同眉州没有关系
-      await page.show(BARE);
-      await waitFor(() => attr(page.pane(), 'data-stage-section') === roadOf(BARE) && attr(page.q('.stop-page'), 'data-stop-id') === BARE);
-    } finally {
-      g.__noTable.delete('meishan');
-    }
+    // 这样的站上没有“沙盘上看的几处”那张单子，也没有凭据那一行
+    expect(page.q('.views')).toBeNull();
+    expect(page.q('details.provenance')).toBeNull();
 
     // 回人物页：还是同一座全程沙盘（没有重摆），镜头滑回头一节；按钮换回“回到全程”。
     await page.show(null);
@@ -612,52 +643,332 @@ describe('整个版面 + 真的内容 + 沙盘的替身', () => {
     warn.mockRestore();
   });
 
-  // 有自己的沙盘、正文还没写的站（眉州）。数据和校验 2026-11-23 起认这种站；页面还是原来的程序，一行没有改：
-  // 这一条记的是它现在的样子，什么也不该抛出来。页面添上“沙盘上看的几处”那张单子以后，这一条跟着改写。
+  // ---------------------------------------------------------------- 有自己的沙盘、正文还没写的一站
+  //
+  // 文字栏：一句话，小标题“沙盘上看的几处”，一张单子（一行一个按钮：名字、年份、题记），沙盘的凭据，两个链接。
+  // 按一行，就是告诉版面“该摆这一节了”，同写好了的一站读到另一小节是一回事。
+
+  /** 单子上的各行：名字（data-view）、是不是摆着的那一处、里面三块字。 */
+  const viewRows = (page: Awaited<ReturnType<typeof mount>>) =>
+    page.all('.views .view-item').map((item) => ({
+      view: attr(item, 'data-view'),
+      current: attr(item, 'aria-current'),
+      name: item.querySelector('.stop-title')?.textContent,
+      date: item.querySelector('.stop-meta')?.textContent,
+      line: item.querySelector('.view-line')?.textContent,
+      tag: item.querySelector('.tag')?.textContent ?? null,
+    }));
+
+  it('有沙盘、没有正文的一站（替身）：一句话、小标题、一张单子，头一行是摆着的；按第三行，记号马上换，沙盘跟过去；滚动页面不动；收起沙盘再按，沙盘自己展开；离开再回来是头一处；凭据是沙盘上的东西', { timeout: 60_000 }, async () => {
+    const errors = vi.spyOn(console, 'error').mockImplementation(() => {});
+    // 按过的那一行有没有被挪回看得见的地方：假 DOM 里没有 scrollIntoView，这里装一个只记账的
+    const scrolled: { view: string | null; how: unknown }[] = [];
+    (MiniElement.prototype as any).scrollIntoView = function (this: MiniElement, how: unknown) {
+      scrolled.push({ view: attr(this, 'data-view'), how });
+    };
+    g.__standIn = STAND_IN;
+    try {
+      expect(figure.stops.find((stop) => stop.id === STAND_IN)?.status).toBe('outline');
+      expect(hasSceneFile(STAND_IN)).toBe(false);
+      const page = await mount('?stage=fake', STAND_IN);
+      await waitFor(() => page.q('.views') !== null);
+      expect(attr(page.q('.stop-page'), 'data-stop-text')).toBe('none');
+      expect(attr(page.q('.stop-page'), 'data-stop-scene')).toBe('yes');
+
+      // 那一句话；小标题是楷体的小节标题，单子挂在它名下
+      expect(page.q('.not-written')?.textContent).toBe(LEAF_FIRST + LEAF_REST);
+      const heading = page.q('.stop-page h2.section-heading')!;
+      expect(heading.textContent).toBe('沙盘上看的几处');
+      expect(attr(page.q('.views')!.parentNode as MiniElement, 'aria-labelledby')).toBe(attr(heading, 'id'));
+
+      // 单子：场景有几节就有几行，顺序一样；每行是按钮，里面是名字、年份、题记；头一行是摆着的，只有它带记号和小标签
+      const sections = scene.sections;
+      expect(sections.length).toBeGreaterThanOrEqual(4);
+      const expected = (shown: number) =>
+        sections.map((s, i) => ({ view: s.heading, current: i === shown ? 'true' : null, name: s.heading, date: s.date, line: s.line, tag: i === shown ? '正在看' : null }));
+      expect(viewRows(page)).toEqual(expected(0));
+      for (const item of page.all('.views .view-item')) {
+        expect(item.localName).toBe('button');
+        expect(attr(item, 'type')).toBe('button');
+      }
+      expect(page.all('.views .tag').map((tag) => attr(tag, 'aria-hidden'))).toEqual(['true']);
+      // 行上没有正文小节的记号；没有正文的东西，底下那一条中间空着；有“到沙盘”那一步
+      expect(page.all('.stop-page [data-section]')).toHaveLength(0);
+      expect(page.all('.text-section')).toHaveLength(0);
+      expect(page.q('.text-about')).toBeNull();
+      expect(page.q('.guide-open')).toBeNull();
+      expect(page.q('.skip-to-stage')).not.toBeNull();
+
+      // 沙盘栏：它自己的沙盘，头一节；中间的按钮写“回到这一处”；按钮下面没有那一行话
+      expect(attr(page.pane(), 'data-stage-state')).toBe('ready');
+      expect(attr(page.pane(), 'data-stage-level')).toBeNull();
+      expect(attr(page.pane(), 'data-stage-section')).toBe(headings[0]);
+      expect(page.q('.stage-reset')?.textContent).toBe('回到这一处');
+      expect(page.q('.stage-notice')).toBeNull();
+
+      // 按第三行：记号在这一下就换了（不等沙盘），沙盘和题记随后到；按的那一行下一帧被挪回看得见的地方
+      const item = (i: number) => page.all('.views .view-item')[i];
+      await act(async () => item(2).click());
+      expect(viewRows(page)).toEqual(expected(2));
+      await waitFor(() => attr(page.pane(), 'data-stage-section') === headings[2]);
+      expect(attr(page.q('.stage-caption'), 'data-section')).toBe(headings[2]);
+      expect(attr(page.q('.fake-stage'), 'data-fake-animated')).toBe('true');
+      expect(page.all('.stage-host .strip').map((el) => attr(el, 'data-strip-id'))).toEqual(sections[2].strips);
+      await waitFor(() => scrolled.length === 1);
+      expect(scrolled).toEqual([{ view: headings[2], how: { block: 'nearest' } }]);
+
+      // 没有正文带着镜头走：滚动页面，沙盘和记号都不动
+      win.fire('scroll');
+      await settle(400);
+      expect(attr(page.pane(), 'data-stage-section')).toBe(headings[2]);
+      expect(viewRows(page)).toEqual(expected(2));
+
+      // 再按摆着的那一行：什么也不变
+      await act(async () => item(2).click());
+      await settle(100);
+      expect(viewRows(page)).toEqual(expected(2));
+      expect(attr(page.pane(), 'data-stage-section')).toBe(headings[2]);
+
+      // 窄屏上收起沙盘（假 DOM 里的窗口不算宽屏）：再按第二行，不是白按——栏自己展开了，直接摆到第二处
+      await act(async () => page.q('.stage-fold')!.click());
+      expect(attr(page.q('.stage-fold'), 'aria-expanded')).toBe('false');
+      expect(page.pane().className.split(' ')).toContain('is-folded');
+      await act(async () => item(1).click());
+      expect(viewRows(page)).toEqual(expected(1));
+      expect(attr(page.q('.stage-fold'), 'aria-expanded')).toBe('true');
+      expect(page.pane().className.split(' ')).not.toContain('is-folded');
+      await waitFor(() => attr(page.pane(), 'data-stage-section') === headings[1]);
+      expect(attr(page.q('.stage-caption'), 'data-section')).toBe(headings[1]);
+      await waitFor(() => scrolled.length === 3);
+      expect(scrolled[2]).toEqual({ view: headings[1], how: { block: 'nearest' } });
+      // 没收起的时候按一行，不去动“收起沙盘”那个按钮
+      await act(async () => item(3).click());
+      expect(attr(page.q('.stage-fold'), 'aria-expanded')).toBe('true');
+      await waitFor(() => attr(page.pane(), 'data-stage-section') === headings[3]);
+
+      // 凭据：只有“沙盘上的东西”一栏；出处是场景自己带的那一份
+      expect(page.all('details.provenance summary')).toHaveLength(1);
+      expect(page.q('.scene-register')).toBeNull();
+      await setFold(page.q('details.provenance')!, true);
+      await waitFor(() => page.q('.scene-register') !== null);
+      expect(page.all('.scene-register-group').filter((group) => attr(group, 'data-class') !== null).length).toBeGreaterThan(0);
+      expect(page.all('.scene-credits p').map((p) => p.textContent)).toEqual(scene.credits);
+      const cited = new Set(page.all('.scene-register .provenance-cite').map((p) => p.textContent));
+      expect(cited.size).toBeGreaterThan(0);
+      for (const line of cited) expect(standInSources.some((source) => line === `出处：${source.cite}`), line ?? '').toBe(true);
+      expect(page.all('.provenance-item')).toHaveLength(0);
+
+      // 末尾的两个链接照旧
+      expect(page.all('.stop-nav a').map((link) => link.textContent)).toEqual(['回到各站目录', '来源']);
+
+      // 去人物页再回来：从头一处开始，不带着上一次按的
+      await page.show(null);
+      await waitFor(() => attr(page.pane(), 'data-stage-level') === 'route' && attr(page.pane(), 'data-stage-state') === 'ready');
+      expect(page.q('.views')).toBeNull();
+      await page.show(STAND_IN);
+      await waitFor(() => page.q('.views') !== null && attr(page.pane(), 'data-stage-level') === null && attr(page.pane(), 'data-stage-state') === 'ready');
+      expect(viewRows(page)).toEqual(expected(0));
+      expect(attr(page.pane(), 'data-stage-section')).toBe(headings[0]);
+      // 去一站写好了的（徐州）：单子没了，按钮写回“回到这一节”
+      await page.show('xuzhou');
+      await waitFor(() => attr(page.q('.stop-page'), 'data-stop-text') === 'written' && attr(page.pane(), 'data-stage-state') === 'ready');
+      expect(page.q('.views')).toBeNull();
+      expect(page.q('.not-written')).toBeNull();
+      expect(page.q('.stage-reset')?.textContent).toBe('回到这一节');
+      await page.unmount();
+      expect(errors.mock.calls.map((call) => String(call[0]))).toEqual([]);
+    } finally {
+      g.__standIn = null;
+      delete (MiniElement.prototype as any).scrollIntoView;
+      errors.mockRestore();
+    }
+  });
+
+  it('有沙盘、没有正文的一站（替身）：沙盘的数据还在读的时候，那一句只有前半句，没有单子；读出来了才有后半句和单子', { timeout: 30_000 }, async () => {
+    let open: () => void = () => {};
+    g.__tableGate = new Promise<void>((resolve) => (open = resolve));
+    g.__standIn = STAND_IN;
+    try {
+      win.location.search = '?stage=fake';
+      const container = doc.createElement('div');
+      doc.body.appendChild(container);
+      const root = createRoot(container as any);
+      await act(async () => root.render(<FigureLayout figureId="su-shi" stopId={STAND_IN} />));
+      const q = (selector: string) => container.querySelector(selector);
+      await waitFor(() => attr(q('.stop-page'), 'data-stop-text') === 'none');
+      // 沙盘的数据还没到：前半句已经在了，文字栏不是空的；没有后半句、单子、凭据
+      expect(attr(q('.stop-page'), 'data-stop-scene')).toBe('loading');
+      expect(attr(q('.stage-pane'), 'data-stage-state')).toBe('loading');
+      expect(q('.not-written')?.textContent).toBe(LEAF_FIRST);
+      expect(q('.views')).toBeNull();
+      expect(q('details.provenance')).toBeNull();
+      expect(container.querySelectorAll('.stop-nav a')).toHaveLength(2);
+      // 到了
+      open();
+      g.__tableGate = null;
+      await waitFor(() => q('.views') !== null);
+      expect(attr(q('.stop-page'), 'data-stop-scene')).toBe('yes');
+      expect(q('.not-written')?.textContent).toBe(LEAF_FIRST + LEAF_REST);
+      expect(container.querySelectorAll('.views .view-item')).toHaveLength(scene.sections.length);
+      await act(async () => root.unmount());
+    } finally {
+      open();
+      g.__tableGate = null;
+      g.__standIn = null;
+    }
+  });
+
+  it('有沙盘、没有正文的一站（替身）：沙盘还在摆的时候（数据读出来了，画面还没有）按了第三行——记号和沙盘栏的题记马上换；沙盘摆好的时候，摆着的就是第三处', { timeout: 30_000 }, async () => {
+    g.__standIn = STAND_IN;
+    try {
+      // 替身隔两秒才摆好：这一段里单子已经在了，读者可以按
+      win.location.search = '?stage=fake&readygap=2000';
+      const container = doc.createElement('div');
+      doc.body.appendChild(container);
+      const root = createRoot(container as any);
+      await act(async () => root.render(<FigureLayout figureId="su-shi" stopId={STAND_IN} />));
+      const q = (selector: string) => container.querySelector(selector);
+      await waitFor(() => q('.views') !== null);
+      expect(attr(q('.stage-pane'), 'data-stage-state')).toBe('loading');
+      expect(attr(q('.stage-pane'), 'data-stage-section')).toBeNull();
+      await act(async () => container.querySelectorAll('.views .view-item')[2].click());
+      expect(container.querySelectorAll('.views .view-item').map((item) => attr(item, 'aria-current'))).toEqual(scene.sections.map((_, i) => (i === 2 ? 'true' : null)));
+      await waitFor(() => attr(q('.stage-caption'), 'data-section') === headings[2]);
+      // 这时候沙盘还没摆好
+      expect(attr(q('.stage-pane'), 'data-stage-state')).toBe('loading');
+      await waitFor(() => attr(q('.stage-pane'), 'data-stage-state') === 'ready');
+      await waitFor(() => attr(q('.stage-pane'), 'data-stage-section') === headings[2]);
+      expect(container.querySelectorAll('.stage-host .strip').map((el) => attr(el, 'data-strip-id'))).toEqual(scene.sections[2].strips);
+      expect(container.querySelectorAll('.views .view-item').map((item) => attr(item, 'aria-current'))).toEqual(scene.sections.map((_, i) => (i === 2 ? 'true' : null)));
+      await act(async () => root.unmount());
+    } finally {
+      g.__standIn = null;
+    }
+  });
+
+  it('有沙盘、没有正文的一站（替身）：沙盘的数据没读出来——那一句只有前半句，没有单子；沙盘栏说“沙盘没能摆出来。”，不说“正文可以照常读”；再试一次读出来了，单子就有了', { timeout: 30_000 }, async () => {
+    g.__tableFails = 1;
+    g.__standIn = STAND_IN;
+    try {
+      const page = await mount('?stage=fake', STAND_IN);
+      await waitFor(() => attr(page.q('.stop-page'), 'data-stop-scene') === 'failed' && attr(page.q('.stop-page'), 'data-stop-text') === 'none');
+      expect(attr(page.pane(), 'data-stage-state')).toBe('failed');
+      expect(page.q('.stage-message p')?.textContent).toBe(BARE_FAILED);
+      expect(page.q('.not-written')?.textContent).toBe(LEAF_FIRST);
+      expect(page.q('.views')).toBeNull();
+      expect(page.q('details.provenance')).toBeNull();
+      expect(page.q('.stage-retry')?.textContent).toBe('再试一次');
+      await act(async () => page.q('.stage-retry')!.click());
+      await waitFor(() => page.q('.views') !== null && attr(page.pane(), 'data-stage-state') === 'ready');
+      expect(page.q('.not-written')?.textContent).toBe(LEAF_FIRST + LEAF_REST);
+      await page.unmount();
+    } finally {
+      g.__tableFails = 0;
+      g.__standIn = null;
+    }
+  });
+
+  it('有沙盘、没有正文的一站（替身）：沙盘起不来、浏览器画不了、设备太慢——三句话都不说“正文可以照常读”；单子照旧在，按一行，沙盘栏的题记跟着换', { timeout: 60_000 }, async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const info = vi.spyOn(console, 'info').mockImplementation(() => {});
+    // 借来的沙盘不带图片：三种情形下沙盘栏里都只有一句话
+    g.__standIn = STAND_IN;
+    try {
+      for (const [search, state, words, button] of [
+        ['?stage=fake-fail', 'failed', BARE_FAILED, '再试一次'],
+        ['?stage=fake-unsupported', 'unsupported', BARE_UNSUPPORTED, null],
+        ['?stage=fake&slow=start2', 'slow', BARE_SLOW, '试试立体的沙盘'],
+      ] as const) {
+        resetFakeVisit();
+        const page = await mount(search, STAND_IN);
+        await waitFor(() => attr(page.pane(), 'data-stage-state') === state && page.q('.views') !== null);
+        expect(page.q('.stage-message p')?.textContent, search).toBe(words);
+        expect(page.q('.stage-retry')?.textContent ?? null, search).toBe(button);
+        // 单子和那一句都在（场景读出来了，只是画面摆不出来）；按第二行：记号换了，沙盘栏的题记也换了
+        expect(page.q('.not-written')?.textContent, search).toBe(LEAF_FIRST + LEAF_REST);
+        expect(attr(page.q('.stage-caption'), 'data-section'), search).toBe(headings[0]);
+        await act(async () => page.all('.views .view-item')[1].click());
+        expect(viewRows(page).map((row) => row.current), search).toEqual(scene.sections.map((_, i) => (i === 1 ? 'true' : null)));
+        await waitFor(() => attr(page.q('.stage-caption'), 'data-section') === headings[1]);
+        await page.unmount();
+      }
+      // 写好了的一站那三句照旧带着“正文可以照常读”：在 pane-behaviour.test.tsx、pane-stills.test.tsx 里查（那里的沙盘栏是写好了的一站的）。
+    } finally {
+      resetFakeVisit();
+      g.__standIn = null;
+      warn.mockRestore();
+      info.mockRestore();
+    }
+  });
+
+  it('写好了的一站（徐州），正文这一次没读出来：说“这一站的正文没能读出来。”，没有“沙盘上看的几处”那张单子（页面上那两个属性这时候同没写的站一样，认单子不能靠它们）', { timeout: 30_000 }, async () => {
+    g.__textFails = true;
+    try {
+      const page = await mount('?stage=fake', 'xuzhou');
+      await waitFor(() => attr(page.q('.stop-page'), 'data-stop-text') === 'none' && attr(page.q('.stop-page'), 'data-stop-scene') === 'yes' && attr(page.pane(), 'data-stage-state') === 'ready');
+      expect(page.all('.stop-page .quiet').map((line) => line.textContent)).toEqual(['这一站的正文没能读出来。']);
+      expect(page.q('.not-written')).toBeNull();
+      expect(page.q('.views')).toBeNull();
+      expect(page.q('.view-item')).toBeNull();
+      expect(page.q('details.provenance')).toBeNull();
+      // 它是写好了的一站：沙盘栏的按钮照旧
+      expect(page.q('.stage-reset')?.textContent).toBe('回到这一节');
+      await page.unmount();
+    } finally {
+      g.__textFails = false;
+    }
+  });
+
+  // 眉州真的样子：content/ 里它自己的场景。哪一天没有这样的站了（六站的正文都写好），这一条自己跳过，上面替身的几条还在。
   it.runIf(UNWRITTEN_WITH_TABLE !== undefined)(
-    '有自己的沙盘、正文还没写的站（眉州）：沙盘栏摆它自己的沙盘，停在头一个画面；正文那一栏只有“这一站的正文还没写。”，不说来路；滚动页面镜头不动；去别的站再回来还是头一个画面',
+    '有自己的沙盘、正文还没写的站（眉州）：单子上是它的场景里的各处；一行一行按过去，沙盘跟到每一处；凭据里的出处是场景文件自己带的；去别的站再回来还是头一处',
     { timeout: 60_000 },
     async () => {
       const stopId = UNWRITTEN_WITH_TABLE as string;
       const own = JSON.parse(new TextDecoder().decode(readBytes(`content/figures/su-shi/scenes/${stopId}.json`))) as StopScene;
-      const first = own.sections[0];
+      const names = own.sections.map((s) => s.heading);
       const errors = vi.spyOn(console, 'error').mockImplementation(() => {});
       const page = await mount('?stage=fake', stopId);
-      await waitFor(() => attr(page.q('.stop-page'), 'data-stop-text') === 'none' && attr(page.q('.stop-page'), 'data-stop-scene') === 'yes');
-      // 沙盘栏：这一站自己的沙盘（不写 level），头一个画面；题记那一条、题签都是头一个画面的；按钮下面没有那一行话
+      await waitFor(() => page.q('.views') !== null);
+      expect(attr(page.q('.stop-page'), 'data-stop-text')).toBe('none');
+      expect(attr(page.q('.stop-page'), 'data-stop-scene')).toBe('yes');
+      expect(page.q('.not-written')?.textContent).toBe(LEAF_FIRST + LEAF_REST);
+      const rows = (shown: number) => own.sections.map((s, i) => ({ view: s.heading, current: i === shown ? 'true' : null, name: s.heading, date: s.date, line: s.line, tag: i === shown ? '正在看' : null }));
+      expect(viewRows(page)).toEqual(rows(0));
+      // 沙盘栏：这一站自己的沙盘（不写 level），头一处；题签是头一处的；没有印，按钮下面没有那一行话
       expect(attr(page.pane(), 'data-stage-state')).toBe('ready');
       expect(attr(page.pane(), 'data-stage-level')).toBeNull();
-      expect(attr(page.pane(), 'data-stage-section')).toBe(first.heading);
-      expect(attr(page.q('.stage-caption'), 'data-section')).toBe(first.heading);
-      expect(page.all('.stage-host .strip').map((el) => attr(el, 'data-strip-id'))).toEqual(first.strips);
+      expect(attr(page.pane(), 'data-stage-section')).toBe(names[0]);
+      expect(page.all('.stage-host .strip').map((el) => attr(el, 'data-strip-id'))).toEqual(own.sections[0].strips);
       expect(page.all('.strip-seal')).toHaveLength(0);
       expect(page.q('.stage-notice')).toBeNull();
-      expect(page.q('.stage-reset')?.textContent).toBe('回到这一节');
-      // 正文那一栏：只有前半句（它有自己的沙盘，不说沙盘上是来路）；没有正文的小节，没有凭据那一行，底下的一条中间空着
-      expect(page.q('.not-written')?.textContent).toBe('这一站的正文还没写。');
-      expect(page.all('.text-section')).toHaveLength(0);
-      expect(page.all('[data-section]').filter((el) => el !== page.q('.stage-caption'))).toHaveLength(0);
-      expect(page.q('details.provenance')).toBeNull();
-      expect(page.q('.guide-open')).toBeNull();
-      expect(page.q('.skip-to-stage')).not.toBeNull();
-      // 没有正文带着镜头走：滚动页面，沙盘还停在头一个画面
-      win.fire('scroll');
-      await settle(400);
-      expect(attr(page.pane(), 'data-stage-section')).toBe(first.heading);
+      expect(page.q('.stage-reset')?.textContent).toBe('回到这一处');
+      // 一行一行按过去（最后按回头一行）：记号马上换，沙盘、题记、题签跟到
+      for (const i of [...names.keys()].slice(1).concat(0)) {
+        await act(async () => page.all('.views .view-item')[i].click());
+        expect(viewRows(page)).toEqual(rows(i));
+        await waitFor(() => attr(page.pane(), 'data-stage-section') === names[i]);
+        expect(attr(page.q('.stage-caption'), 'data-section')).toBe(names[i]);
+        expect(page.all('.stage-host .strip').map((el) => attr(el, 'data-strip-id'))).toEqual(own.sections[i].strips);
+      }
+      // 凭据：出处是场景文件自己的 sources
+      await setFold(page.q('details.provenance')!, true);
+      await waitFor(() => page.q('.scene-register') !== null);
+      const cited = new Set(page.all('.scene-register .provenance-cite').map((p) => p.textContent));
+      expect(cited.size).toBeGreaterThan(0);
+      for (const line of cited) expect((own.sources ?? []).some((source) => line === `出处：${source.cite}`), line ?? '').toBe(true);
+      expect(page.all('.scene-not-drawn .scene-register-item')).toHaveLength(own.notDrawn.length);
+      // 按到第三处，去人物页（全程沙盘）再回来：重摆的是它自己的沙盘，头一处
+      await act(async () => page.all('.views .view-item')[2].click());
+      await waitFor(() => attr(page.pane(), 'data-stage-section') === names[2]);
       const table = page.q('.fake-stage');
-      // 去人物页（全程沙盘）再回来：重摆的是它自己的沙盘，还是头一个画面
       await page.show(null);
       await waitFor(() => attr(page.pane(), 'data-stage-level') === 'route' && attr(page.pane(), 'data-stage-state') === 'ready');
       await page.show(stopId);
-      await waitFor(() => attr(page.pane(), 'data-stage-level') === null && attr(page.pane(), 'data-stage-state') === 'ready' && attr(page.q('.stop-page'), 'data-stop-scene') === 'yes');
+      await waitFor(() => page.q('.views') !== null && attr(page.pane(), 'data-stage-level') === null && attr(page.pane(), 'data-stage-state') === 'ready');
       expect(page.q('.fake-stage')).not.toBe(table);
-      expect(attr(page.pane(), 'data-stage-section')).toBe(first.heading);
-      // 去一站写好了、有沙盘的（徐州）再回来：一样
-      await page.show('xuzhou');
-      await waitFor(() => attr(page.pane(), 'data-stage-section') === headings[0] && attr(page.q('.stop-page'), 'data-stop-text') === 'written');
-      await page.show(stopId);
-      await waitFor(() => attr(page.pane(), 'data-stage-section') === first.heading && attr(page.q('.stop-page'), 'data-stop-text') === 'none');
-      expect(page.q('.not-written')?.textContent).toBe('这一站的正文还没写。');
+      expect(attr(page.pane(), 'data-stage-section')).toBe(names[0]);
+      expect(viewRows(page)).toEqual(rows(0));
       await page.unmount();
       // 一路上页面没有往控制台里报错
       expect(errors.mock.calls.map((call) => String(call[0]))).toEqual([]);

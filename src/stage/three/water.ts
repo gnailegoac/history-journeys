@@ -167,10 +167,20 @@ export const WATER_SHEEN_LIGHT = /* glsl */ `#include <lights_fragment_end>
 /**
  * 水纹怎么摆。水纹要顺着画面横着走：镜头朝东或朝西看（朝向离正东、正西不到 45 度）时转九十度。
  * 贴近了看（不到 3000 米）水纹密一点。这是样张各个镜头的数归出来的规矩。
+ * calm（见 calmWater）：这一节整片水面不画水纹——疏密写到 2，着色器里那一团一团的水纹一团也不剩。
  */
-export function rippleFor(bearingDeg: number, distanceM: number): { dense: number; turnDeg: number } {
+export function rippleFor(bearingDeg: number, distanceM: number, calm = false): { dense: number; turnDeg: number } {
   const b = ((bearingDeg % 180) + 180) % 180;
-  return { dense: distanceM < 3000 ? 0.3 : 0.5, turnDeg: b >= 45 && b <= 135 ? 90 : 0 };
+  return { dense: calm ? 2 : distanceM < 3000 ? 0.3 : 0.5, turnDeg: b >= 45 && b <= 135 ? 90 : 0 };
+}
+
+/**
+ * 这一节的水面是不是不画水纹。一道水纹有二三十到六七十个页面像素长，不管河多宽：河在画面上比它窄，
+ * 白线就从这一岸横到那一岸，一条河上十来道，像坝。场景写了 water.calmUnderPx 的沙盘上，最宽的一条河
+ * 在这个画面上（D 是折算过的远近，一米合 2428 ÷ D 个页面像素）不到那么多个像素，就不画。没写的沙盘总是画。
+ */
+export function calmWater(water: StopScene['water'], D: number): boolean {
+  return (Math.max(0, ...water.rivers.map((r) => r.drawWidthM)) * 2428) / D < (water.calmUnderPx ?? 0);
 }
 
 /**

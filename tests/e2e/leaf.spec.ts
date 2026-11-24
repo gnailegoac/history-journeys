@@ -28,7 +28,7 @@ import type { Page } from '@playwright/test';
 import type { Figure } from '../../src/domain/types';
 import { STANDARD_PANES } from '../stage/support/standardPanes';
 import { readBytes } from '../support/readBytes';
-import { expectStageAt, expectRoute, fakeUrl, firstWrittenStopWithoutScene, foldBodiesReady, fontsReady, headingsOf, openFigureWithTable, scrollToBottom } from './helpers';
+import { expectStageAt, expectRoute, fakeUrl, firstWrittenStopWithoutScene, foldBodiesReady, fontsReady, headingsOf, openFigureWithTable, sceneOnDisk, scrollToBottom } from './helpers';
 
 /** 这种窗口上是不是横排的版面（文字在左、沙盘在右）：窗口 960 像素宽以上、而且横着（宽比高大），和 layout.css 的媒体查询是同一句。 */
 const sideBySide = (size: { width: number; height: number }): boolean => size.width >= 960 && size.width > size.height;
@@ -291,7 +291,6 @@ test('四种标准的窗口上：正文那一栏里能点的东西都不小于 4
   if (!found) return;
   const stops = await page.locator('.stop-item').evaluateAll((items) => items.map((item) => ({ id: item.getAttribute('data-stop-id') ?? '', written: item.getAttribute('data-stop-status') === 'complete' })));
   const noTable = await firstWrittenStopWithoutScene(page, figureId);
-  const notWritten = stops.find((stop) => !stop.written)?.id ?? null;
 
   /** 把这一页上能点开的都点开：每一条小注、每一篇原文、凭据。 */
   const openAll = (): Promise<{ notes: number; folds: number }> =>
@@ -304,6 +303,8 @@ test('四种标准的窗口上：正文那一栏里能点的东西都不小于 4
     });
 
   for (const size of WINDOWS) {
+    // 还没写的站两种各查一站：有自己的沙盘的，没有的
+    const seenUnwritten = { views: false, bare: false };
     const check = async (where: string, atLeast: Record<string, number>): Promise<void> => {
       const { checked, problems } = await tapProblems(page);
       const label = `${nameOf(size)}，${where}`;
@@ -366,11 +367,23 @@ test('四种标准的窗口上：正文那一栏里能点的东西都不小于 4
       await check('没有沙盘的一站，都点开', { 'span.note-term': openedHere.notes, summary: openedHere.folds, ...(credits > 0 ? { a: 2 + credits } : {}) });
     }
 
-    // 还没写的一站
-    if (notWritten) {
-      await openAt(page, size, `#/${figureId}/${notWritten}`);
+    // 还没写的一站。两种都查：没有自己的沙盘的（文字栏里只有一句话），和有自己的沙盘的（多一张单子“沙盘上看的几处”，
+    // 一行是一个按钮，下面一行凭据——点开了再查）
+    for (const stop of stops.filter((one) => !one.written)) {
+      const own = sceneOnDisk(figureId, stop.id);
+      if (own ? seenUnwritten.views : seenUnwritten.bare) continue;
+      await openAt(page, size, `#/${figureId}/${stop.id}`);
       await expect(page.locator('.not-written')).toBeVisible();
-      await check('还没写的一站', { a: 2, 'a.stop-nav-list': 1, 'a.stop-nav-sources': 1, 'a.walk-link': 1 });
+      if (own) {
+        seenUnwritten.views = true;
+        await expect(page.locator('.views .view-item')).toHaveCount(own.sections.length);
+        const openedHere = await openAll();
+        await foldBodiesReady(page);
+        await check(`还没写、有自己的沙盘的一站（${stop.id}）`, { 'button.view-item': own.sections.length, summary: openedHere.folds, a: 2, 'a.stop-nav-list': 1, 'a.stop-nav-sources': 1, 'a.walk-link': 1 });
+      } else {
+        seenUnwritten.bare = true;
+        await check(`还没写的一站（${stop.id}）`, { a: 2, 'a.stop-nav-list': 1, 'a.stop-nav-sources': 1, 'a.walk-link': 1 });
+      }
     }
 
     // 两种“没找到”
@@ -467,7 +480,8 @@ test('“读原文”“凭据”折着显加号、点开显减号；抬头里�
   await expect(page.locator('details.provenance summary .fold-label')).toHaveText('凭据');
 
   // ---- 宽屏上，正文再短，那一页纸也到屏幕的底边（拿还没写的一站量）；纸上有纹理
-  const notWritten = stops.find((stop) => !stop.written)?.id;
+  // 最短的是没有自己的沙盘的那一种（文字栏里只有一句话）；都有沙盘了，就拿头一个还没写的
+  const notWritten = (stops.find((stop) => !stop.written && sceneOnDisk(figureId, stop.id) === null) ?? stops.find((stop) => !stop.written))?.id;
   if (notWritten) {
     await page.goto(fakeUrl(`#/${figureId}/${notWritten}`));
     await expect(page.locator('.not-written')).toBeVisible();

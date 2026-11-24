@@ -11,7 +11,7 @@ import type { SceneTerrain, StopScene } from '../../domain/scene';
 import { readDemBytes } from './dem';
 import { buildGround } from './fields';
 
-export { GATE_BIG_EXTRA_M, GATE_HALF_M, gateSeat, gateSeats, yardLayout } from './cityPlan';
+export { GATE_BIG_EXTRA_M, GATE_HALF_M, POOL_RADIUS_M, gateSeat, gateSeats, plotHalfM, yardLayout } from './cityPlan';
 export { groundKey } from './key';
 import { bilinear } from './grid';
 import { bakeNormals } from './normals';

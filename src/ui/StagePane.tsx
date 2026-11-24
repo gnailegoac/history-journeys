@@ -89,7 +89,10 @@ interface Props {
   stopId?: string | null;
   /** 全程沙盘上每一站的印（src/domain/stopMarks.ts）。 */
   marks?: StageOptions['marks'];
-  /** 这一站的正文写好了：它要是没有自己的沙盘，按钮下面多一行话说明沙盘上摆的是什么。 */
+  /**
+   * 这一站的正文写好了：它要是没有自己的沙盘，按钮下面多一行话说明沙盘上摆的是什么。
+   * 一站的正文还没写：沙盘摆不出来时的那几句不说“正文可以照常读”；它自己的沙盘上，中间的按钮写“回到这一处”。
+   */
   written?: boolean;
   /** 沙盘的数据没读出来，读者点了“再试一次”。 */
   onReloadTable: () => void;
@@ -97,6 +100,9 @@ interface Props {
 
 /** 人物页上没有“这一站自己的沙盘”。 */
 const NO_OWN: Loaded<StopTable | null> = { state: 'ready', value: null };
+
+/** 沙盘摆不出来时的一句话。没有正文的一站（bare）不说句尾的“正文可以照常读”：那一页上没有正文。 */
+const say = (text: string, bare: boolean): string => (bare ? text.replace(/[，。]正文可以照常读/, '') : text);
 
 export function StagePane({ onStopPage, table, section, route, stopId, marks, written, onReloadTable }: Props) {
   // 古名还是今名、收没收起、立体的沙盘摆不摆，换一站也留着（只记到这一次访问结束，不存到别处）。
@@ -109,6 +115,8 @@ export function StagePane({ onStopPage, table, section, route, stopId, marks, wr
   // 这一栏摆哪一座：这一站自己的沙盘；人物页上，或者这一站没有自己的沙盘，就是全程沙盘。
   const own = onStopPage ? table : NO_OWN;
   const source: Loaded<StageTable | null> = own.state === 'ready' && !own.value ? route : own;
+  // 正在读的是一站，它的正文还没写。
+  const bare = onStopPage && !written;
 
   // 沙盘的数据还在读：也是过了一会儿还没有画面才说“正在摆”。从哪一刻等起的记下来，沙盘接着数，不从头数。
   const reading = source.state === 'loading';
@@ -130,7 +138,7 @@ export function StagePane({ onStopPage, table, section, route, stopId, marks, wr
     return (
       <Pane state="failed" picture="none">
         <Says>
-          <Message text={STAGE_TEXT.failed} action={STAGE_TEXT.retry} onAction={onReloadTable} keepFocus={keepFocus} />
+          <Message text={say(STAGE_TEXT.failed, bare)} action={STAGE_TEXT.retry} onAction={onReloadTable} keepFocus={keepFocus} />
         </Says>
       </Pane>
     );
@@ -156,7 +164,8 @@ export function StagePane({ onStopPage, table, section, route, stopId, marks, wr
       key={found.key}
       table={found}
       section={whole ? (road ?? null) : section}
-      resetLabel={!whole ? STAGE_TEXT.reset : onStopPage ? STAGE_TEXT.resetRoad : STAGE_TEXT.resetWhole}
+      resetLabel={!whole ? (bare ? STAGE_TEXT.resetHere : STAGE_TEXT.reset) : onStopPage ? STAGE_TEXT.resetRoad : STAGE_TEXT.resetWhole}
+      bare={bare}
       marks={marks}
       standing={whole && onStopPage && written ? STAGE_TEXT.roadNotice : null}
       namesMode={namesMode}
@@ -311,8 +320,10 @@ function emptySlot(): Slot {
 interface TableProps {
   table: StageTable;
   section: string | null;
-  /** 中间那个按钮上的字：回到这一节，回到全程，回到这一段。 */
+  /** 中间那个按钮上的字：回到这一节，回到这一处，回到全程，回到这一段。 */
   resetLabel: string;
+  /** 正在读的一站没有正文：摆不出来时的那一句不说“正文可以照常读”。 */
+  bare: boolean;
   marks: StageOptions['marks'];
   /** 这一座从头到尾都印在按钮下面的一行话（这一站没有自己的沙盘）；没有是 null。立体的沙盘摆不了、放着图片时，让给那时候的那一句。 */
   standing: string | null;
@@ -330,7 +341,7 @@ interface TableProps {
 // 每换一座沙盘，这个组件从头来（外面给了不同的 key），里面的状态不会带着上一座的。
 // 同一座沙盘重摆（再试一次、重新摆出来、降一档、读者要试试立体的）不从头来：只是下面“摆立体的沙盘”那一段重跑一遍，
 // 图片、按钮、题记都留在原处。
-function TableStage({ table, section, resetLabel, marks, standing, namesMode, onNamesMode, folded, onFolded, choice, onChoice, openedAt, keepFocus }: TableProps) {
+function TableStage({ table, section, resetLabel, bare, marks, standing, namesMode, onNamesMode, folded, onFolded, choice, onChoice, openedAt, keepFocus }: TableProps) {
   const pane = useRef<HTMLElement>(null);
   const host = useRef<HTMLDivElement>(null);
   const stillHost = useRef<HTMLDivElement>(null);
@@ -1066,7 +1077,7 @@ function TableStage({ table, section, resetLabel, marks, standing, namesMode, on
             )}
           </div>
         )}
-        {!area && <Message text={wordsAlone} action={stateAction?.label} onAction={stateAction?.run} keepFocus={keepFocus} />}
+        {!area && <Message text={say(wordsAlone, bare)} action={stateAction?.label} onAction={stateAction?.run} keepFocus={keepFocus} />}
       </Says>
 
       {/* under-notice：按钮下面有一行话。展开的说明照它再矮一行（stage.css）。 */}

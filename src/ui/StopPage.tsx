@@ -1,5 +1,6 @@
 // 站点页的文字栏：抬头、正文是怎么来的两句说明、正文、凭据、回到各站目录和“来源”；贴着底边的那一条（上一站、问讲解员、下一站）。
 // 这一站有沙盘时，它还盯着读者读到了哪一小节，报给上面，沙盘的镜头跟着走。
+// 正文还没写、可是有自己的沙盘的一站：正文的位置上是一句话和一张单子“沙盘上看的几处”，按哪一行沙盘就摆哪一处；下面是沙盘的凭据。
 
 import { useEffect, useRef } from 'react';
 import { figureHref, sourcesHref } from '../app/router';
@@ -13,7 +14,7 @@ import { GuidePanel } from './GuidePanel';
 import { PageTitle } from './PageTitle';
 import { Provenance } from './Provenance';
 import { StopText } from './StopText';
-import { SOURCES_LABEL, STAGE_TEXT, STOP_TEXT_LINES, pageTitle, placeLabel } from './text';
+import { SOURCES_LABEL, STAGE_TEXT, STOP_TEXT_LINES, VIEWS_HEADING, pageTitle, placeLabel } from './text';
 import { useReadingSection } from './useReadingSection';
 
 interface Props {
@@ -23,7 +24,9 @@ interface Props {
   table: Loaded<StopTable | null>;
   /** 这一站没有自己的沙盘，沙盘栏里摆着全程沙盘上到这一站去的来路。 */
   road: boolean;
-  /** 读者读到了另一小节（小节标题）。 */
+  /** 沙盘该摆哪一小节（小节标题）；还没有谁说过是 null，摆的是头一节。 */
+  section: string | null;
+  /** 读者读到了另一小节（小节标题）；正文还没写的一站上，是读者在单子里按了另一处。 */
   onSection: (section: string) => void;
 }
 
@@ -32,7 +35,7 @@ function toStage(): void {
   document.querySelector<HTMLElement>('.stage-pane')?.focus();
 }
 
-export function StopPage({ figure, stop, table, road, onSection }: Props) {
+export function StopPage({ figure, stop, table, road, section, onSection }: Props) {
   const content = useLoaded(`${figure.id}/${stop.id}`, () => loadStop(figure.id, stop.id));
   const { index, prev, next } = neighbours(figure, stop.id);
   const written = content.state === 'ready' && content.value !== null ? content.value : null;
@@ -105,8 +108,64 @@ export function StopPage({ figure, stop, table, road, onSection }: Props) {
       {content.state === 'loading' && <p className="quiet">正文加载中…</p>}
       {content.state === 'error' && <p className="quiet">这一站的正文没能读出来。</p>}
       {content.state === 'ready' && content.value === null && (
-        // 头一站没有来路：他是从这里出发的，沙盘上摆的是出发的那几趟路。
-        <p className="quiet not-written">这一站的正文还没写。{road && (index === 0 ? '沙盘上是他从这一站出发的路。' : '沙盘上是到这一站的来路。')}</p>
+        <>
+          {/* 前半句一上来就有（沙盘怎么样它都是真话）。后半句看沙盘：这一站自己的沙盘读出来了，说怎么用下面的单子；
+              摆着的是全程沙盘，说沙盘上是来路；自己的沙盘还在读、没读出来，只有前半句。 */}
+          <p className="quiet not-written">
+            这一站的正文还没写。
+            {scene ? '沙盘已经做好了，按下面的一行，沙盘就换到那一处。各处的年份写在每一行里，不一定都在上面这几年里。' : road && '沙盘上是到这一站的来路。'}
+          </p>
+          {/* 有自己的沙盘、正文还没写：沙盘上看的各处排成一张单子，一行是一个按钮（名字、年份、题记）。按一行，就是告诉上面
+              “该摆这一节了”，同写好了的一站读到另一小节是一回事，沙盘栏照旧做。摆着的那一处（没按过是头一处）左边一道红线、
+              一个小标签，aria-current。名字不是标题，行上也不写 data-section：那是正文小节的记号。
+              正文没读出来的一站不走到这里（上面那一句是“没能读出来”），所以认这种站看的是这张单子（.views），不是页面上那两个属性。 */}
+          {scene && (
+            <>
+              <section aria-labelledby="views-heading">
+                <h2 id="views-heading" className="section-heading">
+                  {VIEWS_HEADING}
+                </h2>
+                <ol className="views">
+                  {scene.sections.map((view, i) => {
+                    const shown = section ? section === view.heading : !i;
+                    return (
+                      <li key={i}>
+                        <button
+                          type="button"
+                          className="view-item"
+                          data-view={view.heading}
+                          aria-current={shown || undefined}
+                          onClick={(event) => {
+                            const item = event.currentTarget;
+                            onSection(view.heading);
+                            // 窄屏上沙盘栏收起来的时候，画面不跟着走：替读者按一下栏里的“展开沙盘”，栏展开时直接摆到这一处。
+                            // 栏一展开，这一栏文字往下让出一截：下一帧把按的这一行挪回看得见的地方。
+                            document.querySelector<HTMLElement>('.is-folded .stage-fold')?.click();
+                            requestAnimationFrame(() => item.scrollIntoView?.({ block: 'nearest' }));
+                          }}
+                        >
+                          <span className="stop-head">
+                            <span className="stop-title">{view.heading}</span>
+                            {/* 读屏不念这个小标签：按钮上已经有 aria-current */}
+                            {shown && (
+                              <span className="tag" aria-hidden="true">
+                                正在看
+                              </span>
+                            )}
+                          </span>
+                          <span className="stop-meta">{view.date}</span>
+                          <span className="view-line">{view.line}</span>
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ol>
+              </section>
+              {/* 凭据：只有“沙盘上的东西”一栏，出处是场景文件自己带的（人物页上全程沙盘的那一行也是这样）。 */}
+              <Provenance content={{ provenance: [], sources: scene.sources ?? [] }} scene={scene} />
+            </>
+          )}
+        </>
       )}
       {written && (
         <>

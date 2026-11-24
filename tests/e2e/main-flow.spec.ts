@@ -759,6 +759,14 @@ test('窗口没变、沙盘栏自己变窄了（像页面长出了一条滚动�
 });
 
 test('沙盘旁边的“说明”：点了才展开完整的几句话，盖在沙盘上，不挤题记，不动沙盘；再点、按 Esc、换小节都收起', async ({ page }) => {
+  // “说明”和“关闭”都照按钮在屏幕上的位置按下去，像手指和鼠标那样。测试工具自己的“点一下”会先把按钮“滚到看得见的地方”：
+  // 按钮在钉着的沙盘栏里、本来就整个看得见，可整页还是会被它滚走几百像素，读到的小节一换，页面就照规矩把展开的那一块收起来
+  // （换小节都收起）——那不是这一项要查的事。位置是按下去之前现量的；按下去以后的样子都是等出来的（expect 自己会等）。
+  const press = async (target: Locator): Promise<void> => {
+    await expect(target).toBeVisible();
+    const box = (await target.boundingBox())!;
+    await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+  };
   const { headings } = await openStopWithScene(page);
   test.skip(headings.length < 3, '这一站的小节太少，测不了换小节');
   await expectStageAt(page, headings[0]);
@@ -774,7 +782,7 @@ test('沙盘旁边的“说明”：点了才展开完整的几句话，盖在�
   await expectNoteButtonTapArea(page);
 
   // 点开：完整的几句话，说到哪些是示意、山高夸大了几倍。
-  await button.click();
+  await press(button);
   await expect(panel).toBeVisible();
   await expect(button).toHaveAttribute('aria-expanded', 'true');
   await expect(button).toHaveAttribute('aria-controls', (await panel.getAttribute('id'))!);
@@ -797,7 +805,7 @@ test('沙盘旁边的“说明”：点了才展开完整的几句话，盖在�
   expect(await fakeRequests(page)).toEqual([]);
 
   // 再点一下收起。
-  await button.click();
+  await press(button);
   await expect(panel).toHaveCount(0);
   await expect(button).toHaveAttribute('aria-expanded', 'false');
   expect(await captionHeightAndInsets(page)).toEqual(before);
@@ -811,22 +819,23 @@ test('沙盘旁边的“说明”：点了才展开完整的几句话，盖在�
   await expect(button).toBeFocused();
 
   // 展开以后点里面的“关闭”：收起，焦点回到“说明”按钮上。
-  await button.click();
+  await press(button);
   const close = panel.locator('.stage-note-close');
+  await expect(close).toBeVisible();
   expect((await close.boundingBox())!.height).toBeGreaterThanOrEqual(44);
-  await close.click();
+  await press(close);
   await expect(panel).toHaveCount(0);
   await expect(button).toBeFocused();
 
   // 展开着读到别的小节：沙盘到了、题记换了，展开的那一块也收起来（它说的是上一节）。
-  await button.click();
+  await press(button);
   await expect(panel).toBeVisible();
   await scrollToSection(page, headings[2]);
   await expectStageAt(page, headings[2]);
   await expect(panel).toHaveCount(0);
   await expect(button).toHaveAttribute('aria-expanded', 'false');
   expect(await captionHeightAndInsets(page)).toEqual(before);
-  await button.click();
+  await press(button);
   await expect(panel).toHaveAttribute('data-section', headings[2]);
 });
 

@@ -346,7 +346,16 @@ export function installMiniDom(search: string): MiniDocument {
     setInterval: (fn: () => void, ms?: number) => setInterval(fn, ms),
     clearInterval: (id: any) => clearInterval(id),
     // 测试要“系统设置了减少动态效果”“窗口是宽屏”时，把这个函数换掉。
-    matchMedia: (_query: string) => ({ matches: false }),
+    // 页面听着“这一句从真变假、从假变真”的（版面换了排法）记在 mediaListeners 里；测试用 fireMedia() 发这一下。
+    mediaListeners: new Set<() => void>(),
+    matchMedia: (_query: string) => ({
+      matches: false,
+      addEventListener: (_type: string, listener: () => void) => void win.mediaListeners.add(listener),
+      removeEventListener: (_type: string, listener: () => void) => void win.mediaListeners.delete(listener),
+    }),
+    fireMedia() {
+      [...win.mediaListeners].forEach((listener: () => void) => listener());
+    },
     listeners: new Map<string, Set<() => void>>(),
     addEventListener(type: string, listener: () => void) {
       if (!win.listeners.has(type)) win.listeners.set(type, new Set());

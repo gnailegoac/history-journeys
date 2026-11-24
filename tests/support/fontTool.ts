@@ -55,7 +55,7 @@ export const RECIPE = 1;
  * “字都在不在”认哪几个文件（servedBy）、首次打开要下载多少按站分开算（budgetRules.ts 的 fontReport）、
  * 构建以后查的是记录里的那几个文件（tests/build/dist-size.test.ts）。
  * 打开以前还要做的三件事（都要动页面，所以没有先做）：
- *   一、给页面用的模块（shipped.ts）现在只带大家共用的那个“点开才要”的文件里的一个字，页面空下来时只会把那一个文件先取来；
+ *   一、给页面用的模块（probe.ts）现在只带大家共用的那个“点开才要”的文件里的一个字，页面空下来时只会把那一个文件先取来；
  *       一站自己的 …-<站>-more 要各带一个字，src/ui/StopPage.tsx 按站去取。
  *   二、一站自己的头一个文件带着 unicode-range，index.html 里没法预先声明它（index.html 只有一份）：
  *       这一站一打开，它比头两个文件晚到一步，要看一看那一会儿的样子，决定要不要由页面去催。
@@ -830,20 +830,41 @@ export function recordText(record: FontRecord): string {
   return `${JSON.stringify(record, null, 2)}\n`;
 }
 
-/** 给页面用的那个模块（shipped.ts）的字。probe 是点开才要的那个宋体文件里的一个字。 */
-export function shippedTs(probe: string): string {
+/**
+ * 给页面用的模块有两个，都是工具写的。这是头一个（shipped.ts）的字：随站的三套字体的那张表，只有“来源”页用，
+ * 跟着“来源”页的那一块程序走，不进页面一打开就下载的程序。
+ */
+export function shippedTs(): string {
   const entry = (id: FontSourceId): string => {
     const source = FONT_SOURCES[id];
     return `  ${id}: { family: '${source.family}', name: '${source.name.replace(/ Regular$/, '')}', version: '${source.version}', site: '${source.site}', licence: 'licences/${source.licence.file}' },`;
   };
   return [
     '// 工具做的（npm run fonts），不要手改。说明见 docs/data-spec.md“随站的字体”。',
-    '// 给页面用的几样。页面不引入 fonts.json：那里面记着每一个字，太大。',
+    '// 给“来源”页用的一张表。页面不引入 fonts.json：那里面记着每一个字，太大。',
+    '// 页面一打开就下载的程序不要引入这个文件（它要的几样在 probe.ts 里）：引入了，这张表就跟着进了那一块程序。',
     '',
     '/** 随站的三套字体：文件里的名称、原字体叫什么、哪一版、它的网站、许可全文在网站上的地址（相对网站的根）。 */',
     'export const SHIPPED_FONTS = {',
     ...FONT_SOURCE_IDS.map(entry),
     '} as const;',
+    '',
+  ].join('\n');
+}
+
+/**
+ * 给页面用的第二个模块（probe.ts）的字：页面一打开就下载的程序要的几样，就这么一点。
+ * probe 是点开才要的那个宋体文件里的一个字；song、kai 是记录里宋体和楷体的文件写着的字体名称
+ * （页面叫浏览器先去取字体的时候要说名称：名称只在记录里写一遍，这里照抄）。
+ */
+export function probeTs(probe: string, families: { song: string; kai: string }): string {
+  return [
+    '// 工具做的（npm run fonts），不要手改。说明见 docs/data-spec.md“随站的字体”。',
+    '// 页面一打开就下载的程序用的几样，单放在这里：三套字体的那张表（shipped.ts）只有“来源”页用，不跟着进那一块程序。',
+    '',
+    '/** 写在字体文件里的名称：宋体的，楷体的（题签和印上的字）。页面叫浏览器先去取哪一套字体的时候用。 */',
+    `export const SONG_FAMILY = '${families.song}';`,
+    `export const KAI_FAMILY = '${families.kai}';`,
     '',
     '/** 点开才要的那个宋体文件里的一个字：页面空下来的时候拿它叫浏览器先把那个文件取来。 */',
     `export const SONG_MORE_PROBE = '${probe}';`,
@@ -857,16 +878,19 @@ export function cssFace(item: Pick<FontFileRecord, 'file' | 'family' | 'source' 
 }
 
 /**
- * 照记录写出来的两样（都用不到原字体）：样式表（fonts.css）和给页面用的模块（shipped.ts）。
- * 做字体的工具写文件时用它；字体文件是新的、这两样却被改坏了的时候，工具也照它重写；测试拿它和仓库里的比。
+ * 照记录写出来的三样（都用不到原字体）：样式表（fonts.css）和给页面用的两个模块（shipped.ts、probe.ts）。
+ * 做字体的工具写文件时用它；字体文件是新的、这三样却被改坏了的时候，工具也照它重写；测试拿它和仓库里的比。
  */
-export function writtenFromRecord(record: FontRecord): { css: string; shipped: string } {
+export function writtenFromRecord(record: FontRecord): { css: string; shipped: string; probe: string } {
   const more = record.files.find((item) => item.group === 'song-more');
   const probe = [...(more?.characters ?? '')][0];
-  if (!probe) throw new Error('点开才看得见的那一组一个字也没有：shipped.ts 里的那一个字没处取。');
+  if (!more || !probe) throw new Error('点开才看得见的那一组一个字也没有：probe.ts 里的那一个字没处取。');
+  const kai = record.files.find((item) => item.group === 'kai');
+  if (!kai) throw new Error('记录里没有楷体的那个文件：probe.ts 里楷体的名称没处取。');
   return {
     css: fontsCss(record.files.map(cssFace)),
-    shipped: shippedTs(probe),
+    shipped: shippedTs(),
+    probe: probeTs(probe, { song: more.family, kai: kai.family }),
   };
 }
 

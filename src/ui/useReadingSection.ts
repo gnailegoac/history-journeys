@@ -5,14 +5,25 @@
 // 最后几个短的小节才轮得到。整页短得不用滚的时候没有这回事，就是第一节。
 // 一个小节要连着当上 150 毫秒才往上报：滚得快、一掠而过的小节不报，沙盘不用跟着乱转（见 dwellReporter）。
 // 滚动、窗口大小变了、正文自己的高矮变了（点开小注、原文，图片晚到）都重新看一遍。
+// 版面换了排法（平板转了个方向，窗口拉过了宽窄的分界）：正文按另一种栏宽重排，原来滚到的位置落到了别的小节上。
+// 这时把正文挪一下，让阅读线回到刚才报上去的那一小节里（挪得最少：带回来的是那一小节的头或者尾），沙盘还摆着它。
+// 页面快滚到底的那一截里，阅读线自己跟着滚动在挪：要挪多少，是把阅读线的这一挪也算进去的。
+// 重排以后读者还在那一小节里就不动；同一种排法里窗口变大变小也不这样做。
 
 import { useEffect, useRef } from 'react';
 import type { RefObject } from 'react';
+import { WIDE_SCREEN } from './StagePane';
 
 /** 阅读线在看得见正文的那一块里，从上往下的几成。 */
 export const READING_LINE = 0.42;
 /** 一个小节要连着当上这么久（毫秒）才往上报。 */
 export const READING_DWELL_MS = 150;
+
+/**
+ * 版面换了排法、把一小节带回阅读线上的时候，它的头摆在阅读线上面多远、或者它的尾摆在阅读线下面多远（像素）。
+ * 页面快滚到底、阅读线跟着滚动在挪的那一截里，多滚的这一小截阅读线也跟着挪，隔着的是它的一倍到两倍。
+ */
+const BRING_BACK_GAP_PX = 16;
 
 /** 沙盘栏的类名：窄屏上它在正文上面，看得见正文的那一块从它的下边算起。 */
 const PANE_SELECTOR = '.stage-pane';
@@ -90,6 +101,7 @@ export function pickSection(marks: readonly { section: string; top: number }[], 
 /**
  * 盯着 root 里带 data-section 的小节，读到另一小节时调用 onSection（小节标题）。
  * active 为 false 时不盯（正文还没出来，或者这一站没有沙盘）。
+ * 版面换了排法、阅读线上换成了别的小节的时候，把刚才报上去的那一小节带回阅读线上（见下面 reshaped）；没有在盯的页面不动。
  */
 export function useReadingSection(root: RefObject<HTMLElement | null>, active: boolean, onSection: (section: string) => void): void {
   const report = useRef(onSection);
@@ -100,21 +112,34 @@ export function useReadingSection(root: RefObject<HTMLElement | null>, active: b
   useEffect(() => {
     if (!active) return;
     let frame = 0;
-    const dwell = dwellReporter<number>((section) => report.current(section), {
-      set: (run, ms) => window.setTimeout(run, ms),
-      clear: (id) => window.clearTimeout(id),
-    });
+    // 刚才报上去的是哪一小节：版面换排法的时候要把它带回眼前。
+    let last: string | null = null;
+    const dwell = dwellReporter<number>(
+      (section) => {
+        last = section;
+        report.current(section);
+      },
+      {
+        set: (run, ms) => window.setTimeout(run, ms),
+        clear: (id) => window.clearTimeout(id),
+      },
+    );
+
+    /** 正文里的各小节，按先后。 */
+    const nodes = (el: HTMLElement): HTMLElement[] => Array.from(el.querySelectorAll<HTMLElement>('[data-section]'));
+    /** 照现在的版面、现在滚到的地方，阅读线在窗口里多高。 */
+    const lineAt = (el: HTMLElement): number => readingLine(window.innerHeight, visibleTextTop(el), remainingScroll(document.documentElement.scrollHeight, window.innerHeight, window.scrollY));
+    /** 照现在的版面、现在滚到的地方，阅读线上是哪一小节。 */
+    const now = (el: HTMLElement): string | null =>
+      pickSection(
+        nodes(el).map((node) => ({ section: node.dataset.section ?? '', top: node.getBoundingClientRect().top })),
+        lineAt(el),
+      );
 
     const pick = () => {
       frame = 0;
       const el = root.current;
-      if (!el) return;
-      const marks = Array.from(el.querySelectorAll<HTMLElement>('[data-section]'), (node) => ({
-        section: node.dataset.section ?? '',
-        top: node.getBoundingClientRect().top,
-      }));
-      const remaining = remainingScroll(document.documentElement.scrollHeight, window.innerHeight, window.scrollY);
-      dwell.see(pickSection(marks, readingLine(window.innerHeight, visibleTextTop(el), remaining)));
+      if (el) dwell.see(now(el));
     };
 
     // 滚动时一帧最多看一次。
@@ -125,6 +150,36 @@ export function useReadingSection(root: RefObject<HTMLElement | null>, active: b
     schedule();
     window.addEventListener('scroll', schedule, { passive: true });
     window.addEventListener('resize', schedule);
+    // 版面换了排法：正文按另一种栏宽重排，同一个滚动的位置多半落到了前后一两节上。把正文挪一下，让阅读线回到刚才那一小节里，
+    // 沙盘就还摆着它。挪得最少：那一小节的头已经在阅读线上面（重排以后落到了后面的小节上，读者刚才快读完它了），
+    // 把它的尾摆到阅读线下面一小截——不把它的开头拉回来，那样读者眼前的东西全换了，要倒回去一整节；
+    // 它的头还在阅读线下面（落到了前面的小节上，读者刚才刚读到它），把头摆到阅读线上面一小截。
+    // 短的小节也留得住：这样摆，后面那一节的标题还在阅读线下面（把头摆到那一块的最上面的话，后面那一节的标题也过了阅读线，沙盘就换走了）。
+    // 只在换排法的时候做：同一种排法里拉一拉窗口，不动读者读到的地方。
+    // 要滚多少是这里自己量的，不叫浏览器“把它滚到看得见的地方”：那样靠的是 layout.css 给整页留的那一截，
+    // 焦点在沙盘栏里的时候那一截不算数（刚按过栏里的按钮就是这样），不认 :has() 的浏览器上那一截根本没有，标题都会落到钉着的栏底下。
+    // 重排以后阅读线上还是刚才那一小节（读者还在那一节里）也不动：页面在最上面的时候就是这样，不把这一站的标题和抬头滚走。
+    // 页面快滚到底的那一截里，阅读线自己是跟着滚动挪的（见 readingLine）：正文往上滚多少，它就往下挪多少。
+    // 要滚多少是把它这一挪也算进去的（见下面 reach），滚完以后阅读线还在刚才那一小节里；
+    // 最后多滚的那一小截阅读线也跟着挪，所以在这一截里，头或者尾离阅读线是一小截到两小截（16 到 32 像素上下：浏览器按整像素滚，会差出一个像素）。
+    const shape = window.matchMedia(WIDE_SCREEN);
+    const reshaped = (): void => {
+      const el = root.current;
+      if (!el || now(el) === last) return;
+      // 还没有报过哪一小节（last 是 null）、或者那一小节已经不在正文里：找不到，什么也不动。
+      const box = nodes(el)
+        .find((item) => item.dataset.section === last)
+        ?.getBoundingClientRect();
+      if (box) {
+        const high = window.innerHeight;
+        // 把窗口里 at 这个高度的地方摆到阅读线上要滚多少：离页面的底还远，阅读线不动；快到底了，阅读线自己也跟着挪，两头各走一半。
+        const reach = (at: number): number => Math.min(at - readingLine(high, visibleTextTop(el)), (at - high + remainingScroll(document.documentElement.scrollHeight, high, window.scrollY)) / 2);
+        const head = reach(box.top);
+        window.scrollBy(0, head < 0 ? reach(box.bottom) - BRING_BACK_GAP_PX : head + BRING_BACK_GAP_PX);
+      }
+      schedule();
+    };
+    shape.addEventListener('change', reshaped);
     // 版面自己的高矮变了（点开小注或原文、图片晚到、窄屏上沙盘栏收起或展开把正文顶上顶下），标题的位置跟着变，也重新看一遍。
     const watcher = typeof ResizeObserver === 'function' ? new ResizeObserver(schedule) : null;
     const watched = watcher ? (root.current?.closest(LAYOUT_SELECTOR) ?? root.current) : null;
@@ -135,6 +190,7 @@ export function useReadingSection(root: RefObject<HTMLElement | null>, active: b
       watcher?.disconnect();
       window.removeEventListener('scroll', schedule);
       window.removeEventListener('resize', schedule);
+      shape.removeEventListener('change', reshaped);
     };
   }, [active, root]);
 }

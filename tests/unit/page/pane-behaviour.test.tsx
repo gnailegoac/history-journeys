@@ -6,6 +6,7 @@
 // 替身实际摆着哪一节（见 watch）。
 import { describe, expect, it, vi } from 'vitest';
 import type { SectionInfo, StopScene } from '../../../src/domain';
+import { KAI_FAMILY } from '../../../src/fonts/probe';
 import { FIXTURE_HEADINGS, fixtureScene } from '../../support/fixtureScene';
 import { installMiniDom } from './miniDom';
 import type { MiniElement } from './miniDom';
@@ -607,5 +608,117 @@ describe('沙盘栏 + 替身 + 题签层', () => {
     expect(win.__stageReadout()).toEqual({ triangles: 0, drawCalls: 0 });
     await page.unmount();
     expect(win.__stageReadout).toBeUndefined();
+  });
+});
+
+describe('题签用的楷体：什么时候叫浏览器先去取（document.fonts.load）', () => {
+  type Answer = 'ok' | 'reject' | 'throw';
+  /** 假的 document.fonts：每一次 load 记下说的是哪一套字体；answer 是它怎么回话（取到了、没取成、当场出错）。用完要 remove()。 */
+  function stubFonts(answer: Answer = 'ok') {
+    const asked: string[] = [];
+    (doc as any).fonts = {
+      load(font: string) {
+        asked.push(font);
+        if (answer === 'throw') throw new Error('这个浏览器的 load 当场出错');
+        return answer === 'reject' ? Promise.reject(new Error('没取成')) : Promise.resolve([]);
+      },
+    };
+    return { asked, remove: () => void delete (doc as any).fonts };
+  }
+  /** 只挂一个沙盘栏，交给它的东西由测试说。 */
+  async function show(first: { onStopPage: boolean; table: any; route: any }) {
+    const container = doc.createElement('div');
+    doc.body.appendChild(container);
+    const root = createRoot(container as any);
+    const render = (props: { onStopPage: boolean; table: any; route: any; section?: string | null }) =>
+      act(async () => {
+        root.render(<StagePane onStopPage={props.onStopPage} written table={props.table} section={props.section ?? null} route={props.route} onReloadTable={() => {}} />);
+      });
+    await render(first);
+    return { render, pane: () => container.querySelector('.stage-pane')!, unmount: () => act(async () => root.unmount()) };
+  }
+  const WANT = `1em "${KAI_FAMILY}"`;
+  const NO_ROUTE = { state: 'ready', value: null };
+  const READY = { state: 'ready', value: table };
+
+  it('数据还在读的时候不取；没有沙盘可摆的栏不取；一知道要摆哪一座就取，只取一次，说的是楷体的名称', { timeout: 30_000 }, async () => {
+    win.location.search = '?stage=fake';
+    const fonts = stubFonts();
+    try {
+      // 名称是做字体的工具写的那一个，带着引号，前面是随便一个字号（浏览器要一个完整的写法）
+      expect(WANT).toBe('1em "Yanlu Kai"');
+
+      // 一站的页面，这一站自己的沙盘的数据还在读
+      const page = await show({ onStopPage: true, table: { state: 'loading' }, route: NO_ROUTE });
+      await settle(60);
+      expect(attr(page.pane(), 'data-stage-state')).toBe('loading');
+      expect(fonts.asked, '数据还在读，还不知道有没有沙盘可摆').toEqual([]);
+      // 读出来了，这一站有自己的沙盘：这时就取，不等图片、不等沙盘程序
+      await page.render({ onStopPage: true, table: READY, route: NO_ROUTE });
+      expect(fonts.asked).toEqual([WANT]);
+      // 沙盘摆出来、读到另一小节、栏重画了：都不再取
+      for (let i = 0; i < 200 && attr(page.pane(), 'data-stage-state') !== 'ready'; i += 1) await settle(20);
+      expect(attr(page.pane(), 'data-stage-state')).toBe('ready');
+      await page.render({ onStopPage: true, table: READY, route: NO_ROUTE, section: SECOND });
+      await settle(60);
+      expect(fonts.asked).toEqual([WANT]);
+      await page.unmount();
+      expect(fonts.asked).toEqual([WANT]);
+
+      // 没有沙盘可摆的几种：人物页上这位人物还没有全程沙盘；一站没有自己的沙盘，全程沙盘也没有；全程沙盘还在读；沙盘的数据没读出来
+      fonts.asked.length = 0;
+      for (const [what, props, state] of [
+        ['人物页，没有全程沙盘', { onStopPage: false, table: NO_ROUTE, route: NO_ROUTE }, 'still'],
+        ['一站没有自己的沙盘，也没有全程沙盘', { onStopPage: true, table: NO_ROUTE, route: NO_ROUTE }, 'still'],
+        ['一站没有自己的沙盘，全程沙盘还在读', { onStopPage: true, table: NO_ROUTE, route: { state: 'loading' } }, 'loading'],
+        ['这一站的沙盘没读出来', { onStopPage: true, table: { state: 'error' }, route: NO_ROUTE }, 'failed'],
+      ] as const) {
+        const bare = await show(props);
+        await settle(60);
+        expect(attr(bare.pane(), 'data-stage-state'), what).toBe(state);
+        expect(fonts.asked, what).toEqual([]);
+        await bare.unmount();
+      }
+    } finally {
+      fonts.remove();
+    }
+  });
+
+  it.each([
+    ['没取成（浏览器说取不到）', 'reject'],
+    ['取的时候当场出错（老浏览器的 document.fonts 不全）', 'throw'],
+  ] as const)('%s：沙盘栏照旧摆出来，什么也不坏', { timeout: 30_000 }, async (_what, answer) => {
+    const unhandled: unknown[] = [];
+    const onUnhandled = (reason: unknown): void => void unhandled.push(reason);
+    /** Node 自己的一样（这个项目没有装 Node 的类型声明，只写用到的）：没人管的错的通知。 */
+    const { process } = globalThis as unknown as { process: { on(event: 'unhandledRejection', listener: (reason: unknown) => void): void; off(event: 'unhandledRejection', listener: (reason: unknown) => void): void } };
+    process.on('unhandledRejection', onUnhandled);
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const fonts = stubFonts(answer);
+    try {
+      const page = await mount('?stage=fake');
+      expect(fonts.asked).toEqual([WANT]);
+      await page.until(() => attr(page.pane(), 'data-stage-state') === 'ready');
+      // 和不取字体的时候一样：摆好了，是立体的沙盘，按钮、题记、题签都在
+      expect(attr(page.pane(), 'data-stage-state')).toBe('ready');
+      expect(attr(page.pane(), 'data-stage-picture')).toBe('table');
+      expect(attr(page.pane(), 'data-stage-section')).toBe(FIRST);
+      expect(page.q('.stage-controls')).not.toBeNull();
+      expect(attr(page.q('.stage-caption'), 'data-section')).toBe(FIRST);
+      expect(page.all('.stage-host .strip').length).toBeGreaterThan(0);
+      await page.read(SECOND);
+      await page.until(() => attr(page.pane(), 'data-stage-section') === SECOND);
+      expect(attr(page.pane(), 'data-stage-section')).toBe(SECOND);
+      expect(fonts.asked).toEqual([WANT]);
+      await page.unmount();
+      // 没取成的那一下没有漏出去（没有人接的出错会写在浏览器的控制台里），React 也没有报错
+      await sleep(20);
+      expect(unhandled).toEqual([]);
+      expect(error.mock.calls).toEqual([]);
+    } finally {
+      fonts.remove();
+      error.mockRestore();
+      process.off('unhandledRejection', onUnhandled);
+    }
   });
 });

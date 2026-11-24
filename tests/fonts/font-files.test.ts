@@ -4,7 +4,7 @@
 //
 // 分三组：
 //   一、网站上显示的每一个字都在字体文件里。少了一个，这里说出是哪个字、在哪里用的，办法是 npm run fonts。
-//   二、字体文件、记录、样式表、给页面用的模块、许可全文，彼此对得上；文件里的名称合许可的要求；大小不超过上限。
+//   二、字体文件、记录、样式表、给页面用的两个模块、许可全文，彼此对得上；文件里的名称合许可的要求；大小不超过上限。
 //   三、源文件里没有“工具数不到的字”和“Safari 15 读不懂的写法”。换字体以前的页面留下过几处，一处一处点了名列在
 //       PENDING 里，后面的单元改到哪里删到哪里；现在这张名单是空的（最后两处是“读原文”“凭据”前面用 content 画的加号、减号，
 //       换正文那一栏的样子时换成了页面上真的字）。名单只许变短，所以它只能一直空着：新冒出来的不许往里加，改掉它。
@@ -32,6 +32,7 @@ import {
   isInterfaceSource,
   missingFromShipped,
   planFonts,
+  probeTs,
   readShipped,
   readSite,
   sha256,
@@ -260,19 +261,43 @@ describe('放进仓库的字体文件和它的记录、样式表、许可全文�
     expect(ranged).toEqual([...ranged].sort((a, b) => Number(a) - Number(b)));
   });
 
-  it('给页面用的模块是照记录写的；它里面除了那一个字，没有别的汉字', () => {
-    const module = text(`${FONTS_DIR}/shipped.ts`);
+  it('给页面用的两个模块是照记录写的：三套字体的表（shipped.ts）里没有汉字；页面一打开就要的几样（probe.ts）里除了那一个字，没有别的汉字，两个名称就是样式表里写的名称', () => {
+    const table = text(`${FONTS_DIR}/shipped.ts`);
+    const small = text(`${FONTS_DIR}/probe.ts`);
     const more = shipped.record.files.find((item) => item.group === 'song-more');
+    const kai = shipped.record.files.find((item) => item.group === 'kai');
     const probe = [...(more?.characters ?? '')][0];
-    expect(module, '给页面用的模块不是照记录写的：运行 npm run fonts（字体文件没变的话它只把这一份照记录重写），再提交').toBe(shippedTs(probe));
-    expect(writtenFromRecord(shipped.record).shipped).toBe(module);
-    expect([...stripComments(module)].filter((ch) => (ch.codePointAt(0) ?? 0) > 0x7e)).toEqual([probe]);
+    const hint = '不是照记录写的：运行 npm run fonts（字体文件没变的话它只把这一份照记录重写），再提交';
+    expect(table, `给“来源”页用的模块${hint}`).toBe(shippedTs());
+    expect(small, `页面一打开就要的那个模块${hint}`).toBe(probeTs(probe, { song: more?.family ?? '', kai: kai?.family ?? '' }));
+    const written = writtenFromRecord(shipped.record);
+    expect(written.shipped).toBe(table);
+    expect(written.probe).toBe(small);
+    expect([...stripComments(table)].filter((ch) => (ch.codePointAt(0) ?? 0) > 0x7e)).toEqual([]);
+    expect([...stripComments(small)].filter((ch) => (ch.codePointAt(0) ?? 0) > 0x7e)).toEqual([probe]);
     // 那一个字只在点开才下载的那个文件里
     expect(shipped.files.filter((file) => file.characters.has(probe)).map((file) => file.record.file)).toEqual(['yanlu-song-more.woff2']);
+    // 小的那个模块里的两个名称，样式表里各有 @font-face 写着：宋体的两个文件、楷体的一个文件
+    const named = (family: string): string[] => shipped.record.files.filter((item) => item.family === family).map((item) => item.file);
+    expect(named(/SONG_FAMILY = '([^']+)'/.exec(small)?.[1] ?? '')).toEqual(['yanlu-song.woff2', 'yanlu-song-more.woff2']);
+    expect(named(/KAI_FAMILY = '([^']+)'/.exec(small)?.[1] ?? '')).toEqual(['yanlu-kai.woff2']);
+  });
+
+  it('页面一打开就下载的程序不引入三套字体的那张表：src/ 里引入 shipped.ts 的只有“来源”页的那一块（SourcesBody.tsx），别处要名称、要那一个字，引 probe.ts', () => {
+    const importers = (module: string): string[] =>
+      sourceFiles()
+        .filter((path) => new RegExp(`from '[./]+/fonts/${module}'`).test(text(path)))
+        .sort();
+    expect(importers('shipped')).toEqual(['src/ui/SourcesBody.tsx']);
+    expect(importers('probe')).toEqual(['src/ui/StagePane.tsx', 'src/ui/StopPage.tsx']);
+    // 两个字体名称在页面的程序里不另写一遍
+    for (const path of sourceFiles().filter((file) => !file.startsWith(`${FONTS_DIR}/`))) {
+      expect(stripComments(text(path)), `${path} 里又写了一遍字体名称：从 src/fonts/probe.ts 引`).not.toMatch(/Yanlu (Song|Kai|Sans)/);
+    }
   });
 
   it('src/fonts/ 里只有这几样', () => {
-    const want = [...shipped.record.files.map((item) => item.file), 'fonts.css', 'fonts.json', 'shipped.ts'].sort();
+    const want = [...shipped.record.files.map((item) => item.file), 'fonts.css', 'fonts.json', 'shipped.ts', 'probe.ts'].sort();
     expect(readdirSync(at(`${FONTS_DIR}/`)).sort()).toEqual(want);
   });
 
@@ -348,7 +373,7 @@ describe('源文件里的写法', () => {
     expect(tally(scanProgram('index.html', page.replace(/<!--[\s\S]*?-->/g, '')))).toEqual(['index.html | entity | &hellip; × 1', 'index.html | escape | \\u2026 × 1']);
   });
 
-  it('样式表里：每套字体只用它那一种粗细（黑体 500，别的 400）、不用斜体、字体只用三个记号（宋体、黑体、题签用的人物自己的一个）、设黑体的每一条都同时写粗细（黑体的粗细也只写在设黑体的规则里）、框架的字体记号只写在 :root 上、框架的样式和题签的样式各读各的那一套记号（题签不和别的东西写在同一条规则里，题签上面的四层上不写它会接过去的粗细、排版功能、字距）、content 里不写字、不用 Safari 15 读不懂的写法（PENDING 里点了名的除外：现在一处也没有）', () => {
+  it('样式表里：每套字体只用它那一种粗细（黑体 500，别的 400）、不用斜体、字体只用三个记号（宋体、黑体、题签用的人物自己的一个）、设黑体的每一条都同时写粗细（黑体的粗细也只写在设黑体的规则里）、框架的字体记号只写在 :root 上、框架的样式和题签的样式各读各的那一套记号（题签不和别的东西写在同一条规则里，题签上面的五层上、紧挨在它们下面的 * 上不写它会接过去的粗细、排版功能、字距）、content 里不写字、不用 Safari 15 读不懂的写法（PENDING 里点了名的除外：现在一处也没有）', () => {
     expect(styles.length).toBeGreaterThan(5);
     const found = tally(styles.flatMap((path) => scanStyle(path, text(path))));
     const allowed = PENDING.map((item) => `${item.file} | ${item.rule} | ${item.what} × ${item.times}`).sort();
@@ -359,7 +384,7 @@ describe('源文件里的写法', () => {
     for (const item of PENDING) expect(item.unit, `${item.file} ${item.what}：要写明由哪个单元去掉`).toMatch(/^U[2-6]$/);
   });
 
-  it('查得出来：样式表里加粗、斜体、别的字体、content 里的字、带颜色的 text-decoration 简写、color-mix、text-wrap、嵌套、框架和题签读错了记号、题签和别的东西写在同一条规则里、人物的那一块里写了框架的记号、题签上面的四层上写了字距、黑体没有写粗细、没设黑体的写了黑体的粗细、字体的记号写在了 :root 以外或者不是随站的字体打头', () => {
+  it('查得出来：样式表里加粗、斜体、别的字体、content 里的字、带颜色的 text-decoration 简写、color-mix、text-wrap、嵌套、框架和题签读错了记号、题签和别的东西写在同一条规则里、人物的那一块里（栏上挂着状态类名的规则也算）写了框架的记号、题签上面的五层上和紧挨在它们下面的 * 上写了题签会接过去的东西、黑体没有写粗细、没设黑体的写了黑体的粗细（一条规则里写了两次字体算后一次）、字体的记号写在了 :root 以外或者不是随站的字体打头', () => {
     const bad = `
       :root { --font-ui: system-ui, 'PingFang SC', 'Microsoft YaHei', sans-serif; --weight-heading: 700; --grain: url("data:image/svg+xml;utf8,<svg/>"); }
       h1 { font-weight: 700; font-style: italic; font-family: var(--font-ui); font: bold 1rem serif; }
@@ -390,6 +415,15 @@ describe('源文件里的写法', () => {
       .stage-pane.is-wide .stage-host { letter-spacing: 0.04em; }
       .stage-pane::after { letter-spacing: 0.04em; }
       .stage-pane .stage-reset { letter-spacing: 0.04em; }
+      .stage-still-host .strips { letter-spacing: 0.04em; }
+      .strips::before { letter-spacing: 0.04em; }
+      .stage-host * { font-weight: 400; }
+      .stage-pane > * { font-feature-settings: normal; }
+      .stage-pane .stage-controls * { letter-spacing: 0.04em; }
+      .stage-pane.is-wide { --color-accent: #000000; --shade-more: #000000; --stage-pane-h: 10px; }
+      [data-figure='y'] .stage-pane { --fade-plate: #ffffff; }
+      .label-twice { font-family: var(--font-sans); font-family: var(--font-song); font-weight: var(--weight-sans); }
+      .label-back { font-family: var(--font-song); font-family: var(--font-sans); font-weight: var(--weight-sans); }
     `;
     expect(tally(scanStyle('x.css', bad))).toEqual([
       'x.css | color-mix | color: color-mix(in srgb, red, blue) × 1',
@@ -413,8 +447,13 @@ describe('源文件里的写法', () => {
       'x.css | font-weight | .frame { --weight-sans: … } × 1',
       'x.css | font-weight | font-weight: 700 × 1',
       'x.css | font-weight | font-weight: var(--weight-heading) × 1',
-      // 题签上面的那四层上写了题签会接过去的东西（.stage-pane::after 和栏里面的按钮不算）
+      // 紧挨在题签上面那几层下面的 *：题签和放题签的几层都在里面（栏里按钮那一排下面的 * 不算）
+      'x.css | inherit | .stage-host * { font-weight: 400 } × 1',
+      'x.css | inherit | .stage-pane > * { font-feature-settings: normal } × 1',
+      // 题签上面的那五层上写了题签会接过去的东西（.stage-pane::after、.strips::before 和栏里面的按钮不算）
       'x.css | inherit | .stage-pane.is-wide .stage-host { letter-spacing: 0.04em } × 1',
+      // 题签自己的那一层（.strips）也是这五层之一，从哪里说到它都算
+      'x.css | inherit | .stage-still-host .strips { letter-spacing: 0.04em } × 1',
       'x.css | nesting | &:hover × 1',
       'x.css | nesting | .inner × 1',
       'x.css | sans | PingFang × 1',
@@ -424,9 +463,14 @@ describe('源文件里的写法', () => {
       'x.css | sans-weight | .label × 1',
       // 设了黑体，可是这一条里最后写的粗细是 400
       'x.css | sans-weight | .label-last × 1',
+      // 一条规则里写了两次字体，后写的算数：先黑体、后宋体，这一条就没有设黑体，写黑体的粗细不对（先宋体、后黑体的 .label-back 是对的）
+      'x.css | sans-weight | .label-twice { font-weight: var(--weight-sans) } × 1',
       // 没有设黑体的规则写了黑体的粗细
       'x.css | sans-weight | .prose strong { font-weight: var(--weight-sans) } × 1',
       'x.css | seam | .card-name { --figure-ink: … } × 1',
+      // 栏上挂着状态的类名的规则也是人物的那一块：里面写了框架的记号（栏自己量的 --stage-… 不算）；--shade-…、--fade-… 也是框架的
+      'x.css | seam | .stage-pane.is-wide { --color-accent: … } × 1',
+      'x.css | seam | .stage-pane.is-wide { --shade-more: … } × 1',
       'x.css | seam | .stage-pane:not(.is-wide) .strip { border-radius: var(--radius) } × 1',
       'x.css | seam | .stage-pane:not(.is-wide) .strip { color: var(--color-ink) } × 1',
       "x.css | seam | .strip { font-family: var(--font-kai, 'Kaiti SC', serif) } × 1",
@@ -436,6 +480,7 @@ describe('源文件里的写法', () => {
       'x.css | seam | .tag { color: var(--figure-ink) } × 1',
       // 人物的那一块里写了框架的记号
       "x.css | seam | [data-figure='x'] .stage-pane { --color-accent: … } × 1",
+      "x.css | seam | [data-figure='y'] .stage-pane { --fade-plate: … } × 1",
       'x.css | text-decoration | text-decoration: underline dotted var(--color-accent) × 1',
       'x.css | text-wrap | text-wrap: balance × 1',
     ]);

@@ -152,6 +152,11 @@ const STRIP = /\.strip(?:-[a-z]+)*(?![\w-])/;
 const isStripRule = (prelude: string): boolean => selectorsOf(prelude).every((selector) => STRIP.test(selector));
 /** 人物自己的那一套记号写在哪：选择器的末尾是 .stage-pane（tokens.css 末尾的那一块；再添的人物写成 [data-figure='…'] .stage-pane）。 */
 const isFigureBlock = (prelude: string): boolean => selectorsOf(prelude).every((selector) => /\.stage-pane$/.test(selector));
+/**
+ * 这一条规则打扮的是不是沙盘栏自己——栏上挂着表示状态的类名的也算（.stage-pane.is-wide、.stage-pane.is-pinned）：
+ * 写在这种规则里的记号，和写在人物的那一块里一样，沙盘栏里面的东西都接得到。栏画出来的 ::before、::after 不算。
+ */
+const dressesPane = (prelude: string): boolean => selectorsOf(prelude).some((selector) => /\.stage-pane(?![\w-])/.test(lastCompound(selector)) && !lastCompound(selector).includes('::'));
 /** 许可直接读沙盘栏底色的两条规则：栏自己，和测试用的沙盘替身。 */
 const READS_GROUND = ['.stage-pane', '.fake-stage'];
 /** 一个值里读了哪几个记号。 */
@@ -164,38 +169,61 @@ const mixesStrips = (prelude: string): boolean => {
   const strips = selectorsOf(prelude).filter((selector) => STRIP.test(selector)).length;
   return strips > 0 && strips < selectorsOf(prelude).length;
 };
-/** 框架的记号是这几类打头的（人物的那两种——--figure-…、--color-paper-sunk——不算）。沙盘栏自己量出来的几个数（--stage-…、--caption-h、--note-…）不是这几类。 */
-const FRAME_TOKEN = /^--(color|font|weight|shadow|radius|size)-/;
+/**
+ * 框架的记号是这几类打头的（人物的那两种——--figure-…、--color-paper-sunk——不算）：颜色、字体、粗细、影子、圆角、字号，
+ * 和说明那一块底边的那道影子用的两种（--fade-…、--shade-…）。沙盘栏自己量出来的几个数（--stage-…、--caption-h、--note-…）不是这几类。
+ */
+const FRAME_TOKEN = /^--(color|font|weight|shadow|radius|size|fade|shade)-/;
 /**
  * 题签的字体、字号、行高、颜色是它自己的规则写的；粗细、排版功能、字距它自己不全写，是从上面几层接下来的。
- * 所以这四层（沙盘栏、画布、放题签的两层）上不许写这三样：写了，题签跟着变。
+ * 所以这五层（沙盘栏、画布、放题签的两层、题签自己的那一层 .strips）上不许写这三样：写了，题签跟着变。
  */
-const STRIP_PARENTS = /\.(stage-pane|stage-canvas|stage-host|stage-still-host)(?![\w-])/;
+const STRIP_PARENTS = ['.stage-pane', '.stage-canvas', '.stage-host', '.stage-still-host', '.strips'];
+const isStripParent = (compound: string): boolean => STRIP_PARENTS.some((name) => new RegExp(`\\${name}(?![\\w-])`).test(compound)) && !compound.includes('::');
 const INHERITED_BY_STRIPS = ['font-weight', 'font-feature-settings', 'letter-spacing'];
-/** 一个选择器最后的那一截（最后一个空格、>、+、~ 后面的）：这条规则打扮的就是它。括号里的不算。 */
-function lastCompound(selector: string): string {
+/** 一个选择器一截一截分开（空格、>、+、~ 隔开的，按先后）：最后一截就是这条规则打扮的东西。括号里的不算。 */
+function compoundsOf(selector: string): string[] {
+  const pieces: string[] = [];
   let depth = 0;
   let piece = '';
   for (const c of selector) {
     if (c === '(' || c === '[') depth++;
     if (c === ')' || c === ']') depth--;
-    if (depth === 0 && /[\s>+~]/.test(c)) piece = '';
-    else piece += c;
+    if (depth === 0 && /[\s>+~]/.test(c)) {
+      if (piece !== '') pieces.push(piece);
+      piece = '';
+    } else piece += c;
   }
-  return piece;
+  if (piece !== '') pieces.push(piece);
+  return pieces;
 }
-/** 这一条规则打扮的是不是题签上面的那四层之一（它画出来的 ::before、::after 不算：题签不从那里接东西）。 */
-const dressesStripParent = (prelude: string): boolean => selectorsOf(prelude).some((selector) => STRIP_PARENTS.test(lastCompound(selector)) && !lastCompound(selector).includes('::'));
+/** 一个选择器最后的那一截。 */
+function lastCompound(selector: string): string {
+  const pieces = compoundsOf(selector);
+  return pieces[pieces.length - 1] ?? '';
+}
+/**
+ * 这一条规则打扮的东西，题签会不会从它那里接东西：
+ *   它就是题签上面的那五层之一（它画出来的 ::before、::after 不算：题签不从那里接东西）；
+ *   或者它是“哪一样都算”的 *，紧挨在那五层之一的下面（.stage-host *、.stage-pane > *）：题签、放题签的那几层都在里面。
+ */
+const dressesStripParent = (prelude: string): boolean =>
+  selectorsOf(prelude).some((selector) => {
+    const pieces = compoundsOf(selector);
+    const last = pieces[pieces.length - 1] ?? '';
+    if (isStripParent(last)) return true;
+    return last.startsWith('*') && !last.includes('::') && pieces.length > 1 && isStripParent(pieces[pieces.length - 2]);
+  });
 
 /**
  * 框架的样式和人物的样式各读各的那一套记号（tokens.css 开头说的两套）。找这些，都记成 seam：
  *   人物的记号（--figure-…、--color-paper-sunk）写在了沙盘栏以外的规则上；
- *   人物的那一块（选择器末尾是 .stage-pane 的规则）里写了框架的记号（--color-…、--font-…、--weight-…、--shadow-…、--radius-…、--size-…）：
- *   那样沙盘栏上面框架的按钮和带子就跟着这位人物变了；
+ *   人物的那一块（选择器末尾是 .stage-pane 的规则）里写了框架的记号（--color-…、--font-…、--weight-…、--shadow-…、--radius-…、--size-…、
+ *   --fade-…、--shade-…）：那样沙盘栏上面框架的按钮和带子就跟着这位人物变了。栏上挂着状态的类名的规则（.stage-pane.is-wide）里写了也一样；
  *   题签的规则读了人物那一套以外的记号；
  *   别的规则读了人物的记号——沙盘栏自己和沙盘的替身读栏的底色除外；
  *   一条规则把题签和别的东西写在了一起（.strip, .tag { … }）：它读哪一套都不对，整条算一处。
- * 另有一种记成 inherit：题签上面的那四层上写了 font-weight、font-feature-settings、letter-spacing（题签会接过去）。
+ * 另有一种记成 inherit：题签上面的那五层上、或者紧挨在它们下面的 * 上，写了 font-weight、font-feature-settings、letter-spacing（题签会接过去）。
  */
 function seamFindings(declarations: Declaration[], add: (rule: string, what: string) => void): void {
   const mixed = new Set<number>();
@@ -206,7 +234,7 @@ function seamFindings(declarations: Declaration[], add: (rule: string, what: str
       add('seam', selector);
     }
     if (isFigureToken(property) && !isFigureBlock(selector)) add('seam', `${selector} { ${property}: … }`);
-    if (FRAME_TOKEN.test(property) && !isFigureToken(property) && isFigureBlock(selector)) add('seam', `${selector} { ${property}: … }`);
+    if (FRAME_TOKEN.test(property) && !isFigureToken(property) && (isFigureBlock(selector) || dressesPane(selector))) add('seam', `${selector} { ${property}: … }`);
     if (INHERITED_BY_STRIPS.includes(property) && dressesStripParent(selector)) add('inherit', `${selector} { ${property}: ${value} }`);
     for (const name of varsRead(value)) {
       if (strips ? !name.startsWith('--figure-') : isFigureToken(name) && !(name === '--color-paper-sunk' && READS_GROUND.includes(selector))) add('seam', `${selector} { ${property}: ${value} }`);
@@ -218,7 +246,7 @@ function seamFindings(declarations: Declaration[], add: (rule: string, what: str
  * 扫一份样式表。找这些：
  *   font-weight   不是 400、也不是 var(--weight-sans) 的；--weight-sans 这个记号不是 500，或者写在了 :root 以外；又写了 --weight-heading
  *   sans-weight   用了黑体（font-family: var(--font-sans)）的规则，同一条里最后写的粗细不是 font-weight: var(--weight-sans)（黑体的文件只有 500 这一种粗细）；
- *                 反过来，没有用黑体的规则写了 font-weight: var(--weight-sans)（宋体、楷体只有 400）。一条规则里写了几次粗细，算最后一次
+ *                 反过来，没有用黑体的规则写了 font-weight: var(--weight-sans)（宋体、楷体只有 400）。一条规则里写了几次粗细、几次字体，都算最后一次
  *   font-style    不是 normal 的；哪里写了 italic、oblique
  *   font          简写（只许 font: inherit）
  *   font-family   不是两个记号的（题签的规则里是人物自己的那一个）；别的 --font-… 记号；--font-sans、--font-song 写在了 :root 以外；
@@ -226,7 +254,8 @@ function seamFindings(declarations: Declaration[], add: (rule: string, what: str
  *   sans          system-ui、sans-serif、PingFang、YaHei 这几个词写在了 :root 上的 --font-sans 的值以外
  *   seam          框架的规则读了人物的记号，题签的规则读了框架的记号，人物的记号写在了沙盘栏以外，人物的那一块里写了框架的记号，
  *                 题签和别的东西写在了同一条规则里（见 seamFindings）
- *   inherit       题签上面的那四层（.stage-pane、.stage-canvas、.stage-host、.stage-still-host）上写了题签会接过去的三样
+ *   inherit       题签上面的那五层（.stage-pane、.stage-canvas、.stage-host、.stage-still-host、题签自己的那一层 .strips）上，
+ *                 或者紧挨在这五层下面的 * 上（.stage-host *、.stage-pane > *），写了题签会接过去的三样
  *   content       content: 里写了字（工具不看样式表，这些字进不了字体）
  *   text-decoration  简写里除了线的种类还写了别的（Safari 26.2 以前不认，线会没有）：要拆成 text-decoration-line 这几条
  *   color-mix、text-wrap  Safari 15 没有
@@ -240,8 +269,8 @@ export function scanStyle(file: string, css: string): Finding[] {
   };
   const { declarations, nested } = readCss(css);
   for (const prelude of nested) add('nesting', prelude);
-  /** 用了黑体的规则（排第几 → 选择器），和每一条规则最后写的粗细（排第几 → 选择器、值）。 */
-  const sansRules = new Map<number, string>();
+  /** 每一条规则最后写的字体和最后写的粗细（排第几 → 选择器、值）：同一条里写了几次，后写的算数。 */
+  const lastFamily = new Map<number, { selector: string; value: string }>();
   const lastWeight = new Map<number, { selector: string; value: string }>();
   /** :root 上 --font-sans 的值：设备自带的黑体的名字只许写在这里面。 */
   let sansValue = '';
@@ -258,7 +287,7 @@ export function scanStyle(file: string, css: string): Finding[] {
     // 框架的两个字体记号只在 :root 上写一次；三个字体记号的值都得是随站的那一套打头
     if (FONT_TOKENS.includes(property) && selector !== ':root') add('font-family', `${selector} { ${property}: … }`);
     for (const [token, family] of FONT_STARTS) if (property === token && (selector === ':root' || token === '--figure-font') && !value.startsWith(`'${family}'`)) add('font-family', line);
-    if (property === 'font-family' && value === 'var(--font-sans)') sansRules.set(rule, selector);
+    if (property === 'font-family') lastFamily.set(rule, { selector, value });
     if (property === 'font-weight') lastWeight.set(rule, { selector, value });
     if (property === '--font-sans' && selector === ':root') sansValue += ` ${value}`;
     if (property === 'content' && hasQuotedText(value)) add('content', line);
@@ -267,8 +296,10 @@ export function scanStyle(file: string, css: string): Finding[] {
     if (/color-mix\(/.test(value)) add('color-mix', line);
     if (property === 'text-wrap' || property.startsWith('text-wrap-')) add('text-wrap', line);
   }
-  for (const [rule, selector] of sansRules) if (lastWeight.get(rule)?.value !== 'var(--weight-sans)') add('sans-weight', selector);
-  for (const [rule, { selector, value }] of lastWeight) if (value === 'var(--weight-sans)' && !sansRules.has(rule)) add('sans-weight', `${selector} { font-weight: ${value} }`);
+  /** 用了黑体的规则：它最后写的字体是黑体。 */
+  const setsSans = (rule: number): boolean => lastFamily.get(rule)?.value === 'var(--font-sans)';
+  for (const [rule, { selector }] of lastFamily) if (setsSans(rule) && lastWeight.get(rule)?.value !== 'var(--weight-sans)') add('sans-weight', selector);
+  for (const [rule, { selector, value }] of lastWeight) if (value === 'var(--weight-sans)' && !setsSans(rule)) add('sans-weight', `${selector} { font-weight: ${value} }`);
   seamFindings(declarations, add);
   const text = stripCssComments(css);
   for (const word of SANS_WORDS) for (let i = 0; i < countIn(text, word) - countIn(sansValue, word); i++) add('sans', word);

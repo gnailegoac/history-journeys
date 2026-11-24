@@ -33,7 +33,7 @@ import type { MutableRefObject, ReactNode, Ref } from 'react';
 import type { Loaded } from '../app/useLoaded';
 import { sectionHeadings, sectionInfo } from '../domain';
 import type { SectionInfo, TableScene } from '../domain';
-import { SHIPPED_FONTS } from '../fonts/shipped';
+import { KAI_FAMILY } from '../fonts/probe';
 import type { NamesMode, RouteTable, StageInsets, StageOptions, StageReadout, StageTable, StageTier, StageViewInfo, StopStageView, StopTable } from '../stage/types';
 import { NotePanel, SectionCaption } from './SectionCaption';
 import { cameByDive, preloadStop, watchDives } from './dive';
@@ -63,8 +63,11 @@ type TableChoice = 'auto' | 'pictures' | 'asked';
 const WIDE_PANE_PX = 584;
 /** 窄的排法里，比例尺的那一段最长多少像素：它和小节、时间挤在一行里。 */
 const NARROW_SCALE_PX = 56;
-/** 宽屏的条件，和 layout.css 的媒体查询是同一句（够宽，而且横着）。只有窄屏上能收起沙盘。 */
-const WIDE_SCREEN = '(min-width: 960px) and (orientation: landscape)';
+/**
+ * 宽屏的条件，和 layout.css 的媒体查询是同一句（够宽，而且横着）。只有窄屏上能收起沙盘。
+ * 正文那一头也用它（useReadingSection.ts）：这一句从真变假、从假变真，就是版面换了排法。
+ */
+export const WIDE_SCREEN = '(min-width: 960px) and (orientation: landscape)';
 
 /** 立体的沙盘盖着图片显出来用多久（毫秒）。和 stage.css 里 .is-handing-over 的那一条是同一个数。用定时器数，不等浏览器的通知。 */
 const HANDOVER_FADE_MS = 240;
@@ -128,10 +131,16 @@ export function StagePane({ onStopPage, table, section, route, stopId, marks, wr
   // 题签用的楷体是这位人物自己的字，不预先声明：平常要等题签摆出来、浏览器排到它了才去取，那时图片刚显出来，
   // 没有自带楷体的平板上，题签会先是宋体、过半秒才换成楷体。所以一知道这一栏要摆沙盘（数据读出来了，图片和沙盘程序都还没到），
   // 就叫浏览器先把它取来；取过一次浏览器自己记着。没有沙盘可摆的栏不取，没有这一栏的页面（“来源”页、没找到的页面）更不取。
-  // 浏览器没有 document.fonts、或者没取成，都不要紧：题签摆出来的时候它照旧会去取。
+  // 浏览器没有 document.fonts、它的 load 当场出错、或者没取成，都不要紧（所以整句包着）：题签摆出来的时候浏览器照旧会去取。
+  // 楷体的名称是做字体的工具写的（src/fonts/probe.ts）。
   const tableKnown = source.state === 'ready' && !!source.value;
   useEffect(() => {
-    if (tableKnown) void document.fonts?.load(`1em "${SHIPPED_FONTS.kai.family}"`).catch(() => {});
+    if (!tableKnown) return;
+    try {
+      void document.fonts.load(`1em "${KAI_FAMILY}"`).catch(() => {});
+    } catch {
+      // 不取就是了
+    }
   }, [tableKnown]);
 
   if (source.state === 'loading') {

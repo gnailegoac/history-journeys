@@ -267,13 +267,19 @@ test('沙盘的替身：平时不潜，一点地址就换；地址里带 ?dive=1
     const stopId = diveStopOnDisk(figureId);
     test.skip(stopId === '', '还没有“全程沙盘加一站自己的沙盘”');
     await card.click();
+    // 先等人物页自己的东西出来（各站的单子），再看沙盘栏。首页上也摆着同一座全程沙盘：按下卡片的那一刻，页面上的栏还是首页的那一栏，
+    // 下面三样在它身上都已经是真的；人物页的单子出来的时候，人物页自己的那一栏却还在摆（data-stage-state 是 loading）。
+    // 不先等单子的话，机器忙的时候三样都对着首页的栏通过了，接着一有单子就按下去——栏还不会潜（页面看的是栏上摆着立体的沙盘：
+    // data-stage-picture 是 table，见 StagePane.tsx 里交给 watchDives 的 ready），地址当场就换了。
+    const stop = page.locator(`.stop-item[data-stop-id="${stopId}"]`);
+    await expect(stop).toBeVisible();
     const pane = stagePane(page);
     await expect(pane).toHaveAttribute('data-stage-level', 'route');
     await expect(pane).toHaveAttribute('data-stage-state', 'ready');
     await expect(pane).toHaveAttribute('data-stage-picture', 'table');
     const here = await hashNow(page);
     await watchDive(page);
-    const pressed = await page.locator(`.stop-item[data-stop-id="${stopId}"]`).evaluate((link: HTMLElement) => {
+    const pressed = await stop.evaluate((link: HTMLElement) => {
       link.click();
       return location.hash;
     });

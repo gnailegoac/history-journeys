@@ -77,7 +77,7 @@ npm start
 
 | 命令 | 做什么 |
 |---|---|
-| `npm run fonts` | 数出网站上显示的字，从原字体里裁出来，做成 `src/fonts/` 里的四个字体文件、样式表、记录和给页面用的一个小模块，并把五份许可全文照原样放进 `public/licences/`。字、原字体的说明和做法都没有变时不重做：说一声“已经是新的”，什么也不写；这时样式表、那个小模块或者哪一份字体的许可全文要是不在、被改过，它照记录把这一样重写（前两样用不到原字体）。做一遍几秒钟，不开浏览器 |
+| `npm run fonts` | 数出网站上显示的字，从原字体里裁出来，做成 `src/fonts/` 里的四个字体文件、样式表、记录和给页面用的两个小模块（`shipped.ts`、`probe.ts`），并把五份许可全文照原样放进 `public/licences/`。字、原字体的说明和做法都没有变时不重做：说一声“已经是新的”，什么也不写；这时样式表、那两个小模块或者哪一份字体的许可全文要是不在、被改过，它照记录把这一样重写（前三样用不到原字体）。做一遍几秒钟，不开浏览器 |
 | `FONTS_OUT=.cache/fonts-trial npm run fonts` | 试做：做出来的放到那个文件夹（相对项目的根目录；`.cache/` 不进仓库），不动 `src/fonts/` 和 `public/licences/`，不管新不新都做。再加 `FONTS_COMPARE=1`，另外印出宋体和黑体不留提示信息时有多大 |
 
 （`FONTS_OUT=…` 放在命令前面是 bash 的写法；PowerShell 里先写 `$env:FONTS_OUT = '.cache/fonts-trial'`，做完 `Remove-Item Env:FONTS_OUT`。）

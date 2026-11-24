@@ -21,6 +21,7 @@ import { stopHref } from '../../../src/app/router';
 import { stopMarks, stripTexts } from '../../../src/domain';
 import type { Figure, RouteScene, StopScene } from '../../../src/domain';
 import { SITE_TITLE } from '../../../src/ui/text';
+import { pickSection, readingLine, remainingScroll } from '../../../src/ui/useReadingSection';
 import { readBytes } from '../../support/readBytes';
 import { installMiniDom, MiniElement } from './miniDom';
 
@@ -259,6 +260,174 @@ describe('整个版面 + 真的内容 + 沙盘的替身', () => {
     expect(attr(page.pane(), 'data-stage-level')).toBeNull();
     expect(page.q('.stage-reset')?.textContent).toBe('回到这一节');
     await page.unmount();
+  });
+
+  it('版面换了排法（平板转了个方向）：重排以后阅读线上换成了别的小节，就把刚才读到的那一小节带回阅读线上（落到了后面的小节上，带回的是它的尾；落到了前面，带回的是它的头；短的小节也一样；页面快滚到底、阅读线自己跟着滚动在挪的那一截里也一样），沙盘不跟着换；还在那一小节里不带，页面在最上面不带；窗口只是变大变小不带；没有在盯小节的页面（人物页、没有正文的一站）不听、不动', { timeout: 60_000 }, async () => {
+    // 假 DOM 不排版，也不会滚：各小节的标题在窗口里多高由测试给（g.__sectionTops）。“重排以后落到了哪一节”就是把这些高度换一套。
+    // 页面把一小节带回阅读线上是自己量了再滚的（window.scrollBy）：这里把各标题的高度和“已经滚了多少”（window.scrollY）照滚的这一截挪一遍，
+    // 再把这一回是哪一小节到了阅读线上、是它的头还是它的尾记在 brought 里，滚了多少记在 moves 里。真的滚到了哪里，浏览器测试看（large-upright.spec.ts）。
+    const brought: { section: string | undefined; put: string }[] = [];
+    const moves: number[] = [];
+    /** 读到第几节的样子：它和它前面的标题都过了阅读线（各隔一千像素，分得出是哪一节），后面的都还远。 */
+    const topsAt = (at: number): Record<string, number> => Object.fromEntries(headings.map((h, i) => [h, i <= at ? -5000 + i * 1000 : 9000 + i * 1000]));
+    /** 阅读线在假窗口里多高（假 DOM 里沙盘栏在正文旁边，看得见正文的那一块从 0 开始；页面离滚到底还远）。 */
+    const LINE = readingLine(win.innerHeight, 0);
+    /** 假的整页多高（miniDom.ts 给 <html> 的 scrollHeight）。 */
+    const PAGE: number = g.document.documentElement.scrollHeight;
+    /** 已经滚了 scrollY 的时候阅读线在假窗口里多高：页面快滚到底了，它就从 42% 的地方往下挪（和页面用的是同一对函数）。 */
+    const lineWhen = (scrollY: number): number => readingLine(win.innerHeight, 0, remainingScroll(PAGE, win.innerHeight, scrollY));
+    /** 各标题在这些高度上、已经滚了 scrollY 的时候，阅读线上是哪一小节（页面自己的 pickSection）。 */
+    const onLine = (tops: Record<string, number>, scrollY: number): string | null =>
+      pickSection(
+        headings.map((h) => ({ section: h, top: tops[h] })),
+        lineWhen(scrollY),
+      );
+    /** 带回来以后，那一小节的头在阅读线上面多远、或者它的尾在阅读线下面多远（src/ui/useReadingSection.ts 的 BRING_BACK_GAP_PX）。 */
+    const GAP = 16;
+    /** 假 DOM 里每一小节多高（miniDom.ts 给 .text-section 的盒子）。 */
+    const TALL = 300;
+    const HEAD = '头在阅读线上面一点';
+    const TAIL = '尾在阅读线下面一点';
+    win.scrollBy = (_x: number, y: number) => {
+      const moved: Record<string, number> = Object.fromEntries(Object.entries(g.__sectionTops as Record<string, number>).map(([h, top]) => [h, top - y]));
+      win.scrollY += y;
+      // 滚完以后的阅读线。离页面的底还远，它不动，头或者尾离它 16 像素；它还在跟着滚动挪的时候，
+      // 最后多滚的那 16 像素它也跟着挪了 16，隔着的是两个 16。
+      const line = lineWhen(win.scrollY);
+      const gap = line > LINE ? 2 * GAP : GAP;
+      const head = headings.find((h) => Math.abs(moved[h] - (line - gap)) < 0.01);
+      const tail = headings.find((h) => Math.abs(moved[h] + TALL - (line + gap)) < 0.01);
+      brought.push({ section: head ?? tail, put: head ? HEAD : tail ? TAIL : '头和尾都不在阅读线旁边' });
+      moves.push(y);
+      g.__sectionTops = moved;
+    };
+    try {
+      const page = await mount('?stage=fake', 'xuzhou');
+      expect(attr(page.pane(), 'data-stage-section')).toBe(headings[0]);
+      expect(win.mediaListeners.size, '有正文、有沙盘的一站：听着版面换没换排法').toBe(1);
+      const requests = () => (attr(page.q('.fake-stage'), 'data-fake-requests') ?? '').split('|').filter(Boolean);
+
+      // 页面在最上面（一个标题都还没过阅读线，算第一节）：换了排法不带，不把这一站的标题和抬头滚走
+      win.fireMedia();
+      await settle(200);
+      expect(brought).toEqual([]);
+
+      await page.read(headings[2]);
+      await waitFor(() => attr(page.pane(), 'data-stage-section') === headings[2]);
+      const asked = requests();
+      expect(asked[asked.length - 1]).toBe(headings[2]);
+
+      // 窗口变大变小、页面滚动：还是同一种排法，不带
+      win.fire('resize');
+      win.fire('scroll');
+      await settle(40);
+      expect(brought).toEqual([]);
+      // 同一种排法里窗口变了大小，阅读线落到了第四节：也不带，沙盘照旧跟着阅读线走到第四节（带回来只在换排法的时候做）
+      g.__sectionTops = topsAt(3);
+      win.fire('resize');
+      await waitFor(() => attr(page.pane(), 'data-stage-section') === headings[3]);
+      expect(brought).toEqual([]);
+      await page.read(headings[2]);
+      await waitFor(() => attr(page.pane(), 'data-stage-section') === headings[2]);
+      asked.push(headings[3], headings[2]);
+      expect(requests()).toEqual(asked);
+
+      // 换了排法，重排以后阅读线上还是第三节：读者还在那一节里，不带
+      win.fireMedia();
+      await settle(200);
+      expect(brought).toEqual([]);
+
+      // 换了排法，重排以后同一个滚动的位置落到了第四节（读者刚才快读完第三节了）：带回的是第三节的尾，摆在阅读线下面一点——
+      // 不是把第三节的开头拉回来（那样读者眼前的东西全换了，要倒回去一整节）；沙盘没有被叫去第四节
+      g.__sectionTops = topsAt(3);
+      win.fireMedia();
+      expect(brought, '带回的是第三节，它的尾摆在阅读线下面 16 像素的地方').toEqual([{ section: headings[2], put: TAIL }]);
+      await settle(300);
+      expect(attr(page.pane(), 'data-stage-section'), '沙盘还摆着第三节').toBe(headings[2]);
+      expect(requests(), '沙盘被叫去换过小节').toEqual(asked);
+
+      // 再换回来，这一回落到了第二节（读者刚才刚读到第三节）：又带一回，还是第三节，这一回是它的头，摆在阅读线上面一点
+      g.__sectionTops = topsAt(1);
+      win.fireMedia();
+      expect(brought.slice(1), '带回的是第三节，它的头摆在阅读线上面 16 像素的地方').toEqual([{ section: headings[2], put: HEAD }]);
+      await settle(300);
+      expect(attr(page.pane(), 'data-stage-section')).toBe(headings[2]);
+      expect(requests()).toEqual(asked);
+
+      // 短的小节：第四节的标题紧跟在第三节后面（第三节 300 像素高，再隔 20 像素），重排以后阅读线落在第二节上。
+      // 带回来以后第三节的头在阅读线上面一点，第四节的标题还在阅读线下面，沙盘还摆着第三节
+      // （要是把第三节的开头摆到那一块的最上面，第四节的标题也过了阅读线，过一会儿沙盘就换到第四节去了）
+      g.__sectionTops = { ...topsAt(1), [headings[2]]: 5000, [headings[3]]: 5000 + TALL + 20 };
+      win.fireMedia();
+      expect(brought.slice(2)).toEqual([{ section: headings[2], put: HEAD }]);
+      expect(g.__sectionTops[headings[3]], '带回来以后，后面那一节的标题还在阅读线下面').toBeGreaterThan(LINE);
+      await settle(300);
+      expect(attr(page.pane(), 'data-stage-section'), '短的小节带回来以后，沙盘还摆着它').toBe(headings[2]);
+      expect(requests(), '短的小节带回来以后，沙盘被叫去换过小节').toEqual(asked);
+
+      // 页面快滚到底的那一截：往下只剩 400 像素好滚，阅读线已经从 42% 的地方往下挪了，正文往上滚多少、它就跟着往下挪多少。
+      // 还是短的第三节（第四节的标题紧跟在后面），重排以后它的头落在阅读线下面 340 像素的地方，阅读线落在第二节上。
+      // 页面要是照滚之前的那条阅读线量（把头滚到那条线上面 16 像素），滚完的时候阅读线已经挪到第四节的标题下面去了，沙盘就换到第四节；
+      // 把阅读线的这一挪也算进去，滚完第三节的头在阅读线上面，第四节的标题还在阅读线下面。
+      const LEFT = 400;
+      const START = PAGE - win.innerHeight - LEFT;
+      expect(remainingScroll(PAGE, win.innerHeight, START), '假的页面往下还能滚的').toBe(LEFT);
+      const lineBefore = lineWhen(START);
+      expect(lineBefore, '只剩这么一截好滚的时候，阅读线该已经从 42% 的地方往下挪了：没有挪的话这一步查不到东西').toBeGreaterThan(LINE);
+      const nearEnd: Record<string, number> = { ...topsAt(1), [headings[2]]: lineBefore + 340, [headings[3]]: lineBefore + 340 + TALL + 20 };
+      expect(onLine(nearEnd, START), '重排以后阅读线该落在第二节上').toBe(headings[1]);
+      // 不算阅读线自己这一挪的量法要滚的：页面滚得了这么多（没有滚过页面的底），滚完阅读线上是第四节——所以这一步分得出两种量法
+      const blind = nearEnd[headings[2]] - lineBefore + GAP;
+      expect(blind, '不算阅读线这一挪的量法要滚的，页面该滚得了').toBeLessThanOrEqual(LEFT);
+      expect(
+        onLine(Object.fromEntries(headings.map((h) => [h, nearEnd[h] - blind])), START + blind),
+        '照滚之前的阅读线量，滚完该落到第四节上：没有的话这一步分不出两种量法，换一组高度',
+      ).toBe(headings[3]);
+      win.scrollY = START;
+      g.__sectionTops = nearEnd;
+      win.fireMedia();
+      expect(brought.slice(3), '页面快滚到底的那一截里，带回的是第三节的头').toEqual([{ section: headings[2], put: HEAD }]);
+      expect(moves[3], '带回来要滚的，页面该滚得了（没有滚过页面的底）').toBeLessThanOrEqual(LEFT);
+      expect(moves[3]).toBeGreaterThan(0);
+      expect(win.scrollY).toBe(START + moves[3]);
+      expect(lineWhen(win.scrollY), '滚完以后阅读线还在跟着滚动挪（比 42% 的地方低）').toBeGreaterThan(LINE);
+      expect(onLine(g.__sectionTops, win.scrollY), '滚完以后阅读线上该是第三节').toBe(headings[2]);
+      expect(g.__sectionTops[headings[3]], '滚完以后，后面那一节的标题还在阅读线下面').toBeGreaterThan(lineWhen(win.scrollY));
+      await settle(300);
+      expect(attr(page.pane(), 'data-stage-section'), '页面快滚到底的那一截里带回来以后，沙盘还摆着第三节').toBe(headings[2]);
+      expect(requests(), '页面快滚到底的那一截里带回来以后，沙盘被叫去换过小节').toEqual(asked);
+      // 回到离页面的底还远的地方
+      win.scrollY = 0;
+
+      // 读到了第二节以后再换、落到了第一节：带回的是第二节
+      await page.read(headings[1]);
+      await waitFor(() => attr(page.pane(), 'data-stage-section') === headings[1]);
+      g.__sectionTops = topsAt(0);
+      win.fireMedia();
+      expect(brought.map((item) => item.section)).toEqual([headings[2], headings[2], headings[2], headings[2], headings[1]]);
+
+      // 到人物页（没有小节）：不听了，换排法什么也不带
+      brought.length = 0;
+      await page.show(null);
+      await waitFor(() => attr(page.pane(), 'data-stage-level') === 'route');
+      expect(win.mediaListeners.size, '人物页不听').toBe(0);
+      win.fireMedia();
+      expect(brought).toEqual([]);
+      await page.unmount();
+
+      // 有沙盘、没有正文的一站：也不听、不动
+      g.__standIn = STAND_IN;
+      const leaf = await mount('?stage=fake', STAND_IN);
+      await waitFor(() => attr(leaf.pane(), 'data-stage-state') === 'ready' && leaf.all('.view-item').length > 0);
+      expect(win.mediaListeners.size, '没有正文的一站不听').toBe(0);
+      win.fireMedia();
+      expect(brought).toEqual([]);
+      await leaf.unmount();
+    } finally {
+      g.__standIn = null;
+      delete win.scrollBy;
+      win.scrollY = 0;
+    }
   });
 
   it('徐州：摆着第一节；读到后面的小节，镜头、题记、题签跟着换', { timeout: 60_000 }, async () => {

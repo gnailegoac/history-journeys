@@ -8,7 +8,7 @@ import { useLoaded } from '../app/useLoaded';
 import type { Loaded } from '../app/useLoaded';
 import { loadStop, neighbours } from '../domain';
 import type { Figure, StopMeta } from '../domain';
-import { SONG_MORE_PROBE } from '../fonts/shipped';
+import { SONG_FAMILY, SONG_MORE_PROBE } from '../fonts/probe';
 import type { StopTable } from '../stage/types';
 import { GuidePanel } from './GuidePanel';
 import { PageTitle } from './PageTitle';
@@ -46,14 +46,14 @@ export function StopPage({ figure, stop, table, road, section, onSection }: Prop
   // 点开才看得见的字在另一个字体文件里，平常要到点开小注、原文、凭据的那一刻才去取：网慢的时候，
   // 刚点开的那几句里会有几个字先用设备自带的字顶着，过一会儿才换过来。所以写好了的一站，正文出来以后，等头两个字体文件到了、
   // 再过两秒，就叫浏览器先把它取来（拿它里面的一个字去要）；读者已经走开了就不取。取过一次浏览器自己记着，不会再取。
-  // 首页、人物页和还没写的站不这样做：那里没有要点开的东西。字体的名字“Yanlu Song”是工具写进文件里的（src/fonts/fonts.css）。
+  // 首页、人物页和还没写的站不这样做：那里没有要点开的东西。字体的名称和那一个字都是做字体的工具写的（src/fonts/probe.ts）。
   const hasText = written !== null;
   useEffect(() => {
     if (!hasText) return;
     let timer = 0;
     let left = false;
     void document.fonts?.ready.then(() => {
-      if (!left) timer = setTimeout(() => void document.fonts.load('1em "Yanlu Song"', SONG_MORE_PROBE).catch(() => {}), 2000);
+      if (!left) timer = setTimeout(() => void document.fonts.load(`1em "${SONG_FAMILY}"`, SONG_MORE_PROBE).catch(() => {}), 2000);
     });
     return () => {
       left = true;

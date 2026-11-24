@@ -34,6 +34,7 @@ import { ENGINE_ENTRY, ENGINE_GZIP_MAX, FILE_URLS_ENTRY, PAGE_ENTRY, ROUTE_ENTRY
 import type { BuildManifest, SizeReport } from '../content/budgetRules';
 import { CONTAINER_MAX, CQW_MAX, builtFonts, builtStyleProblems } from '../support/builtFonts';
 import { oldIpadSheet } from '../support/oldIpadSheet';
+import { SHIPPED_FONTS } from '../../src/fonts/shipped';
 import { SOURCES_TEXT } from '../../src/ui/sourcesText';
 import { FAMILIES } from '../../src/stage/families';
 import { familyNamesFor } from '../stage/support/kitFamilies';
@@ -191,7 +192,7 @@ describe('点开才下载的几块', () => {
   /** 点开才下载的几段界面程序：凭据里面的东西，讲解员面板里面的东西，“来源”页里面的东西。 */
   const ON_DEMAND = ['src/ui/ProvenanceBody.tsx', 'src/ui/GuideBody.tsx', 'src/ui/SourcesBody.tsx'];
 
-  it('各是单独一块，页面一打开就下载的东西里没有它们；页面的程序只有一个文件（React 没有被单拆出去）', () => {
+  it('各是单独一块，页面一打开就下载的东西里没有它们；三套字体的那张表跟着“来源”页的那一块走；页面的程序只有一个文件（React 没有被单拆出去）', () => {
     expect(existsSync(MANIFEST), '没有 dist/.vite/manifest.json：先运行 npm run build').toBe(true);
     const manifest = readManifest(new TextDecoder().decode(readFileSync(MANIFEST)));
     const pageKeys = staticClosure(manifest, PAGE_ENTRY);
@@ -203,7 +204,16 @@ describe('点开才下载的几块', () => {
     // “来源”页上的话跟着那一块走，不在页面一打开就下载的程序里
     const page = pageKeys.map((key) => new TextDecoder().decode(readFileSync(new URL(manifest[key].file, DIST)))).join(' ');
     expect(page.includes(SOURCES_TEXT.lead), '“来源”页上的话出现在页面一打开就下载的程序里').toBe(false);
-    expect(new TextDecoder().decode(readFileSync(new URL(manifest['src/ui/SourcesBody.tsx'].file, DIST))).includes(SOURCES_TEXT.lead), '“来源”页上的话不在它自己的那一块里').toBe(true);
+    const sourcesChunk = new TextDecoder().decode(readFileSync(new URL(manifest['src/ui/SourcesBody.tsx'].file, DIST)));
+    expect(sourcesChunk.includes(SOURCES_TEXT.lead), '“来源”页上的话不在它自己的那一块里').toBe(true);
+    // 三套字体的那张表（原字体叫什么、哪一版、网站、许可文件：src/fonts/shipped.ts）也跟着“来源”页的那一块走。
+    // 页面一打开就下载的程序只引 src/fonts/probe.ts（两个字体名称、一个字）；哪个文件又引了 shipped.ts，整张表就回到那一块里（约 220 字节）。
+    for (const font of Object.values(SHIPPED_FONTS)) {
+      for (const [what, value] of [['原字体的名字', font.name], ['许可文件', font.licence]] as const) {
+        expect(page.includes(value), `${what}“${value}”出现在页面一打开就下载的程序里：三套字体的表只给“来源”页用，页面要名称、要那一个字，从 src/fonts/probe.ts 引`).toBe(false);
+        expect(sourcesChunk.includes(value), `${what}“${value}”不在“来源”页的那一块里`).toBe(true);
+      }
+    }
     // 页面一打开就下载的程序只有入口那一个文件。点开才下载的一块要是引入了页面那一块里自己又用到 react 的程序
     //（src/app/router.ts、useLoaded.ts，PageTitle.tsx，别的组件），打包的工具（rolldown 1.2）会把 React 的核心单拆成一个文件：
     // 页面的程序凭空多出约 600 字节，页面一打开还多一次请求。量过：引入 src/domain、src/fonts/shipped.ts、不用 react 的文字模块没有事。

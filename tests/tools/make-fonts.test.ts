@@ -2,7 +2,8 @@
 //   yanlu-sans.woff2、yanlu-song.woff2、yanlu-kai.woff2、yanlu-song-more.woff2   四个字体文件
 //   fonts.css      这几个文件的样式表
 //   fonts.json     记录：每个文件里有哪些字、多大、照哪个原字体做的
-//   shipped.ts     给页面用的几样
+//   shipped.ts     给“来源”页用的一张表：三套字体的名字、版本、网址、许可文件
+//   probe.ts       页面一打开就下载的程序用的几样：两个字体名称，和点开才要的那个宋体文件里的一个字
 // 再把五份许可全文照原样放进 public/licences/。这些做好以后放进仓库，随网站一起发；发布的流程不重新做。都不手改。
 // 说明见 docs/data-spec.md“随站的字体”；哪些字归哪个文件、文件怎么做，写在 tests/support/fontTool.ts。
 //
@@ -20,8 +21,8 @@
 //   1 数出网站上显示的字，分成四组（黑体、看得见的宋体、楷体、点开才看得见的宋体）。印出每组多少个字。
 //   2 两个程序库的许可全文和装着的不一样，就照装着的重抄一份。
 //   3 记录里的字、原字体的说明、做法、库的版本都和现在的一样，字体文件也都在、和记录对得上、读出来合现在的做法：不重做。
-//     这时再看照记录写的另外几样（样式表、给页面用的模块、三份字体的许可全文）：都对，说一声“已经是新的”，什么也不写；
-//     哪一样不在、被改过，照记录把它重写（许可全文照 .cache/fonts/ 里的那一份重抄），说写了哪几样。前两样用不到原字体。
+//     这时再看照记录写的另外几样（样式表、给页面用的两个模块、三份字体的许可全文）：都对，说一声“已经是新的”，什么也不写；
+//     哪一样不在、被改过，照记录把它重写（许可全文照 .cache/fonts/ 里的那一份重抄），说写了哪几样。前三样用不到原字体。
 //     所以查字体的测试（tests/fonts/font-files.test.ts）说“运行 npm run fonts”的地方，跑这一条命令都修得好。
 //   4 读原字体（.cache/fonts/ 里；不在、或者不是要的那一版，就停下来说该放什么文件）。原字体里没有的字：停下来列出来。
 //   5 每个文件：在原字体里换上新的名称表，裁剪，压成 WOFF2。
@@ -72,6 +73,7 @@ import {
   shippable,
   shippedFileProblems,
   shippedTs,
+  probeTs,
   sortedString,
   sourceFiles,
   sourceRecord,
@@ -145,13 +147,14 @@ describe.skipIf(!MAKING)('做随站的字体（npm run fonts）', () => {
       // 字体文件：都在，记号和记录里的一样，读出来的名称、提示信息和现在的做法对得上
       const wrong = fresh.fresh ? shippedFileProblems(record, (file) => (existsSync(at(`${FONTS_DIR}/${file}`)) ? readFileSync(at(`${FONTS_DIR}/${file}`)) : null)) : [];
       if (fresh.fresh && wrong.length === 0) {
-        // 字体文件是新的。照记录写的另外几样——样式表、给页面用的模块、三份字体的许可全文——要是不在、被改过，
-        // 这里照记录重写（许可全文照 .cache/fonts/ 里的那一份重抄）。前两样用不到原字体
+        // 字体文件是新的。照记录写的另外几样——样式表、给页面用的两个模块、三份字体的许可全文——要是不在、被改过，
+        // 这里照记录重写（许可全文照 .cache/fonts/ 里的那一份重抄）。前三样用不到原字体
         const repaired: string[] = [];
         const texts = writtenFromRecord(record);
         for (const [name, want] of [
           ['fonts.css', texts.css],
           ['shipped.ts', texts.shipped],
+          ['probe.ts', texts.probe],
         ]) {
           const target = at(`${FONTS_DIR}/${name}`);
           if (existsSync(target) && utf8.decode(readFileSync(target)) === want) continue;
@@ -222,6 +225,7 @@ describe.skipIf(!MAKING)('做随站的字体（npm run fonts）', () => {
     writeFileSync(at(`${outDir}/fonts.css`), texts.css);
     writeFileSync(at(`${outDir}/fonts.json`), recordText(record));
     writeFileSync(at(`${outDir}/shipped.ts`), texts.shipped);
+    writeFileSync(at(`${outDir}/probe.ts`), texts.probe);
     for (const name of readdirSync(at(`${outDir}/`))) {
       if (/\.woff2$/.test(name) && !record.files.some((item) => item.file === name)) {
         rmSync(at(`${outDir}/${name}`));
@@ -229,7 +233,7 @@ describe.skipIf(!MAKING)('做随站的字体（npm run fonts）', () => {
       }
     }
     if (!trial) for (const id of FONT_SOURCE_IDS) copyLicence(id);
-    say(`[字体] 写好了：${outDir}/ 里 ${results.length} 个字体文件、fonts.css、fonts.json、shipped.ts${trial ? '（试做，没有动 src/fonts/ 和 public/licences/）' : `；${LICENCES_DIR}/ 里三份字体的许可全文。把变了的文件同改动一起提交`}。`);
+    say(`[字体] 写好了：${outDir}/ 里 ${results.length} 个字体文件、fonts.css、fonts.json、shipped.ts、probe.ts${trial ? '（试做，没有动 src/fonts/ 和 public/licences/）' : `；${LICENCES_DIR}/ 里三份字体的许可全文。把变了的文件同改动一起提交`}。`);
   });
 });
 
@@ -429,6 +433,7 @@ describe('数字：哪些字归哪一组（编出来的一位人物）', () => {
     expect(isInterfaceSource('src/ui/dev/fakeStage.ts')).toBe(false);
     expect(isInterfaceSource('src/stage/dev/harness.ts')).toBe(false);
     expect(isInterfaceSource('src/fonts/shipped.ts')).toBe(false);
+    expect(isInterfaceSource('src/fonts/probe.ts')).toBe(false);
     expect(isInterfaceSource('src/styles/base.css')).toBe(false);
     expect(isInterfaceSource('tests/support/fontTool.ts')).toBe(false);
   });
@@ -764,9 +769,18 @@ describe('样式表、给页面用的模块、名称', () => {
     expect(css).not.toContain('\r');
   });
 
-  it('给页面用的模块：三套字体各一项（黑体、宋体、楷体，照这个先后），和点开才要的那个文件里的一个字', () => {
-    const text = shippedTs('丑');
-    expect(text).toContain("export const SONG_MORE_PROBE = '丑';");
+  it('给页面用的两个模块：一个是三套字体各一项的表（黑体、宋体、楷体，照这个先后），只给“来源”页；另一个是页面一打开就要的几样——两个字体名称，和点开才要的那个文件里的一个字', () => {
+    const text = shippedTs();
+    // 那一个字和两个名称不在表的这个模块里：页面一打开就下载的程序引入的是另一个模块，表才不会跟着进去
+    expect(text).not.toContain('SONG_MORE_PROBE');
+    expect(Array.from(text.matchAll(/^export const (\w+)/gm), (match) => match[1])).toEqual(['SHIPPED_FONTS']);
+    const small = probeTs('丑', { song: '甲 Song', kai: '乙 Kai' });
+    expect(small).toContain("export const SONG_MORE_PROBE = '丑';");
+    expect(small).toContain("export const SONG_FAMILY = '甲 Song';");
+    expect(small).toContain("export const KAI_FAMILY = '乙 Kai';");
+    expect(Array.from(small.matchAll(/^export const (\w+)/gm), (match) => match[1])).toEqual(['SONG_FAMILY', 'KAI_FAMILY', 'SONG_MORE_PROBE']);
+    // 小的那个模块不引入别的文件，也不带那张表里的东西（版本、网址、许可）
+    expect(small).not.toMatch(/import|licences\/|https?:/);
     expect(text).toContain("sans: { family: 'Yanlu Sans', name: 'Noto Sans SC Medium', version: '2.004', site: 'https://github.com/notofonts/noto-cjk', licence: 'licences/noto-sans-cjk-OFL.txt' },");
     expect(Array.from(text.matchAll(/^ {2}(\w+): \{ family:/gm), (match) => match[1])).toEqual(['sans', 'song', 'kai']);
     expect(text).toContain("kai: { family: 'Yanlu Kai', name: 'LXGW WenKai GB', version: '1.530', site: 'https://github.com/lxgw/LxgwWenkaiGB', licence: 'licences/lxgw-wenkai-gb-OFL.txt' },");
@@ -1147,15 +1161,24 @@ describe('记录是不是新的；网站要的字在不在放进仓库的字体�
     expect(recordIsFresh(plan, sansChanged, made)).toEqual({ fresh: false, why: 'Noto Sans SC Medium 的说明、许可或者留哪些排版功能改过了（FONT_SOURCES）' });
   });
 
-  it('照记录写的两样：样式表和给页面用的模块，都从记录里来，用不到原字体', () => {
+  it('照记录写的三样：样式表和给页面用的两个模块，都从记录里来，用不到原字体', () => {
     const texts = writtenFromRecord(record());
     expect(texts.css).toBe(fontsCss(plan.files));
     const probe = [...fileOf(plan, 'song-more').characters][0];
-    expect(texts.shipped).toBe(shippedTs(probe));
+    expect(texts.shipped).toBe(shippedTs());
+    // 小的那个模块里的两个名称是记录里那两个文件写着的名称（宋体的取点开才要的那个文件的：页面拿它里面的一个字去要的就是它）
+    expect(texts.probe).toBe(probeTs(probe, { song: fileOf(plan, 'song-more').family, kai: fileOf(plan, 'kai').family }));
+    const renamed = record();
+    for (const item of renamed.files) if (item.group === 'kai') item.family = '另一个名称';
+    expect(writtenFromRecord(renamed).probe).toContain("export const KAI_FAMILY = '另一个名称';");
     // 点开才看得见的那一组没有字：给页面的那一个字没处取，说出来
     const empty = record();
     empty.files = empty.files.filter((item) => item.group !== 'song-more');
     expect(() => writtenFromRecord(empty)).toThrow('没处取');
+    // 没有楷体的那个文件：名称没处取，也说出来
+    const noKai = record();
+    noKai.files = noKai.files.filter((item) => item.group !== 'kai');
+    expect(() => writtenFromRecord(noKai)).toThrow('楷体的名称没处取');
   });
 
   it('仓库里的字体文件对着记录查：少了一个、和记录对不上，都说得出来（这时工具要重做）', () => {

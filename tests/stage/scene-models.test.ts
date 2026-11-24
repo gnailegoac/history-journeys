@@ -24,6 +24,7 @@ import { Batch } from '../../src/stage/three/kit/geo';
 import type { Pass } from '../../src/stage/three/kit/pass';
 import { surveyWalls } from '../../src/stage/three/kit/site';
 import { PILE_ABOVE, THING_BUILDERS, bankSurfaceY } from '../../src/stage/three/kit/things';
+import { meshHeightAt } from '../../src/stage/three/meshHeight';
 import { MIST_TRIANGLES_PER_LAYER } from '../../src/stage/three/mist';
 import { FULL_QUALITY, REDUCED_QUALITY } from '../../src/stage/three/quality';
 import { styleFor } from '../../src/stage/three/style';
@@ -120,6 +121,33 @@ describe.each(realSceneKeys())('%s 的小模型', (key) => {
         expect(models.triangles(), `${section.heading} 一个模型也没有显出来`).toBeGreaterThan(0);
         expect(brokenMeshes(models.group), `${section.heading} 有坏掉的模型`).toEqual([]);
       }
+    }
+  });
+
+  it('浮桥：两个桥头都在干地上，离岸不到 60 米；两头中间有水（没有浮桥的沙盘算通过）', () => {
+    const { R } = table();
+    const { scene, samplers, coords } = R;
+    const normal = scene.water.levels.values.normal;
+    const mesh = meshHeightAt(samplers, coords);
+    for (const bridge of scene.things.filter((t) => t.kind === 'pontoon-bridge')) {
+      const line = (bridge.line ?? []).map((p) => coords.toLocal(p));
+      expect(line, bridge.id).toHaveLength(2);
+      for (const [name, [x, z]] of [['头一个桥头', line[0]], ['第二个桥头', line[1]]] as const) {
+        // 干地：地面比平时的水面高半米以上，地形板上那里也画不出水
+        expect(samplers.height(x, z), `${bridge.id} ${name}的地面`).toBeGreaterThan(normal + 0.5);
+        expect(mesh(x, z) < normal && samplers.waterH(x, z) < normal - 0.25, `${bridge.id} ${name}在水里`).toBe(false);
+        // 离岸：在岸的外面，不到 60 米
+        expect(samplers.edge(x, z), `${bridge.id} ${name}离岸`).toBeGreaterThan(0);
+        expect(samplers.edge(x, z), `${bridge.id} ${name}离岸`).toBeLessThan(60);
+      }
+      // 两头中间有画得出来的水
+      let wet = 0;
+      for (let i = 1; i < 50; i++) {
+        const x = line[0][0] + ((line[1][0] - line[0][0]) * i) / 50;
+        const z = line[0][1] + ((line[1][1] - line[0][1]) * i) / 50;
+        if (mesh(x, z) < normal && samplers.waterH(x, z) < normal - 0.25) wet += 1;
+      }
+      expect(wet, `${bridge.id} 两头中间有水的地方`).toBeGreaterThan(10);
     }
   });
 

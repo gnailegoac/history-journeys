@@ -37,6 +37,11 @@ export const LINE_MAX = 40;
 export const WORDS_MAX = 50;
 /** 题签的 at 离它指的那样东西最远多少米（规则 15）。 */
 export const STRIP_AT_MAX_M = 300;
+/** 指着远处的题签，at 离沙盘边上正对着那个地方的一点最远多少米、离沙盘的边最远多少米（规则 15；超过 STRIP_AT_MAX_M 的要在依据里说为什么）。 */
+export const FAR_STRIP_AT_MAX_M = 2000;
+export const FAR_STRIP_EDGE_M = 30;
+/** 浮桥的桥头离它跨的那条河的岸最远多少米（规则 13）。 */
+export const BRIDGE_HEAD_MAX_M = 60;
 /** 一节最多摆几条题签（规则 15）。 */
 export const STRIPS_MAX = 6;
 /**
@@ -152,6 +157,7 @@ const SCENE: Shape = strict({
       line: optional(list(lngLat)),
       at: optional(lngLat),
       except: optional(list(text)),
+      exceptAreas: optional(list(list(lngLat))),
       params: optional(record(anything)),
       when: optional(WHEN),
     }),
@@ -577,6 +583,22 @@ export function checkSceneParts(scene: StopScene, file: string): Violation[] {
     // 浮桥：线是两个点，从这一岸到那一岸；它是照平时的水位造的，不跟着水位走，所以它在场的小节水位都要是平时的
     if (thing.kind === 'pontoon-bridge') {
       if (thing.line !== undefined && thing.line.length > 2) bad(`${at}.line`, `${what}是浮桥，线只写两个点：这一岸的桥头和那一岸的桥头（现在写了 ${thing.line.length} 个）`);
+      if (thing.line?.length === 2) {
+        const coords = frameCoords(scene.frame);
+        const [a, b] = thing.line.map(coords.toLocal) as [XZ, XZ];
+        if (Math.hypot(...minus(a, b)) < 1) bad(`${at}.line`, `${what}是浮桥，线的两个点是同一个点：要写这一岸的桥头和那一岸的桥头，不然什么也摆不出来`);
+        else {
+          // 两个桥头各在一条河的一边，都在这条河画的宽度外面（干地上），离它的岸不到 60 米。河岸画出来比写的宽窄有二三十米的出入，这里留 30 米的量；
+          // 照地面量的那一条（两头真的是干的、离岸不到 60 米）在 tests/stage/scene-models.test.ts，每一座沙盘的每一座浮桥都查
+          const fits = scene.water.rivers.some((river) => {
+            const line = river.line.map(coords.toLocal);
+            const half = river.drawWidthM / 2;
+            const near = (p: XZ): boolean => toLine(p, line, false) >= half - 30 && toLine(p, line, false) <= half + BRIDGE_HEAD_MAX_M + 30;
+            return near(a) && near(b) && crosses(a, b, line);
+          });
+          if (!fits) bad(`${at}.line`, `${what}是浮桥，两个桥头要各在同一条河的一边、都在干地上，离这条河的岸不到 ${BRIDGE_HEAD_MAX_M} 米：现在哪一条河也对不上（桥头在水里、离岸太远，或者两头在河的同一边）`);
+        }
+      }
       const other = scene.sections.find((section) => section.water !== 'normal' && existsAt(thing.when, section.heading, headings));
       if (other) bad(`${at}.when`, `${what}是浮桥，小节“${other.heading}”的水位是“${other.water}”：浮桥照平时的水位造，不跟着水位走，只能摆在水位是 normal 的小节里（用 when 写清楚它在哪几节）`);
     }
@@ -598,6 +620,9 @@ export function checkSceneParts(scene: StopScene, file: string): Violation[] {
       if (alone !== undefined) bad(`${at}.on`, `小节“${alone}”里有${what}，却没有它摆在上面的“${thing.on}”；两样东西的 when 要对得上`);
     }
   });
+
+  // 窄的河上不画水纹的门槛照最宽的一条河算：一条河也没有，它就让每一节都不画水纹
+  if (scene.water.calmUnderPx !== undefined && scene.water.rivers.length === 0) bad('water.calmUnderPx', '写了 calmUnderPx（窄的河上不画水纹的门槛），rivers 里却一条河也没有：这个门槛是照最宽的一条河算的');
 
   // 点缀
   scene.dressing.forEach((rule, i) => {
@@ -646,6 +671,13 @@ export function checkSceneParts(scene: StopScene, file: string): Violation[] {
       if (Object.hasOwn(values, 'normal') && values.normal - lowest < SHORE_ROCKS_NEED_M) {
         bad(`${at}.params.type`, `${what}是崖脚的石头（shore），要有一个比平时的水位低 ${SHORE_ROCKS_NEED_M} 米以上的水位（最低的是 ${lowest}，平时是 ${values.normal}）：石头只摆在水落时露出来的那一带里，没有这样的水位一块也摆不出来`);
       }
+    }
+    // 宽的路只在城外画得出来：城墙里面的路是照街巷的规矩画的，写了 wide 也还是平常的街
+    if (rule.kind === 'roads' && rule.inside !== undefined && rule.params?.type === 'wide') bad(`${at}.params.type`, `${what}写了 inside（一道城墙里面的街巷），type 不能是 wide：城里的街照街巷的规矩画，画不出宽的路；宽的路写一条线（line）`);
+    // “这几圈里不种”：只有树的规则可以写，每一圈是一圈闭合的线
+    if (rule.exceptAreas !== undefined) {
+      if (rule.kind !== 'trees') bad(`${at}.exceptAreas`, `${what}是 ${rule.kind}，不能写 exceptAreas；只有树的规则可以写“这几圈里不种”`);
+      rule.exceptAreas.forEach((area, k) => ring(area, `${at}.exceptAreas[${k}]`, `${what}不种的第 ${k + 1} 圈`));
     }
     // “这几处不种”：只有树的规则可以写，写的是修整的 id，那处修整要有自己的一圈范围（area）
     if (rule.except !== undefined) {
@@ -911,8 +943,16 @@ export function checkSceneStrips(scene: StopScene, file: string): Violation[] {
     if (strip.at === undefined) {
       if (place && place.is !== 'point') bad(`${at}.at`, `${what}指的“${strip.of}”是一条线或一片地方，要写 at：指在它的哪一点`);
     } else if (place) {
-      const away = distance(coords.toLocal(strip.at), place, coords);
-      if (away > STRIP_AT_MAX_M) bad(`${at}.at`, `${what}的 at 离它指的“${strip.of}”有 ${Math.round(away)} 米，不能超过 ${STRIP_AT_MAX_M} 米`);
+      const p = coords.toLocal(strip.at);
+      const away = distance(p, place, coords);
+      const far = target.kind === 'far' ? scene.far.find((f) => f.id === strip.of) : undefined;
+      if (far && away > STRIP_AT_MAX_M) {
+        // 远处的题签可以不挂在正对着它的那一点上（眉州：嘉州的题签挂在江流出沙盘的地方）：还要在沙盘的边上，离那一点不超过两公里，依据里说为什么
+        const edge = Math.min(p[0] - coords.x0, coords.x1 - p[0], p[1] - coords.z0, coords.z1 - p[1]);
+        if (away > FAR_STRIP_AT_MAX_M) bad(`${at}.at`, `${what}的 at 离沙盘边上正对着“${strip.of}”的那一点有 ${Math.round(away)} 米，不能超过 ${FAR_STRIP_AT_MAX_M} 米`);
+        else if (Math.abs(edge) > FAR_STRIP_EDGE_M) bad(`${at}.at`, `${what}指的“${strip.of}”在沙盘外面，at 要写在沙盘的边上（现在离最近的一条边 ${Math.round(Math.abs(edge))} 米）`);
+        else if (!far.basis.includes('题签')) bad(`${at}.at`, `${what}没有挂在沙盘边上正对着“${strip.of}”的那一点上（差 ${Math.round(away)} 米）：远处“${strip.of}”的依据里要有一句说题签为什么挂在这里（句子里要有“题签”两个字）`);
+      } else if (away > STRIP_AT_MAX_M) bad(`${at}.at`, `${what}的 at 离它指的“${strip.of}”有 ${Math.round(away)} 米，不能超过 ${STRIP_AT_MAX_M} 米`);
     }
 
     const targetWhen = target.kind === 'thing' ? scene.things.find((t) => t.id === strip.of)?.when : target.kind === 'dressing' ? scene.dressing.find((d) => d.id === strip.of)?.when : undefined;
@@ -1002,6 +1042,16 @@ function distance(p: XZ, place: Place, coords: FrameCoords): number {
 }
 
 const minus = (a: XZ, b: XZ): XZ => [a[0] - b[0], a[1] - b[1]];
+
+/** 线段 a–b 和折线 line 有没有相交（a、b 在这条线的两边）。 */
+function crosses(a: XZ, b: XZ, line: XZ[]): boolean {
+  const side = (p: XZ, q: XZ, r: XZ): number => Math.sign((q[0] - p[0]) * (r[1] - p[1]) - (q[1] - p[1]) * (r[0] - p[0]));
+  for (let i = 0; i < line.length - 1; i += 1) {
+    const [c, d] = [line[i], line[i + 1]];
+    if (side(a, b, c) * side(a, b, d) < 0 && side(c, d, a) * side(c, d, b) < 0) return true;
+  }
+  return false;
+}
 
 export function toLine(p: XZ, line: XZ[], closed: boolean): number {
   let best = Infinity;

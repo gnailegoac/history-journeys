@@ -37,7 +37,7 @@ import { styleFor } from './style';
 import { buildTable, type Stand } from './table';
 import { buildTerrainMesh, type TerrainMesh } from './terrainMesh';
 import { TRIAL_FRAMES, bigEnoughToTry, chooseTier, createGlideMeter, middle, type GlideMeter, type TierMode } from './tier';
-import { buildWater, calmWater, rippleFor, type Water } from './water';
+import { buildWater, rippleFor, rippleShare, type Water } from './water';
 
 /** 浏览器里的画布主人。 */
 export type BrowserHost = StageHost<HTMLElement, HTMLCanvasElement, WebGLRenderer>;
@@ -205,6 +205,8 @@ class ThreeStopView implements StopStageView {
   private shownSection: string;
   /** 最近一次摆好的（或者正在滑过去的）那一小节的样子；第一个画面摆出来之前是 null。 */
   private look: Look | null = null;
+  /** 水纹朝哪边、平常多密，是照哪一小节的镜头定的（见 drawFrame 里写了 calmUnderPx 的那一段）。 */
+  private rippleOf: Look | null = null;
   /** 现在摆着的题签：哪一小节的、哪几条。 */
   private stripsFor: string;
   private shownStrips: SceneStrip[] = [];
@@ -983,8 +985,9 @@ class ThreeStopView implements StopStageView {
     this.look = look;
     this.shownSection = heading;
     this.applyLight(look, b);
-    const water = this.scene.water;
-    const ripple = rippleFor(look.section.camera.bearing, look.distanceM, 'dry' in water && calmWater(water, equivalentDistance(look.distanceM, look.state.fov, this.size().height)));
+    // 水纹朝哪边、平常多密照这一节的镜头定；写了 calmUnderPx 的沙盘上“留几成”每一帧另算（drawFrame）
+    this.rippleOf = look;
+    const ripple = rippleFor(look.section.camera.bearing, look.distanceM);
     b.water.setRipple(ripple.dense, ripple.turnDeg);
     this.applyState(look.state, b);
 
@@ -1268,6 +1271,17 @@ class ThreeStopView implements StopStageView {
     const [fogNear, fogFar] = this.style.fogFor(distance);
     fog.near = fogNear;
     fog.far = fogFar;
+
+    // 写了 calmUnderPx 的沙盘：水纹留几成照这一帧真的镜头算——摆好的、滑到半路的、读者自己推近拉远的都是这一条。
+    // 一道也不剩的那一帧，朝向和疏密换成要去的那一节的（这时候换，看不见）
+    const water = this.scene.water;
+    const from = this.rippleOf;
+    if (from && 'dry' in water && water.calmUnderPx) {
+      const share = rippleShare(water, distance, camera.fov);
+      const of = share || !this.look ? from : (this.rippleOf = this.look);
+      const ripple = rippleFor(of.section.camera.bearing, of.distanceM, share);
+      b.water.setRipple(ripple.dense, ripple.turnDeg);
+    }
 
     // 模型的大小、题签指着的点，都按这一帧真的远近来（不是按要去的那一节，也不是按起步的时候）
     const D = equivalentDistance(distance, camera.fov, size.height);

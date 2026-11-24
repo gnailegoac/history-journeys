@@ -108,7 +108,7 @@ function insideAWall(at: LngLat, scene: StopScene): boolean {
 }
 
 /**
- * 题签抬高的每一环乘哪一类的倍数：wall、gate → wallH；tower → tower 或 wallTop；pavilion → wallTop 或 pavilion；
+ * 题签抬高的每一环乘哪一类的倍数：wall、gate → wallH；tower → tower 或 wallTop；pavilion → wallTop 或 pavilion；grave-mound → pavilion；
  * house → shed 或 hut；hall-group → yardCity 或 yardOut；dike、bank、timber-bank → null（不乘）。
  * 两样里取哪一样，看它摆在哪：楼在城门上、在地上是 tower，直接在城墙上（角楼）是 wallTop；亭和单座的屋在城墙上是
  * wallTop、shed，在地上是 pavilion、hut；院落在城墙里面是 yardCity，在外面是 yardOut。
@@ -124,11 +124,14 @@ export function liftClass(thing: SceneThing, scene: StopScene): FigureClass | nu
       return hostKind(thing, scene) === 'wall' ? 'wallTop' : 'tower';
     case 'pavilion':
       return hostKind(thing, scene) === 'wall' ? 'wallTop' : 'pavilion';
+    // 坟：和地上的亭一类。远了连同挨着它的坟、泉、亭整组放大
+    case 'grave-mound':
+      return 'pavilion';
     case 'house':
       return hostKind(thing, scene) === 'wall' ? 'shed' : 'hut';
     case 'hall-group':
       return thing.at && insideAWall(thing.at, scene) ? 'yardCity' : 'yardOut';
-    // 堤、土坡、木岸、崖壁、矮土墙、小门、浮桥、池、坟：不乘
+    // 堤、土坡、木岸、崖壁、矮土墙、小门、浮桥、池：不乘
     default:
       return null;
   }
@@ -163,6 +166,8 @@ function plotOf(thing: SceneThing): Plot | null {
     return thingParams('house', thing.params).fence ? { halfX: 26, back: -28, front: 28 } : { halfX: 14.5, back: -16, front: 16 };
   }
   if (thing.kind === 'pavilion') return { halfX: 21, back: -21, front: 21 };
+  // 坟：一座墓地（坟、挨着的小坟、泉、泉上的亭）算一件小摆设，四周三十米里的都跟着它
+  if (thing.kind === 'grave-mound') return { halfX: 30, back: -30, front: 30 };
   if (thing.kind === 'hall-group') {
     const yard = yardLayout(thingParams('hall-group', thing.params).halls ?? 2);
     return { halfX: yard.halfWidth, back: yard.back, front: yard.front };
@@ -179,7 +184,7 @@ function together(a: When | undefined, b: When | undefined, headings: string[]):
 /**
  * 单座的小建筑和挨着它的东西各成一组。只看场景和样式，不看地面。
  *
- * 主角是立在地上的单座的屋、亭、一组院落（类是 hut、pavilion、yardCity、yardOut），按场景里写的先后。
+ * 主角是立在地上的单座的屋、亭、坟、一组院落（类是 hut、pavilion、yardCity、yardOut），按场景里写的先后。
  * 后面的摆件（有 at、立在地上的）和点状的点缀（写了 at 的），at 落在前面某个主角放大到头时占的那一块里面、
  * 又和它有同时在场的小节，就进那一组，跟着主角的类走：整组像一件小摆设，绕着主角的脚放大。
  * 进了别人那一组的摆件不再当主角。摆在城墙、城门上的东西不进组（它跟着墙走）。没有东西挨着的主角也算一组，members 是空的。

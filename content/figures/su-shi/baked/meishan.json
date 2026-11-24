@@ -1,0 +1,27 @@
+{
+  "tool": 1,
+  "inputs": {
+    "ground": "f3f9207cae446d51",
+    "terrain": "7fb4b12955241b26"
+  },
+  "pixels": {
+    "colour": "0eeb9779fc2e783f",
+    "fields": "561da50c5999c1ca"
+  },
+  "colour": {
+    "file": "meishan.colour.jpg",
+    "width": 1181,
+    "height": 1201,
+    "bytes": 368126,
+    "key": "b1624e8d16594d9f",
+    "quality": 0.95,
+    "psnr": 40.43
+  },
+  "fields": {
+    "file": "meishan.fields.png",
+    "width": 1181,
+    "height": 1201,
+    "bytes": 271775,
+    "key": "7bfff55ac9744db4"
+  }
+}

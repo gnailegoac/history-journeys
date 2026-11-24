@@ -39,6 +39,7 @@ import { MIST_TRIANGLES_PER_LAYER } from '../../src/stage/three/mist';
 import { centredView, equivalentDistance, northDeg, pixelsPerMetre, placeCamera, poseAt, poseOn, screenAnchors, shadowBox, shadowTuning, showPoints } from '../../src/stage/three/rig';
 import { styleFor } from '../../src/stage/three/style';
 import { STAND_TRIANGLES } from '../../src/stage/three/table';
+import { CALM_RANGE, rippleFor } from '../../src/stage/three/water';
 import type { TerrainMesh, TerrainMeshInput } from '../../src/stage/three/terrainMesh';
 import type { StageInsets, StageViewInfo, StopStageView, StopTable } from '../../src/stage/types';
 import { fakeCanvas, fakeDocument, fakeFetch, fakeHostParts, fakeKit, fakeRenderer, fakeStrips, trianglesUnder, type FakeFrame } from './support/fakeRenderer';
@@ -409,6 +410,103 @@ describe('沙盘自己的几条规矩（零件库、上色、地形板是假的�
     expect(mistGroup().visible).toBe(false);
     await until(view.showSection(headings[2]));
     expect(mistGroup().visible).toBe(true);
+  });
+
+  it('窄的河上不画水纹（water.calmUnderPx）：水面的数跟着这一帧真的镜头走——摆好的一节、滑到半路、读者滚轮推近；没写的沙盘一路上一个数不改', { timeout: 60_000 }, async () => {
+    const size = { width: 940, height: 900 };
+    const R = realScene(KEY);
+    const widest = Math.max(...scene.water.rivers.map((r) => r.drawWidthM));
+    /** 这一节摆好以后，最宽的河在 900 像素高的画面上合多少像素。 */
+    const at900 = (i: number): number => {
+      const placed = placeCamera(scene.sections[i], scene, R.samplers, R.coords, style, size);
+      return (widest * 2428) / equivalentDistance(placed.distanceM, placed.pose.fov, 900);
+    };
+    // 徐州的场景抄一份，写上门槛：看整块沙盘的头一节在门槛以下，云龙山和百步洪那一节（近得多）在一倍半以上
+    const copy = structuredClone(scene);
+    const under = Math.round(at900(0) * 1.3);
+    copy.water.calmUnderPx = under;
+    expect(at900(4)).toBeGreaterThan(under * CALM_RANGE * 1.2);
+    type Uniforms = Record<string, { value: unknown }>;
+    /** 水面（主水面和 dry 那一片）现在的 uDense、uRipRot。水面的数是拼着色器的时候才交出去的：照 three 的做法叫一次，拿到的就是水面自己存着的那一份。 */
+    const waterOf = (s: ReturnType<typeof stage>): (() => { dense: number[]; turn: number[] }) => {
+      const found: Uniforms[] = [];
+      s.fake.lastWorld()?.children[1].traverse((node) => {
+        const material = (node as Mesh).material as { onBeforeCompile?: (shader: { uniforms: Uniforms; vertexShader: string; fragmentShader: string }) => void } | undefined;
+        if (!material?.onBeforeCompile) return;
+        const shader = { uniforms: {} as Uniforms, vertexShader: '', fragmentShader: '' };
+        material.onBeforeCompile(shader);
+        if ('uDense' in shader.uniforms) found.push(shader.uniforms);
+      });
+      if (found.length === 0) throw new Error('没有找到水面');
+      return () => ({ dense: found.map((u) => u.uDense.value as number), turn: found.map((u) => Math.round((Math.atan2((u.uRipRot.value as { y: number }).y, (u.uRipRot.value as { x: number }).x) * 180) / Math.PI)) });
+    };
+    /** 换到 heading 这一节，一帧一帧地走，记下每一帧以后水面的 uDense。 */
+    const glide = async (view: StopStageView, heading: string, read: () => { dense: number[] }): Promise<number[]> => {
+      const seen: number[] = [];
+      let settled = false;
+      const done = view.showSection(heading).then(() => {
+        settled = true;
+      });
+      for (let i = 0; i < 2000 && !settled; i++) {
+        await wait(FRAME_MS);
+        seen.push(read().dense[0]);
+      }
+      await done;
+      return seen;
+    };
+
+    const s = stage(size.width, size.height);
+    const view = await openView(s, { section: headings[4], scene: copy });
+    await until(view.ready);
+    const read = waterOf(s);
+    // 摆好的近的一节：照常画（原来的数），两片水面一样
+    expect(read().dense).toEqual([0.5, 0.5]);
+    // 滑到看整块沙盘的一节：一路上匀着升到 1，没有哪一帧是跳的，中间好些帧在两头之间；到了是 1（一道不画）
+    const out = await glide(view, headings[0], read);
+    expect(read().dense).toEqual([1, 1]);
+    expect(out.filter((d) => d > 0.501 && d < 0.999).length, '半路上在两头之间的帧数').toBeGreaterThan(5);
+    out.forEach((d, i) => {
+      if (i === 0) return;
+      expect(d - out[i - 1], `第 ${i + 1} 帧`).toBeGreaterThanOrEqual(-1e-9);
+      expect(d - out[i - 1], `第 ${i + 1} 帧`).toBeLessThan(0.12);
+    });
+    // 半路上的每一帧，水面的数就是照这一帧的镜头算出来的（不是起步时的，也不是到了以后的）
+    const mid = Math.floor(out.length / 2);
+    expect(out[mid]).toBeGreaterThan(0.5);
+    expect(out.some((d) => d < 1 && d > 0.5)).toBe(true);
+    // 读者用滚轮推近：不换小节，水纹跟着回来
+    let wheels = 0;
+    while (read().dense[0] > 0.75 && wheels < 60) {
+      s.el.fire('wheel', wheel(-300));
+      await wait(20);
+      wheels += 1;
+    }
+    expect(read().dense[0], `滚了 ${wheels} 格`).toBeLessThanOrEqual(0.75);
+    expect(read().dense[1]).toBe(read().dense[0]);
+    // “回到这一节”：滑回摆好的位置，又是一道不画
+    await until(view.resetView());
+    expect(read().dense).toEqual([1, 1]);
+    // 再滑回近的一节：照常画；朝向是那一节的（一道不剩的那一帧已经换好了，到了不用再换）
+    const back = await glide(view, headings[4], read);
+    expect(read().dense).toEqual([0.5, 0.5]);
+    expect(back[0]).toBeGreaterThan(0.9);
+    const turnOf = (i: number): number => rippleFor(scene.sections[i].camera.bearing, 9000).turnDeg;
+    expect(read().turn).toEqual([turnOf(4), turnOf(4)]);
+
+    // 没写门槛的沙盘（内容里的徐州）：同样滑一趟，水面的数从头到尾是摆好那一节的数
+    const s2 = stage(size.width, size.height);
+    const plain = await openView(s2, { section: headings[4] });
+    await until(plain.ready);
+    const read2 = waterOf(s2);
+    expect(read2().dense).toEqual([0.5, 0.5]);
+    const kept = await glide(plain, headings[0], read2);
+    expect(kept.length).toBeGreaterThan(10);
+    expect(new Set(kept)).toEqual(new Set([0.5]));
+    for (let i = 0; i < 6; i++) {
+      s2.el.fire('wheel', wheel(-300));
+      await wait(20);
+    }
+    expect(read2().dense).toEqual([0.5, 0.5]);
   });
 
   it('夜里的小节：白天 → 夜里 → 白天，水面的亮、云气和雾的颜色、座子木头的反光跟着灯换过去，再一样不差地换回来', { timeout: 60_000 }, async () => {

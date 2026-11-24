@@ -15,10 +15,11 @@
 
 import type { BufferGeometry, InstancedMesh, Object3D } from 'three';
 import { describe, expect, it } from 'vitest';
-import type { DressingKind, SceneDressing, SceneSection } from '../../src/domain/scene';
+import type { DressingKind, SceneDressing, SceneSection, ThingKind } from '../../src/domain/scene';
 import { dressingParams } from '../../src/domain/sceneParams';
 import { stripPoint } from '../../src/domain/sceneStripPoint';
 import { existsAt } from '../../src/domain/sceneText';
+import { plotHalfM } from '../../src/stage/ground';
 import type { Vec2, Vec3 } from '../../src/stage/ground/types';
 import type { FigureClass, FigureStyle, KitContext, Quality, StageStyle } from '../../src/stage/three/internal';
 import { buildModels } from '../../src/stage/three/kit';
@@ -32,12 +33,14 @@ import { boatGeo } from '../../src/stage/three/kit/shapes';
 import type { Instance } from '../../src/stage/three/kit/shapes';
 import { WALL_BASE_HALF, cornerOffset, ringDistance, surveyWalls } from '../../src/stage/three/kit/site';
 import { CORNER_HALF, CORNER_OUT, THING_BUILDERS, bankSurfaceY } from '../../src/stage/three/kit/things';
+import type { ThingBuilder } from '../../src/stage/three/kit/things';
 import { FULL_QUALITY, REDUCED_QUALITY } from '../../src/stage/three/quality';
 import { placeCamera } from '../../src/stage/three/rig';
 import { styleFor } from '../../src/stage/three/style';
 import type { StageInsets } from '../../src/stage/types';
 import { realScene, realSceneKeys } from './support/realScenes';
 import type { RealScene } from './support/realScenes';
+import { STANDARD_PANES } from './support/standardPanes';
 
 // ---------------------------------------------------------------- 造、量
 
@@ -69,13 +72,48 @@ function figureAt(ctx: KitContext, D: number, levelM: number): FigureUniforms {
 function soloRule(ctx: KitContext, rule: SceneDressing): { pass: Pass; parts: BufferGeometry[]; boats: Instance[] } {
   const bucket: Bucket = { main: new Batch(), raised: new Batch(), boats: [] };
   const pass: Pass = { ctx, survey: surveyWalls(ctx), yards: [], lots: [], bucket: () => bucket };
-  // 民居要让开院落：先把院落摆上（它们占的地记在 pass.yards 里），再把它们的零件扔掉
+  // 民居要让开院落、带篱笆的一户人家、池：先把它们摆上（它们占的地记在 pass.yards 里），再把它们的零件扔掉
   if (rule.kind === 'houses') {
-    for (const thing of ctx.scene.things) if (thing.kind === 'hall-group') THING_BUILDERS['hall-group'](pass, thing);
+    for (const thing of ctx.scene.things) if (PLOT_KINDS.includes(thing.kind)) thingBuilder(ctx, thing.kind)(pass, thing);
     bucket.main = new Batch();
   }
   DRESSING_BUILDERS[rule.kind](pass, rule);
   return { pass, parts: [...bucket.main.parts.values()].flat(), boats: bucket.boats };
+}
+
+/** 城里占着一块地、民居要让开的几种摆件：院落，单座的屋（带篱笆的一户人家），池。 */
+const PLOT_KINDS: readonly ThingKind[] = ['hall-group', 'house', 'pool'];
+
+/** 一种摆件的造法：零件库里的九种，或者按家分块的（这座沙盘取到的那几家）。 */
+function thingBuilder(ctx: KitContext, kind: ThingKind): ThingBuilder {
+  const build = { ...ctx.kit?.things, ...THING_BUILDERS }[kind];
+  if (!build) throw new Error(`没有 ${kind} 的造法`);
+  return build;
+}
+
+/**
+ * 带篱笆的一户人家和池（plotHalfM 不是 0 的摆件），放大、摊开到这一份数时各占沙盘上的哪一块（x、z 的范围）。
+ * 一户人家算到篱笆；池算到池沿。跟着一座屋的池（家里的小池）和屋一起摊开，量的是它摊开以后的位置。
+ */
+function plotBoxes(ctx: KitContext, u: FigureUniforms): { id: string; x0: number; x1: number; z0: number; z1: number }[] {
+  const out: { id: string; x0: number; x1: number; z0: number; z1: number }[] = [];
+  for (const thing of ctx.scene.things) {
+    if (!(plotHalfM(thing) > 0)) continue;
+    const bucket: Bucket = { main: new Batch(), raised: new Batch(), boats: [] };
+    const pass: Pass = { ctx, survey: surveyWalls(ctx), yards: [], lots: [], bucket: () => bucket };
+    thingBuilder(ctx, thing.kind)(pass, thing);
+    const box = { id: thing.id, x0: Infinity, x1: -Infinity, z0: Infinity, z1: -Infinity };
+    for (const g of [...bucket.main.parts.values()].flat()) {
+      for (const [x, , z] of movedPoints(g, u)) {
+        box.x0 = Math.min(box.x0, x);
+        box.x1 = Math.max(box.x1, x);
+        box.z0 = Math.min(box.z0, z);
+        box.z1 = Math.max(box.z1, z);
+      }
+    }
+    out.push(box);
+  }
+  return out;
 }
 
 function marksOf(g: BufferGeometry, i = 0): FigureMarks {
@@ -503,12 +541,15 @@ describe.each(realSceneKeys())('%s：模型跟着远近变的时候', (key) => {
         expect(houses.size, `${rule.name}（${quality.tier}）一座屋也没有`).toBeGreaterThan(0);
         const far = figureAt(ctx, 1_000_000, scene.water.levels.values.normal);
         const kept: { x0: number; x1: number; z0: number; z1: number }[] = [];
+        /** 放大到头时留着的各座屋近看时（还没有放大、摊开）在哪。 */
+        const keptHomes: Vec2[] = [];
         for (const list of houses.values()) {
           const fig = marksOf(list[0]).fig;
           const show = figureShow(fig, far);
           // 放大到头时：要么原样留着，要么一点不剩（没有缩到一半的）
           expect(show === 1 || show < 1e-6, `${rule.name} 有一座屋放大到头时缩成了 ${show.toFixed(3)}`).toBe(true);
           if (show !== 1) continue;
+          keptHomes.push([marksOf(list[0]).pivot[0], marksOf(list[0]).pivot[2]]);
           const box = { x0: Infinity, x1: -Infinity, z0: Infinity, z1: -Infinity };
           for (const g of list) {
             for (const [x, , z] of movedPoints(g, far)) {
@@ -521,6 +562,43 @@ describe.each(realSceneKeys())('%s：模型跟着远近变的时候', (key) => {
           kept.push(box);
         }
         expect(kept.length, `${rule.name}（${quality.tier}）放大到头时一座也不剩`).toBeGreaterThan(0);
+        // 带篱笆的一户人家比民居放大得早：近看时就在它放大到头时占的那一块里的民居，远了一座也不留
+        //（它们还没有摊开的时候，那一户人家已经大到它们身上了）
+        for (const plot of plotBoxes(ctx, far).filter((p) => ctx.scene.things.find((t) => t.id === p.id)?.kind === 'house')) {
+          for (const [x, z] of keptHomes) {
+            const inside = x > plot.x0 && x < plot.x1 && z > plot.z0 && z < plot.z1;
+            expect(inside, `${rule.name}（${quality.tier}）放大到头时留着的一座屋近看时在 (${x.toFixed(0)}, ${z.toFixed(0)})，就在 ${plot.id} 放大到头时占的那一块里`).toBe(false);
+          }
+        }
+        // 带篱笆的一户人家和池：放大到头时留着的民居不压着它们（连同跟着屋摊开的家里的小池）。
+        // 不只看放大到头：每一节在四种标准的沙盘栏上摆好的远近上，那时候还有一半以上大的民居都不压着它们那时候占的那一块。
+        // 一户人家比民居放大得早：它放大到头时占的那一块里的民居排在最后头，民居一开始去掉它们就一起先走（kit/dressing.ts 的 rankHomes）。
+        // 缩到不到一半的不查：折算过的远近正好一万二千米上下（民居刚开始去掉的地方），这一户人家已经放大到近三倍，挨着它的那几座正缩到四成，还碰着它的角
+        const placed = scene.sections.flatMap((section) => STANDARD_PANES.map((pane) => {
+          const at = placeCamera(section, scene, R.samplers, R.coords, ctx.style, pane.size, pane.insets);
+          return equivalentDistance(at.distanceM, at.pose.fov, pane.size.height);
+        }));
+        for (const D of [...placed, 1_000_000]) {
+          const now = figureAt(ctx, D, scene.water.levels.values.normal);
+          const plots = plotBoxes(ctx, now);
+          if (plots.length === 0) break;
+          for (const list of houses.values()) {
+            if (figureShow(marksOf(list[0]).fig, now) < 0.5) continue;
+            const box = { x0: Infinity, x1: -Infinity, z0: Infinity, z1: -Infinity };
+            for (const g of list) {
+              for (const [x, , z] of movedPoints(g, now)) {
+                box.x0 = Math.min(box.x0, x);
+                box.x1 = Math.max(box.x1, x);
+                box.z0 = Math.min(box.z0, z);
+                box.z1 = Math.max(box.z1, z);
+              }
+            }
+            for (const plot of plots) {
+              const overlap = box.x0 < plot.x1 && plot.x0 < box.x1 && box.z0 < plot.z1 && plot.z0 < box.z1;
+              expect(overlap, `${rule.name}（${quality.tier}）镜头在 ${D.toFixed(0)} 米时有一座留着的屋压着 ${plot.id}：屋 (${box.x0.toFixed(0)}…${box.x1.toFixed(0)}, ${box.z0.toFixed(0)}…${box.z1.toFixed(0)})，它 (${plot.x0.toFixed(0)}…${plot.x1.toFixed(0)}, ${plot.z0.toFixed(0)}…${plot.z1.toFixed(0)})`).toBe(false);
+            }
+          }
+        }
         // 屋脊都顺着巷子（巷子是平行的）：把每座屋占的那一块转到巷子的方向上比
         const lanes = ctx.ground.cities.flatMap((c) => c.lanes).filter((l) => l.length >= 2);
         const dir: Vec2 = lanes.length ? [lanes[0][lanes[0].length - 1][0] - lanes[0][0][0], lanes[0][lanes[0].length - 1][1] - lanes[0][0][1]] : [1, 0];

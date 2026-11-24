@@ -451,8 +451,14 @@ describe.runIf(realSceneKeys().includes(KEY))('眉州的地面', () => {
     expect(sz).toBeGreaterThan(gz);
   });
 
-  it('工具做的两样（先画好的地面、定格图）还没有做：名字在“还没做出来”的表里', () => {
-    // 这两样做好、放进 content/ 以后，把名字从表里拿掉，这一条跟着删（校验的规则 17、18 那时自己会查）
-    expect(MADE_FILES_PENDING).toContain(KEY);
+  it('工具做的两样（先画好的地面、定格图）都做好了：名字不在“还没做出来”的表里，两份清单在 content/ 里，定格图每一处宽窄各一张', () => {
+    // 2026-11-24 起眉州这两样都在 content/ 里（校验的规则 17、18 查它们对不对得上）。这里只守住：它不再回到那张表里，
+    // 清单都读得出来，定格图的张数是“场景里的处数 × 2”——少一处，页面上那一处在“只摆图片”的设备上就没有图。
+    expect(MADE_FILES_PENDING).not.toContain(KEY);
+    const [figure, name] = KEY.split('/');
+    const baked = JSON.parse(new TextDecoder().decode(readBytes(`content/figures/${figure}/baked/${name}.json`))) as { inputs?: { ground?: unknown } };
+    expect(typeof baked.inputs?.ground).toBe('string');
+    const stills = JSON.parse(new TextDecoder().decode(readBytes(`content/figures/${figure}/stills/${name}.json`))) as { stills?: unknown[] };
+    expect(stills.stills?.length).toBe(scene.sections.length * 2);
   });
 });

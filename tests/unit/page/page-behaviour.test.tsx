@@ -112,7 +112,7 @@ const standInSources = (JSON.parse(new TextDecoder().decode(readBytes('content/f
 g.__standInSources = standInSources;
 /** 文字栏里那一句的两半，和沙盘摆不出来时没有正文的一站上说的三句。 */
 const LEAF_FIRST = '这一站的正文还没写。';
-const LEAF_REST = '沙盘已经做好了，按下面的一行，沙盘就换到那一处。各处的年份写在每一行里，不一定都在上面这几年里。';
+const LEAF_REST = '按下面的一行，沙盘就换到那一处；各处的时间写在每一行里，不一定都在上面这几年里。';
 const BARE_FAILED = '沙盘没能摆出来。';
 const BARE_UNSUPPORTED = '这个浏览器画不出立体的沙盘。换一个新一点的浏览器，或者把手机、平板的系统升级以后再来看。';
 const BARE_SLOW = '立体的沙盘在这台设备上太慢，先不摆了。';
@@ -723,11 +723,26 @@ describe('整个版面 + 真的内容 + 沙盘的替身', () => {
       expect(attr(page.pane(), 'data-stage-section')).toBe(headings[2]);
       expect(viewRows(page)).toEqual(expected(2));
 
-      // 再按摆着的那一行：什么也不变
+      // 再按摆着的那一行：读者没有动过沙盘，什么也不变
+      const requests = attr(page.q('.fake-stage'), 'data-fake-requests');
       await act(async () => item(2).click());
       await settle(100);
       expect(viewRows(page)).toEqual(expected(2));
       expect(attr(page.pane(), 'data-stage-section')).toBe(headings[2]);
+      expect(attr(page.q('.fake-stage'), 'data-fake-moved')).toBe('false');
+      expect(attr(page.q('.fake-stage'), 'data-fake-requests')).toBe(requests);
+
+      // 读者把沙盘转开了（替身的“挪一下镜头”）：按别的一行不管它；按摆着的那一行，画面回到这一处（同栏里的“回到这一处”）
+      await act(async () => page.q('.fake-stage-nudge')!.click());
+      expect(attr(page.q('.fake-stage'), 'data-fake-moved')).toBe('true');
+      expect(attr(page.q('.stage-reset'), 'aria-disabled')).toBe('false');
+      await act(async () => item(2).click());
+      await waitFor(() => attr(page.q('.fake-stage'), 'data-fake-moved') === 'false');
+      expect(attr(page.q('.stage-reset'), 'aria-disabled')).toBe('true');
+      expect(viewRows(page)).toEqual(expected(2));
+      expect(attr(page.pane(), 'data-stage-section')).toBe(headings[2]);
+      // 没有另要一次“换小节”：只是回到摆好的位置
+      expect(attr(page.q('.fake-stage'), 'data-fake-requests')).toBe(requests);
 
       // 窄屏上收起沙盘（假 DOM 里的窗口不算宽屏）：再按第二行，不是白按——栏自己展开了，直接摆到第二处
       await act(async () => page.q('.stage-fold')!.click());
@@ -739,8 +754,12 @@ describe('整个版面 + 真的内容 + 沙盘的替身', () => {
       expect(page.pane().className.split(' ')).not.toContain('is-folded');
       await waitFor(() => attr(page.pane(), 'data-stage-section') === headings[1]);
       expect(attr(page.q('.stage-caption'), 'data-section')).toBe(headings[1]);
-      await waitFor(() => scrolled.length === 3);
-      expect(scrolled[2]).toEqual({ view: headings[1], how: { block: 'nearest' } });
+      // 展开以后是直接摆到第二处的，不是先回到原来那一处再滑过去
+      expect(attr(page.q('.fake-stage'), 'data-fake-animated')).toBe('false');
+      expect(attr(page.q('.fake-stage'), 'data-fake-requests')?.split('|').at(-1)).toBe(headings[1]);
+      // （到这里按过四次：第三行、摆着的那一行两次、第二行；每按一次，按的那一行都被挪回看得见的地方一次）
+      await waitFor(() => scrolled.length === 4);
+      expect(scrolled[3]).toEqual({ view: headings[1], how: { block: 'nearest' } });
       // 没收起的时候按一行，不去动“收起沙盘”那个按钮
       await act(async () => item(3).click());
       expect(attr(page.q('.stage-fold'), 'aria-expanded')).toBe('true');
@@ -897,6 +916,43 @@ describe('整个版面 + 真的内容 + 沙盘的替身', () => {
       resetFakeVisit();
       g.__standIn = null;
       warn.mockRestore();
+      info.mockRestore();
+    }
+  });
+
+  it('有沙盘、没有正文的一站（替身），只放图片的时候（设备太慢，或者地址里写了 ?tier=still），这座沙盘带着图片：栏里放的是头一处的图片；单子和那一句照旧在；按哪一行，图片就换成那一处的，题记跟着换', { timeout: 60_000 }, async () => {
+    const info = vi.spyOn(console, 'info').mockImplementation(() => {});
+    // 借来的沙盘这一回带着图片的替身（?sectionstills=fake）：眉州的定格图做出来以后页面上就是这个样子
+    g.__standIn = STAND_IN;
+    try {
+      for (const [search, words] of [
+        ['?stage=fake&slow=start2&sectionstills=fake', '立体的沙盘在这台设备上太慢，这里放的是图片。'],
+        ['?stage=fake&tier=still&sectionstills=fake', '这里放的是沙盘的图片，不能转动。'],
+      ] as const) {
+        resetFakeVisit();
+        const page = await mount(search, STAND_IN);
+        const still = () => page.q('.stage-still-host .fake-still');
+        await waitFor(() => attr(page.pane(), 'data-stage-state') === 'slow' && attr(page.pane(), 'data-stage-picture') === 'still' && page.q('.views') !== null);
+        await waitFor(() => attr(still(), 'data-fake-still-shown') === 'true');
+        // 放着的是图片，不是立体的沙盘；说的那一句没有“正文可以照常读”；那一句和单子都在，头一行标着
+        expect(page.q('.stage-host .fake-stage'), search).toBeNull();
+        expect(page.q('.stage-says .stage-notice p')?.textContent, search).toBe(words);
+        expect(page.q('.not-written')?.textContent, search).toBe(LEAF_FIRST + LEAF_REST);
+        expect(attr(still(), 'data-fake-still-section'), search).toBe(headings[0]);
+        expect(viewRows(page).map((row) => row.current), search).toEqual(scene.sections.map((_, i) => (i === 0 ? 'true' : null)));
+        // 一行一行按过去（最后按回头一行）：记号马上换；图片、沙盘栏写着的小节、题记都换成那一处的
+        for (const i of [...headings.keys()].slice(1).concat(0)) {
+          await act(async () => page.all('.views .view-item')[i].click());
+          expect(viewRows(page).map((row) => row.current), search).toEqual(scene.sections.map((_, k) => (k === i ? 'true' : null)));
+          await waitFor(() => attr(still(), 'data-fake-still-section') === headings[i]);
+          await waitFor(() => attr(page.pane(), 'data-stage-section') === headings[i] && attr(page.q('.stage-caption'), 'data-section') === headings[i]);
+          expect(attr(page.pane(), 'data-stage-picture'), search).toBe('still');
+        }
+        await page.unmount();
+      }
+    } finally {
+      resetFakeVisit();
+      g.__standIn = null;
       info.mockRestore();
     }
   });

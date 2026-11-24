@@ -1,0 +1,572 @@
+{
+  "tool": 1,
+  "made": {
+    "tier": "full",
+    "three": "0.187.0",
+    "background": "#c5b189",
+    "fitMarginPx": 12,
+    "maxFit": 2.5
+  },
+  "madeFrom": {
+    "scene": "b524bdee7c46a91c",
+    "terrain": "7fb4b12955241b26",
+    "ground": "7546f6da9a32d471",
+    "program": "f81f6932e11b5572"
+  },
+  "shapes": {
+    "wide": {
+      "window": [
+        1440,
+        900
+      ],
+      "pane": [
+        939,
+        900
+      ],
+      "insets": [
+        62,
+        0,
+        130,
+        0
+      ],
+      "extra": 130.5,
+      "pixelRatio": 1.5
+    },
+    "narrow": {
+      "window": [
+        768,
+        1024
+      ],
+      "pane": [
+        768,
+        572
+      ],
+      "insets": [
+        54,
+        0,
+        131,
+        0
+      ],
+      "extra": 96,
+      "pixelRatio": 2
+    }
+  },
+  "stills": [
+    {
+      "section": "眉州",
+      "shape": "wide",
+      "file": "meishan-1-wide.jpg",
+      "width": 1800,
+      "height": 1350,
+      "bytes": 229754,
+      "quality": 82,
+      "key": "767ec2052585a734",
+      "raw": "32ad69aa0d2ca8b9",
+      "pose": {
+        "target": [
+          -578,
+          -12.6,
+          2551.8
+        ],
+        "position": [
+          -17048.9,
+          24076.1,
+          23633.7
+        ],
+        "fov": 18
+      },
+      "fit": 1,
+      "reach": [
+        176.5,
+        255.3
+      ],
+      "northDeg": -38,
+      "pxPerMetre": 0.078922,
+      "anchors": [
+        {
+          "id": "t-meizhou",
+          "x": 0.375,
+          "y": 0.5621,
+          "visible": true,
+          "foot": [
+            0.37523,
+            0.56842
+          ]
+        },
+        {
+          "id": "t-river",
+          "x": 0.50842,
+          "y": 0.24934,
+          "visible": true
+        },
+        {
+          "id": "t-mayishan",
+          "x": 0.57209,
+          "y": 0.36108,
+          "visible": true
+        },
+        {
+          "id": "t-jiazhou",
+          "x": 0.50188,
+          "y": 0.69081,
+          "visible": true,
+          "out": [
+            0.309783,
+            0.950807
+          ]
+        }
+      ]
+    },
+    {
+      "section": "眉州",
+      "shape": "narrow",
+      "file": "meishan-1-narrow.jpg",
+      "width": 1920,
+      "height": 1144,
+      "bytes": 224230,
+      "quality": 86,
+      "key": "16600ea97bf647a6",
+      "raw": "d8689b9705d3f24b",
+      "pose": {
+        "target": [
+          -578,
+          -12.6,
+          2551.8
+        ],
+        "position": [
+          -17048.9,
+          24076.1,
+          23633.7
+        ],
+        "fov": 18
+      },
+      "fit": 1,
+      "reach": [
+        112.2,
+        162.3
+      ],
+      "northDeg": -38,
+      "pxPerMetre": 0.050159,
+      "anchors": [
+        {
+          "id": "t-meizhou",
+          "x": 0.40069,
+          "y": 0.53257,
+          "visible": true,
+          "foot": [
+            0.40088,
+            0.53889
+          ]
+        },
+        {
+          "id": "t-river",
+          "x": 0.50669,
+          "y": 0.21981,
+          "visible": true
+        },
+        {
+          "id": "t-mayishan",
+          "x": 0.55727,
+          "y": 0.33155,
+          "visible": true
+        },
+        {
+          "id": "t-jiazhou",
+          "x": 0.50149,
+          "y": 0.66128,
+          "visible": true,
+          "out": [
+            0.309783,
+            0.950807
+          ]
+        }
+      ]
+    },
+    {
+      "section": "纱縠行的家",
+      "shape": "wide",
+      "file": "meishan-2-wide.jpg",
+      "width": 1800,
+      "height": 1350,
+      "bytes": 222539,
+      "quality": 82,
+      "key": "05895a493b13eab3",
+      "raw": "6491b945823ccf9d",
+      "pose": {
+        "target": [
+          -3313.9,
+          2.4,
+          3572.6
+        ],
+        "position": [
+          -4819.1,
+          2228.1,
+          6800.7
+        ],
+        "fov": 21
+      },
+      "fit": 1,
+      "reach": [
+        272,
+        173.8
+      ],
+      "northDeg": -25,
+      "pxPerMetre": 0.578091,
+      "anchors": [
+        {
+          "id": "t-home",
+          "x": 0.44477,
+          "y": 0.43862,
+          "visible": true,
+          "foot": [
+            0.44499,
+            0.45545
+          ]
+        },
+        {
+          "id": "t-meizhou-west",
+          "x": 0.31374,
+          "y": 0.34028,
+          "visible": true,
+          "foot": [
+            0.31512,
+            0.37318
+          ]
+        }
+      ]
+    },
+    {
+      "section": "纱縠行的家",
+      "shape": "narrow",
+      "file": "meishan-2-narrow.jpg",
+      "width": 1920,
+      "height": 1144,
+      "bytes": 234411,
+      "quality": 86,
+      "key": "ca242510c05bcf74",
+      "raw": "b154554a5dff9479",
+      "pose": {
+        "target": [
+          -3313.9,
+          2.4,
+          3572.6
+        ],
+        "position": [
+          -4819.1,
+          2228.1,
+          6800.7
+        ],
+        "fov": 21
+      },
+      "fit": 1,
+      "reach": [
+        172.9,
+        110.5
+      ],
+      "northDeg": -25,
+      "pxPerMetre": 0.367409,
+      "anchors": [
+        {
+          "id": "t-home",
+          "x": 0.45605,
+          "y": 0.4012,
+          "visible": true,
+          "foot": [
+            0.4563,
+            0.42592
+          ]
+        },
+        {
+          "id": "t-meizhou-west",
+          "x": 0.35203,
+          "y": 0.31075,
+          "visible": true,
+          "foot": [
+            0.35312,
+            0.34365
+          ]
+        }
+      ]
+    },
+    {
+      "section": "正月上蟆颐山",
+      "shape": "wide",
+      "file": "meishan-3-wide.jpg",
+      "width": 1800,
+      "height": 1350,
+      "bytes": 216108,
+      "quality": 82,
+      "key": "cbe68c96a0d150ca",
+      "raw": "6186e695667a19b3",
+      "pose": {
+        "target": [
+          -770.7,
+          -15,
+          2185.7
+        ],
+        "position": [
+          -10007.7,
+          6867.9,
+          5547.7
+        ],
+        "fov": 21
+      },
+      "fit": 1,
+      "reach": [
+        137,
+        260.4
+      ],
+      "northDeg": -70,
+      "pxPerMetre": 0.202332,
+      "anchors": [
+        {
+          "id": "t-eastgate",
+          "x": 0.61294,
+          "y": 0.73953,
+          "visible": true,
+          "foot": [
+            0.6125,
+            0.75337
+          ]
+        },
+        {
+          "id": "t-ferry",
+          "x": 0.5164,
+          "y": 0.36143,
+          "visible": true
+        },
+        {
+          "id": "t-bridge",
+          "x": 0.55993,
+          "y": 0.30698,
+          "visible": true,
+          "foot": [
+            0.55991,
+            0.30838
+          ]
+        },
+        {
+          "id": "t-mayishan",
+          "x": 0.59552,
+          "y": 0.19296,
+          "visible": true
+        },
+        {
+          "id": "t-river-ferry",
+          "x": 0.64161,
+          "y": 0.39163,
+          "visible": true
+        }
+      ]
+    },
+    {
+      "section": "正月上蟆颐山",
+      "shape": "narrow",
+      "file": "meishan-3-narrow.jpg",
+      "width": 1920,
+      "height": 1144,
+      "bytes": 233101,
+      "quality": 86,
+      "key": "68acfd9978b1ae8c",
+      "raw": "14c37a96ccd6283e",
+      "pose": {
+        "target": [
+          -770.7,
+          -15,
+          2185.7
+        ],
+        "position": [
+          -10007.7,
+          6867.9,
+          5547.7
+        ],
+        "fov": 21
+      },
+      "fit": 1,
+      "reach": [
+        87.1,
+        165.5
+      ],
+      "northDeg": -70,
+      "pxPerMetre": 0.128593,
+      "anchors": [
+        {
+          "id": "t-eastgate",
+          "x": 0.58978,
+          "y": 0.70749,
+          "visible": true,
+          "foot": [
+            0.58937,
+            0.72384
+          ]
+        },
+        {
+          "id": "t-ferry",
+          "x": 0.51303,
+          "y": 0.3319,
+          "visible": true
+        },
+        {
+          "id": "t-bridge",
+          "x": 0.54761,
+          "y": 0.27745,
+          "visible": true,
+          "foot": [
+            0.5476,
+            0.27885
+          ]
+        },
+        {
+          "id": "t-mayishan",
+          "x": 0.57589,
+          "y": 0.16343,
+          "visible": true
+        },
+        {
+          "id": "t-river-ferry",
+          "x": 0.6125,
+          "y": 0.3621,
+          "visible": true
+        }
+      ]
+    },
+    {
+      "section": "老翁泉",
+      "shape": "wide",
+      "file": "meishan-4-wide.jpg",
+      "width": 1800,
+      "height": 1350,
+      "bytes": 150504,
+      "quality": 82,
+      "key": "40301838d796a93b",
+      "raw": "1b90121afdf5186c",
+      "pose": {
+        "target": [
+          3439.1,
+          163.9,
+          -4715.4
+        ],
+        "position": [
+          1157.7,
+          2114.1,
+          -3117.9
+        ],
+        "fov": 21
+      },
+      "fit": 1,
+      "reach": [
+        79.6,
+        262.5
+      ],
+      "northDeg": -55,
+      "pxPerMetre": 0.714113,
+      "anchors": [
+        {
+          "id": "t-spring",
+          "x": 0.46304,
+          "y": 0.57565,
+          "visible": true,
+          "foot": [
+            0.46307,
+            0.57896
+          ]
+        },
+        {
+          "id": "t-graves",
+          "x": 0.46726,
+          "y": 0.52772,
+          "visible": true,
+          "foot": [
+            0.46734,
+            0.53759
+          ]
+        },
+        {
+          "id": "t-wangfu",
+          "x": 0.44048,
+          "y": 0.5282,
+          "visible": true,
+          "foot": [
+            0.44064,
+            0.5381
+          ]
+        },
+        {
+          "id": "t-laowengshan",
+          "x": 0.54521,
+          "y": 0.17061,
+          "visible": true
+        }
+      ]
+    },
+    {
+      "section": "老翁泉",
+      "shape": "narrow",
+      "file": "meishan-4-narrow.jpg",
+      "width": 1920,
+      "height": 1144,
+      "bytes": 176368,
+      "quality": 86,
+      "key": "fd06a4a376117eca",
+      "raw": "3fad503eb611d2a9",
+      "pose": {
+        "target": [
+          3439.1,
+          163.9,
+          -4715.4
+        ],
+        "position": [
+          1157.7,
+          2114.1,
+          -3117.9
+        ],
+        "fov": 21
+      },
+      "fit": 1,
+      "reach": [
+        55.5,
+        166.8
+      ],
+      "northDeg": -55,
+      "pxPerMetre": 0.453858,
+      "anchors": [
+        {
+          "id": "t-spring",
+          "x": 0.46999,
+          "y": 0.55325,
+          "visible": true,
+          "foot": [
+            0.47002,
+            0.55718
+          ]
+        },
+        {
+          "id": "t-graves",
+          "x": 0.47398,
+          "y": 0.49636,
+          "visible": true,
+          "foot": [
+            0.47406,
+            0.50806
+          ]
+        },
+        {
+          "id": "t-wangfu",
+          "x": 0.44875,
+          "y": 0.49622,
+          "visible": true,
+          "foot": [
+            0.4489,
+            0.50796
+          ]
+        },
+        {
+          "id": "t-laowengshan",
+          "x": 0.53591,
+          "y": 0.14108,
+          "visible": true
+        }
+      ]
+    }
+  ]
+}

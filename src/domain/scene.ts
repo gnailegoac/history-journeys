@@ -212,7 +212,10 @@ export interface SceneWater {
   rapids: SceneRapids[];
   /** 水漫不进去的地方。闭合的城墙里面不用写，程序自己算。 */
   dry: SceneDryArea[];
-  /** 可以不写。最宽的一条河在哪一节的画面上不到这么多个页面像素宽，那一节的水面不画水纹（规格“窄的河上不画水纹”）。 */
+  /**
+   * 可以不写。最宽的一条河照这一帧的镜头在一幅 900 像素高的画面上不到这么多个像素宽，水面不画水纹；到它的一倍半照常画，
+   * 中间匀着过去（规格“窄的河上不画水纹”）。不算进地面的记号。
+   */
   calmUnderPx?: number;
 }
 
@@ -304,6 +307,8 @@ export interface SceneDressing extends Grounds {
   at?: LngLat;
   /** 只有树的规则可以写：这几处修整（terrain.edits 里 level 一类的 id）的范围里不种。 */
   except?: string[];
+  /** 只有树的规则可以写：这几圈（各是一圈闭合的线）里面不种。不是修整过的地方也可以圈出来（眉州：坟的四周）。 */
+  exceptAreas?: LngLat[][];
   params?: Params;
   when?: When;
 }

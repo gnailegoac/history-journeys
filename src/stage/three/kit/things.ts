@@ -553,9 +553,6 @@ function buildHouse(pass: Pass, thing: SceneThing): void {
   }
   const ry = houseRy(pass.ctx, thing, x, z);
   const y = groundY(pass, x, z) - 1;
-  // 城里一户带篱笆的人家：它那一块地民居让开（大街、小巷由地面那一边让开，是同一个数）
-  const half = plotHalfM(thing);
-  if (half && [...pass.survey.walls.values()].some((w) => insideRing(w.ring, x, z))) pass.yards.push({ cx: x, cz: z, ry, hx: half, hz: half });
   const joined = joinedTo(pass, thing.id);
   const cottage = joined && !joined.main ? COTTAGE_SMALL : COTTAGE;
   const { W, D } = cottage;
@@ -570,6 +567,12 @@ function buildHouse(pass: Pass, thing: SceneThing): void {
   const outer = B.tag;
   const house = standing(pass, thing, [x, y, z], 'hut');
   B.tag = house;
+  // 城里一户带篱笆的人家：它那一块地民居让开（大街、小巷由地面那一边让开，是同一个数）。
+  // 屋远了放大，园子里的东西跟着摊开，这一块地也跟着大：远了留着的民居让开的是它放大到头时占的那一块（和院落一样，见 grownYard）
+  const half = plotHalfM(thing);
+  if (half && [...pass.survey.walls.values()].some((w) => insideRing(w.ring, x, z))) {
+    pass.yards.push({ cx: x, cz: z, ry, hx: half, hz: half, grow: Math.max(1, pass.ctx.style.figure.rules[house.cls].maxTimes), about: [house.group[0], house.group[2]], early: true });
+  }
   if (thatch) {
     // 台基往下埋到四个角里最低的地面以下
     let low = y;

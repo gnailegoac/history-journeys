@@ -267,6 +267,8 @@ export interface Yard {
   /** 这组院落远了最多放大到几倍，绕着哪一点放大。不写是不放大。 */
   grow?: number;
   about?: Vec2;
+  /** 这一块比四周的民居放大得早（城里一户带篱笆的人家）：它放大到头时占的那一块里的民居最先去掉（见 dressing.ts 的 rankHomes）。 */
+  early?: boolean;
 }
 
 /** 这组院落放大到头时占的那一块。 */

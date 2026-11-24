@@ -238,10 +238,11 @@ function plantAround(pl: Planter, ctx: KitContext, rule: number, at: Vec2, radiu
  * 一座屋四周的几棵树：匀着种在屋子两边和屋后，屋前（门口那一面，左右各 70 度）空着。front 是屋子正面朝哪边（长度为 1）。
  * 屋子远了要放大好几倍给人看，树跟着放大：种在门前，从正面看过去屋子就被挡住了。
  */
-function plantBeside(pl: Planter, ctx: KitContext, rule: number, at: Vec2, front: Vec2, radius: number, type: TreeType, density: number, seed: number): void {
+function plantBeside(pl: Planter, ctx: KitContext, rule: number, at: Vec2, front: Vec2, radius: number, type: TreeType, density: number, seed: number, young?: boolean): void {
   const rnd = mulberry32(seed);
   const want = Math.min(60, Math.max(3, Math.round(8 * density * (radius / 150) ** 2)));
-  const size = type === 'fruit' ? 0.7 : type === 'pine' ? 1.1 : 1;
+  // young：小松树，一半大（和一块地方里、一个点周围的种法一样认它）
+  const size = (type === 'fruit' ? 0.7 : type === 'pine' ? 1.1 : 1) * (young ? 0.5 : 1);
   for (let i = 0; i < want; i++) {
     for (let tries = 0; tries < 6; tries++) {
       // 从正面转过 70 度起，到 290 度为止的那一大半圈，一棵占一段，在自己那一段里偏一点
@@ -366,19 +367,20 @@ export function plantTrees(ctx: KitContext, survey: Survey, colours: TreeColours
     if (rule.line) plantAlong(pl, ctx, index, rule.line.map((q) => ctx.coords.toLocal(q)), type, density, seed);
     else if (rule.at) {
       const house = houseOf(rule.id);
-      if (house) plantBeside(pl, ctx, index, house.at, house.front, p.radiusM ?? 150, type, density, seed);
+      if (house) plantBeside(pl, ctx, index, house.at, house.front, p.radiusM ?? 150, type, density, seed, p.young);
       else plantAround(pl, ctx, index, ctx.coords.toLocal(rule.at), p.radiusM ?? 150, type, density, seed, p.young);
     }
     else if (rule.area) plantArea(pl, ctx, index, rule.area.map((q) => ctx.coords.toLocal(q)), type, density, seed, p.young);
     else plantEverywhere(pl, ctx, index, type, density, seed);
   });
-  // 规则写了“这几处不种”（except：修整的 id）的：种下以后落在那几处修整的范围里的去掉
-  const barred = ctx.scene.dressing.map((rule) =>
-    (rule.except ?? []).flatMap((id) => {
+  // 规则写了“这几处不种”的：种下以后落在那几处的范围里的去掉。except 写的是修整的 id，exceptAreas 是直接写出来的几圈
+  const barred = ctx.scene.dressing.map((rule) => [
+    ...(rule.except ?? []).flatMap((id) => {
       const edit = ctx.scene.terrain.edits.find((e) => e.id === id);
-      return edit?.op === 'level' && edit.area ? [edit.area.map((q) => ctx.coords.toLocal(q))] : [];
+      return edit?.op === 'level' && edit.area ? [edit.area] : [];
     }),
-  );
+    ...(rule.exceptAreas ?? []),
+  ].map((area) => area.map((q) => ctx.coords.toLocal(q))));
   const allowed = barred.some((areas) => areas.length) ? pl.out.filter((t) => !barred[t.rule].some((area) => insidePolygon(area, t.x, t.z))) : pl.out;
   // 挡在要人看的小建筑前面的苔点不种（先都种下再去掉：别的树种在哪不跟着变）
   const features = featured(ctx);

@@ -109,7 +109,15 @@ interface Part {
   flocks: Flock[];
   /** 水面高过这里（沙盘里的高度），这一组里就有东西跟着水变：树脚下的水够深了，或者站在水里的屋。没有这样的东西是无穷大。 */
   waterFrom: number;
+  /** 照镜头远近换着显的东西（见 pass.ts 的 Bucket.steps）：每一样的几套网格、各多少个三角形，现在显着第几套（还没显过是 −1）。 */
+  steps: { fromM: number[]; sets: THREE.Group[]; tris: number[]; now: number }[];
 }
+
+/**
+ * 换着显的东西，镜头过了界线多少才换（折算过的远近的倍数）：正在界线上来回的时候不来回换。
+ * 所以远近落在界线上下这一成多里的时候，显哪一套要看镜头是从哪边来的；别处只看远近。
+ */
+export const STEP_HOLD = 1.12;
 
 /** 造模型。 */
 export function buildModels(ctx: KitContext): ModelSet {
@@ -206,6 +214,19 @@ export function buildModels(ctx: KitContext): ModelSet {
       return merged;
     };
     const mergedTriangles = bucket.main.tris + bucket.raised.tris;
+    const steps = (bucket.steps ?? []).map((s) => ({
+      fromM: s.fromM,
+      tris: s.batches.map((b) => b.tris),
+      sets: s.batches.map((b) => {
+        const set = merge(b);
+        set.name = 'step';
+        set.visible = false;
+        object.add(set);
+        b.parts.clear();
+        return set;
+      }),
+      now: -1,
+    }));
     if (bucket.main.parts.size) object.add(merge(bucket.main));
     let raised: THREE.Group | null = null;
     if (bucket.raised.parts.size) {
@@ -257,7 +278,7 @@ export function buildModels(ctx: KitContext): ModelSet {
     bucket.raised.parts.clear();
 
     group.add(object);
-    const part: Part = { object, present, merged: mergedTriangles, raised, floats, flocks, waterFrom };
+    const part: Part = { object, present, merged: mergedTriangles, raised, floats, flocks, waterFrom, steps };
     parts[i] = part;
     return part;
   }
@@ -295,6 +316,13 @@ export function buildModels(ctx: KitContext): ModelSet {
           watery = true;
         }
         if (waterY > p.waterFrom) watery = true;
+        for (const s of p.steps) {
+          // 还显着的那一套，镜头出了它的那一段再多走一成多才换；换就换成这个远近该显的那一套
+          if (s.now < 0 || viewDistanceM < s.fromM[s.now] / STEP_HOLD || viewDistanceM >= (s.fromM[s.now + 1] ?? Infinity) * STEP_HOLD) s.now = s.fromM.filter((from) => viewDistanceM >= from).length - 1;
+          s.sets.forEach((set, k) => (set.visible = k === s.now));
+          key += `~${s.now}`;
+          triangles += s.tris[s.now];
+        }
         for (const f of p.flocks) {
           f.mesh.visible = !f.close || closeUp;
           f.mesh.count = f.ranks ? countBelow(f.ranks, figure.uFigKeep.value[f.slot] / KEEP_FRINGE) : f.total;

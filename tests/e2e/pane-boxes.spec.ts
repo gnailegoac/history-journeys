@@ -86,7 +86,7 @@ test('四种标准的窗口上，沙盘栏的大小和上下留的空，就是�
     expect(got.insets, `${where}，四边留的空（上 右 下 左）`).toBe(`${top} ${right} ${bottom} ${left}`);
     await expect(page.locator('.stage-notice'), `${where}：按钮下面没有那一行话`).toHaveCount(0);
     // 正文那一栏：一句话说怎么用下面的单子，单子上是场景里的各处，头一处是摆着的
-    await expect(page.locator('.not-written'), `${where}：正文那一栏`).toHaveText('这一站的正文还没写。沙盘已经做好了，按下面的一行，沙盘就换到那一处。各处的年份写在每一行里，不一定都在上面这几年里。');
+    await expect(page.locator('.not-written'), `${where}：正文那一栏`).toHaveText('这一站的正文还没写。按下面的一行，沙盘就换到那一处；各处的时间写在每一行里，不一定都在上面这几年里。');
     await expect(page.locator('.views .view-item'), `${where}：沙盘上看的几处`).toHaveCount(unwritten.scene.sections.length);
     await expect(page.locator('.views .view-item[aria-current="true"]'), `${where}：摆着的那一处`).toHaveAttribute('data-view', unwritten.scene.sections[0].heading);
   }

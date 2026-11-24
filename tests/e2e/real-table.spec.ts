@@ -248,7 +248,7 @@ for (const { stopId, scene } of stopsWithScenes().filter((one) => one.figureId =
       await expect(page.locator('.stage-scale-label')).toHaveText(/^\d+(\.\d+)? (米|公里)$/);
       await expect(page.locator('.stage-note-short')).toBeVisible();
       // 正文那一栏：一句话，一张单子（场景里有几处就有几行，头一行是摆着的）；按钮下面没有那一行话
-      await expect(page.locator('.not-written')).toHaveText('这一站的正文还没写。沙盘已经做好了，按下面的一行，沙盘就换到那一处。各处的年份写在每一行里，不一定都在上面这几年里。');
+      await expect(page.locator('.not-written')).toHaveText('这一站的正文还没写。按下面的一行，沙盘就换到那一处；各处的时间写在每一行里，不一定都在上面这几年里。');
       await expect(page.locator('.text-section')).toHaveCount(0);
       await expect(pane.locator('.stage-notice')).toHaveCount(0);
       const items = page.locator('.views .view-item');

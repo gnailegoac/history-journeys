@@ -22,6 +22,11 @@ export interface Bucket {
   raised: Batch;
   /** 船：y 写的是比水面高多少，总装时整组跟着水位走。 */
   boats: Instance[];
+  /**
+   * 照镜头远近换着显的东西（浮桥：近了船小而多，远了船大而少）。一项是一样东西的几套样子：第 k 套从折算过的远近 fromM[k] 起显，
+   * 到 fromM[k + 1] 为止（fromM 从小到大，第一个是 0）。几套都只造一遍，总装时各并成自己的网格，apply 每一帧只开关它们（见 assemble.ts）。
+   */
+  steps?: { fromM: number[]; batches: Batch[] }[];
 }
 
 /** 城里一块可以种树的空地。 */
@@ -65,13 +70,13 @@ export const facingRy = (facing: number | undefined): number => (facing === unde
 
 /**
  * 立在地上的单座的屋、亭、一组院落的脚在哪（沙盘里的 x、y、z）：模型绕着这一点放大，挨着它的东西从这一点摊开。
- * 屋比地面低 1，亭低 2（埋进土里一点，不悬空）；院落在城里是城里的地面，在城外是院子正中的地面低 1。别的摆件是 null。
+ * 屋比地面低 1，亭和坟低 2（埋进土里一点，不悬空）；院落在城里是城里的地面，在城外是院子正中的地面低 1。别的摆件是 null。
  */
 export function footOf(pass: Pass, thing: SceneThing): Vec3 | null {
   if (!thing.at) return null;
   const [x, z] = local(pass, thing.at);
   if (thing.kind === 'house') return [x, groundY(pass, x, z) - 1, z];
-  if (thing.kind === 'pavilion') return [x, groundY(pass, x, z) - 2, z];
+  if (thing.kind === 'pavilion' || thing.kind === 'grave-mound') return [x, groundY(pass, x, z) - 2, z];
   if (thing.kind === 'hall-group') {
     const city = [...pass.survey.walls.values()].find((w) => insideRing(w.ring, x, z));
     return [x, city ? city.groundY : groundY(pass, x, z) - 1, z];

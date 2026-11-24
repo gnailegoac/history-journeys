@@ -7,7 +7,9 @@ import { describe, expect, it } from 'vitest';
 import { contentKey } from '../../src/domain/contentKey';
 import type { StopScene } from '../../src/domain/scene';
 import { groundKey } from '../../src/stage/ground';
+import { realSceneFile, realSceneKeys } from '../stage/support/realScenes';
 import { fixtureScene } from '../support/fixtureScene';
+import { readBytes } from '../support/readBytes';
 
 describe('一份内容的记号（contentKey）', () => {
   it('是 16 个十六进制字符；同样的内容每次一样', () => {
@@ -105,6 +107,40 @@ describe('场景里管地面的那一部分的记号（groundKey）', () => {
     expect(after((s) => (s.things[0].note = '换了一句说明。'))).toBe(base);
     expect(after((s) => (s.things[1].basis = '换了一句依据。'))).toBe(base);
     expect(after((s) => (s.dressing[0].basis = '换了一句依据。'))).toBe(base);
+  });
+
+  it('窄的河上不画水纹的门槛（water.calmUnderPx）不算进记号：写上、改它，记号不变；没写它的沙盘的记号和把它算进去的老算法一个字符不差', () => {
+    expect(after((s) => (s.water.calmUnderPx = 48))).toBe(base);
+    expect(after((s) => (s.water.calmUnderPx = 60))).toBe(base);
+    /** 老算法：只去掉纯是给人读的那四样字，门槛也算进去。 */
+    const older = (scene: StopScene): string => {
+      const words = new Set(['basis', 'sourceIds', 'unsure', 'note']);
+      return contentKey(JSON.stringify([scene.style, scene.frame, scene.terrain, scene.water, scene.things, scene.dressing], (name, value: unknown) => (words.has(name) ? undefined : value)));
+    };
+    expect(older(fixtureScene())).toBe(base);
+    let published = 0;
+    for (const key of realSceneKeys()) {
+      const { scene } = realSceneFile(key);
+      // 没写门槛的：新老两种算法一样；先画好的地面的清单里记着的也是这个记号（发布过的两座沙盘不用重画）
+      if (scene.water.calmUnderPx === undefined) {
+        expect(groundKey(scene), key).toBe(older(scene));
+        const [figure, stop] = key.split('/');
+        let manifest: { inputs: { ground: string } } | null = null;
+        try {
+          manifest = JSON.parse(new TextDecoder().decode(readBytes(`content/figures/${figure}/baked/${stop}.json`))) as { inputs: { ground: string } };
+        } catch {
+          manifest = null;
+        }
+        if (manifest) {
+          expect(manifest.inputs.ground, `${key} 先画好的地面记着的记号`).toBe(groundKey(scene));
+          published += 1;
+        }
+      } else {
+        expect(groundKey(scene), key).not.toBe(older(scene));
+      }
+    }
+    // 徐州、黄州都在里面
+    expect(published).toBeGreaterThanOrEqual(2);
   });
 
   it('挪一条河的一个点、改河画多宽、改水位，记号变', () => {

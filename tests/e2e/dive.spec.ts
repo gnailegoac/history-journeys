@@ -13,12 +13,20 @@ const env = (globalThis as { process?: { env: Record<string, string | undefined>
 
 /**
  * 潜的各项按的是哪一站：全程沙盘上排在最前面的、有自己的沙盘、正文也写好了的一站（现在是徐州）；没有是空字符串。
- * 有自己的沙盘、正文还没写的站（眉州，2026-11-23 起）按了也会潜，可是它的定格图还没有做，潜完没有“头一张图片”可查：
- * 那一种等它的定格图做出来以后另添一项，照站名去按。
+ * 有自己的沙盘、正文还没写的站（眉州）按了也会潜：那一种另有一项（文件末尾），按的是 unwrittenDiveStopOnDisk 挑出来的站。
  */
 function diveStopOnDisk(figureId: string): string {
   const written = new Set(stopsWithScenes().filter((one) => one.figureId === figureId && one.written).map((one) => one.stopId));
   return routeOnDisk(figureId)?.sections.find((section) => section.stop && written.has(section.stop))?.stop ?? '';
+}
+
+/**
+ * 有自己的沙盘、正文还没写的站里，全程沙盘上排在最前面的一个（现在是眉州，全程沙盘的头一站）；没有是空字符串。
+ * 各站的正文都写好的那一天没有这样的站了，查它的那一项自己跳过。
+ */
+function unwrittenDiveStopOnDisk(figureId: string): string {
+  const unwritten = new Set(stopsWithScenes().filter((one) => one.figureId === figureId && !one.written).map((one) => one.stopId));
+  return routeOnDisk(figureId)?.sections.find((section) => section.stop && unwritten.has(section.stop))?.stop ?? '';
 }
 
 /** 等全程沙盘摆好最多多久（毫秒）：发布流程的机器用软件画。 */
@@ -286,4 +294,68 @@ test('沙盘的替身：平时不潜，一点地址就换；地址里带 ?dive=1
       expect(marks, '栏上从没写过潜的记号').toEqual([]);
     }
   }
+});
+
+// 有自己的沙盘、正文还没写的站（眉州，全程沙盘的头一站）：在人物页的沙盘上按它的印，同徐州、黄州一样先潜再换页；
+// 落下去是它自己的沙盘、头一处，文字栏里那张单子“沙盘上看的几处”的头一行标着；按返回回到全程沙盘的头一节，不再换回去；
+// 直接打开它的地址：不潜，也是头一处。各站的正文都写好的那一天没有这样的站了，这一项自己跳过（上面几项照旧查写好了的站）。
+test('潜进一站正文还没写的站（眉州）：按它的印潜下去，落在它自己的沙盘的头一处，单子的头一行标着；按返回回到全程沙盘；直接打开它的地址也摆在头一处，不潜', async ({ page }) => {
+  test.setTimeout(300_000);
+  await page.setViewportSize({ width: 1024, height: 640 });
+  await page.goto(realUrl('#/', 'full'));
+  await needWebGL2(page);
+  const card = page.locator('a.card[data-available="true"]').first();
+  await expect(card).toBeVisible();
+  const figureId = (await card.getAttribute('data-figure-id')) ?? '';
+  const stopId = unwrittenDiveStopOnDisk(figureId);
+  test.skip(stopId === '', '没有“有自己的沙盘、正文还没写”的站：这一种潜法没有站可以按');
+  const scene = sceneOnDisk(figureId, stopId)!;
+  const route = routeOnDisk(figureId)!;
+  const first = scene.sections[0].heading;
+  const pane = stagePane(page);
+  const marked = page.locator('.views .view-item[aria-current="true"]');
+  await routeUp(page);
+  await toFigure(page);
+  const figureHash = await hashNow(page);
+
+  // ---- 按它的印：先潜，潜完才换地址；落在它自己的沙盘上
+  const at = await sealPoint(page, stopId);
+  await watchDive(page);
+  await page.mouse.click(at.x, at.y);
+  await expectArrived(page, figureId, stopId, figureHash, `${stopId}（正文还没写）的印`);
+  // 头一处：沙盘、题记都是头一处的；单子有几处就有几行，只有头一行标着
+  await expect(page.locator('.stop-page')).toHaveAttribute('data-stop-text', 'none');
+  await expect(page.locator('.stop-page')).toHaveAttribute('data-stop-scene', 'yes');
+  await expect(pane).toHaveAttribute('data-stage-section', first);
+  await expect(page.locator('.stage-caption')).toHaveAttribute('data-section', first);
+  await expect(page.locator('.views .view-item')).toHaveCount(scene.sections.length);
+  await expect(marked).toHaveCount(1);
+  await expect(marked).toHaveAttribute('data-view', first);
+  await expect(page.locator('.views .view-item').first()).toHaveAttribute('aria-current', 'true');
+  await expect(pane.locator('.stage-reset')).toHaveText('回到这一处');
+
+  // ---- 按返回：回到人物页，全程沙盘的头一节；单子没有了；等过“到点了一定放行”的钟点，地址没有再换回那一站
+  await page.goBack();
+  await expect.poll(() => hashNow(page), { message: '返回回到人物页' }).toBe(figureHash);
+  await expect(pane).toHaveAttribute('data-stage-level', 'route', { timeout: READY_MS });
+  await expect(pane).toHaveAttribute('data-stage-section', route.sections[0].heading, { timeout: READY_MS });
+  await routeUp(page);
+  await expect(pane).not.toHaveAttribute('data-stage-dive', /./);
+  await expect(page.locator('.views')).toHaveCount(0);
+  await page.waitForTimeout(DIVE_GUARD_MS + 300);
+  expect(await hashNow(page)).toBe(figureHash);
+
+  // ---- 直接打开它的地址：不潜（栏上从没写过记号，头一张图片不是按“潜过来的”放的），它自己的沙盘摆在头一处，头一行标着
+  await page.goto('about:blank');
+  await page.goto(realUrl(`#/${figureId}/${stopId}`, 'full'));
+  await watchDive(page);
+  await expect(page.locator('.stop-page')).toHaveAttribute('data-stop-id', stopId);
+  await expect(pane).not.toHaveAttribute('data-stage-level', 'route');
+  await expectRealTable(page, 'full', READY_MS);
+  await expect(pane).toHaveAttribute('data-stage-section', first);
+  await expect(marked).toHaveCount(1);
+  await expect(marked).toHaveAttribute('data-view', first);
+  await expect(pane.locator('.stage-still-host')).not.toHaveClass(/is-(coming|arriving)/);
+  expect((await notes(page)).filter((n) => n.what.startsWith('mark')), '直接打开：栏上从没写过潜的记号').toEqual([]);
+  expect(await hashNow(page)).toBe(`#/${figureId}/${stopId}`);
 });

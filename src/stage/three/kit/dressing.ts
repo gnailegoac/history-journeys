@@ -108,6 +108,10 @@ function rankHomes(pass: Pass, ruleId: string, homes: Home[], seed: number, clea
     hl: ((h.L + 5) / 2) * grow,
     hd: ((h.Dp + 7) / 2) * grow,
   });
+  // 城里一户带篱笆的人家远了放大得早（比民居早得多）：近看时就在它放大到头时占的那一块里的民居排在最后头（见下面），最先去掉。
+  // 它们本来也留不到头（放大到头时要让开那一块，上面的 clear 管）。没有这样的人家的沙盘（徐州、黄州）一个数不变
+  const early = pass.yards.filter((y) => y.early).map(grownYard);
+  const inEarly = (h: Home): boolean => early.some((y) => inYard(y, h.x, h.z, 26));
   const first: number[] = [];
   const picked: { x: number; z: number; hl: number; hd: number; dx: number; dz: number }[] = [];
   homes.forEach((h, i) => {
@@ -150,6 +154,7 @@ function rankHomes(pass: Pass, ruleId: string, homes: Home[], seed: number, clea
     const j = Math.floor(rnd() * (i + 1));
     [rest[i], rest[j]] = [rest[j], rest[i]];
   }
+
   const rank = new Array<number>(n).fill(0);
   const edge = keepAtMax / KEEP_FRINGE;
   if (first.length === 0 || rest.length === 0 || edge >= 1) {
@@ -162,7 +167,8 @@ function rankHomes(pass: Pass, ruleId: string, homes: Home[], seed: number, clea
     rank[i] = (keepAtMax * position) / first.length;
   });
   rest.forEach((i, position) => {
-    rank[i] = edge + ((1 - edge) * position) / rest.length;
+    // 那一户人家放大到头时占的那一块里的民居排在最后头（次序都是 0.999）：民居一开始去掉，它们就一起先走，给它让出地方
+    rank[i] = inEarly(homes[i]) ? 0.999 : edge + ((1 - edge) * position) / rest.length;
   });
   return rank;
 }

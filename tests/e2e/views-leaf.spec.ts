@@ -148,6 +148,18 @@ test.describe('有自己的沙盘、正文还没写的一站：沙盘上看的�
       await expect(items.nth(2).locator('.tag')).toHaveText('正在看');
       await expect(views.locator('.tag')).toHaveCount(1);
 
+      // ---- 读者把沙盘转开了（替身的“挪一下镜头”：用程序点，不用鼠标——那个按钮在沙盘栏里，鼠标去点会把页面滚走）：
+      //      再按摆着的那一行，画面回到这一处，栏里的“回到这一处”又变回不管用的样子；记号没有动
+      const fake = pane.locator('.fake-stage');
+      await page.evaluate(() => document.querySelector<HTMLElement>('.fake-stage-nudge')?.click());
+      await expect(fake, `${where}：替身说镜头动过了`).toHaveAttribute('data-fake-moved', 'true');
+      await expect(pane.locator('.stage-reset')).toHaveAttribute('aria-disabled', 'false');
+      await pressRow(page, 2);
+      await expect(fake, `${where}：按了摆着的那一行，画面该回来`).toHaveAttribute('data-fake-moved', 'false');
+      await expect(pane.locator('.stage-reset')).toHaveAttribute('aria-disabled', 'true');
+      expect(await currentRows(page)).toEqual([names[2]]);
+      await expect(pane).toHaveAttribute('data-stage-section', names[2]);
+
       // ---- 沙盘在上的窗口：收起沙盘，把页面滚一截，再按第二行——栏自己展开，摆到第二处；按的那一行还在看得见的那一块里
       const band = await freeBand(page);
       if (band.narrow) {
@@ -207,6 +219,17 @@ test.describe('有自己的沙盘、正文还没写的一站：沙盘上看的�
               { message: `${where}：用键盘走到“${at.slice(5)}”那一行，它该整个看得见` },
             )
             .toBe(true);
+          // 走到的这一行画着焦点的框（三个像素的实线）：这一行是没有边、没有底色的按钮，框是键盘上唯一看得出“现在在哪”的东西
+          await expect
+            .poll(
+              () =>
+                page.evaluate(() => {
+                  const style = getComputedStyle(document.activeElement as HTMLElement);
+                  return `${style.outlineStyle} ${Math.round(parseFloat(style.outlineWidth))}`;
+                }),
+              { message: `${where}：用键盘走到“${at.slice(5)}”那一行，它该画着焦点的框` },
+            )
+            .toBe('solid 3');
         }
         if (at === 'pane') break;
       }

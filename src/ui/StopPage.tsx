@@ -113,7 +113,7 @@ export function StopPage({ figure, stop, table, road, section, onSection }: Prop
               摆着的是全程沙盘，说沙盘上是来路；自己的沙盘还在读、没读出来，只有前半句。 */}
           <p className="quiet not-written">
             这一站的正文还没写。
-            {scene ? '沙盘已经做好了，按下面的一行，沙盘就换到那一处。各处的年份写在每一行里，不一定都在上面这几年里。' : road && '沙盘上是到这一站的来路。'}
+            {scene ? '按下面的一行，沙盘就换到那一处；各处的时间写在每一行里，不一定都在上面这几年里。' : road && '沙盘上是到这一站的来路。'}
           </p>
           {/* 有自己的沙盘、正文还没写：沙盘上看的各处排成一张单子，一行是一个按钮（名字、年份、题记）。按一行，就是告诉上面
               “该摆这一节了”，同写好了的一站读到另一小节是一回事，沙盘栏照旧做。摆着的那一处（没按过是头一处）左边一道红线、
@@ -140,7 +140,9 @@ export function StopPage({ figure, stop, table, road, section, onSection }: Prop
                             onSection(view.heading);
                             // 窄屏上沙盘栏收起来的时候，画面不跟着走：替读者按一下栏里的“展开沙盘”，栏展开时直接摆到这一处。
                             // 栏一展开，这一栏文字往下让出一截：下一帧把按的这一行挪回看得见的地方。
-                            document.querySelector<HTMLElement>('.is-folded .stage-fold')?.click();
+                            // 按的是摆着的那一行、栏也没有收着：读者要是把沙盘转开了，这一下把画面带回来（替他按一下栏里的“回到这一处”；
+                            // 没转开过，那个按钮是不管用的）。
+                            (document.querySelector<HTMLElement>('.is-folded .stage-fold') ?? (shown ? document.querySelector<HTMLElement>('.stage-reset') : null))?.click();
                             requestAnimationFrame(() => item.scrollIntoView?.({ block: 'nearest' }));
                           }}
                         >

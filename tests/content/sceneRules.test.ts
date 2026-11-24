@@ -12,7 +12,9 @@
 import { describe, expect, it } from 'vitest';
 import type { BakedGroundManifest } from '../../src/domain/bakedGround';
 import type { StopScene } from '../../src/domain/scene';
+import { farEdgePoint, frameCoords } from '../../src/domain/sceneGeo';
 import type { StillManifest } from '../../src/domain/stills';
+import { realSceneFile, realSceneKeys } from '../stage/support/realScenes';
 import { FIXTURE_HEADINGS, fixtureScene, fixtureSources } from '../support/fixtureScene';
 import { fileSize, readBytes } from '../support/readBytes';
 import { PICTURE_EDGE_MAX, TABLE_FILES_MAX_BYTES } from './budgetRules';
@@ -21,7 +23,7 @@ import { formatViolation, RULE_NAMES, validateContent as validateAll } from './r
 import type { ContentFiles } from './rules';
 import { SHORE_ABOVE_LOWEST_M, SHORE_UNDER_NORMAL_M } from '../../src/stage/three/families/rock';
 import type { Source } from '../../src/domain/types';
-import { bakedPictureSize, checkBakedGround, checkScene, checkSceneNight, checkSceneShape, checkSectionStills, MADE_FILES_REQUIRED, MOON_ALTITUDE, OUTLINE_SECTIONS, SHORE_ROCKS_NEED_M, STILL_MAX_BYTES, TERRAIN_MAX_BYTES, textWidth, unsureProblem, WORDS_MAX } from './sceneRules';
+import { bakedPictureSize, checkBakedGround, checkScene, checkSceneNight, checkSceneShape, checkSceneStrips, checkSectionStills, FAR_STRIP_AT_MAX_M, MADE_FILES_REQUIRED, MOON_ALTITUDE, OUTLINE_SECTIONS, SHORE_ROCKS_NEED_M, STILL_MAX_BYTES, TERRAIN_MAX_BYTES, textWidth, unsureProblem, WORDS_MAX } from './sceneRules';
 import type { Measured } from './sceneRules';
 import type { FileSizes, Violation } from './shape';
 
@@ -1808,10 +1810,22 @@ describe('黄州的城添的几种写法：青苗的田、浅色的院子、照�
   it('眉州添的三种零件：浮桥写两个点的一条线，只摆在水位是平时的小节里；池、坟各写一个点，都只能摆在地上（规则 13）', () => {
     const grounds = { class: 'schematic' as const, basis: '只表示有这样东西。', sourceIds: [] };
     /** calm：只摆在水位是平时的那几节里（样本里有大水的小节）；不写 when 就是每一节都在。 */
-    const bridge = (points: number, calm = true) => (s: StopScene): void => {
-      const ring = someArea(s);
+    /** 跨过样本里那条河的两个桥头：在它中线的两边，各在画的宽度外面 off 米；shift 是两头一起顺着桥线挪多少米。 */
+    const across = (s: StopScene, off = 20, shift = 0): [number, number][] => {
+      const coords = frameCoords(s.frame);
+      const river = s.water.rivers[0];
+      const k = Math.floor((river.line.length - 1) / 2);
+      const [a, b] = [coords.toLocal(river.line[k]), coords.toLocal(river.line[k + 1])];
+      const length = Math.hypot(b[0] - a[0], b[1] - a[1]);
+      const n = [-(b[1] - a[1]) / length, (b[0] - a[0]) / length];
+      const mid = [(a[0] + b[0]) / 2 + n[0] * shift, (a[1] + b[1]) / 2 + n[1] * shift];
+      const d = river.drawWidthM / 2 + off;
+      return [coords.toLngLat(mid[0] - n[0] * d, mid[1] - n[1] * d), coords.toLngLat(mid[0] + n[0] * d, mid[1] + n[1] * d)];
+    };
+    const bridge = (points: number, calm = true, line?: (s: StopScene) => [number, number][]) => (s: StopScene): void => {
+      const two = line ? line(s) : across(s);
       const when = calm ? { when: { only: s.sections.filter((section) => section.water === 'normal').map((section) => section.heading) } } : {};
-      s.things.push({ id: 'boats-bridge', name: '浮桥', kind: 'pontoon-bridge', line: ring.slice(0, points), ...when, ...grounds });
+      s.things.push({ id: 'boats-bridge', name: '浮桥', kind: 'pontoon-bridge', line: points === 3 ? [two[0], someArea(s)[0], two[1]] : two.slice(0, points), ...when, ...grounds });
     };
     const last = (s: StopScene): number => s.things.length;
     const at = (run: (s: StopScene) => void): string[] => {
@@ -1828,6 +1842,15 @@ describe('黄州的城添的几种写法：青苗的田、浅色的院子、照�
     // 样本里有水位不是平时的小节：浮桥不写 when（每一节都在）就查出来
     expect(at((s) => expect(s.sections.some((section) => section.water !== 'normal')).toBe(true))).toEqual([]);
     expect(at(bridge(2, false))).toEqual(['13 things[新].when']);
+    // 两个点是同一个点：什么也摆不出来
+    expect(at(bridge(2, true, (s) => [across(s)[0], across(s)[0]]))).toEqual(['13 things[新].line']);
+    // 两个桥头要各在同一条河的一边、在干地上、离岸不到 60 米（河岸画出来有二三十米的出入，各留 30 米的量）
+    expect(at(bridge(2, true, (s) => across(s, 55)))).toEqual([]);
+    expect(at(bridge(2, true, (s) => across(s, -25)))).toEqual([]);
+    expect(at(bridge(2, true, (s) => across(s, 100)))).toEqual(['13 things[新].line']);
+    expect(at(bridge(2, true, (s) => across(s, -40)))).toEqual(['13 things[新].line']);
+    // 两头在河的同一边（整座桥挪到岸上去了）
+    expect(at(bridge(2, true, (s) => across(s, 20, s.water.rivers[0].drawWidthM + 60)))).toEqual(['13 things[新].line']);
     // 池、坟
     const point = (kind: 'pool' | 'grave-mound', extra: Partial<StopScene['things'][number]> = {}) => (s: StopScene): void => {
       s.things.push({ id: 'small-work', name: '一样小东西', kind, at: someArea(s)[0], ...grounds, ...extra });
@@ -1840,10 +1863,88 @@ describe('黄州的城添的几种写法：青苗的田、浅色的院子、照�
     expect(at((s) => point('grave-mound', { at: undefined, line: someArea(s).slice(0, 2) })(s))).toEqual(['13 things[新].at', '13 things[新].line']);
   });
 
-  it('窄的河上不画水纹的门槛（water.calmUnderPx）可以不写；写了要是正数', () => {
+  it('窄的河上不画水纹的门槛（water.calmUnderPx）可以不写；写了要是正数，还要有至少一条河（规则 13）', () => {
     expect(sceneProblems((s) => (s.water.calmUnderPx = 48))).toEqual([]);
+    // 一条河也没有：门槛照最宽的一条河算，没有河就是每一节都不画水纹
+    const noRivers = (lever: boolean) => (s: StopScene): void => {
+      s.water.rivers = [];
+      if (lever) s.water.calmUnderPx = 48;
+    };
+    expect(sceneProblems(noRivers(true))).toContain('13 water.calmUnderPx');
+    expect(sceneProblems(noRivers(false))).not.toContain('13 water.calmUnderPx');
     expect(sceneProblems((s) => (s.water.calmUnderPx = 0))).toEqual(['0 water.calmUnderPx']);
     expect(sceneProblems((s) => ((s.water as unknown as { calmUnderPx: unknown }).calmUnderPx = '48'))).toEqual(['0 water.calmUnderPx']);
+  });
+
+  it('宽的路（roads 的 wide）只写一条线，不写在城墙里面；“这几圈里不种”（exceptAreas）只有树的规则可以写，每一圈至少三个点（规则 13）', () => {
+    const grounds = { class: 'dressing' as const, basis: '只表示有路、有树。', sourceIds: [] };
+    const road = (where: 'inside' | 'line', type: 'street' | 'road' | 'wide') => (s: StopScene): void => {
+      const wall = s.things.find((t) => t.kind === 'wall');
+      if (!wall) throw new Error('样本里没有城墙');
+      s.dressing.push({ id: 'a-road', name: '一条路', kind: 'roads', ...(where === 'inside' ? { inside: wall.id } : { line: someArea(s).slice(0, 2) }), params: { type }, ...grounds });
+    };
+    expect(sceneProblems(road('line', 'wide'))).toEqual([]);
+    expect(sceneProblems(road('inside', 'street'))).toEqual([]);
+    expect(sceneProblems(road('inside', 'wide'))).toEqual(['13 dressing[5].params.type']);
+    const grove = (kind: 'trees' | 'rocks', areas: (s: StopScene) => [number, number][][]) => (s: StopScene): void => {
+      s.dressing.push({ id: 'a-grove', name: '一片树或者石头', kind, at: someArea(s)[0], exceptAreas: areas(s), ...grounds });
+    };
+    expect(sceneProblems(grove('trees', (s) => [someArea(s)]))).toEqual([]);
+    expect(sceneProblems(grove('trees', () => []))).toEqual([]);
+    expect(sceneProblems(grove('rocks', (s) => [someArea(s)]))).toEqual(['13 dressing[5].exceptAreas']);
+    expect(sceneProblems(grove('trees', (s) => [someArea(s), someArea(s).slice(0, 2)]))).toEqual(['13 dressing[5].exceptAreas[1]']);
+  });
+
+  it('指着远处的题签可以不挂在正对着它的那一点上：还在沙盘的边上、离那一点不超过两公里、依据里有一句说为什么，才行（规则 15）', () => {
+    let index = -1;
+    /** 查出来的毛病里，那条题签的位置换成“题签”两个字（它在样本里排第几不要紧）。 */
+    const found = (run: (s: StopScene) => void): string[] => sceneProblems(run).map((line) => line.replace(`strips[${index}]`, '题签'));
+    const bad = ['15 题签.at'];
+    /** 远镇的题签挪到沿着沙盘的边 along 米、往里 inward 米的地方；why 是依据里添不添那一句。 */
+    const moved = (along: number, inward: number, why: boolean) => (s: StopScene): void => {
+      const coords = frameCoords(s.frame);
+      const far = s.far[0];
+      const [x, z] = coords.toLocal(farEdgePoint(s.frame, far.at).point);
+      // 正对着它的那一点在哪一条边上：沿着那条边挪，往沙盘里面缩
+      const onX = Math.min(Math.abs(x - coords.x0), Math.abs(x - coords.x1)) < 1;
+      const into = (v: number, lo: number, hi: number): number => (Math.abs(v - lo) < 1 ? v + inward + 1 : Math.abs(v - hi) < 1 ? v - inward - 1 : v);
+      // 往这条边的中间挪（样本里那一点离沙盘的角不远，往外挪就出了沙盘）；贴着边写的数来回一换算会差出一点点，所以再往里缩 1 米
+      const toward = (v: number): number => v - Math.sign(v) * along;
+      const at = onX ? coords.toLngLat(into(x, coords.x0, coords.x1), toward(z)) : coords.toLngLat(toward(x), into(z, coords.z0, coords.z1));
+      const strip = s.strips.find((t) => t.of === far.id);
+      if (!strip) throw new Error('样本里没有指着远处的题签');
+      index = s.strips.indexOf(strip);
+      strip.at = at;
+      if (why) far.basis += '沙盘上它的题签挂在路出沙盘的地方。';
+    };
+    // 三百米以内和别的题签一样，不用说为什么
+    expect(found(moved(250, 0, false))).toEqual([]);
+    // 一千米：在边上、说了为什么，行；没说，不行；不在边上（往里两百米），不行
+    expect(found(moved(1000, 0, true))).toEqual([]);
+    expect(found(moved(1000, 0, false))).toEqual(bad);
+    expect(found(moved(1000, 200, true))).toEqual(bad);
+    // 两公里以外，说了也不行。样本的沙盘小，沿着一条边挪不出两公里；拿眉州真的场景试：嘉州的题签沿着南边再往西挪
+    expect(FAR_STRIP_AT_MAX_M).toBe(2000);
+    if (realSceneKeys().includes('su-shi/meishan')) {
+      const real = (away: number): string[] => {
+        const copy = structuredClone(realSceneFile('su-shi/meishan').scene);
+        const coords = frameCoords(copy.frame);
+        const far = copy.far.find((f) => f.id === 'jiazhou');
+        const strip = copy.strips.find((t) => t.of === 'jiazhou');
+        if (!far || !strip) throw new Error('眉州的场景里没有嘉州');
+        const [x, z] = coords.toLocal(farEdgePoint(copy.frame, far.at).point);
+        // 正对着嘉州的那一点在南边上：沿着南边往西挪 away 米（还在沙盘里），往里缩 1 米
+        strip.at = coords.toLngLat(x - away, z - 1);
+        return checkSceneStrips(copy, 'meishan.json').map((v) => `${v.rule} ${v.field}`);
+      };
+      expect(real(1662)).toEqual([]);
+      expect(real(1990)).toEqual([]);
+      expect(real(2100)).toHaveLength(1);
+      expect(real(2100)[0]).toMatch(/^15 strips\[\d+\]\.at$/);
+    }
+    expect(found(moved(1990, 0, true))).toEqual([]);
+    // （样本的沙盘小，挪这么远会挪到沙盘外面去，规则 11 另报一条：这里只看规则 15 的那一条在不在）
+    expect(found(moved(2100, 0, true))).toContain(bad[0]);
   });
 
   it('崖脚的石头（rocks 的 shore）要有一个比平时低 1.7 米以上的水位；这个数就是石头那一带的两个门槛加起来（规则 13）', () => {

@@ -35,7 +35,8 @@ import type { StopScene } from '../../domain/scene';
 import type { FrameCoords } from '../../domain/sceneGeo';
 import type { Ground, Vec2, Vec3 } from '../ground/types';
 import type { StageStyle } from './internal';
-import { clamp, distSeg } from './kit/util';
+import { equivalentDistance } from './kit/figure';
+import { clamp, distSeg, smoothstep } from './kit/util';
 
 /** 水面的三角形数：顶面和四边垂下来的一圈。大水时 dry 那一片再加 DRY_WATER_TRIANGLES。 */
 export const WATER_TRIANGLES = 10;
@@ -167,20 +168,30 @@ export const WATER_SHEEN_LIGHT = /* glsl */ `#include <lights_fragment_end>
 /**
  * 水纹怎么摆。水纹要顺着画面横着走：镜头朝东或朝西看（朝向离正东、正西不到 45 度）时转九十度。
  * 贴近了看（不到 3000 米）水纹密一点。这是样张各个镜头的数归出来的规矩。
- * calm（见 calmWater）：这一节整片水面不画水纹——疏密写到 2，着色器里那一团一团的水纹一团也不剩。
+ * share（见 rippleShare）：水纹留几成，不写是 1（照常）。着色器里一团一团的水纹，哪几团留着由 uDense 这个门槛定
+ * （门槛到 1，一团也不剩）：留几成就把门槛从平常的数匀着挪到 1。着色器的原文一个字不动。
  */
-export function rippleFor(bearingDeg: number, distanceM: number, calm = false): { dense: number; turnDeg: number } {
+export function rippleFor(bearingDeg: number, distanceM: number, share = 1): { dense: number; turnDeg: number } {
   const b = ((bearingDeg % 180) + 180) % 180;
-  return { dense: calm ? 2 : distanceM < 3000 ? 0.3 : 0.5, turnDeg: b >= 45 && b <= 135 ? 90 : 0 };
+  const dense = distanceM < 3000 ? 0.3 : 0.5;
+  return { dense: dense + (1 - share) * (1 - dense), turnDeg: b >= 45 && b <= 135 ? 90 : 0 };
 }
 
+/** 最宽的河到了门槛的几倍，水纹照常画。门槛到这里之间匀着过去。 */
+export const CALM_RANGE = 1.5;
+
 /**
- * 这一节的水面是不是不画水纹。一道水纹有二三十到六七十个页面像素长，不管河多宽：河在画面上比它窄，
- * 白线就从这一岸横到那一岸，一条河上十来道，像坝。场景写了 water.calmUnderPx 的沙盘上，最宽的一条河
- * 在这个画面上（D 是折算过的远近，一米合 2428 ÷ D 个页面像素）不到那么多个像素，就不画。没写的沙盘总是画。
+ * 水纹留几成：0 是一道不画，1 是照常。一道水纹有二三十到六七十个页面像素长，不管河多宽：河在画面上比它窄，
+ * 白线就从这一岸横到那一岸，一条河上十来道，像坝。场景写了 water.calmUnderPx 的沙盘上，最宽的一条河照这一帧的镜头
+ * （离对准的那一点 distanceM 米、视角 fovDeg 度）在一幅 900 像素高的画面上不到那么多个像素，一道也不画；
+ * 到它的 CALM_RANGE 倍，照常画；中间匀着过去，没有哪一帧是一下子变的。照 900 像素高算，不照这块沙盘栏真的高：
+ * 同一个镜头在高的、矮的沙盘栏上是同一幅画面，水纹也该一样（docs/data-spec.md“窄的河上不画水纹”）。没写的沙盘总是 1。
  */
-export function calmWater(water: StopScene['water'], D: number): boolean {
-  return (Math.max(0, ...water.rivers.map((r) => r.drawWidthM)) * 2428) / D < (water.calmUnderPx ?? 0);
+export function rippleShare(water: StopScene['water'], distanceM: number, fovDeg: number): number {
+  const under = water.calmUnderPx;
+  if (!under) return 1;
+  const px = (Math.max(0, ...water.rivers.map((r) => r.drawWidthM)) * 2428) / equivalentDistance(distanceM, fovDeg, 900);
+  return smoothstep(under, under * CALM_RANGE, px);
 }
 
 /**

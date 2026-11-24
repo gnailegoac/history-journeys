@@ -317,8 +317,9 @@ describe('规则 3 文件齐全', () => {
 
   it('把站改成 outline 却留着文件', () => {
     const files = editFigure((f) => (f.stops[0].status = 'outline'));
-    // 这一站的沙盘也跟着不合格了：还没写好的站不能有场景文件（规则 10）。
-    expect(all(files)).toEqual(['3 figures/demo/stops/river.md', '3 figures/demo/stops/river.json', '10 figures/demo/scenes/river.json']);
+    // 还没写好的站可以有沙盘（规则 10 不拦），可是这样的站出处要写在场景文件自己的 sources 里（规则 12）：
+    // 留在 stops/river.json 里的那一份不算数，那个文件本身就不该在（规则 3）。
+    expect(all(files)).toEqual(['3 figures/demo/stops/river.md', '3 figures/demo/stops/river.json', '12 figures/demo/scenes/river.json › sources']);
   });
 });
 

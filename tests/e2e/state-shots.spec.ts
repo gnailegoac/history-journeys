@@ -22,7 +22,7 @@
 import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
 import type { StageTier } from '../../src/stage/types';
-import { expectRealTable, firstWrittenStopWithoutScene, foldBodiesReady, openFigureWithTable, realUrl, shoot, stagePane } from './helpers';
+import { expectRealTable, firstUnwrittenStopWithoutScene, firstWrittenStopWithoutScene, foldBodiesReady, openFigureWithTable, realUrl, shoot, stagePane } from './helpers';
 
 const env = (globalThis as { process?: { env: Record<string, string | undefined> } }).process?.env ?? {};
 const DIR = env.SHOTS_DIR ?? 'tests/shots/real';
@@ -89,7 +89,8 @@ async function shootStates(page: Page, size: { width: number; height: number }):
   await snap('figure-foot');
   await page.evaluate(() => window.scrollTo(0, 0));
   const noTable = await firstWrittenStopWithoutScene(page, figureId);
-  const notWritten = await page.locator('.stop-item[data-stop-status="outline"]').first().getAttribute('data-stop-id').catch(() => null);
+  // “还没写的一站”的照片拍的是摆着来路的那一种：还没写、也没有自己的沙盘的头一站（还没写的站也可以有自己的沙盘——眉州——那一种另拍）
+  const notWritten = await firstUnwrittenStopWithoutScene(page, figureId).catch(() => null);
 
   if (found) {
     await page.locator(`.stop-item[data-stop-id="${found.stopId}"]`).click();

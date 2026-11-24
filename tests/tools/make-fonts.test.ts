@@ -507,6 +507,37 @@ describe('数字：哪些字归哪一组（编出来的一位人物）', () => {
     for (const ch of onlyInCredits) expect(fileOf(plan, 'song-more').characters).toContain(ch);
   });
 
+  it('正文还没写、沙盘先做好的站：出处在场景文件自己的 sources 里，书名在点开才看得见的一组里；小节名、题记照样是楷体', () => {
+    const scene = fixtureScene();
+    // 那座小沙盘的出处 id 不变，书名换成别处都没有的三个字
+    const marks = ['鼍', '鼋', '鳌'];
+    scene.sources = fixtureSources().map((source, i) => ({ ...source, cite: marks[i % marks.length] }));
+    const used = new Set([...scene.things, ...scene.places, ...scene.far, ...scene.dressing].flatMap((item) => item.sourceIds));
+    const cited = scene.sources.filter((source) => used.has(source.id)).map((source) => source.cite);
+    expect(cited.length).toBeGreaterThan(0);
+    const plan = planFonts(
+      madeUpSite((site) => {
+        site.figures[0].figure.stops[0].status = 'outline';
+        site.figures[0].stops[0] = { id: 's1', content: null, scene };
+      }),
+    );
+    for (const cite of cited) {
+      expect(has(plan, 'song-more', cite), cite).toBe(true);
+      expect(hasNone(plan, 'song', cite), cite).toBe(true);
+    }
+    for (const section of scene.sections) {
+      expect(has(plan, 'kai', section.heading)).toBe(true);
+      expect(has(plan, 'kai', section.line)).toBe(true);
+    }
+    // 场景里不写 sources 的时候（写好了正文的站），这几个字哪一组里都没有
+    const bare = planFonts(
+      madeUpSite((site) => {
+        site.figures[0].stops[0] = { id: 's1', content: null, scene: fixtureScene() };
+      }),
+    );
+    for (const cite of cited) expect(hasNone(bare, 'song-more', cite), cite).toBe(true);
+  });
+
   it('全程沙盘（人物页上的那一座）：题签的古名今名、小节名、题记是楷体；时间、那一句说明、远处的那句话看得见；“说明”展开的、“沙盘上的东西”点开才看得见', () => {
     const route = routeSample();
     const plan = planFonts(madeUpSite((site) => (site.figures[0].route = route)));

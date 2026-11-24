@@ -295,9 +295,12 @@ test('走一遍网站：每一个字都是随站的字体画的，楷体的只�
     await expect(page.locator('.page-title')).toBeVisible();
     if (!stop.written) {
       await expect(page.locator('.not-written')).toBeVisible();
-      // 沙盘栏里是到这一站去的那一节：它的题记只在这一页上印，等它摆好了再看字
-      expect(await expectRoute(page), `${stop.id}：这位人物有全程沙盘，这一页上就该摆着它`).toBe(hasRoute);
-      await look(`还没写的一站 ${stop.id}`, 8);
+      // 还没写的站也可以有自己的沙盘（眉州）：那样的站摆着它自己的头一个画面，题签、题记、那一句说明都是这一页上才印的字。
+      // 没有的：沙盘栏里是到这一站去的那一节，它的题记只在这一页上印。都等摆好了再看字
+      const table = sceneOnDisk(figureId, stop.id);
+      if (table) await expectStageAt(page, headingsOf(table)[0]);
+      else expect(await expectRoute(page), `${stop.id}：这位人物有全程沙盘，这一页上就该摆着它`).toBe(hasRoute);
+      await look(`还没写的一站 ${stop.id}${table ? '（有自己的沙盘）' : ''}`, 8);
       continue;
     }
     await expect(page.locator('.text-section').first()).toBeVisible();

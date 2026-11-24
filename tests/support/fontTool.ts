@@ -420,7 +420,8 @@ export function planFonts(
         for (const question of content.sampleQuestions) more(id, says('示例问题'), question);
       }
 
-      if (scene) table(id, says, scene, content?.sources ?? []);
+      // 出处：写好了正文的站在 stops/<站>.json 里；正文还没写的站在场景文件自己的 sources 里（没有这一句，凭据里的书名就不在第三个字体文件里）
+      if (scene) table(id, says, scene, content?.sources ?? scene.sources ?? []);
     }
 
     // ---- 全程沙盘：摆在人物页上（首页也用它），所以它的字归大家共用的那一拨，不归哪一站。出处是场景文件自己的 sources

@@ -20,7 +20,8 @@ import { pictureSize, toContentFiles, toFileKeys, toFileSizes, toPictureSizes } 
 import { formatViolation, RULE_NAMES, validateContent as validateAll } from './rules';
 import type { ContentFiles } from './rules';
 import { SHORE_ABOVE_LOWEST_M, SHORE_UNDER_NORMAL_M } from '../../src/stage/three/families/rock';
-import { bakedPictureSize, checkBakedGround, checkScene, checkSceneNight, checkSceneShape, checkSectionStills, MADE_FILES_REQUIRED, MOON_ALTITUDE, SHORE_ROCKS_NEED_M, STILL_MAX_BYTES, TERRAIN_MAX_BYTES, textWidth, unsureProblem, WORDS_MAX } from './sceneRules';
+import type { Source } from '../../src/domain/types';
+import { bakedPictureSize, checkBakedGround, checkScene, checkSceneNight, checkSceneShape, checkSectionStills, MADE_FILES_REQUIRED, MOON_ALTITUDE, OUTLINE_SECTIONS, SHORE_ROCKS_NEED_M, STILL_MAX_BYTES, TERRAIN_MAX_BYTES, textWidth, unsureProblem, WORDS_MAX } from './sceneRules';
 import type { Measured } from './sceneRules';
 import type { FileSizes, Violation } from './shape';
 
@@ -116,6 +117,29 @@ function withoutMade(files: ContentFiles = GOOD): ContentFiles {
 }
 
 const goodScene = (): StopScene => JSON.parse(GOOD[SCENE]) as StopScene;
+
+/** 合格样本里还没写的一站（pass），和它的场景文件。 */
+const OUTLINE_SCENE = 'figures/demo/scenes/pass.json';
+const OUTLINE_STOP_STATUS = (JSON.parse(GOOD['figures/demo/figure.json']) as { stops: { id: string; status: string }[] }).stops.find((stop) => stop.id === 'pass')?.status;
+
+/**
+ * 合格样本里那座沙盘，挪到还没写的一站（pass）上：这一站没有 stops/pass.json，
+ * 出处从 stops/river.json 原样抄进场景文件自己的 sources。change 在这以后再改一处。
+ */
+function outlineFiles(change: (scene: StopScene) => void = () => {}): ContentFiles {
+  const scene = goodScene();
+  scene.stopId = 'pass';
+  scene.terrain.file = 'pass.terrain.bin';
+  scene.sources = (JSON.parse(GOOD[STOP]) as { sources: Source[] }).sources;
+  change(scene);
+  return { ...GOOD, [OUTLINE_SCENE]: JSON.stringify(scene), 'figures/demo/scenes/pass.terrain.bin': '' };
+}
+
+/** 那一站的场景文件查出来的全部问题，写成“规则号 字段”。别的文件有问题也算进来，写全。 */
+function outlineProblems(change: (scene: StopScene) => void): string[] {
+  const prefix = `${OUTLINE_SCENE} › `;
+  return all(outlineFiles(change)).map((line) => line.replace(prefix, ''));
+}
 
 describe('两份样本', () => {
   it('合格的样本带着沙盘、定格图和工具做出来的两样，量了文件大小，一处问题也没有', () => {
@@ -325,18 +349,21 @@ describe('规则 10 场景文件', () => {
     expect(sceneProblems((s) => (s.stopId = 'lake'))).toEqual(['10 stopId']);
   });
 
-  it('这一站在 figure.json 里没有，或者还是 outline', () => {
-    const sceneFor = (stopId: string) => {
-      const scene = goodScene();
-      scene.stopId = stopId;
-      scene.terrain.file = `${stopId}.terrain.bin`;
-      return { ...GOOD, [`figures/demo/scenes/${stopId}.json`]: JSON.stringify(scene), [`figures/demo/scenes/${stopId}.terrain.bin`]: '' };
-    };
-    const unknown = validateContent(sceneFor('lake'), SIZES);
+  it('这一站在 figure.json 里没有', () => {
+    const scene = goodScene();
+    scene.stopId = 'lake';
+    scene.terrain.file = 'lake.terrain.bin';
+    const unknown = validateContent({ ...GOOD, 'figures/demo/scenes/lake.json': JSON.stringify(scene), 'figures/demo/scenes/lake.terrain.bin': '' }, SIZES);
     expect(unknown.map((v) => `${v.rule} ${v.file}｜${v.problem}`)).toEqual(['10 figures/demo/scenes/lake.json｜figure.json 里没有 id 是“lake”的站，这个场景文件对不上任何一站']);
-    const outline = validateContent(sceneFor('pass'), SIZES);
-    expect(outline.map((v) => `${v.rule} ${v.file}`)).toEqual(['10 figures/demo/scenes/pass.json']);
-    expect(outline[0].problem).toContain('outline');
+  });
+
+  it('还是 outline 的站可以有沙盘：沙盘可以比正文先做好（出处写在场景文件自己的 sources 里）', () => {
+    expect(OUTLINE_STOP_STATUS).toBe('outline');
+    expect(all(outlineFiles())).toEqual([]);
+    // 工具做的那两样照旧要有（规则 17、18）：没有的时候，开关开着就报，名字在“还没做出来”的表里就不报
+    const required = validateContent(outlineFiles(), SIZES, {}, {}, true).map((v) => `${v.rule} ${v.file}`);
+    expect(required).toEqual(['17 figures/demo/baked/pass.json', '18 figures/demo/stills/pass.json']);
+    expect(validateAll(outlineFiles(), SIZES, {}, {}, true, ['demo/pass']).filter((v) => v.file.includes('/pass'))).toEqual([]);
   });
 
   it('style 不是程序里有的样式', () => {
@@ -527,6 +554,44 @@ describe('规则 12 类别和依据', () => {
 
   it('这一站的 .json 读不出来时，出处在不在先不查', () => {
     expect(all(withFile(STOP, '{ "stopId": '))).toEqual([`0 ${STOP}`]);
+  });
+
+  it('写好了正文的站（complete），场景文件不能再写一份 sources', () => {
+    const stopSources = (JSON.parse(GOOD[STOP]) as { sources: Source[] }).sources;
+    expect(sceneProblems((s) => (s.sources = stopSources))).toEqual(['12 sources']);
+    expect(sceneProblems((s) => (s.sources = []))).toEqual(['12 sources']);
+    const found = validateContent(editScene((s) => (s.sources = [])), SIZES);
+    expect(found[0].problem).toBe('“river”这一站的正文写好了（figure.json 里是 complete），出处在 stops/river.json 的 sources 里，场景文件不能再写一份：把它们原样挪过去，id 不变');
+  });
+
+  it('还没写正文的站（outline），出处在场景文件自己的 sources 里：没写只报这一处；写了就照它查', () => {
+    // 没写：只报一处，不把每样东西的出处都报成“找不到”
+    expect(outlineProblems((s) => delete s.sources)).toEqual(['12 sources']);
+    const found = validateContent(outlineFiles((s) => delete s.sources), SIZES);
+    expect(found[0].problem).toBe('“pass”这一站的正文还没写（figure.json 里是 outline），没有 stops/pass.json；沙盘的出处要写在场景文件自己的 sources 里');
+    // 写了一份空的：真的、今天的位置、按正文摆的那些出处就都找不到了（样本里不止一处）
+    const empty = outlineProblems((s) => (s.sources = []));
+    expect(empty.length).toBeGreaterThan(3);
+    expect(empty.every((line) => /^12 .+\.sourceIds\[\d+\]$/.test(line)), empty.join('\n')).toBe(true);
+    // 一个 id 不在里面
+    expect(outlineProblems((s) => (s.things[1].sourceIds = ['s1', 's7']))).toEqual(['12 things[1].sourceIds[1]']);
+    expect(outlineProblems((s) => (s.notDrawn[0].sourceIds = ['s7']))).toEqual(['12 notDrawn[0].sourceIds[0]']);
+    const missing = validateContent(outlineFiles((s) => (s.things[1].sourceIds = ['s1', 's7'])), SIZES, {}, {}, false);
+    expect(missing[0].problem).toBe('摆件“gate-south”的出处“s7”在这个文件的 sources 里找不到');
+  });
+
+  it('场景文件自己的 sources：id 不重复、不空，依据是三种之一，出处写了', () => {
+    expect(outlineProblems((s) => s.sources?.push({ id: 's1', basis: 'record', cite: '又一条' }))).toEqual(['12 sources[2].id']);
+    expect(outlineProblems((s) => s.sources?.push({ id: ' ', basis: 'record', cite: '没有 id 的一条' }))).toEqual(['12 sources[2].id']);
+    expect(outlineProblems((s) => s.sources?.push({ id: 's9', basis: 'editor' as Source['basis'], cite: '依据不对的一条' }))).toEqual(['12 sources[2].basis']);
+    expect(outlineProblems((s) => s.sources?.push({ id: 's9', basis: 'later', cite: '  ' }))).toEqual(['12 sources[2].cite']);
+    // 多写一条没人用的出处不算错
+    expect(outlineProblems((s) => s.sources?.push({ id: 's9', basis: 'later', cite: '没人用的一条' }))).toEqual([]);
+  });
+
+  it('outline 的站留着一份 stops/<站>.json：规则 3 报那个文件，场景的出处还是只认场景文件自己的', () => {
+    const files = { ...outlineFiles((s) => delete s.sources), 'figures/demo/stops/pass.json': GOOD[STOP].replace('"river"', '"pass"') };
+    expect(all(files)).toEqual(['3 figures/demo/stops/pass.json', `12 ${OUTLINE_SCENE} › sources`]);
   });
 
   it('点缀规则的类别只能是点缀或按正文摆的', () => {
@@ -817,6 +882,31 @@ describe('规则 14 小节', () => {
       'things[7].when',
       'things[8].when.from',
     ]);
+  });
+
+  it('还没写正文的站（outline）没有正文可对：三到六个画面，标题不重复；别的各样照查', () => {
+    expect(OUTLINE_SECTIONS).toEqual([3, 6]);
+    expect(goodScene().sections).toHaveLength(3);
+    expect(outlineProblems(() => {})).toEqual([]);
+    /** 在后面添几个画面：照头一个抄，名字另起。 */
+    const more = (count: number) => (s: StopScene) => {
+      for (let i = 0; i < count; i += 1) s.sections.push({ ...s.sections[0], heading: `另一处${i + 1}` });
+    };
+    expect(outlineProblems(more(3))).toEqual([]);
+    expect(outlineProblems(more(4))).toEqual(['14 sections']);
+    const seven = validateContent(outlineFiles(more(4)), SIZES, {}, {}, false);
+    expect(seven[0].problem).toBe('“pass”这一站的正文还没写，沙盘要有 3 到 6 个画面，现在是 7 个');
+    // 两个画面：去掉最后一个（别处提到它的地方跟着报，这里只看“几个画面”这一句）
+    const two = validateContent(outlineFiles((s) => s.sections.pop()), SIZES, {}, {}, false).filter((v) => v.rule === 14 && v.field === 'sections');
+    expect(two.map((v) => v.problem)).toEqual(['“pass”这一站的正文还没写，沙盘要有 3 到 6 个画面，现在是 2 个']);
+    // 写好了正文的站不查这一句：那里小节跟着正文走（样本里正文三节；少一节报的是“正文的小节在场景里没有”，见下一条）
+    expect(sceneProblems(() => {})).toEqual([]);
+    // 标题重复、题记太长、explain 点到没有的东西：和写好了正文的站一样报
+    expect(outlineProblems((s) => (s.sections[2].heading = s.sections[0].heading)).filter((line) => line === '14 sections[2].heading')).toEqual(['14 sections[2].heading']);
+    expect(outlineProblems((s) => (s.sections[0].line = '字'.repeat(41)))).toEqual(['14 sections[0].line']);
+    expect(outlineProblems((s) => s.sections[0].explain.push('nothing-here'))).toEqual(['14 sections[0].explain[2]']);
+    // 留着一份正文（规则 3 报）：场景的小节不拿它来对
+    expect(all({ ...outlineFiles(), 'figures/demo/stops/pass.md': '## 山口\n\n还没写完。' })).toEqual(['3 figures/demo/stops/pass.md']);
   });
 
   it('场景比正文少一节', () => {

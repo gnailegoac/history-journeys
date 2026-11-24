@@ -52,7 +52,10 @@ export interface Grounds {
   class: SceneClass;
   /** 依据：为什么这样摆，一两句话。是这座沙盘考证记录的摘要。 */
   basis: string;
-  /** 出处：这一站 stops/<站>.json 的 sources 里的 id。real、today、text 三类至少一个。 */
+  /**
+   * 出处：这一站 stops/<站>.json 的 sources 里的 id。real、today、text 三类至少一个。
+   * 正文还没写的站没有那个文件，指的是场景文件自己的 sources（StopScene.sources）。
+   */
   sourceIds: string[];
   /**
    * 其中说不准、只是示意的部分。写成能接在“某某的”后面的话，如“层数、高矮和在东墙的哪一点”。
@@ -100,9 +103,14 @@ export interface StopScene {
   dressing: SceneDressing[];
   strips: SceneStrip[];
   far: SceneFarPlace[];
-  /** 和正文的小节一一对上，顺序相同。 */
+  /** 和正文的小节一一对上，顺序相同。正文还没写的站：三到六个画面。 */
   sections: SceneSection[];
   notDrawn: SceneOmission[];
+  /**
+   * 依据里的 sourceIds 指的出处。只有正文还没写的站（figure.json 里是 outline）写：这样的站没有 stops/<站>.json。
+   * 正文写好的站不能写，出处在 stops/<站>.json 里（规则 12）；正文写好的那一天原样挪过去，id 不变。
+   */
+  sources?: Source[];
 }
 
 // ---------------------------------------------------------------- 范围
@@ -364,7 +372,7 @@ export interface SceneCamera {
 }
 
 export interface SceneSection {
-  /** 正文里的小节标题。 */
+  /** 正文里的小节标题。正文还没写的站：这一个画面的名字。 */
   heading: string;
   /** 这一节是什么时候，如“熙宁十年（1077）九月”。 */
   date: string;

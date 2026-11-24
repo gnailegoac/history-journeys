@@ -835,7 +835,10 @@ describe('content/ 里真实的场景', () => {
   it('凭据里的一栏：带类别和依据的东西一样不少，出处都对得出写法', () => {
     for (const { path, scene } of realScenes) {
       const stopPath = path.replace('/scenes/', '/stops/');
-      const sources = scene.level === 'route' ? scene.sources : parse<{ sources: Source[] }>(stopTexts[stopPath]).sources;
+      // 出处在哪：全程沙盘和正文还没写的站（没有 stops/<站>.json）在场景文件自己的 sources 里，写好了正文的站在 stops/<站>.json 里
+      const own = scene.sources;
+      expect(own === undefined, `${path}：出处只放一处`).toBe(stopTexts[stopPath] !== undefined);
+      const sources = own ?? parse<{ sources: Source[] }>(stopTexts[stopPath]).sources;
       const register = sceneRegister(scene, sources);
       const listed = register.groups.reduce((sum, group) => sum + group.entries.length, 0);
       // 站点沙盘：地形、整理、水位、河岸的规矩四样，加上各样东西。
@@ -859,8 +862,8 @@ describe('content/ 里真实的场景', () => {
           expect(entry.basis, `${path} ${entry.id}`).not.toBe('');
         }
       }
-      // 全程沙盘的出处在场景文件自己的 sources 里：真的、今天的位置、按正文摆的三类，每一项都对得出至少一条写法
-      if (scene.level === 'route') {
+      // 出处在场景文件自己的 sources 里的（全程沙盘，正文还没写的站）：真的、今天的位置、按正文摆的三类，每一项都对得出至少一条写法
+      if (own) {
         for (const group of register.groups.slice(0, 3)) for (const entry of group.entries) expect(entry.cites.length, `${path} ${entry.id}`).toBeGreaterThan(0);
       }
       expect(register.notDrawn).toHaveLength(scene.notDrawn.length);

@@ -53,9 +53,17 @@ export interface SceneStop {
   status?: 'complete' | 'outline';
   /** 正文的小节标题，按先后；正文不在或读不出来时为 null（规则 4 另报）。 */
   headings: string[] | null;
-  /** 这一站 sources 里的 id；.json 不在或读不出来时为 null（格式和规则 3 另报）。 */
+  /**
+   * 这一站 stops/<站>.json 的 sources 里的 id；.json 不在或读不出来时为 null（格式和规则 3 另报）。
+   * outline 的站用不着它：那样的站出处在场景文件自己的 sources 里（规则 12）。
+   */
   sourceIds: string[] | null;
 }
+
+/** 正文还没写的站（outline），沙盘最少、最多几个画面（规则 14）。 */
+export const OUTLINE_SECTIONS = [3, 6] as const;
+/** 出处的依据只能是这三种（和 stops/<站>.json、全程沙盘的 sources 一样）。 */
+const SOURCE_BASES: readonly string[] = ['own-words', 'record', 'later'];
 
 // ---------------------------------------------------------------- 格式
 
@@ -165,6 +173,8 @@ const SCENE: Shape = strict({
     }),
   ),
   notDrawn: list(strict({ id: text, name: text, why: text, sourceIds: list(text) })),
+  // 只有正文还没写的站写；该不该有、里面对不对，归规则 12 查
+  sources: optional(list(strict({ id: text, basis: text, cite: text }))),
 });
 
 /**
@@ -181,9 +191,9 @@ export function checkScene(scene: StopScene, file: string, stop: SceneStop, file
     ...checkSceneNumbers(scene, file),
     ...checkSceneFile(scene, file, stop, files, sizes),
     ...checkSceneExtent(scene, file),
-    ...checkSceneGrounds(scene, file, stop.sourceIds),
+    ...checkSceneGrounds(scene, file, stop.sourceIds, stop.status),
     ...checkSceneParts(scene, file),
-    ...checkSceneSections(scene, file, stop.headings),
+    ...checkSceneSections(scene, file, stop.headings, stop.status),
     ...checkSceneStrips(scene, file),
     ...checkSceneNight(scene, file),
   ];
@@ -234,7 +244,7 @@ export function checkSceneNumbers(scene: StopScene, file: string): Violation[] {
 // ---------------------------------------------------------------- 规则 10 场景文件
 
 /**
- * 规则 10 场景文件：文件名和 stopId 一样；这一站在 figure.json 里有，而且是 complete；style 是程序里有的样式；
+ * 规则 10 场景文件：文件名和 stopId 一样；这一站在 figure.json 里有（complete、outline 都可以：沙盘可以比正文先做好）；style 是程序里有的样式；
  * credits 至少一条；relief 是统一夸大；地形文件存在，大小正好是 行 × 列 × 2 字节，不超过 1.5 MB；地形文件盖得住整块沙盘。
  */
 export function checkSceneFile(scene: StopScene, file: string, stop: SceneStop, files: ContentFiles, sizes: FileSizes = {}): Violation[] {
@@ -243,7 +253,6 @@ export function checkSceneFile(scene: StopScene, file: string, stop: SceneStop, 
 
   if (scene.stopId !== stop.id) bad('stopId', `应该和文件名一样（${stop.id}），现在是“${scene.stopId}”`);
   if (stop.status === undefined) bad('', `figure.json 里没有 id 是“${stop.id}”的站，这个场景文件对不上任何一站`);
-  else if (stop.status !== 'complete') bad('', `“${stop.id}”这一站在 figure.json 里标的还是 outline；正文写好、标成 complete 以后才能有沙盘`);
 
   if (!(SCENE_STYLES as readonly string[]).includes(scene.style)) bad('style', `样式“${scene.style}”程序里没有；有的是：${SCENE_STYLES.join('、')}`);
 
@@ -365,14 +374,42 @@ function grounded(scene: StopScene): { path: string; what: string; grounds: Grou
  * 规则 12 类别和依据：class 是五类之一；basis 写了；真的、今天的位置、按正文摆的，至少有一个出处；
  * 出处都在这一站的 sources 里；点缀规则的类别只能是点缀或按正文摆的；recipe 和 levels 写了 note；
  * unsure 写成能接在“某某的”后面的一个词组（见 unsureProblem）。
- * knownSources 是这一站 sources 的 id；这一站的 .json 读不出来时给 null，出处在不在就先不查。
+ * “这一站的 sources”只在一处：
+ *   complete 的站在 stops/<站>.json 里——stopSources 是那里的 id，那个文件读不出来时给 null，出处在不在就先不查；
+ *     场景文件不能再写 sources。
+ *   outline 的站（正文还没写，没有那个文件）在场景文件自己的 sources 里——必须写，id 不重复，依据是三种之一，
+ *     出处写了；没写的时候只报这一处，各样东西的出处在不在先不查（不然同一处毛病报成上百处）。
+ * status 不写（figure.json 里没有这一站，规则 10 另报）时照 complete 的站查出处，sources 该不该有不查。
  */
-export function checkSceneGrounds(scene: StopScene, file: string, knownSources: string[] | null): Violation[] {
+export function checkSceneGrounds(scene: StopScene, file: string, stopSources: string[] | null, status?: SceneStop['status']): Violation[] {
   const out: Violation[] = [];
+  let knownSources = stopSources;
+  if (status === 'outline') {
+    const own = scene.sources;
+    if (own === undefined) {
+      out.push(violation(12, file, 'sources', `“${scene.stopId}”这一站的正文还没写（figure.json 里是 outline），没有 stops/${scene.stopId}.json；沙盘的出处要写在场景文件自己的 sources 里`));
+      knownSources = null;
+    } else {
+      knownSources = own.map((source) => source.id);
+      const ids = knownSources;
+      own.forEach((source, i) => {
+        if (source.id.trim() === '') out.push(violation(12, file, `sources[${i}].id`, '没有填 id'));
+        else if (ids.indexOf(source.id) < i) out.push(violation(12, file, `sources[${i}].id`, `出处的 id“${source.id}”和第 ${ids.indexOf(source.id) + 1} 条重复了`));
+        if (!SOURCE_BASES.includes(source.basis)) {
+          out.push(violation(12, file, `sources[${i}].basis`, `出处“${source.id}”的依据是“${source.basis}”，只能是 own-words（他本人的诗文书信）、record（史书和同时代人的记载）、later（后人的记载和研究）之一`));
+        }
+        if (source.cite.trim() === '') out.push(violation(12, file, `sources[${i}].cite`, `出处“${source.id}”没有写是哪一种书、哪一篇`));
+      });
+    }
+  } else if (status === 'complete' && scene.sources !== undefined) {
+    out.push(violation(12, file, 'sources', `“${scene.stopId}”这一站的正文写好了（figure.json 里是 complete），出处在 stops/${scene.stopId}.json 的 sources 里，场景文件不能再写一份：把它们原样挪过去，id 不变`));
+  }
+  const where = status === 'outline' ? '这个文件' : '这一站';
   const sources = (ids: string[], path: string, what: string) => {
     if (!knownSources) return;
+    const known = knownSources;
     ids.forEach((id, j) => {
-      if (!knownSources.includes(id)) out.push(violation(12, file, `${path}.sourceIds[${j}]`, `${what}的出处“${id}”在这一站的 sources 里找不到`));
+      if (!known.includes(id)) out.push(violation(12, file, `${path}.sourceIds[${j}]`, `${what}的出处“${id}”在${where}的 sources 里找不到`));
     });
   };
 
@@ -671,20 +708,30 @@ export function samePoint(a: LngLat, b: LngLat): boolean {
  * farLine（只在题记下面说、不立题签的远处）里只能是写了 inHisWords 的远处，这一节不能又有它的题签，不能写两遍；
  * 水位的名字在 levels.values 里有，values 里有 normal；when 里写的小节标题都是正文里有的，from 不晚于 until，
  * when 不是空的，城墙、路、田不写 when；explain 至少一样，写的 id 都找得到，点到的东西都有 note；mustShow 写的 id 都找得到。
- * textHeadings 是正文的小节标题；正文读不出来时给 null，对正文的那几处就先不查。
+ * stopHeadings 是正文的小节标题；正文读不出来时给 null，对正文的那几处就先不查。
+ * outline 的站（正文还没写）没有正文可对：小节是三到六个画面，标题就是画面的名字；别的各样照查
+ * （when、explain、mustShow 对的本来就是场景自己的小节）。
  */
-export function checkSceneSections(scene: StopScene, file: string, textHeadings: string[] | null): Violation[] {
+export function checkSceneSections(scene: StopScene, file: string, stopHeadings: string[] | null, status?: SceneStop['status']): Violation[] {
   const out: Violation[] = [];
   const bad = (field: string, problem: string) => out.push(violation(14, file, field, problem));
   const own = scene.sections.map((section) => section.heading);
   const entries = idEntries(scene);
   const levels = scene.water.levels.values;
+  // outline 的站要是留着一份正文，规则 3 另报；这里不拿它来对
+  const textHeadings = status === 'outline' ? null : stopHeadings;
 
   // 和正文对上
   const repeated = own.some((heading, i) => own.indexOf(heading) < i);
   own.forEach((heading, i) => {
     if (own.indexOf(heading) < i) bad(`sections[${i}].heading`, `小节“${heading}”在场景里写了不止一次`);
   });
+  if (status === 'outline') {
+    const [fewest, most] = OUTLINE_SECTIONS;
+    if (own.length < fewest || own.length > most) {
+      bad('sections', `“${scene.stopId}”这一站的正文还没写，沙盘要有 ${fewest} 到 ${most} 个画面，现在是 ${own.length} 个`);
+    }
+  }
   if (textHeadings) {
     const missing = textHeadings.filter((heading) => !own.includes(heading));
     const extra = own.filter((heading) => !textHeadings.includes(heading));

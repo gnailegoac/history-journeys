@@ -9,8 +9,11 @@
 // 名字写成“人物/场景文件的名字”，如 su-shi/route（全程沙盘）、su-shi/huangzhou。
 // 只有常数和两个只算数的函数：校验、两个工具（一个在 vitest 里跑，一个在 Playwright 里跑）都引它。
 
-/** 这两样还没有做出来的沙盘。 */
-export const MADE_FILES_PENDING: readonly string[] = [];
+/**
+ * 这两样还没有做出来的沙盘。
+ * su-shi/meishan（眉州，2026-11-23）：场景文件先进来了，零件还没有添齐（浮桥、小池、坟、竹子），地面和定格图等它们齐了再做。
+ */
+export const MADE_FILES_PENDING: readonly string[] = ['su-shi/meishan'];
 
 /** 这座沙盘是不是在那张表里。key 是“人物/场景文件的名字”。 */
 export function isPending(key: string, pending: readonly string[] = MADE_FILES_PENDING): boolean {

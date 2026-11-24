@@ -184,21 +184,31 @@ export async function firstStopWithScene(page: Page, figureId: string): Promise<
  * content/ 里每一座站点沙盘：哪位人物、哪一站、它的场景。照人物的文件夹名、再照 figure.json 里各站的先后。
  * 不用打开页面（测试的名字要在打开页面以前定下来）：给“每一座沙盘各在浏览器里起一遍”的测试用。
  */
-export function stopsWithScenes(): { figureId: string; stopId: string; scene: StopScene }[] {
-  const out: { figureId: string; stopId: string; scene: StopScene }[] = [];
+export function stopsWithScenes(): { figureId: string; stopId: string; scene: StopScene; written: boolean }[] {
+  const out: { figureId: string; stopId: string; scene: StopScene; written: boolean }[] = [];
   for (const figureId of namesIn('content/figures')) {
-    let figure: { stops: { id: string }[] };
+    let figure: { stops: { id: string; status?: string }[] };
     try {
-      figure = JSON.parse(new TextDecoder().decode(readBytes(`content/figures/${figureId}/figure.json`))) as { stops: { id: string }[] };
+      figure = JSON.parse(new TextDecoder().decode(readBytes(`content/figures/${figureId}/figure.json`))) as { stops: { id: string; status?: string }[] };
     } catch {
       continue;
     }
     for (const stop of figure.stops) {
       const scene = sceneOnDisk(figureId, stop.id);
-      if (scene) out.push({ figureId, stopId: stop.id, scene });
+      // written：这一站的正文写好了没有。沙盘可以比正文先做好（眉州，2026-11-23 起）：那样的站页面上没有正文带着镜头走
+      if (scene) out.push({ figureId, stopId: stop.id, scene, written: stop.status === 'complete' });
     }
   }
   return out;
+}
+
+/**
+ * 目录里第一个还没写、也没有自己的沙盘的站（沙盘栏里摆的是全程沙盘上到它去的来路）；没有时是 null。要先打开人物页。
+ * 还没写的站也可以有自己的沙盘（眉州）：那样的站不算在这里，查“还没写的站摆着来路”的各项用这个来挑站。
+ */
+export async function firstUnwrittenStopWithoutScene(page: Page, figureId: string): Promise<string | null> {
+  const ids = await page.locator('.stop-item[data-stop-status="outline"]').evaluateAll((items) => items.map((item) => item.getAttribute('data-stop-id')));
+  return ids.find((id): id is string => id !== null && sceneOnDisk(figureId, id) === null) ?? null;
 }
 
 /** 目录里第一个写好了正文、却还没有沙盘的站；没有时是 null。要先打开人物页。 */

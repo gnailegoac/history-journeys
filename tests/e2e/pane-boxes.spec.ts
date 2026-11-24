@@ -20,7 +20,7 @@ import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
 import { HOME_PANES, NOTICE_ROW_TOP, STANDARD_PANES, UPRIGHT_PANES } from '../stage/support/standardPanes';
 import type { StandardPane } from '../stage/support/standardPanes';
-import { fakeUrl, firstWrittenStopWithoutScene, openFigureWithTable, stagePane } from './helpers';
+import { fakeUrl, firstUnwrittenStopWithoutScene, firstWrittenStopWithoutScene, openFigureWithTable, stagePane, stopsWithScenes } from './helpers';
 
 /** 页面上量到的：沙盘栏的宽、高（整数），不取整的原数，和替身记下来的“上 右 下 左”。 */
 interface Measured {
@@ -71,14 +71,31 @@ test('四种标准的窗口上，沙盘栏的大小和上下留的空，就是�
     expect(got.pane, `${where}，沙盘栏的大小。${hint}`).toBe(`${pane.size.width} × ${pane.size.height}`);
     expect(got.insets, `${where}，四边留的空（上 右 下 左）。${hint}`).toBe(`${top} ${right} ${bottom} ${left}`);
   }
+
+  // 有自己的沙盘、正文还没写的站（眉州）：栏和留的空同写好了的站一样，摆的是它自己的沙盘，按钮下面没有那一行话
+  const unwritten = stopsWithScenes().find((one) => one.figureId === figureId && !one.written);
+  if (!unwritten) return;
+  for (const pane of STANDARD_PANES) {
+    const got = await measure(page, pane, figureId, unwritten.stopId);
+    const { top, right, bottom, left } = pane.insets;
+    const where = `窗口 ${pane.window.width} × ${pane.window.height}，${unwritten.stopId}（正文还没写）`;
+    console.log(`${figureId}/${unwritten.stopId} ${where}：沙盘栏 ${got.pane}（不取整是 ${got.exact}），四边留 ${got.insets}（上 右 下 左）`);
+    await expect(stagePane(page), `${where}：摆着的是它自己的沙盘`).not.toHaveAttribute('data-stage-level', 'route');
+    await expect(stagePane(page), `${where}：停在头一个画面`).toHaveAttribute('data-stage-section', unwritten.scene.sections[0].heading);
+    expect(got.pane, `${where}，沙盘栏的大小`).toBe(`${pane.size.width} × ${pane.size.height}`);
+    expect(got.insets, `${where}，四边留的空（上 右 下 左）`).toBe(`${top} ${right} ${bottom} ${left}`);
+    await expect(page.locator('.stage-notice'), `${where}：按钮下面没有那一行话`).toHaveCount(0);
+    await expect(page.locator('.not-written'), `${where}：正文那一栏`).toHaveText('这一站的正文还没写。');
+  }
 });
 
 test('全程沙盘在沙盘栏里和一站的沙盘一样：人物页、还没写的一站，四种标准的窗口上栏一样大、上下留一样的空；写好了却没有自己的沙盘的一站，上面多留一行话；首页的栏就是 HOME_PANES 里写的那几个数', async ({ page }) => {
   test.setTimeout(240_000);
   const { figureId } = await openFigureWithTable(page, fakeUrl('#/'));
   const noTable = await firstWrittenStopWithoutScene(page, figureId);
-  const outline = await page.locator('.stop-item[data-stop-status="outline"]').first().getAttribute('data-stop-id');
-  expect(outline, '要有一站还没写').not.toBeNull();
+  // 还没写、也没有自己的沙盘的一站（还没写的站也可以有自己的沙盘——眉州——那样的站摆的不是全程沙盘，上一项量它）
+  const outline = await firstUnwrittenStopWithoutScene(page, figureId);
+  expect(outline, '要有一站还没写、也没有自己的沙盘').not.toBeNull();
   const hint = '全程沙盘的定格图和题签的测试都是照这几个数做的（tests/stage/support/standardPanes.ts）。';
 
   for (const pane of STANDARD_PANES) {

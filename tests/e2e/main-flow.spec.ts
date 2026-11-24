@@ -16,6 +16,7 @@ import {
   fakeStage,
   fakeUrl,
   firstStopWithScene,
+  firstUnwrittenStopWithoutScene,
   firstWrittenStop,
   firstWrittenStopWithoutScene,
   headingsOf,
@@ -1042,12 +1043,13 @@ test('写好了正文、还没有自己的沙盘的站：沙盘栏里是全程�
   await expect(page.locator('.skip-to-stage')).toHaveCount(0);
 });
 
-test('还没写的站：有抬头和一句话；沙盘栏里是全程沙盘上到这一站去的来路，按钮下面没有那一行话，这句话在正文那一栏里', async ({ page }) => {
+test('还没写、也没有自己的沙盘的站：有抬头和一句话；沙盘栏里是全程沙盘上到这一站去的来路，按钮下面没有那一行话，这句话在正文那一栏里', async ({ page }) => {
   const figureId = await openFirstFigure(page);
-  const outline = page.locator('.stop-item[data-stop-status="outline"]').first();
-  test.skip((await outline.count()) === 0, '各站都写好了');
-  const stopId = (await outline.getAttribute('data-stop-id'))!;
-  await outline.click();
+  // 还没写的站也可以有自己的沙盘（眉州，2026-11-23 起；这一项原来拿的就是它）：这里要的是没有的，目录里头一个这样的站
+  const bare = await firstUnwrittenStopWithoutScene(page, figureId);
+  test.skip(bare === null, '还没写的各站都有自己的沙盘了');
+  const stopId = bare!;
+  await page.locator(`.stop-item[data-stop-id="${stopId}"]`).click();
   await expect(page).toHaveURL(new RegExp(`#/${figureId}/${stopId}$`));
 
   await expect(page.locator('.stop-page')).toHaveAttribute('data-stop-text', 'none');
@@ -1085,7 +1087,9 @@ test('还没写的站：有抬头和一句话；沙盘栏里是全程沙盘上�
   await expect(page.locator('.not-written')).toHaveText(at === 0 ? NOT_WRITTEN_FIRST : NOT_WRITTEN_ROAD);
   await page.goBack();
   await expect(page.locator('.stop-item').first()).toBeVisible();
-  const outlines = await page.locator('.stop-item[data-stop-status="outline"]').evaluateAll((items) => items.map((item) => item.getAttribute('data-stop-id') ?? ''));
+  // 另一句只有另一种站（是不是头一站）看得到，而且那一站也得没有自己的沙盘。头一站（眉州）有了自己的沙盘以后，
+  // “出发的路”那半句在浏览器里走不到了：它由 tests/unit/page/page-behaviour.test.tsx 拿替身查
+  const outlines = (await page.locator('.stop-item[data-stop-status="outline"]').evaluateAll((items) => items.map((item) => item.getAttribute('data-stop-id') ?? ''))).filter((id) => sceneOnDisk(figureId, id) === null);
   const other = outlines.find((id) => (order.indexOf(id) === 0) !== (at === 0));
   if (other) {
     await page.goto(fakeUrl(`#/${figureId}/${other}`));

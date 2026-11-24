@@ -6,6 +6,11 @@
 //         别的地方。黄州的地形文件（content/figures/su-shi/scenes/huangzhou.terrain.bin，193 列 × 195 行）是这样取的：
 //         node tools/fetch-dem.mjs out/huangzhou 114.80 114.92 30.385 30.49 60
 //         取下来的 out/huangzhou.bin 改名放进 content/。
+//         眉州的地形文件（content/figures/su-shi/scenes/meishan.terrain.bin，223 列 × 228 行，101,688 字节）用的参数是：
+//         node tools/fetch-dem.mjs out/meishan 103.795 103.933 30.019 30.142 60
+//         它是 2026-11-23 设计这座沙盘时用这个工具的一份抄本取的（六张瓦片；算法一样，抄本读 PNG 用的是仓库自己的
+//         tests/support/png.ts，两次请求之间停 1.2 秒）。这几张瓦片里有六格落在今天的水面上、读数低了一百来米，
+//         工具没有补；程序整理地形、挖河以后它们不留痕迹。
 import { writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';

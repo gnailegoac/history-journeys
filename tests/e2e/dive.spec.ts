@@ -7,9 +7,19 @@
 import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
 import { DIVE_GUARD_MS } from '../../src/ui/diveClock';
-import { expectRealTable, fakeUrl, realUrl, roadOf, routeOnDisk, sceneOnDisk, stagePane } from './helpers';
+import { expectRealTable, fakeUrl, realUrl, roadOf, routeOnDisk, sceneOnDisk, stagePane, stopsWithScenes } from './helpers';
 
 const env = (globalThis as { process?: { env: Record<string, string | undefined> } }).process?.env ?? {};
+
+/**
+ * 潜的各项按的是哪一站：全程沙盘上排在最前面的、有自己的沙盘、正文也写好了的一站（现在是徐州）；没有是空字符串。
+ * 有自己的沙盘、正文还没写的站（眉州，2026-11-23 起）按了也会潜，可是它的定格图还没有做，潜完没有“头一张图片”可查：
+ * 那一种等它的定格图做出来以后另添一项，照站名去按。
+ */
+function diveStopOnDisk(figureId: string): string {
+  const written = new Set(stopsWithScenes().filter((one) => one.figureId === figureId && one.written).map((one) => one.stopId));
+  return routeOnDisk(figureId)?.sections.find((section) => section.stop && written.has(section.stop))?.stop ?? '';
+}
 
 /** 等全程沙盘摆好最多多久（毫秒）：发布流程的机器用软件画。 */
 const READY_MS = 120_000;
@@ -66,10 +76,10 @@ async function openHome(page: Page, extra = ''): Promise<{ figureId: string; sto
   await expect(card).toBeVisible();
   const figureId = (await card.getAttribute('data-figure-id')) ?? '';
   // 有自己的沙盘的一站：从全程沙盘的场景里找（到哪几站去），要 content/ 里真有那一站的场景文件
-  const stopId = routeOnDisk(figureId)?.sections.find((section) => section.stop && sceneOnDisk(figureId, section.stop) !== null)?.stop ?? '';
+  const stopId = diveStopOnDisk(figureId);
   if (env.CI) expect(stopId, '发布流程里没有“全程沙盘加一站自己的沙盘”：潜下去一次也没有试过，不能算通过').not.toBe('');
   else test.skip(stopId === '', '还没有“全程沙盘加一站自己的沙盘”');
-  // 有自己的沙盘的站不止一个了（徐州、黄州）：按的是全程沙盘上排在最前面的那一个，说出来是哪一站
+  // 有自己的沙盘的站不止一个了（眉州、徐州、黄州）：按的是全程沙盘上排在最前面的、正文也写好了的那一个，说出来是哪一站
   const all = (routeOnDisk(figureId)?.sections ?? []).map((section) => section.stop).filter((stop): stop is string => !!stop && sceneOnDisk(figureId, stop) !== null);
   console.log(`[潜] 这一项按的是 ${stopId}；有自己的沙盘、按了也会潜的站：${all.join('、')}`);
   await routeUp(page);
@@ -246,7 +256,7 @@ test('沙盘的替身：平时不潜，一点地址就换；地址里带 ?dive=1
     const card = page.locator('a.card[data-available="true"]').first();
     await expect(card).toBeVisible();
     const figureId = (await card.getAttribute('data-figure-id')) ?? '';
-    const stopId = routeOnDisk(figureId)?.sections.find((section) => section.stop && sceneOnDisk(figureId, section.stop) !== null)?.stop ?? '';
+    const stopId = diveStopOnDisk(figureId);
     test.skip(stopId === '', '还没有“全程沙盘加一站自己的沙盘”');
     await card.click();
     const pane = stagePane(page);

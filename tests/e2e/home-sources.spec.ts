@@ -422,8 +422,9 @@ test('“来源”页里面的那一段程序点进去才下载：首页、人�
     if (new URL(request.url()).pathname.includes('/SourcesBody')) asked.push(request.url());
   });
   const figure = FIGURES[0];
-  const withTable = figure.stops.find((stop) => sceneOnDisk(figure.id, stop.id) !== null);
-  test.skip(!withTable, '还没有哪一站有沙盘');
+  // 写好了正文、有沙盘的头一站（下面要等它的正文出来）。有沙盘的站不一定写好了正文：眉州的沙盘比正文先做好
+  const withTable = figure.stops.find((stop) => stop.status === 'complete' && sceneOnDisk(figure.id, stop.id) !== null);
+  test.skip(!withTable, '还没有哪一站写好了正文又有沙盘');
   if (!withTable) return;
   const headings = headingsOf(sceneOnDisk(figure.id, withTable.id)!);
 

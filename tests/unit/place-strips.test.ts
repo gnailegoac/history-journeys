@@ -263,6 +263,52 @@ describe('摆在哪一边', () => {
     expect(leaning('above', 'left', {}, { out: [0, -1] })).toEqual(far);
   });
 
+  it('写了 lean 的题签，想摆的那一边整边都摆不下（那一点到了画面的边上）：先退到 lean 说的那一边，那一边也摆不下再照原来的先后；没写 lean 的还到原来的那一边', () => {
+    const placedAt = (where: { x: number; y: number }, side: Side | undefined, lean?: Side, anchor: Partial<Anchor> = {}): StripPlacement =>
+      placeStrips(input({ strips: [{ id: 'a', w: W, h: H, rank: 0, side, lean }], anchors: [at('a', where.x, where.y, anchor)] }))[0];
+    const sideOf = (p: StripPlacement): Side | null => sideOfSlot(p.slot ?? -1);
+    // 那一点离画面的上边 60：上边摆不下（题签高 90，推回来就压着那一点）
+    const top = { x: 400, y: 60 };
+    // 没写 lean：照原来的先后，上边以后是右边，正对着那一点，隔开的远近不变
+    const plain = placedAt(top, 'above');
+    expect(sideOf(plain)).toBe('right');
+    expect(box(plain).left - 400).toBe(GAP);
+    expect(plain.y).toBe(60);
+    expect(plain).toEqual(one('above', top));
+    // 写了往左偏：退到左边，也是正对着那一点（偏一格只在想摆的那一边）；号是左边、最近的一档、不挪的那一个
+    const fallen = placedAt(top, 'above', 'left');
+    expect(sideOf(fallen)).toBe('left');
+    expect(400 - box(fallen).right).toBe(GAP);
+    expect(fallen.y).toBe(60);
+    expect(fallen.slot).toBe(200);
+    expect(fallen.leader).toEqual([400, 60, box(fallen).right, 60]);
+    // 写了往右偏：退到右边，和没写的摆在同一个位置
+    expect(placedAt(top, 'above', 'right')).toEqual(plain);
+    // 另外三边一样：下边摆不下退到左、右；左边摆不下退到上、下；右边摆不下退到下
+    const bottom = { x: 400, y: 540 };
+    expect(sideOf(placedAt(bottom, 'below'))).toBe('above');
+    expect(sideOf(placedAt(bottom, 'below', 'left'))).toBe('left');
+    expect(sideOf(placedAt(bottom, 'below', 'right'))).toBe('right');
+    const leftEdge = { x: 20, y: 300 };
+    expect(sideOf(placedAt(leftEdge, 'left'))).toBe('above');
+    expect(sideOf(placedAt(leftEdge, 'left', 'above'))).toBe('above');
+    expect(sideOf(placedAt(leftEdge, 'left', 'below'))).toBe('below');
+    const rightEdge = { x: 780, y: 300 };
+    expect(sideOf(placedAt(rightEdge, 'right'))).toBe('above');
+    expect(sideOf(placedAt(rightEdge, 'right', 'below'))).toBe('below');
+    // lean 说的那一边也摆不下（那一点在左上角）：照原来的先后往下试，和没写的摆在同一个位置
+    const corner = { x: 20, y: 60 };
+    expect(sideOf(placedAt(corner, 'above'))).toBe('right');
+    expect(placedAt(corner, 'above', 'left')).toEqual(placedAt(corner, 'above'));
+    // 想摆的那一边摆得下时不退：还是那一角
+    expect(sideOf(placedAt({ x: 400, y: 300 }, 'above', 'left'))).toBe('above');
+    // 和没写一样的三种：没有写 side、两样不是一横一竖、远处的题签
+    expect(placedAt(top, undefined, 'left')).toEqual(one(undefined, top));
+    expect(placedAt(top, 'above', 'below')).toEqual(plain);
+    expect(placedAt(bottom, 'below', 'above')).toEqual(placedAt(bottom, 'below'));
+    expect(placedAt(top, 'above', 'left', { out: [1, 0] })).toEqual(placedAt(top, 'above', undefined, { out: [1, 0] }));
+  });
+
   it('摆出来的每一条都带着号；号说得出摆在哪一边', () => {
     for (const side of ['above', 'below', 'left', 'right'] as const) {
       const p = one(side);

@@ -490,7 +490,7 @@ describe('规则 11 范围', () => {
     };
     const moved = (ring: [number, number][], j: number, to: [number, number]): [number, number][] => ring.map((p, k) => (k === j ? to : p));
     expect(goodScene().dressing).toHaveLength(5);
-    // 圈在沙盘里面（一圈、两圈）：通过；压在沙盘的边上也算在里面，和别的点一样
+    // 圈在沙盘里面（一圈、两圈）：通过；紧挨着边（在东北角里面几米）的点也通过，和别的点一样
     expect(sceneProblems(grove((s) => [ringOf(s)]))).toEqual([]);
     expect(sceneProblems(grove((s) => [ringOf(s), ringOf(s)]))).toEqual([]);
     expect(sceneProblems(grove((s) => [moved(ringOf(s), 0, [110.0155, 30.0108])]))).toEqual([]);

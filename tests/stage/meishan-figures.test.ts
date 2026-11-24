@@ -119,18 +119,24 @@ describe.runIf(realSceneKeys().includes(KEY))('眉州的模型', { timeout: 60_0
     return out;
   };
   const builders = worksFamily.things ?? {};
-  /** 一小节在一种沙盘栏上摆好的镜头，和“地上一米合几个页面像素”。 */
-  const look = (heading: string, pane: (typeof STANDARD_PANES)[number]) => {
+  /**
+   * 一小节在一种沙盘栏上摆好的镜头，和“地上一米合几个页面像素”。
+   * times 不是 1 时是读者用滚轮推近、拉远以后的镜头：看的那一点和方向不变，远近是摆好时的 times 倍（页面上滚轮一格是 0.95 倍）。
+   */
+  const look = (heading: string, pane: (typeof STANDARD_PANES)[number], times = 1) => {
     const placed = placeCamera(section(heading), scene, samplers, coords, style, pane.size, pane.insets);
-    const camera = new PerspectiveCamera(placed.pose.fov, pane.size.width / pane.size.height, Math.max(60, placed.distanceM * 0.1), placed.distanceM * 3 + 30000);
-    camera.position.set(...placed.pose.position);
-    camera.lookAt(...placed.pose.target);
+    const distanceM = placed.distanceM * times;
+    const camera = new PerspectiveCamera(placed.pose.fov, pane.size.width / pane.size.height, Math.max(60, distanceM * 0.1), distanceM * 3 + 30000);
+    const [px, py, pz] = placed.pose.position;
+    const [tx, ty, tz] = placed.pose.target;
+    camera.position.set(tx + (px - tx) * times, ty + (py - ty) * times, tz + (pz - tz) * times);
+    camera.lookAt(tx, ty, tz);
     const [shiftX, shiftY] = centreShift(pane.insets);
     if (shiftX || shiftY) camera.setViewOffset(pane.size.width, pane.size.height, -shiftX, -shiftY, pane.size.width, pane.size.height);
     camera.updateProjectionMatrix();
     camera.updateMatrixWorld(true);
-    const D = equivalentDistance(placed.distanceM, placed.pose.fov, pane.size.height);
-    return { camera, D, pxPerM: 2428 / D, on: (x: number, y: number, z: number) => project([x, y, z], camera, pane.size) };
+    const D = equivalentDistance(distanceM, placed.pose.fov, pane.size.height);
+    return { camera, D, distanceM, pxPerM: 2428 / D, on: (x: number, y: number, z: number) => project([x, y, z], camera, pane.size) };
   };
 
   // ---------------------------------------------------------------- 水纹
@@ -315,6 +321,75 @@ describe.runIf(realSceneKeys().includes(KEY))('眉州的模型', { timeout: 60_0
           expect(apart, `${pane.name} 上“浮桥”的题签和 ${other.id}`).toBe(true);
         }
       }
+    });
+
+    it('读者用滚轮把镜头推近，“浮桥”的题签不躺到桥上去：上边没有地方了，它退到桥头的左边（lean 说的那一边），不到右边；四种标准的沙盘栏上，从摆好的远近一格一格推到那一点出了画面，哪一格都不压桥', () => {
+      const ux = (plan.b[0] - plan.a[0]) / plan.length;
+      const uz = (plan.b[1] - plan.a[1]) / plan.length;
+      const written = section(VIEW_HILL).strips.map((id) => scene.strips.find((s) => s.id === id)).filter((s) => s !== undefined);
+      // 那一点自己的圆：点的半径 2.6，连浅色的边 3.3；桥线在这个圆里面的一小截本来就在点的下面
+      const DOT_CIRCLE = 4;
+      // 检查的人在真的页面上看到题签躺在桥上的远近（镜头到它看的那一点，米）：电脑的沙盘栏上 5,300 到 4,300，横着拿的平板上 6,200 到 4,800
+      const used: Record<string, [number, number]> = { '940 × 900': [4300, 5300], '584 × 768': [4800, 6200] };
+      const said: string[] = [];
+      for (const pane of STANDARD_PANES) {
+        const sized = sectionStrips(scene, VIEW_HILL, pane.size.width);
+        const size = sized.find((x) => x.id === 't-bridge');
+        if (!size) throw new Error('题签对不上');
+        let chained: ReturnType<typeof placeStrips> | undefined;
+        const sides: string[] = [];
+        let inRange = 0;
+        // 页面上滚轮一格近 5%；第 0 格是摆好的远近
+        for (let notch = 0; notch <= 40; notch++) {
+          const view = look(VIEW_HILL, pane, 0.95 ** notch);
+          const anchors = screenAnchors(written, scene, samplers, coords, style, view.D, view.camera, pane.size);
+          const dot = anchors.find((a) => a.id === 't-bridge');
+          if (!dot) throw new Error('“浮桥”的点没有算出来');
+          const fresh = placeStrips({ strips: sized, anchors, size: pane.size, insets: pane.insets });
+          // 页面上题签是接着上一次摆的（能不换位置就不换）；从头摆和接着摆两样都查
+          chained = placeStrips({ strips: sized, anchors, size: pane.size, insets: pane.insets }, chained);
+          const range = used[pane.name];
+          const named = range !== undefined && view.distanceM >= range[0] && view.distanceM <= range[1];
+          for (const [how, placed] of [['从头摆', fresh], ['接着上一格摆', chained]] as const) {
+            const mine = placed.find((p) => p.id === 't-bridge');
+            if (!mine) throw new Error('题签对不上');
+            const where = `${pane.name}，推近 ${notch} 格（${view.distanceM.toFixed(0)} 米），${how}`;
+            if (mine.hidden) {
+              // 那一点出了画面才不摆；看得见的时候都摆得出来
+              expect(mine.why, where).toBe('unseen');
+              expect(named, `${where}：这个远近上题签应该摆得出来`).toBe(false);
+              continue;
+            }
+            const box = { left: mine.x - size.w / 2, right: mine.x + size.w / 2, top: mine.y - size.h / 2, bottom: mine.y + size.h / 2 };
+            const inBox = (p: { x: number; y: number }): boolean => p.x > box.left && p.x < box.right && p.y > box.top && p.y < box.bottom;
+            // 桥线（从桥头到对岸的那一头，取水面和桥板两个高度）上，那一点自己的圆以外的地方都不在题签里
+            for (let k = 0; k <= 60; k++) {
+              const d = (plan.length * k) / 60;
+              for (const y of [plan.waterY, plan.deckY]) {
+                const p = view.on(plan.a[0] + ux * d, y, plan.a[1] + uz * d);
+                if (Math.hypot(p.x - dot.x, p.y - dot.y) <= DOT_CIRCLE) continue;
+                expect(inBox(p), `${where}：“浮桥”的题签压着桥（桥线上 ${d.toFixed(0)} 米处）`).toBe(false);
+              }
+            }
+            // 桥线的第二个点（对岸的桥头）不在题签里
+            expect(inBox(view.on(plan.b[0], plan.waterY, plan.b[1])), `${where}：题签盖着对岸的桥头`).toBe(false);
+            const side = sideOfSlot(mine.slot ?? -1);
+            // 检查的人看到题签躺在桥上的那几格：现在在桥头的左边
+            if (named) {
+              expect(side, where).toBe('left');
+              expect(box.right, where).toBeLessThan(dot.x - DOT_CIRCLE);
+              if (how === '接着上一格摆') inRange += 1;
+            }
+            if (how === '接着上一格摆') sides.push(`${notch}:${side === 'above' ? '上' : side === 'left' ? '左' : side === 'right' ? '右' : side === 'below' ? '下' : '圈'}`);
+          }
+        }
+        // 摆好的远近上还在上边（往左偏）；推近以后只到过左边，没有到过右边、下边
+        expect(sides[0], pane.name).toBe('0:上');
+        expect(sides.some((s) => s.endsWith('右') || s.endsWith('下') || s.endsWith('圈')), `${pane.name}：${sides.join(' ')}`).toBe(false);
+        if (used[pane.name]) expect(inRange, `${pane.name} 上那几格`).toBeGreaterThanOrEqual(4);
+        said.push(`${pane.name}：${sides.join(' ')}`);
+      }
+      console.log(`眉州“浮桥”的题签，滚轮推近时站在哪一边（格:边）\n${said.join('\n')}`);
     });
 
     it('嘉州的题签挂在江流出沙盘的地方：在沙盘的南边上，离江的中线和南边的交点不到 30 米（规则 15 放宽的那一条）', () => {

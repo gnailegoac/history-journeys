@@ -249,7 +249,7 @@ function candidates(strip: Strip, anchor: Anchor, free: Rect, gap: number, stay:
     const slides = upright ? SLIDES_ACROSS : SLIDES_ALONG;
     const step = upright ? (strip.w + GUTTER) / 2 : strip.h / 3;
     // 场景里写了 lean：在它想摆的那一边，往那一头偏一格的位置最便宜，离它越远越贵（−1 是往左、往上，1 是往右、往下）。
-    // 号还是认位置，只是先后换了；没写 lean、别的三边、远处的题签，代价和原来一个数不差
+    // 号还是认位置，只是先后换了；别的三边不偏（退到哪一边见 sidesFor）；没写 lean 的、远处的题签，代价和原来一个数不差
     const lean = !out && strip.lean && side === strip.side ? SIDE_VEC[strip.lean][upright ? 0 : 1] : 0;
     GAPS.forEach((times, gapIndex) => {
       slides.forEach((slide, slideIndex) => {
@@ -289,14 +289,21 @@ function candidates(strip: Strip, anchor: Anchor, free: Rect, gap: number, stay:
   return found.sort((a, b) => a.cost - b.cost);
 }
 
-/** 先试哪一边、后试哪一边。远处的题签按哪一边最朝外来排，朝着沙盘里面的不试；别的先试场景里写的那一边。 */
+/**
+ * 先试哪一边、后试哪一边。远处的题签按哪一边最朝外来排，朝着沙盘里面的不试；别的先试场景里写的那一边。
+ * 写了 lean 的（和 side 一横一竖才算数），想摆的那一边摆不下时先退到 lean 说的那一边，再试剩下的两边：
+ * 眉州的“浮桥”写的是上边、往左偏，读者把镜头推近、上边没有地方了，它退到桥头的左边，不到右边去压着桥。
+ * 没写 lean 的和远处的题签，先后和代价同原来一个数不差。
+ */
 function sidesFor(strip: Strip, out: readonly [number, number] | null): Side[] {
   if (out) {
     const along = (side: Side): number => SIDE_VEC[side][0] * out[0] + SIDE_VEC[side][1] * out[1];
     return SIDES.filter((side) => along(side) > INWARD_BELOW).sort((a, b) => along(b) - along(a));
   }
   const wish = strip.side;
-  return wish ? [wish, ...SIDES.filter((side) => side !== wish)] : [...SIDES];
+  if (!wish) return [...SIDES];
+  const lean = strip.lean && (SIDE_VEC[strip.lean][0] === 0) !== (SIDE_VEC[wish][0] === 0) ? strip.lean : undefined;
+  return [wish, ...(lean ? [lean] : []), ...SIDES.filter((side) => side !== wish && side !== lean)];
 }
 
 /** 远处的题签朝外的方向（长度为 1）。没有写、写得不成方向的，当作没有。 */

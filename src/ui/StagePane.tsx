@@ -60,8 +60,6 @@ type TableChoice = 'auto' | 'pictures' | 'asked';
  * 题签的测试照同一个数分大小（tests/stage/support/stripSizes.ts）。
  */
 const WIDE_PANE_PX = 584;
-/** 栏里面的宽度（不连边线）到了这么多像素，题记那一行才用楷体（.is-kai）：照下面 fitPane 的算法，(661 − 21) ÷ 40，这时它正好 16px。 */
-const KAI_PANE_PX = 661;
 /** 窄的排法里，比例尺的那一段最长多少像素：它和小节、时间挤在一行里。 */
 const NARROW_SCALE_PX = 56;
 /** 宽屏的条件，和 layout.css 的媒体查询是同一句（够宽，而且横着）。只有窄屏上能收起沙盘。 */
@@ -457,7 +455,7 @@ function TableStage({ table, section, resetLabel, bare, marks, standing, namesMo
     }
   }, [readInsets]);
 
-  // 栏有多宽，记在栏上：够宽挂 .is-wide，题记够大挂 .is-kai，栏里面的宽度写成 --pane-w，宽的排法里题记的字号写成 --line-size。
+  // 栏有多宽，记在栏上：够宽挂 .is-wide，栏里面的宽度写成 --pane-w，宽的排法里题记的字号写成 --line-size。
   // 字号是（栏里面的宽度 − 21）÷ 40 往下取整，最小 14、最大 19 像素：整数的字号，40 个字在哪种系统上都是 40 × 字号那么宽
   //（Linux 上平常一个字只占整数个像素，14.95px 的字会排成 15px 一个，行尾就被截掉了）。
   // 这几样直接写在元素上，不经过重画（和指北、比例尺一样）。每次重画以后（类名会被重画冲掉）、窗口的大小变了以后都重写一遍，
@@ -469,7 +467,6 @@ function TableStage({ table, section, resetLabel, bare, marks, standing, namesMo
     const inner = el.clientWidth;
     wide.current = el.offsetWidth >= WIDE_PANE_PX;
     el.classList.toggle('is-wide', wide.current);
-    el.classList.toggle('is-kai', inner >= KAI_PANE_PX);
     el.style.setProperty('--pane-w', `${inner}px`);
     el.style.setProperty('--line-size', `${Math.min(19, Math.max(14, Math.floor((inner - 21) / 40)))}px`);
   }, []);
@@ -1001,11 +998,12 @@ function TableStage({ table, section, resetLabel, bare, marks, standing, namesMo
         </div>
         <div className="stage-north">
           <span>{STAGE_TEXT.north}</span>
+          {/* 针只有一个头：朝北的一头是实心的箭头，另一头是一根直线。两头都画成箭头的话，20 来个像素大的时候分不出哪一头是北。 */}
           <svg viewBox="-23 -23 46 46" aria-hidden="true">
             <circle r="20" fill="none" stroke="currentColor" strokeWidth="1" opacity="0.55" />
             <g ref={needle}>
-              <path className="stage-north-tip" d="M0 -17 L5.2 2 L0 -1.5 L-5.2 2 Z" />
-              <path d="M0 17 L4 3 L0 5 L-4 3 Z" fill="none" stroke="currentColor" strokeWidth="1" />
+              <path className="stage-north-tip" d="M0 -18 L6 3 L0 -1 L-6 3 Z" />
+              <path d="M0 2V17" stroke="currentColor" strokeWidth="2.5" />
             </g>
           </svg>
         </div>

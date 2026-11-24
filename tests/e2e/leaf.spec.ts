@@ -322,7 +322,7 @@ test('四种标准的窗口上：正文那一栏里能点的东西都不小于 4
     expect(await page.locator('.reading').locator('a[href], button, summary, [role="button"], [tabindex]').count(), `${nameOf(size)}，首页：那页纸上能点的东西只有可以点进去的卡片和“来源”`).toBe(openCards + 1);
     await check('首页', { 'a.card': openCards, 'a.stop-nav-sources': 1 });
 
-    // “来源”页：位置那一行，四份许可全文，两套字体的网站，每张图片的出处
+    // “来源”页：位置那一行，五份许可全文，三套字体的网站，每张图片的出处
     await openAt(page, size, '#/sources');
     await expect(page.locator('.sources-list li').first()).toBeVisible();
     await expect(page.locator('.sources .quiet')).toHaveCount(0);

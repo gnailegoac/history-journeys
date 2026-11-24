@@ -8,6 +8,7 @@
 //   featuresOf(tables, t)  GSUB、GPOS 里留着哪些排版功能
 //   hintingOf(tables)      文件里留没留着提示信息（让小字在普通屏幕上清楚一些的那些数）
 //   glyphCountOf(tables)   有多少个字形
+//   weightOf(tables)       字体自己写的粗细
 //   renameSfnt(bytes, 条目) 给一个 .ttf / .otf 换一张名称表，别的表一个字节不动，校验和重新算好
 //   checkSfnt(bytes)       各张表的校验和对不对；对的话返回空的清单
 //
@@ -163,6 +164,13 @@ export function charactersOf(tables: FontTables): string {
 export function glyphCountOf(tables: FontTables): number {
   const t = tables.get('maxp');
   if (!t) throw new Error('字体里没有 maxp 这张表');
+  return view(t).getUint16(4);
+}
+
+/** 字体自己写的粗细（OS/2 表里的 usWeightClass：400 是平常的，500 是 Medium）。 */
+export function weightOf(tables: FontTables): number {
+  const t = tables.get('OS/2');
+  if (!t || t.length < 6) throw new Error('字体里没有 OS/2 这张表（粗细写在它里面）');
   return view(t).getUint16(4);
 }
 

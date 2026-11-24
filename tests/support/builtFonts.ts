@@ -85,6 +85,8 @@ export interface CommittedFont {
   sha256: string;
   /** 样式表里有没有给它写 unicode-range。 */
   range: boolean;
+  /** 要不要在 index.html 里预先声明（做字体的工具定的，tests/support/fontTool.ts 的 PRELOAD_GROUPS）。 */
+  preload: boolean;
   /** 装的是不是不用点开就看得见的字；只归哪一站（宋体按站拆开以后才有，大家共用的是 null）。算首次打开要下载多少时用。 */
   first: boolean;
   stop: string | null;
@@ -108,7 +110,8 @@ export const CQW_MAX = 0;
 /**
  * 构建出来的网站里的字体对着放进仓库的查一遍：
  *   dist/ 里的 .woff2 正好是放进仓库的那几个（一个字节不差），不多不少；
- *   index.html 预先声明的，正好是样式表里不带 unicode-range 的那几条，地址是同一个文件，都带 crossorigin、type；
+ *   index.html 预先声明的，正好是记录里说要预先声明的那几个（不是“不带 unicode-range 的都声明”：有的文件不带 unicode-range、
+ *   也不预先声明，页面上用到那套字体时浏览器才取），地址和样式表里写的是同一个文件，都带 crossorigin、type；
  *   每一条 @font-face 指着 dist/ 里有的文件，都是 font-display: swap；带 unicode-range 的和放进仓库的记录一致。
  */
 export function builtFonts(site: BuiltSite, committed: CommittedFont[]): BuiltFonts {
@@ -143,16 +146,20 @@ export function builtFonts(site: BuiltSite, committed: CommittedFont[]): BuiltFo
 
   // index.html 里预先声明的
   const preloads = fontPreloads(site.html).map((link) => ({ ...link, path: inDist(link.href, 'index.html') }));
-  const firstFaces = faces.filter((face) => !face.ranged && face.path !== null).map((face) => face.path as string);
+  // 要预先声明的：记录里标着 preload 的那几个文件，在样式表里的那一条指着的地址
+  const preloadFiles = committed.filter((item) => item.preload).map((item) => builtOf.get(item.file));
+  const firstFaces = faces.filter((face) => face.path !== null && preloadFiles.includes(face.path)).map((face) => face.path as string);
   for (const link of preloads) {
     const where = `index.html 里预先声明的 ${link.href}`;
     if (link.path === null) say(`${where}指着别的网站`);
     else if (!Object.hasOwn(site.fonts, link.path)) say(`${where}，dist/ 里没有这个文件`);
-    else if (!firstFaces.includes(link.path)) say(`${where}不是样式表里一打开就要用的字体文件（样式表里写的是 ${firstFaces.join('、') || '没有'}）：会多下载一个文件`);
+    else if (!firstFaces.includes(link.path)) say(`${where}不是记录里说要预先声明的字体文件（要预先声明的是 ${firstFaces.join('、') || '没有'}）：会多下载一个文件，或者下载得太早`);
     if (!link.crossorigin) say(`${where}没有 crossorigin：浏览器取来的这一份样式表用不上，会再取一遍`);
     if (link.type !== 'font/woff2') say(`${where}的 type 是“${link.type}”，应该是 font/woff2`);
   }
-  for (const path of firstFaces) if (!preloads.some((link) => link.path === path)) say(`样式表里一打开就要用的 ${path} 没有在 index.html 里预先声明`);
+  for (const path of firstFaces) if (!preloads.some((link) => link.path === path)) say(`记录里说要预先声明的 ${path} 没有在 index.html 里预先声明`);
+  // 带 unicode-range 的文件用到它里面的字时才下载：记录里把它标成要预先声明，是记错了
+  for (const item of committed) if (item.preload && item.range) say(`${item.file} 带着 unicode-range（用到时才下载），记录里却说要预先声明`);
   const paths = preloads.map((link) => link.path);
   if (paths.some((path, i) => path !== null && paths.indexOf(path) !== i)) say('index.html 里同一个字体文件预先声明了两次');
 

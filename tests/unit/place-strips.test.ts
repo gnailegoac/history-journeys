@@ -1250,7 +1250,7 @@ describe('题签层：引线底下垫着纸色的衬边，横平竖直的引线�
     expect(under.style.display).not.toBe('none');
     expect(under.getAttribute('d')).toBe(`M${line.getAttribute('x1')} ${line.getAttribute('y1')}L${line.getAttribute('x2')} ${line.getAttribute('y2')}`);
     expect(under.style.fill).toBe('none');
-    expect(under.style.stroke).toContain('--color-paper');
+    expect(under.style.stroke).toContain('--figure-halo');
     expect(Number(under.style['stroke-width'])).toBeGreaterThan(num(line, 'stroke-width'));
   });
 
@@ -1324,7 +1324,7 @@ describe('题签层：远处的题签，那一点上有一个朝外的小箭头'
     expect(halo.style.display).not.toBe('none');
     expect(halo.getAttribute('d')).toBe(arrowOf(m, 'far').getAttribute('d'));
     expect(halo.style.fill).toBe('none');
-    expect(halo.style.stroke).toContain('--color-paper');
+    expect(halo.style.stroke).toContain('--figure-halo');
     expect(Number(halo.style['stroke-width'])).toBeGreaterThan(Number(arrowOf(m, 'far').style['stroke-width']));
     expect(haloOf(m, 'a').style.display).toBe('none');
   });

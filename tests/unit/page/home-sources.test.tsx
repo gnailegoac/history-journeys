@@ -200,13 +200,13 @@ describe('“来源”页', () => {
     await page.unmount();
   });
 
-  it('字体：两套各一条，名字和版本就是 shipped.ts 里的；各有“许可全文”（网站自己带的文本文件）和“字体的网站”（通到外面的平常链接）', { timeout: 30_000 }, async () => {
+  it('字体：三套各一条（黑体、宋体、楷体），名字和版本就是 shipped.ts 里的；各有“许可全文”（网站自己带的文本文件）和“字体的网站”（通到外面的平常链接）', { timeout: 30_000 }, async () => {
     const page = await mount('?stage=fake', 'sources');
     await waitFor(() => page.all('.sources-item').length > 0 && page.all('main .quiet').length === 0);
     const fonts = page.all('section').find((section) => attr(section, 'data-sources') === 'fonts')!;
     const items = fonts.querySelectorAll('.sources-item');
-    expect(items.map((item) => attr(item, 'data-font'))).toEqual([SHIPPED_FONTS.kai.family, SHIPPED_FONTS.song.family]);
-    for (const [i, font] of [SHIPPED_FONTS.kai, SHIPPED_FONTS.song].entries()) {
+    expect(items.map((item) => attr(item, 'data-font'))).toEqual([SHIPPED_FONTS.sans.family, SHIPPED_FONTS.song.family, SHIPPED_FONTS.kai.family]);
+    for (const [i, font] of [SHIPPED_FONTS.sans, SHIPPED_FONTS.song, SHIPPED_FONTS.kai].entries()) {
       const item = items[i];
       const said = item.querySelector('p')!.textContent!;
       expect(said, `${font.family} 那一条`).toContain(font.name);
@@ -214,7 +214,7 @@ describe('“来源”页', () => {
       expect(said, `${font.family} 那一条`).toContain('按 SIL 开放字体许可 1.1 版使用。');
       const links = item.querySelectorAll('.sources-links a');
       expect(links.map((link) => link.textContent)).toEqual(['许可全文（英文）', '字体的网站']);
-      // 两套字体的链接写的字一样：给读屏软件的名字里带着是哪一套字体的，四个名字各不相同
+      // 三套字体的链接写的字一样：给读屏软件的名字里带着是哪一套字体的，六个名字各不相同
       expect(links.map((link) => attr(link, 'aria-label'))).toEqual([`${font.name} 许可全文（英文）`, `${font.name} 字体的网站`]);
       // 许可全文：网站自己带着的文件，相对的地址，在这一页打开
       expect(attr(links[0], 'href')).toBe(font.licence);
@@ -225,12 +225,16 @@ describe('“来源”页', () => {
       expect(font.site).toMatch(/^https:\/\//);
       expect([attr(links[1], 'target'), attr(links[1], 'rel')]).toEqual(['_blank', 'noopener noreferrer']);
     }
-    expect(items[0].querySelector('p')!.textContent).toBe(SOURCES_TEXT.kai(SHIPPED_FONTS.kai));
+    expect(items[0].querySelector('p')!.textContent).toBe(SOURCES_TEXT.sans(SHIPPED_FONTS.sans));
     expect(items[1].querySelector('p')!.textContent).toBe(SOURCES_TEXT.song(SHIPPED_FONTS.song));
-    // 第三句：文件里的名称改成了什么
+    expect(items[2].querySelector('p')!.textContent).toBe(SOURCES_TEXT.kai(SHIPPED_FONTS.kai));
+    // 六个给读屏软件的名字各不相同（黑体的名字里带着 Medium，和宋体的分得开）
+    const labels = items.flatMap((item) => item.querySelectorAll('.sources-links a').map((link) => attr(link, 'aria-label')));
+    expect(new Set(labels).size).toBe(6);
+    // 末一句：文件里的名称改成了什么
     const last = fonts.childNodes[fonts.childNodes.length - 1] as MiniElement;
-    expect(last.textContent).toBe(SOURCES_TEXT.subset(SHIPPED_FONTS.kai, SHIPPED_FONTS.song));
-    expect(last.textContent).toContain(`“${SHIPPED_FONTS.kai.family}”“${SHIPPED_FONTS.song.family}”`);
+    expect(last.textContent).toBe(SOURCES_TEXT.subset(SHIPPED_FONTS.sans, SHIPPED_FONTS.song, SHIPPED_FONTS.kai));
+    expect(last.textContent).toContain(`“${SHIPPED_FONTS.sans.family}”“${SHIPPED_FONTS.song.family}”“${SHIPPED_FONTS.kai.family}”`);
     await page.unmount();
   });
 
@@ -320,10 +324,10 @@ describe('“来源”页', () => {
     expect(Object.values(LIBRARY_LICENCES).sort()).toEqual(LIBRARY_LICENCE_FILES.map((item) => `licences/${item.file}`).sort());
     for (const href of Object.values(LIBRARY_LICENCES)) expect(utf8.decode(readBytes(`public/${href}`)), href).toMatch(/MIT License/);
     expect((program.childNodes[program.childNodes.length - 1] as MiniElement).textContent).toBe(SOURCES_TEXT.shipped);
-    // 这一页上所有的链接：站内的四份许可全文和回首页的一个，别的都是新开一页的外面的地址
+    // 这一页上所有的链接：站内的五份许可全文和回首页的一个，别的都是新开一页的外面的地址
     const all = page.all('main a').map((link) => ({ href: attr(link, 'href') ?? '', target: attr(link, 'target') }));
     const inside = all.filter((link) => link.target === null).map((link) => link.href);
-    expect(inside.sort()).toEqual(['#/', SHIPPED_FONTS.kai.licence, SHIPPED_FONTS.song.licence, LIBRARY_LICENCES.react, LIBRARY_LICENCES.three].sort());
+    expect(inside.sort()).toEqual(['#/', SHIPPED_FONTS.sans.licence, SHIPPED_FONTS.song.licence, SHIPPED_FONTS.kai.licence, LIBRARY_LICENCES.react, LIBRARY_LICENCES.three].sort());
     for (const link of all.filter((one) => one.target !== null)) expect(link.href, '新开一页的链接是外面的地址').toMatch(/^https:\/\//);
     await page.unmount();
   });

@@ -1,9 +1,9 @@
-// 做随站的字体的工具：npm run fonts。从两个原字体里裁出网站用到的字，做成 src/fonts/ 里的几样：
-//   yanlu-kai.woff2、yanlu-song.woff2、yanlu-song-more.woff2   三个字体文件
+// 做随站的字体的工具：npm run fonts。从三个原字体里裁出网站用到的字，做成 src/fonts/ 里的几样：
+//   yanlu-sans.woff2、yanlu-song.woff2、yanlu-kai.woff2、yanlu-song-more.woff2   四个字体文件
 //   fonts.css      这几个文件的样式表
 //   fonts.json     记录：每个文件里有哪些字、多大、照哪个原字体做的
 //   shipped.ts     给页面用的几样
-// 再把四份许可全文照原样放进 public/licences/。这些做好以后放进仓库，随网站一起发；发布的流程不重新做。都不手改。
+// 再把五份许可全文照原样放进 public/licences/。这些做好以后放进仓库，随网站一起发；发布的流程不重新做。都不手改。
 // 说明见 docs/data-spec.md“随站的字体”；哪些字归哪个文件、文件怎么做，写在 tests/support/fontTool.ts。
 //
 // 它是一个测试文件，因为这个项目是靠 vitest 在 Node 里跑 TypeScript 的。
@@ -14,19 +14,20 @@
 // 另外两个环境变量：
 //   FONTS_OUT      试做：做出来的几样放到这个文件夹（相对项目的根目录，如 .cache/fonts-trial），
 //                  不动 src/fonts/ 和 public/licences/，也不管记录新不新，一定做。用来看“同样的字，做两遍，字节一样不一样”。
-//   FONTS_COMPARE  设成 1：另外把两个宋体文件不留提示信息各做一遍，只印出大小来比，不写。
+//   FONTS_COMPARE  设成 1：另外把两个宋体文件和黑体的文件不留提示信息各做一遍，只印出大小来比，不写。
 //
 // 步骤：
-//   1 数出网站上显示的字，分成三组（楷体、看得见的宋体、点开才看得见的宋体）。印出每组多少个字。
+//   1 数出网站上显示的字，分成四组（黑体、看得见的宋体、楷体、点开才看得见的宋体）。印出每组多少个字。
 //   2 两个程序库的许可全文和装着的不一样，就照装着的重抄一份。
 //   3 记录里的字、原字体的说明、做法、库的版本都和现在的一样，字体文件也都在、和记录对得上、读出来合现在的做法：不重做。
-//     这时再看照记录写的另外几样（样式表、给页面用的模块、两份字体的许可全文）：都对，说一声“已经是新的”，什么也不写；
+//     这时再看照记录写的另外几样（样式表、给页面用的模块、三份字体的许可全文）：都对，说一声“已经是新的”，什么也不写；
 //     哪一样不在、被改过，照记录把它重写（许可全文照 .cache/fonts/ 里的那一份重抄），说写了哪几样。前两样用不到原字体。
 //     所以查字体的测试（tests/fonts/font-files.test.ts）说“运行 npm run fonts”的地方，跑这一条命令都修得好。
 //   4 读原字体（.cache/fonts/ 里；不在、或者不是要的那一版，就停下来说该放什么文件）。原字体里没有的字：停下来列出来。
 //   5 每个文件：在原字体里换上新的名称表，裁剪，压成 WOFF2。
-//   6 读回来查一遍：里面的字正好是要的那些；名称对；楷体带着竖排用的两张表。大小对着上限查。不对就停，什么也不写。
-//   7 写文件；src/fonts/ 里不再要的字体文件删掉；两份字体的许可全文从 .cache/fonts/ 抄进 public/licences/。
+//   6 读回来查一遍：里面的字正好是要的那些；名称对；楷体带着竖排用的两张表；粗细是原字体的那一种；黑体的文件里留着 halt，
+//     别的“挤标点”的排版功能哪个文件里都没有。大小对着上限查。不对就停，什么也不写。
+//   7 写文件；src/fonts/ 里不再要的字体文件删掉；三份字体的许可全文从 .cache/fonts/ 抄进 public/licences/。
 
 import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
@@ -38,7 +39,10 @@ import {
   CACHE_DIR,
   FONTS_DIR,
   FONT_SOURCES,
+  FONT_SOURCE_IDS,
   KAI_FORBIDDEN,
+  SQUEEZE_FEATURES,
+  SQUEEZE_KEPT,
   LIBRARY_LICENCES,
   LICENCES_DIR,
   NAME_IDS,
@@ -70,12 +74,13 @@ import {
   sortedString,
   sourceFiles,
   sourceRecord,
+  squeezeProblems,
   stripComments,
   subsetSentence,
   toolVersions,
   writtenFromRecord,
 } from '../support/fontTool';
-import type { FontFileRecord, FontPlan, FontRecord, PlannedFile, ShippedFonts, SiteText } from '../support/fontTool';
+import type { FontFileRecord, FontPlan, FontRecord, FontSourceId, PlannedFile, ShippedFonts, SiteText } from '../support/fontTool';
 import { charactersOf, checkSfnt, cmapOf, englishName, glyphCountOf, hintingOf, namesOf, readSfnt, readWoff2, renameSfnt } from '../support/sfnt';
 
 const env = (globalThis as { process?: { env: Record<string, string | undefined> } }).process?.env ?? {};
@@ -89,7 +94,7 @@ const at = (path: string): URL => new URL(path, ROOT);
 const utf8 = new TextDecoder();
 
 /** 把一套字体的许可全文从 .cache/fonts/ 抄进 public/licences/：先核对记号；不在、不是那一份，就停下来说该放什么。 */
-function copyLicence(id: 'kai' | 'song'): void {
+function copyLicence(id: FontSourceId): void {
   const { file, sha256: want } = FONT_SOURCES[id].licence;
   const from = `${CACHE_DIR}/${file}`;
   if (!existsSync(at(from))) throw new Error(`${FONT_SOURCES[id].name} 的许可全文不在：把它放到 ${from}（SHA-256 ${want}；原字体的仓库里和字体同一版的许可文件）`);
@@ -113,7 +118,8 @@ describe.skipIf(!MAKING)('做随站的字体（npm run fonts）', () => {
     for (const file of plan.files) say(`[字体] ${file.name}：${[...file.characters].length} 个字`);
     say(`[字体] 只在 src/ 的程序里出现、content/ 里没有的字（${[...plan.onlyFromSrc].length} 个）：${plan.onlyFromSrc}`);
     if (plan.fallback) say(`[字体] 记在 FALLBACK_OK 里、不进字体、用设备自带的字显示的：${plan.fallback}`);
-    const kai = plan.files[0];
+    const kai = plan.files.find((file) => file.group === 'kai');
+    if (!kai) throw new Error('要做的文件里没有楷体的那一个');
     const bad = [...KAI_FORBIDDEN].filter((ch) => kai.characters.includes(ch));
     if (bad.length > 0) throw new Error(`用楷体排的字里有弯引号 ${bad.map((ch) => `“${ch}”（${(kai.where.get(ch) ?? []).join('、')}里）`).join('，')}：这套楷体里它只有三分之一个字宽。换个说法，或者先问一声。`);
 
@@ -138,7 +144,7 @@ describe.skipIf(!MAKING)('做随站的字体（npm run fonts）', () => {
       // 字体文件：都在，记号和记录里的一样，读出来的名称、提示信息和现在的做法对得上
       const wrong = fresh.fresh ? shippedFileProblems(record, (file) => (existsSync(at(`${FONTS_DIR}/${file}`)) ? readFileSync(at(`${FONTS_DIR}/${file}`)) : null)) : [];
       if (fresh.fresh && wrong.length === 0) {
-        // 字体文件是新的。照记录写的另外几样——样式表、给页面用的模块、两份字体的许可全文——要是不在、被改过，
+        // 字体文件是新的。照记录写的另外几样——样式表、给页面用的模块、三份字体的许可全文——要是不在、被改过，
         // 这里照记录重写（许可全文照 .cache/fonts/ 里的那一份重抄）。前两样用不到原字体
         const repaired: string[] = [];
         const texts = writtenFromRecord(record);
@@ -151,7 +157,7 @@ describe.skipIf(!MAKING)('做随站的字体（npm run fonts）', () => {
           writeFileSync(target, want);
           repaired.push(`${FONTS_DIR}/${name}`);
         }
-        for (const id of ['kai', 'song'] as const) {
+        for (const id of FONT_SOURCE_IDS) {
           const { file, sha256: want } = FONT_SOURCES[id].licence;
           const target = at(`${LICENCES_DIR}/${file}`);
           if (existsSync(target) && sha256(readFileSync(target)) === want) continue;
@@ -166,7 +172,7 @@ describe.skipIf(!MAKING)('做随站的字体（npm run fonts）', () => {
     }
 
     // 4、5 读原字体，做文件
-    const originals = { kai: readOriginal('kai'), song: readOriginal('song') };
+    const originals: Record<FontSourceId, Uint8Array> = { sans: readOriginal('sans'), song: readOriginal('song'), kai: readOriginal('kai') };
     const started = performance.now();
     const results: { file: PlannedFile; woff2: Uint8Array; record: FontFileRecord }[] = [];
     for (const file of plan.files) {
@@ -185,10 +191,13 @@ describe.skipIf(!MAKING)('做随站的字体（npm run fonts）', () => {
         problems.push(`${record.file}：里面的字和要的不一样（少了“${sortedString([...want].filter((ch) => !got.has(ch)))}”，多了“${sortedString([...got].filter((ch) => !want.has(ch)))}”）`);
       }
       problems.push(...fontFileProblems(record, tables));
+      // 粗细是原字体的那一种（样式表里这一套的 @font-face 照它写）；“挤标点”的功能：黑体留着 halt，别的一种也没有
+      if (record.weight !== FONT_SOURCES[file.source].weight) problems.push(`${record.file}：文件里写的粗细是 ${record.weight}，原字体那一项里写的是 ${FONT_SOURCES[file.source].weight}（tests/support/fontTool.ts 的 FONT_SOURCES）`);
+      problems.push(...squeezeProblems(record));
       const outline = info.entries.find((entry) => entry.tag === 'glyf' || entry.tag === 'CFF ')?.origLength ?? 0;
       say(
         `[字体] ${record.file}：${record.count} 个字，${record.glyphs} 个字形，${withCommas(record.bytes)} 字节` +
-          `（还原成普通的字体文件是 ${withCommas(info.totalSfntSize)} 字节：字形 ${withCommas(outline)}，别的表 ${withCommas(info.totalSfntSize - outline)}）；留下的排版功能：${record.features.join(' ') || '没有'}`,
+          `（还原成普通的字体文件是 ${withCommas(info.totalSfntSize)} 字节：字形 ${withCommas(outline)}，别的表 ${withCommas(info.totalSfntSize - outline)}）；粗细 ${record.weight}；留下的排版功能：${record.features.join(' ') || '没有'}`,
       );
     }
     const sizes = fontReport(results.map(({ record }) => ({ file: record.file, bytes: record.bytes, first: record.first, stop: record.stop })));
@@ -197,8 +206,8 @@ describe.skipIf(!MAKING)('做随站的字体（npm run fonts）', () => {
     problems.push(...sizes.fails);
     say(`[字体] ${results.length} 个文件裁剪、压缩用了 ${seconds.toFixed(1)} 秒`);
     if (env.FONTS_COMPARE === '1') {
-      for (const { file, record } of results.filter((item) => item.file.source === 'song')) {
-        const plain = await makeFont(file, originals.song, { noHinting: true });
+      for (const { file, record } of results.filter((item) => item.file.source !== 'kai')) {
+        const plain = await makeFont(file, originals[file.source], { noHinting: true });
         say(`[字体] 比一比：${record.file} 不留提示信息是 ${withCommas(plain.length)} 字节，留着是 ${withCommas(record.bytes)}（小 ${(100 - (plain.length / record.bytes) * 100).toFixed(1)}%）。没有写。`);
       }
     }
@@ -218,8 +227,8 @@ describe.skipIf(!MAKING)('做随站的字体（npm run fonts）', () => {
         say(`[字体] 删掉了不再要的 ${outDir}/${name}`);
       }
     }
-    if (!trial) for (const id of ['kai', 'song'] as const) copyLicence(id);
-    say(`[字体] 写好了：${outDir}/ 里 ${results.length} 个字体文件、fonts.css、fonts.json、shipped.ts${trial ? '（试做，没有动 src/fonts/ 和 public/licences/）' : `；${LICENCES_DIR}/ 里两份字体的许可全文。把变了的文件同改动一起提交`}。`);
+    if (!trial) for (const id of FONT_SOURCE_IDS) copyLicence(id);
+    say(`[字体] 写好了：${outDir}/ 里 ${results.length} 个字体文件、fonts.css、fonts.json、shipped.ts${trial ? '（试做，没有动 src/fonts/ 和 public/licences/）' : `；${LICENCES_DIR}/ 里三份字体的许可全文。把变了的文件同改动一起提交`}。`);
   });
 });
 
@@ -259,6 +268,7 @@ function madeUpSite(change: (site: SiteText) => void = () => {}): SiteText {
       'index.html': "<!-- 藏四 --><p>显</p><script>// 藏五\nvar s = '脚';</script>",
     },
     kaiLabels: ['楷签'],
+    sansLabels: ['黑签'],
     cards: [{ id: 'p', name: '某人', era: '某代', years: '1–9', sortYear: 1, tagline: '卡片上的一句', available: true }],
     figures: [
       {
@@ -340,7 +350,7 @@ describe('数字：哪些字归哪一组（编出来的一位人物）', () => {
     for (let code = 0x20; code < 0x7f; code++) expect(fileOf(plan, 'song').characters, codeOf(String.fromCodePoint(code))).toContain(String.fromCodePoint(code));
     // 只在程序里出现的字单独记着（英文不列）
     // “的、今、天”三个字编出来的内容里也有，不算只在程序里出现；省略号是工具自己添进楷体那一组的（见下一项），内容里没有
-    expect(plan.onlyFromSrc).toBe(sortedString('串文模址显脚楷签真位置按史料摆示意点缀…'));
+    expect(plan.onlyFromSrc).toBe(sortedString('串文模址显脚楷签黑真位置按史料摆示意点缀…'));
   });
 
   it('字要点了才看得见的界面文件（“来源”页上的话）：只有它里面有的字归点开才看得见的一组，别处不点就看得见的字还在头一组；不列在名单里就照平常的界面文件算', () => {
@@ -423,7 +433,7 @@ describe('数字：哪些字归哪一组（编出来的一位人物）', () => {
     expect(isInterfaceSource('tests/support/fontTool.ts')).toBe(false);
   });
 
-  it('楷体的一组：界面上列着的字、类别名、人物的名字、站名、小节标题、小注的标题、题记、空格', () => {
+  it('楷体的一组：界面上列着的字、类别名、人物的名字、站名、小节标题、小注的标题、空格', () => {
     const plan = planFonts(madeUpSite());
     expect(has(plan, 'kai', '楷签 真的今天位置按史料摆示意点缀某人甲站：头一乙后起初来未辰')).toBe(true);
     // 正文、卡片上的一句、图片的题记不是楷体
@@ -436,10 +446,46 @@ describe('数字：哪些字归哪一组（编出来的一位人物）', () => {
     expect(fileOf(plan, 'kai').family).toBe('Yanlu Kai');
   });
 
-  it('楷体那一组的每一个字，头一组宋体里也有一份（楷体还在路上时先用宋体，不为它去取点开才要的文件）', () => {
+  it('黑体的一组：界面上列着的字、类别名、人物的名字和年份、站名和时间地点年纪、小节标题、小注的标题、沙盘旁边的小节名和时间、省略号', () => {
     const plan = planFonts(madeUpSite());
-    for (const ch of fileOf(plan, 'kai').characters) expect(fileOf(plan, 'song').characters, `“${ch}”`).toContain(ch);
-    // 小注的标题点开才看得见，但它是楷体，所以也在头一组里
+    // 界面上列着的、类别名、名字、朝代和年份、站名、每一站的时间、年纪、地点、小节标题、小注的标题、凭据里的小节名、空格
+    expect(has(plan, 'sans', '黑签 真的今天位置按史料摆示意点缀某人某代1–9甲站：头一乙后2虚岁三十古地（今）起初来未辰')).toBe(true);
+    // 成句的话不是黑体：正文、卡片上的一句、人物页的介绍、目录里的摘要、图片的题记；楷体那张表里的字也不在
+    expect(hasNone(plan, 'sans', '午共引卡片句许概要他是谁楷')).toBe(true);
+    // 省略号：工具自己添的。黑体的一行被截掉时（沙盘旁边的时间只占一行），行尾的省略号要有黑体的字形可用
+    expect(has(plan, 'sans', '…')).toBe(true);
+    expect(fileOf(plan, 'sans').where.get('…')).toEqual(['一行黑体截掉时行尾的省略号']);
+    const sans = fileOf(plan, 'sans');
+    expect({ range: sans.range, first: sans.first, postscript: sans.postscript, family: sans.family, weight: sans.weight }).toEqual({ range: false, first: true, postscript: 'YanluSans-Medium', family: 'Yanlu Sans', weight: 500 });
+    expect(fileOf(plan, 'kai').weight).toBe(400);
+    expect(fileOf(plan, 'song').weight).toBe(400);
+    // 沙盘旁边的小节名和时间：有沙盘的站才有
+    const scene = fixtureScene();
+    const withTable = planFonts(madeUpSite((site) => (site.figures[0].stops[0].scene = scene)));
+    for (const section of scene.sections) {
+      expect(has(withTable, 'sans', section.heading), section.heading).toBe(true);
+      expect(has(withTable, 'sans', section.date), section.date).toBe(true);
+    }
+    // 题签上的字不因为是题签就进黑体：只在题签上有的字，黑体那一组里没有
+    const onlyOnStrips = [...new Set(scene.strips.flatMap((strip) => shippable(`${strip.text}${strip.modern ?? ''}`)))].filter((ch) => !fileOf(plan, 'sans').characters.includes(ch) && !scene.sections.some((section) => `${section.heading}${section.date}`.includes(ch)));
+    expect(onlyOnStrips.length).toBeGreaterThan(0);
+    expect(hasNone(withTable, 'sans', onlyOnStrips.join(''))).toBe(true);
+  });
+
+  it('哪几个文件在 index.html 里预先声明：现在是头一个宋体文件和楷体；黑体的文件页面的样式还没有用，先不声明；点开才要的不声明', () => {
+    const plan = planFonts(madeUpSite());
+    expect(plan.files.map((item) => [item.group, item.preload])).toEqual([
+      ['sans', false],
+      ['song', true],
+      ['kai', true],
+      ['song-more', false],
+    ]);
+  });
+
+  it('楷体那一组、黑体那一组的每一个字，头一组宋体里也有一份（那个文件还在路上时先用宋体，不为它去取点开才要的文件）', () => {
+    const plan = planFonts(madeUpSite());
+    for (const group of ['kai', 'sans']) for (const ch of fileOf(plan, group).characters) expect(fileOf(plan, 'song').characters, `${group} “${ch}”`).toContain(ch);
+    // 小注的标题点开才看得见，但它是楷体（黑体里也备着），所以也在头一组里
     expect(has(plan, 'song', '未辰')).toBe(true);
   });
 
@@ -463,8 +509,9 @@ describe('数字：哪些字归哪一组（编出来的一位人物）', () => {
     expect(both.size).toBe([...fileOf(plan, 'song').characters].length + [...fileOf(plan, 'song-more').characters].length);
     expect(fileOf(plan, 'song-more').range).toBe(true);
     expect(fileOf(plan, 'song-more').first).toBe(false);
-    expect(plan.files.map((file) => file.name)).toEqual(['yanlu-kai', 'yanlu-song', 'yanlu-song-more']);
-    expect(plan.files.map((file) => file.postscript)).toEqual(['YanluKai-Regular', 'YanluSong-Regular', 'YanluSongMore-Regular']);
+    expect(plan.files.map((file) => file.name)).toEqual(['yanlu-sans', 'yanlu-song', 'yanlu-kai', 'yanlu-song-more']);
+    expect(plan.files.map((file) => file.postscript)).toEqual(['YanluSans-Medium', 'YanluSong-Regular', 'YanluKai-Regular', 'YanluSongMore-Regular']);
+    expect(plan.files.map((file) => file.source)).toEqual(['sans', 'song', 'kai', 'song']);
   });
 
   it('一个字从小注挪进正文：从点开才看得见的那一组挪到看得见的那一组', () => {
@@ -479,7 +526,7 @@ describe('数字：哪些字归哪一组（编出来的一位人物）', () => {
     expect(hasNone(moved, 'song-more', '申')).toBe(true);
   });
 
-  it('有沙盘的站：题签上的字、小节名、题记是楷体；沙盘旁边别的字看得见；“说明”展开的、“沙盘上的东西”一栏点开才看得见', () => {
+  it('有沙盘的站：题签上的字、小节名是楷体；题记是一句话，是宋体，不进楷体也不进黑体；沙盘旁边别的字看得见；“说明”展开的、“沙盘上的东西”一栏点开才看得见', () => {
     const scene = fixtureScene();
     const plan = planFonts(
       madeUpSite((site) => {
@@ -494,9 +541,19 @@ describe('数字：哪些字归哪一组（编出来的一位人物）', () => {
     }
     for (const section of scene.sections) {
       expect(has(plan, 'kai', section.heading)).toBe(true);
-      expect(has(plan, 'kai', section.line)).toBe(true);
+      expect(has(plan, 'song', section.line)).toBe(true);
       expect(has(plan, 'song', section.date)).toBe(true);
+      // 小节名和时间在黑体的文件里也备着
+      expect(has(plan, 'sans', section.heading)).toBe(true);
+      expect(has(plan, 'sans', section.date)).toBe(true);
     }
+    // 只在题记里有的字（题签、小节名、别的楷体和黑体的字里都没有）：楷体那一组、黑体那一组里都没有它
+    const bare = planFonts(madeUpSite());
+    const elsewhere = new Set([...fileOf(bare, 'kai').characters, ...fileOf(bare, 'sans').characters, ...scene.strips.flatMap((strip) => shippable(`${strip.text}${strip.modern ?? ''}`)), ...scene.sections.flatMap((section) => shippable(`${section.heading}${section.date}`))]);
+    const onlyInLines = [...new Set(scene.sections.flatMap((section) => shippable(section.line)))].filter((ch) => !elsewhere.has(ch));
+    expect(onlyInLines.length, '那座小沙盘的题记里要有别处没有的字，这一句才查得到东西').toBeGreaterThan(0);
+    expect(hasNone(plan, 'kai', onlyInLines.join(''))).toBe(true);
+    expect(hasNone(plan, 'sans', onlyInLines.join(''))).toBe(true);
     // 远处的那句话印在沙盘旁边：看得见
     expect(has(plan, 'song', scene.far[0].gloss ?? '')).toBe(true);
     // “沙盘上的东西”一栏里的字，在两组宋体里总有一份
@@ -507,7 +564,7 @@ describe('数字：哪些字归哪一组（编出来的一位人物）', () => {
     for (const ch of onlyInCredits) expect(fileOf(plan, 'song-more').characters).toContain(ch);
   });
 
-  it('正文还没写、沙盘先做好的站：出处在场景文件自己的 sources 里，书名在点开才看得见的一组里；小节名、题记照样是楷体', () => {
+  it('正文还没写、沙盘先做好的站：出处在场景文件自己的 sources 里，书名在点开才看得见的一组里；小节名照样是楷体，题记照样是宋体', () => {
     const scene = fixtureScene();
     // 那座小沙盘的出处 id 不变，书名换成别处都没有的三个字
     const marks = ['鼍', '鼋', '鳌'];
@@ -527,7 +584,7 @@ describe('数字：哪些字归哪一组（编出来的一位人物）', () => {
     }
     for (const section of scene.sections) {
       expect(has(plan, 'kai', section.heading)).toBe(true);
-      expect(has(plan, 'kai', section.line)).toBe(true);
+      expect(has(plan, 'song', section.line)).toBe(true);
     }
     // 场景里不写 sources 的时候（写好了正文的站），这几个字哪一组里都没有
     const bare = planFonts(
@@ -538,7 +595,7 @@ describe('数字：哪些字归哪一组（编出来的一位人物）', () => {
     for (const cite of cited) expect(hasNone(bare, 'song-more', cite), cite).toBe(true);
   });
 
-  it('全程沙盘（人物页上的那一座）：题签的古名今名、小节名、题记是楷体；时间、那一句说明、远处的那句话看得见；“说明”展开的、“沙盘上的东西”点开才看得见', () => {
+  it('全程沙盘（人物页上的那一座）：题签的古名今名、小节名是楷体，站名的题签脚上的印也是；题记、时间、那一句说明、远处的那句话看得见（宋体）；“说明”展开的、“沙盘上的东西”点开才看得见', () => {
     const route = routeSample();
     const plan = planFonts(madeUpSite((site) => (site.figures[0].route = route)));
     for (const strip of route.strips) {
@@ -547,9 +604,14 @@ describe('数字：哪些字归哪一组（编出来的一位人物）', () => {
     }
     for (const section of route.sections) {
       expect(has(plan, 'kai', section.heading)).toBe(true);
-      expect(has(plan, 'kai', section.line)).toBe(true);
+      expect(has(plan, 'song', section.line)).toBe(true);
       expect(has(plan, 'song', section.date)).toBe(true);
+      expect(has(plan, 'sans', section.heading)).toBe(true);
+      expect(has(plan, 'sans', section.date)).toBe(true);
     }
+    // 站名的题签脚上写着第几站的印：印上的字（一、二……）是楷体的，照页面拼印的那个函数数；这位编出来的人物有两站
+    expect(has(plan, 'kai', '一二')).toBe(true);
+    expect(fileOf(plan, 'kai').where.get('二')).toEqual(['某人的人物页（全程沙盘的印）']);
     // 常印着的那一句（示意的东西的名字，一截路的名字也在里面）和远处的那句话：看得见
     expect(has(plan, 'song', '南溪、新渠、镜湖的西南角等 7 样是示意；平地抹平；山高夸大 12 到 25 倍；河和路都画宽了')).toBe(true);
     expect(has(plan, 'song', '示例五年溪口到东港的水路')).toBe(true);
@@ -574,6 +636,8 @@ describe('数字：哪些字归哪一组（编出来的一位人物）', () => {
     // 没有全程沙盘的时候，这些字一个也不在；用在哪写的是人物页
     const without = planFonts(madeUpSite());
     expect(hasNone(without, 'kai', '镜湖')).toBe(true);
+    // 没有全程沙盘就没有印：“二”哪儿也不用楷体写
+    expect(hasNone(without, 'kai', '二')).toBe(true);
     expect(fileOf(plan, 'kai').where.get('镜')).toEqual(['某人的人物页（全程沙盘的题签）']);
     expect(fileOf(plan, 'song').where.get('抹')).toEqual(['某人的人物页（全程沙盘的沙盘）']);
   });
@@ -603,19 +667,22 @@ describe('数字：哪些字归哪一组（编出来的一位人物）', () => {
     expect(fileOf(plan, 'song').where.get('午')).toEqual(['甲站的正文']);
     expect(fileOf(plan, 'song').where.get('串')).toEqual(['程序里（src/ui/a.tsx）']);
     expect(fileOf(plan, 'kai').where.get('楷')).toEqual(['界面上用楷体排的字']);
+    expect(fileOf(plan, 'sans').where.get('黑')).toEqual(['界面上用黑体排的字']);
   });
 });
 
 describe('数字：宋体按站拆开（现在关着，规矩先写好）', () => {
   const plan = planFonts(madeUpSite(), { splitByStop: true });
 
-  it('文件：大家共用的两个，每一站自己的两个；只有头一个宋体文件和楷体不带 unicode-range', () => {
-    expect(plan.files.map((file) => file.name)).toEqual(['yanlu-kai', 'yanlu-song', 'yanlu-song-s1', 'yanlu-song-s2', 'yanlu-song-more', 'yanlu-song-s1-more', 'yanlu-song-s2-more']);
-    expect(plan.files.filter((file) => !file.range).map((file) => file.name)).toEqual(['yanlu-kai', 'yanlu-song']);
+  it('文件：黑体和楷体各一个，宋体大家共用的两个、每一站自己的两个；只有黑体、头一个宋体文件和楷体不带 unicode-range', () => {
+    expect(plan.files.map((file) => file.name)).toEqual(['yanlu-sans', 'yanlu-song', 'yanlu-kai', 'yanlu-song-s1', 'yanlu-song-s2', 'yanlu-song-more', 'yanlu-song-s1-more', 'yanlu-song-s2-more']);
+    expect(plan.files.filter((file) => !file.range).map((file) => file.name)).toEqual(['yanlu-sans', 'yanlu-song', 'yanlu-kai']);
     expect(fileOf(plan, 'song-s1').postscript).toBe('YanluSongS1-Regular');
     expect(fileOf(plan, 'song-s1-more').postscript).toBe('YanluSongS1More-Regular');
-    expect(plan.files.map((file) => file.stop)).toEqual([null, null, 's1', 's2', null, 's1', 's2']);
-    expect(plan.files.map((file) => file.first)).toEqual([true, true, true, true, false, false, false]);
+    expect(plan.files.map((file) => file.stop)).toEqual([null, null, null, 's1', 's2', null, 's1', 's2']);
+    expect(plan.files.map((file) => file.first)).toEqual([true, true, true, true, true, false, false, false]);
+    // 带 unicode-range 的文件没法在 index.html 里预先声明（它只有一份）：一站自己的文件都不声明
+    expect(plan.files.map((file) => file.preload)).toEqual([false, true, true, false, false, false, false, false]);
   });
 
   it('两站都用到的字归大家共用的文件：有一处看得见就归头一个，都要点开才归后一个', () => {
@@ -640,10 +707,12 @@ describe('数字：宋体按站拆开（现在关着，规矩先写好）', () =
     const whole = planFonts(madeUpSite());
     expect(sortedString(all)).toBe(sortedString([...fileOf(whole, 'song').characters, ...fileOf(whole, 'song-more').characters]));
     expect(fileOf(plan, 'kai').characters).toBe(fileOf(whole, 'kai').characters);
+    expect(fileOf(plan, 'sans').characters).toBe(fileOf(whole, 'sans').characters);
   });
 
-  it('哪几个文件有了才算数：一站看得见的字认它自己的文件和大家共用的头一个；点开才看得见的多认两个', () => {
+  it('哪几个文件有了才算数：楷体的字只认楷体的文件，黑体的字只认黑体的文件；一站看得见的字认它自己的文件和大家共用的头一个；点开才看得见的多认两个', () => {
     expect(servedBy(fileOf(plan, 'kai'))).toEqual(['yanlu-kai']);
+    expect(servedBy(fileOf(plan, 'sans'))).toEqual(['yanlu-sans']);
     expect(servedBy(fileOf(plan, 'song'))).toEqual(['yanlu-song']);
     expect(servedBy(fileOf(plan, 'song-s1'))).toEqual(['yanlu-song-s1', 'yanlu-song']);
     expect(servedBy(fileOf(plan, 'song-more'))).toEqual(['yanlu-song-more', 'yanlu-song']);
@@ -652,26 +721,32 @@ describe('数字：宋体按站拆开（现在关着，规矩先写好）', () =
 });
 
 describe('样式表、给页面用的模块、名称', () => {
-  it('样式表：每个文件一条；不带 unicode-range 的在前；带的那一条逐个列着它的字', () => {
+  it('样式表：每个文件一条，粗细是这套字体自己的那一种（黑体 500，别的 400）；不带 unicode-range 的在前；带的那一条逐个列着它的字', () => {
     const css = fontsCss([
-      { name: 'yanlu-kai', family: 'Yanlu Kai', range: false, characters: '甲' },
-      { name: 'yanlu-song', family: 'Yanlu Song', range: false, characters: 'a乙' },
-      { name: 'yanlu-song-more', family: 'Yanlu Song', range: true, characters: '丙䃜\u{2A6A5}' },
+      { name: 'yanlu-sans', family: 'Yanlu Sans', weight: 500, range: false, characters: '丁' },
+      { name: 'yanlu-song', family: 'Yanlu Song', weight: 400, range: false, characters: 'a乙' },
+      { name: 'yanlu-kai', family: 'Yanlu Kai', weight: 400, range: false, characters: '甲' },
+      { name: 'yanlu-song-more', family: 'Yanlu Song', weight: 400, range: true, characters: '丙䃜\u{2A6A5}' },
     ]);
-    expect(css.match(/@font-face/g)).toHaveLength(3);
+    expect(css.match(/@font-face/g)).toHaveLength(4);
     expect(css.match(/unicode-range:/g)).toHaveLength(1);
     expect(css).toContain("src: url('./yanlu-song-more.woff2') format('woff2');");
     expect(css).toContain('unicode-range: U+4E19, U+40DC, U+2A6A5;');
-    expect(css.match(/font-display: swap;/g)).toHaveLength(3);
+    expect(css.match(/font-display: swap;/g)).toHaveLength(4);
     expect(css.match(/font-weight: 400;/g)).toHaveLength(3);
+    expect(css.match(/font-weight: 500;/g)).toHaveLength(1);
+    // 500 写在黑体那一条里
+    expect(css.split('@font-face').find((rule) => rule.includes('yanlu-sans.woff2'))).toContain('font-weight: 500;');
     expect(css.indexOf('yanlu-song.woff2')).toBeLessThan(css.indexOf('yanlu-song-more.woff2'));
     expect(css.endsWith('}\n')).toBe(true);
     expect(css).not.toContain('\r');
   });
 
-  it('给页面用的模块：两套字体各一项，和点开才要的那个文件里的一个字', () => {
+  it('给页面用的模块：三套字体各一项（黑体、宋体、楷体，照这个先后），和点开才要的那个文件里的一个字', () => {
     const text = shippedTs('丑');
     expect(text).toContain("export const SONG_MORE_PROBE = '丑';");
+    expect(text).toContain("sans: { family: 'Yanlu Sans', name: 'Noto Sans SC Medium', version: '2.004', site: 'https://github.com/notofonts/noto-cjk', licence: 'licences/noto-sans-cjk-OFL.txt' },");
+    expect(Array.from(text.matchAll(/^ {2}(\w+): \{ family:/gm), (match) => match[1])).toEqual(['sans', 'song', 'kai']);
     expect(text).toContain("kai: { family: 'Yanlu Kai', name: 'LXGW WenKai GB', version: '1.530', site: 'https://github.com/lxgw/LxgwWenkaiGB', licence: 'licences/lxgw-wenkai-gb-OFL.txt' },");
     expect(text).toContain("song: { family: 'Yanlu Song', name: 'Noto Serif SC', version: '2.003', site: 'https://github.com/notofonts/noto-cjk', licence: 'licences/noto-serif-cjk-OFL.txt' },");
   });
@@ -680,6 +755,9 @@ describe('样式表、给页面用的模块、名称', () => {
     expect(postscriptName('yanlu-kai')).toBe('YanluKai-Regular');
     expect(postscriptName('yanlu-song-more')).toBe('YanluSongMore-Regular');
     expect(postscriptName('yanlu-song-xuzhou-more')).toBe('YanluSongXuzhouMore-Regular');
+    // 粗细是 500 的那一套（黑体）结尾写 Medium；不说粗细就是 400
+    expect(postscriptName('yanlu-sans', 500)).toBe('YanluSans-Medium');
+    expect(postscriptName('yanlu-sans', 400)).toBe('YanluSans-Regular');
   });
 });
 
@@ -753,6 +831,7 @@ describe('给字体换名称表', () => {
           { platform: 3, lang: 0x409, nameId: 6, text: 'LXGWWenKaiGB-Regular' },
           { platform: 3, lang: 0x409, nameId: 8, text: 'LXGW' },
           { platform: 3, lang: 0x409, nameId: 9, text: 'LXGW; Fontworks Inc.' },
+          { platform: 3, lang: 0x409, nameId: 10, text: 'About the original.' },
           { platform: 3, lang: 0x409, nameId: 11, text: 'https://example.org/' },
           { platform: 3, lang: 0x409, nameId: 13, text: 'This Font Software is licensed under the SIL Open Font License, Version 1.1.' },
           { platform: 3, lang: 0x409, nameId: 14, text: 'https://openfontlicense.org' },
@@ -782,6 +861,16 @@ describe('给字体换名称表', () => {
     expect(by.get(13)).toBe('This Font Software is licensed under the SIL Open Font License, Version 1.1.');
     expect(by.get(14)).toBe('https://openfontlicense.org');
     for (const id of by.keys()) expect(NAME_IDS as readonly number[]).toContain(id);
+  });
+
+  it('原字体自己的说明（第 10 条）：宋体和黑体的接在说明那一条的后面，楷体的不接；黑体的标识和 PostScript 名称写的是 Medium', () => {
+    const tables = readSfnt(original()).tables;
+    const tenth = (source: 'kai' | 'song' | 'sans', postscript: string): string => new Map(nameRecordsFor({ source, family: FONT_SOURCES[source].family, postscript }, tables).map((record) => [record.nameId, record.text])).get(10) ?? '';
+    expect(tenth('kai', 'YanluKai-Regular')).not.toContain('About the original.');
+    expect(tenth('song', 'YanluSong-Regular').endsWith(' About the original.')).toBe(true);
+    expect(tenth('sans', 'YanluSans-Medium')).toBe(`${subsetSentence(FONT_SOURCES.sans)} Manufacturer: LXGW. Designer: LXGW; Fontworks Inc. About the original.`);
+    const sans = new Map(nameRecordsFor({ source: 'sans', family: 'Yanlu Sans', postscript: 'YanluSans-Medium' }, tables).map((record) => [record.nameId, record.text]));
+    expect([sans.get(1), sans.get(2), sans.get(3), sans.get(4), sans.get(6)]).toEqual(['Yanlu Sans', 'Regular', 'YanluSans-Medium;2.004;subset', 'Yanlu Sans', 'YanluSans-Medium']);
   });
 
   it('换好的字体读回来：名称表里正好是那几条，都是 Windows 英文的；校验和都对；别的表一个字节没动', () => {
@@ -935,7 +1024,7 @@ describe('记录是不是新的；网站要的字在不在放进仓库的字体�
     tool: RECORD_VERSION,
     recipe: RECIPE,
     made: { ...made },
-    sources: { kai: sourceRecord('kai'), song: sourceRecord('song') },
+    sources: { sans: sourceRecord('sans'), song: sourceRecord('song'), kai: sourceRecord('kai') },
     files: plan.files.map((file) => ({
       file: `${file.name}.woff2`,
       family: file.family,
@@ -944,6 +1033,8 @@ describe('记录是不是新的；网站要的字在不在放进仓库的字体�
       group: file.group,
       range: file.range,
       first: file.first,
+      preload: file.preload,
+      weight: file.weight,
       stop: file.stop,
       bytes: 1,
       sha256: '',
@@ -970,11 +1061,42 @@ describe('记录是不是新的；网站要的字在不在放进仓库的字体�
     expect(recordIsFresh(plan, less, made)).toEqual({ fresh: false, why: 'yanlu-song 的字变了，少了“龘”' });
     expect(recordIsFresh(plan, { ...record(), recipe: RECIPE + 1 }, made).why).toBe('做法改过了');
     expect(recordIsFresh(plan, record(), { 'subset-font': '2.9.1' }).why).toBe('裁剪字体的库换了版本');
-    const otherFont = record();
-    otherFont.sources.song.sha256 = 'x';
-    expect(recordIsFresh(plan, otherFont, made).why).toBe('原字体换了');
+    for (const id of FONT_SOURCE_IDS) {
+      const otherFont = record();
+      otherFont.sources[id].sha256 = 'x';
+      expect(recordIsFresh(plan, otherFont, made).why, id).toBe('原字体换了');
+    }
+    // 记录里少了一个原字体（旧格式的记录只有两个）：也说得出来
+    const twoSources = record();
+    delete (twoSources.sources as Partial<FontRecord['sources']>).sans;
+    expect(recordIsFresh(plan, twoSources, made).why).toBe('原字体换了');
     expect(recordIsFresh(planFonts(madeUpSite(), { splitByStop: true }), record(), made).why).toBe('要做的文件和记录里的不是同一些');
     expect(recordIsFresh(plan, { ...record(), tool: RECORD_VERSION - 1 }, made).why).toBe('记录的格式换了');
+  });
+
+  it('字一个没变，只是哪个文件要预先声明变了（它不改字体文件，只改记录）：也不是新的', () => {
+    const flagged = record();
+    const kai = flagged.files.find((item) => item.group === 'kai');
+    expect(kai).toBeDefined();
+    if (!kai) return;
+    kai.preload = !kai.preload;
+    expect(recordIsFresh(plan, flagged, made)).toEqual({ fresh: false, why: 'yanlu-kai 的说明变了（名称、归哪一组、带不带 unicode-range、是不是一打开就要、预不预先声明）' });
+    const renamed = record();
+    renamed.files[0].postscript = 'YanluSans-Regular';
+    expect(recordIsFresh(plan, renamed, made).why).toContain('yanlu-sans 的说明变了');
+  });
+
+  it('“挤标点”的排版功能：黑体的文件里一定有 halt，别的五种哪个文件里都不许有；楷体和宋体六种都不许有', () => {
+    expect(squeezeProblems({ file: 'yanlu-sans.woff2', source: 'sans', features: ['halt', 'kern', 'locl'] })).toEqual([]);
+    // 查得出来：做出来的黑体里没有 halt（少了它什么也不报错，只是标题里冒号后面的空又回来了）
+    expect(squeezeProblems({ file: 'yanlu-sans.woff2', source: 'sans', features: ['kern', 'locl'] })).toEqual(['yanlu-sans.woff2：文件里没有 halt 这种排版功能（标题里全角标点占半个字宽靠它；少了它，标题里冒号后面的空又回来了）']);
+    expect(squeezeProblems({ file: 'yanlu-sans.woff2', source: 'sans', features: ['halt', 'palt'] })).toEqual(['yanlu-sans.woff2：文件里有把标点挤窄的排版功能 palt']);
+    expect(squeezeProblems({ file: 'yanlu-song.woff2', source: 'song', features: ['kern', 'liga', 'locl', 'vert', 'vrt2'] })).toEqual([]);
+    expect(squeezeProblems({ file: 'yanlu-song.woff2', source: 'song', features: ['halt', 'kern'] })).toEqual(['yanlu-song.woff2：文件里有把标点挤窄的排版功能 halt']);
+    expect(squeezeProblems({ file: 'yanlu-kai.woff2', source: 'kai', features: ['vert', 'vhal'] })).toEqual(['yanlu-kai.woff2：文件里有把标点挤窄的排版功能 vhal']);
+    // 说好留的名单和这张表对得上：黑体的名单里有 halt，另两套的名单里六种一种也没有
+    expect(FONT_SOURCES.sans.keepFeatures).toContain('halt');
+    for (const id of FONT_SOURCE_IDS) for (const feature of SQUEEZE_FEATURES) expect(FONT_SOURCES[id].keepFeatures.includes(feature), `${id} ${feature}`).toBe(SQUEEZE_KEPT[id].includes(feature));
   });
 
   it('原字体的说明改了一样（网站、从哪里取、许可文件、留哪些排版功能），记号没变：也不是新的——不然测试说对不上，工具却说已经是新的', () => {
@@ -995,6 +1117,12 @@ describe('记录是不是新的；网站要的字在不在放进仓库的字体�
     // 记录里的每一项就是 FONT_SOURCES 里的，少一个 family
     expect(sourceRecord('song')).toEqual(Object.fromEntries(Object.entries(FONT_SOURCES.song).filter(([key]) => key !== 'family')));
     expect(Object.keys(sourceRecord('kai'))).toContain('keepFeatures');
+    // 粗细也记在每个原字体那一项里：黑体 500，另两套 400
+    expect(FONT_SOURCE_IDS.map((id) => sourceRecord(id).weight)).toEqual([500, 400, 400]);
+    // 黑体的那一项改了一样：也不是新的
+    const sansChanged = record();
+    sansChanged.sources.sans.keepFeatures.pop();
+    expect(recordIsFresh(plan, sansChanged, made)).toEqual({ fresh: false, why: 'Noto Sans SC Medium 的说明、许可或者留哪些排版功能改过了（FONT_SOURCES）' });
   });
 
   it('照记录写的两样：样式表和给页面用的模块，都从记录里来，用不到原字体', () => {
@@ -1011,9 +1139,9 @@ describe('记录是不是新的；网站要的字在不在放进仓库的字体�
   it('仓库里的字体文件对着记录查：少了一个、和记录对不上，都说得出来（这时工具要重做）', () => {
     const one = record();
     one.files = one.files.slice(0, 1);
-    expect(shippedFileProblems(one, () => null)).toEqual(['yanlu-kai.woff2 不在']);
+    expect(shippedFileProblems(one, () => null)).toEqual(['yanlu-sans.woff2 不在']);
     one.files[0].sha256 = sha256(Uint8Array.from([1, 2, 3]));
-    expect(shippedFileProblems(one, () => Uint8Array.from([1, 2, 4]))).toEqual(['yanlu-kai.woff2 和记录对不上（记号不一样）']);
+    expect(shippedFileProblems(one, () => Uint8Array.from([1, 2, 4]))).toEqual(['yanlu-sans.woff2 和记录对不上（记号不一样）']);
   });
 
   it('字都在：没有话说', () => {
@@ -1053,8 +1181,14 @@ describe('记录是不是新的；网站要的字在不在放进仓库的字体�
     expect(missingFromShipped(moved, shipped())).toEqual([]);
   });
 
-  it('要用楷体排的字只在宋体的文件里有：不算数', () => {
+  it('要用楷体排的字、要用黑体排的字，只在宋体的文件里有：不算数', () => {
     const more = planFonts(madeUpSite((site) => (site.kaiLabels = [...site.kaiLabels, '午'])));
     expect(missingFromShipped(more, shipped())).toEqual(['“午”（U+5348，界面上用楷体排的字里）不在随站的字体里：运行 npm run fonts，再提交。']);
+    // 黑体的字只认黑体的文件：宋体的文件里有“午”，楷体的文件里有“楷”，都不算
+    const sansMore = planFonts(madeUpSite((site) => (site.sansLabels = [...site.sansLabels, '午楷'])));
+    expect(missingFromShipped(sansMore, shipped())).toEqual([
+      '“午”（U+5348，界面上用黑体排的字里）不在随站的字体里：运行 npm run fonts，再提交。',
+      '“楷”（U+6977，界面上用黑体排的字里）不在随站的字体里：运行 npm run fonts，再提交。',
+    ]);
   });
 });

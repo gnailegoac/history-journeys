@@ -123,7 +123,7 @@ test.describe('竖着拿的大平板（1024×1366）', () => {
     await expect(fake).toHaveAttribute('data-fake-insets', insetsText(standard.insets));
     // 这一栏够宽：题记是宽的排法，题签是大的那一种
     await expect(pane).toHaveClass(/is-wide/);
-    await expect(pane).toHaveClass(/is-kai/);
+    await expect(pane).not.toHaveClass(/is-kai/);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 
     // ---- 标题、小节标题多大，正文一行多宽：和竖着拿的小平板（768 × 1024）一样

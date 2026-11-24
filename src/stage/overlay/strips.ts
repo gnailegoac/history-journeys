@@ -21,8 +21,8 @@ const SVG_NS = 'http://www.w3.org/2000/svg';
 
 /** 空心的圈：半径，和两层的样子（底下一圈纸色的衬边，深色的地面上也看得见；上面一圈墨色的线）。颜色和实心的点用同样的两个。 */
 const RING_RADIUS = '4.2';
-const RING_HALO_STYLE = 'fill:none;stroke:var(--color-paper, #f5efe3);stroke-width:3.6;opacity:0.85';
-const RING_LINE_STYLE = 'fill:none;stroke:var(--color-ink, #2a2520);stroke-width:1.3';
+const RING_HALO_STYLE = 'fill:none;stroke:var(--figure-halo, #f5efe3);stroke-width:3.6;opacity:0.85';
+const RING_LINE_STYLE = 'fill:none;stroke:var(--figure-leader, #2a2520);stroke-width:1.3';
 
 /**
  * 远处的题签，在它指的那一点上再画一个朝沙盘外面的小箭头：那一点只是沙盘的边，地方还在外面很远。
@@ -30,15 +30,15 @@ const RING_LINE_STYLE = 'fill:none;stroke:var(--color-ink, #2a2520);stroke-width
  */
 const ARROW_LENGTH = 16;
 const ARROW_HEAD = 5;
-const ARROW_STYLE = 'fill:none;stroke:var(--color-ink, #2a2520);stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round';
+const ARROW_STYLE = 'fill:none;stroke:var(--figure-leader, #2a2520);stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round';
 /** 箭头底下垫的衬边（和空心圈的衬边一个颜色）：竖着拿的平板上箭头尖正落在沙盘深色的边框上，墨色压着深褐色，没有衬边就只剩半截。 */
-const ARROW_HALO_STYLE = 'fill:none;stroke:var(--color-paper, #f5efe3);stroke-width:3.6;opacity:0.85;stroke-linecap:round;stroke-linejoin:round';
+const ARROW_HALO_STYLE = 'fill:none;stroke:var(--figure-halo, #f5efe3);stroke-width:3.6;opacity:0.85;stroke-linecap:round;stroke-linejoin:round';
 
 /**
  * 引线底下垫的衬边（和空心圈、箭头的衬边一个颜色）：一像素宽的墨线压在夜里的深色水面、深色的屋顶上，反差只剩白天的一半，
  * 垫一条纸色的、宽三像素的线，哪种天色都看得清。
  */
-const LEADER_UNDER_STYLE = 'fill:none;stroke:var(--color-paper, #f5efe3);stroke-width:3;opacity:0.8';
+const LEADER_UNDER_STYLE = 'fill:none;stroke:var(--figure-halo, #f5efe3);stroke-width:3;opacity:0.8';
 
 /**
  * 一条横平竖直的线画在整像素上：中线挪到半个像素的地方，一像素宽的线正好占一行（一列）像素。

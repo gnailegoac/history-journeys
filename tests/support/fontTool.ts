@@ -3,7 +3,7 @@
 // 查放进仓库的字体文件的测试（tests/fonts/font-files.test.ts，随 npm test 跑）。只在 Node 里跑；src/ 里的程序不要用。
 //
 // 分四段：
-//   一、做法      用哪两个原字体、留哪些排版功能、名称怎么写。改了其中一样，RECIPE 加一。
+//   一、做法      用哪三个原字体、留哪些排版功能、名称怎么写。改了其中一样，RECIPE 加一。
 //   二、数字      网站上显示哪些字、各归哪一组。不靠人列字表：正文用页面解析正文的那段程序读，沙盘旁边的字、题签、
 //                 “沙盘上的东西”一栏用页面生成它们的那几个函数算；界面上的字是 src/ 里的程序原样写着的每一个字。
 //   三、做文件    给原字体换名称表、裁剪、压成 WOFF2；样式表、记录、给页面用的那个模块各是什么字。
@@ -19,10 +19,11 @@ import { ROUTE_SCENE_ID, SCENE_CLASS_LABEL } from '../../src/domain/scene';
 import { loadFigure, loadFigureCards, loadStop } from '../../src/domain/content';
 import { loadStopTable } from '../../src/domain/sceneContent';
 import { sceneRegister, sectionHeadings, sectionInfo, stripTexts } from '../../src/domain/sceneText';
+import { stopMarks } from '../../src/domain/stopMarks';
 import type { Figure, FigureCard, Source, StopContent } from '../../src/domain/types';
-import { KAI_LABELS, placeLabel } from '../../src/ui/text';
+import { KAI_LABELS, SANS_LABELS, placeLabel } from '../../src/ui/text';
 import type { FontTables } from './sfnt';
-import { charactersOf, checkSfnt, cmapOf, englishName, featuresOf, glyphCountOf, hintingOf, namesOf, readSfnt, readWoff2, renameSfnt } from './sfnt';
+import { charactersOf, checkSfnt, cmapOf, englishName, featuresOf, glyphCountOf, hintingOf, namesOf, readSfnt, readWoff2, renameSfnt, weightOf } from './sfnt';
 
 /** 项目的根目录：这个文件在 tests/support/ 里，往上两层。 */
 const ROOT = new URL('../../', import.meta.url);
@@ -36,8 +37,10 @@ export const sha256 = (bytes: Uint8Array): string => createHash('sha256').update
 /**
  * 记录（fonts.json）格式的版本。2：每个原字体那一项里多了留哪些排版功能（keepFeatures），每个文件那一项里多了
  * 是不是一打开就要的（first）、只归哪一站（stop），hinting 改成从做出来的文件里读。
+ * 3：原字体有三个了（多了黑体）；每个原字体那一项里多了粗细（weight）；每个文件那一项里多了粗细（weight，从做出来的文件里读）、
+ * 要不要在 index.html 里预先声明（preload）。
  */
-export const RECORD_VERSION = 2;
+export const RECORD_VERSION = 3;
 /**
  * 做法的编号。名称表里除了下面查得到的那几条以外怎么写（说明那一条后半截的“谁做的、谁设计的”）、裁剪时另外交给库的选项，
  * 改了就加一：记录里的编号对不上，工具会重做。
@@ -80,7 +83,9 @@ export const PRESSED_SOURCES: readonly string[] = ['src/ui/sourcesText.ts'];
 /** 用楷体排的字里不能有的：弯引号在这套楷体里只有三分之一个字宽。 */
 export const KAI_FORBIDDEN = '“”‘’';
 
-export type FontSourceId = 'kai' | 'song';
+export type FontSourceId = 'kai' | 'song' | 'sans';
+/** 三个原字体，照文件的先后：黑体、宋体、楷体。要“每个原字体都过一遍”的地方都照这一张走，不各写各的。 */
+export const FONT_SOURCE_IDS: readonly FontSourceId[] = ['sans', 'song', 'kai'];
 
 export interface FontSource {
   /** 原字体叫什么、哪一版。 */
@@ -100,7 +105,9 @@ export interface FontSource {
   licence: { file: string; sha256: string };
   /** 做出来的文件里写的字体名称。 */
   family: string;
-  /** 只留这几种排版功能（原字体里有的才留得下；别的，尤其是把标点挤窄的那几种，不留）。 */
+  /** 这套字体的粗细（原字体只有这一种）：样式表里这一套的 @font-face 写的就是它，做出来的文件里读得出同一个数。 */
+  weight: number;
+  /** 只留这几种排版功能（原字体里有的才留得下；别的，尤其是把标点挤窄的那几种，不留——黑体的 halt 除外，见 SQUEEZE_KEPT）。 */
   keepFeatures: string[];
 }
 
@@ -117,6 +124,7 @@ export const FONT_SOURCES: Readonly<Record<FontSourceId, FontSource>> = {
       "Copyright 2022-2026 LXGW (https://github.com/lxgw/LxgwWenKaiGB), with Reserved Font Name '霞鹜', '霞鶩', '落霞孤鹜', '落霞孤鶩' and 'LXGW'.\nCopyright 2020 The Klee Project Authors (https://github.com/fontworks-fonts/Klee)",
     licence: { file: 'lxgw-wenkai-gb-OFL.txt', sha256: 'a8aa32c38a3402ba4e40fb6d39c913300dd4a0336290dce5c14e3a2f9308d092' },
     family: 'Yanlu Kai',
+    weight: 400,
     keepFeatures: ['ccmp', 'calt', 'vert'],
   },
   song: {
@@ -130,31 +138,78 @@ export const FONT_SOURCES: Readonly<Record<FontSourceId, FontSource>> = {
     copyright: '© 2017-2024 Adobe (http://www.adobe.com/).',
     licence: { file: 'noto-serif-cjk-OFL.txt', sha256: '6a73f9541c2de74158c0e7cf6b0a58ef774f5a780bf191f2d7ec9cc53efe2bf2' },
     family: 'Yanlu Song',
+    weight: 400,
     keepFeatures: ['ccmp', 'locl', 'liga', 'kern', 'mark', 'vert', 'vrt2'],
+  },
+  // 黑体：标题、标签、按钮、年份用的。只有 500 这一种粗细。不留竖排用的 vert、vrt2（框架里没有竖着写的字）；
+  // 留着 halt：标题里全角的冒号、顿号占半个字宽，靠的是它（见 SQUEEZE_KEPT）。
+  sans: {
+    name: 'Noto Sans SC Medium',
+    version: '2.004',
+    file: 'NotoSansSC-Medium.otf',
+    from: 'https://github.com/notofonts/noto-cjk 的 Sans2.004 这一版，Sans/SubsetOTF/SC/NotoSansSC-Medium.otf',
+    site: 'https://github.com/notofonts/noto-cjk',
+    bytes: 8_345_436,
+    sha256: '7633f5a016d4dd95e685a69633d818aabc4644c4b08e26bd35b1b30c45ed5dda',
+    copyright: '© 2014-2021 Adobe (http://www.adobe.com/).',
+    licence: { file: 'noto-sans-cjk-OFL.txt', sha256: '6a73f9541c2de74158c0e7cf6b0a58ef774f5a780bf191f2d7ec9cc53efe2bf2' },
+    family: 'Yanlu Sans',
+    weight: 500,
+    keepFeatures: ['ccmp', 'locl', 'liga', 'kern', 'mark', 'halt'],
   },
 };
 
 /**
  * 做出来的文件里留没留提示信息（hinting）。宋体留着：去掉能小 16%，但是普通的 Windows 屏幕上小字会不会变糊，
- * 开发用的机器上看不出来（technical-plan.md 第五节）。楷体是 none：霞鹜文楷本来就没有，没什么可留。
+ * 开发用的机器上看不出来（technical-plan.md 第五节）。黑体也留着，道理一样：它排的多是 14、15 像素的小字。
+ * 楷体是 none：霞鹜文楷本来就没有，没什么可留。
  * 这里写的是“应该是什么样”，做出来的文件里是什么样由 hintingOf 从文件里读（fontFileProblems 拿两头比）。
  * 哪天要去掉宋体的：makeFont 里给库加上 noHinting，这里改成 none；只改了一头，工具不肯写，测试也通不过。
  */
-export const HINTING: Readonly<Record<FontSourceId, 'kept' | 'none'>> = { kai: 'none', song: 'kept' };
+export const HINTING: Readonly<Record<FontSourceId, 'kept' | 'none'>> = { kai: 'none', song: 'kept', sans: 'kept' };
+
+/** 把标点挤窄的六种排版功能。文件里有了它们，浏览器就能把挨着的全角标点挤到一起。 */
+export const SQUEEZE_FEATURES = ['halt', 'vhal', 'chws', 'vchw', 'palt', 'vpal'] as const;
+/**
+ * 每个原字体许可留、而且一定要留的“挤标点”的功能。楷体和宋体一种也不留：全角的标点个个占满一个字宽。
+ * 黑体留 halt 这一种，别的五种不留：标题上写了 font-feature-settings: 'halt' 的地方，全角的冒号、顿号占半个字宽
+ *（“徐州：大水围城”冒号后面不空出一大块）；没有写的地方（标签、按钮、年份）不挤，靠的是 html 上的 text-spacing-trim: space-all。
+ * 做出来的黑体文件里没有 halt，工具不肯写：少了它什么也不报错，只是标题里冒号后面的空又回来了。
+ */
+export const SQUEEZE_KEPT: Readonly<Record<FontSourceId, readonly string[]>> = { kai: [], song: [], sans: ['halt'] };
+
+/** 一个做好的文件里“挤标点”的功能哪里不对：该留的没留下，不该有的有了。都对是空的。 */
+export function squeezeProblems(item: Pick<FontFileRecord, 'file' | 'source' | 'features'>): string[] {
+  const kept = SQUEEZE_KEPT[item.source];
+  const problems: string[] = [];
+  for (const feature of kept) if (!item.features.includes(feature)) problems.push(`${item.file}：文件里没有 ${feature} 这种排版功能（标题里全角标点占半个字宽靠它；少了它，标题里冒号后面的空又回来了）`);
+  for (const feature of SQUEEZE_FEATURES) if (!kept.includes(feature) && item.features.includes(feature)) problems.push(`${item.file}：文件里有把标点挤窄的排版功能 ${feature}`);
+  return problems;
+}
+
+/**
+ * 哪几个文件在 index.html 里预先声明（浏览器不等样式表读完就去取）：按装的是哪一组字说。
+ * 现在是头一个宋体文件和楷体：页面的标题、按钮眼下还是用楷体排的。黑体的文件做好了、样式表里也声明了，页面的样式还没有用它，
+ * 所以先不预先声明；页面换成用黑体排标题的时候，这里改成黑体和头一个宋体文件，index.html 里的两行跟着改（构建以后的测试守着两头一致）。
+ */
+export const PRELOAD_GROUPS: readonly string[] = ['song', 'kai'];
 
 /** 做出来的文件名称表里“说明”那一条（第 10 条）的头一句：从哪个原字体裁剪出来的，不是原字体。 */
 export function subsetSentence(source: Pick<FontSource, 'name' | 'version' | 'site'>): string {
   return `Subset of ${source.name} ${source.version} (${source.site}) with only the characters one website uses. Not the original font.`;
 }
 
-/** 原字体保留的名字（霞鹜文楷的许可里写的四个中文名和 LXGW；Adobe 发行的思源宋体保留的 Source）。做出来的文件写名称的那几条里不能有。 */
-export const RESERVED_WORDS = ['霞鹜', '霞鶩', '落霞孤鹜', '落霞孤鶩', 'LXGW', 'Source'] as const;
+/**
+ * 原字体保留的名字（霞鹜文楷的许可里写的四个中文名和 LXGW；Adobe 发行的思源宋体保留的 Source；
+ * Noto 是 Google 的商标，宋体和黑体的原字体名称表第 7 条里都写着）。做出来的文件写名称的那几条里不能有。
+ */
+export const RESERVED_WORDS = ['霞鹜', '霞鶩', '落霞孤鹜', '落霞孤鶩', 'LXGW', 'Source', 'Noto'] as const;
 /** 名称表里写“这是什么字体”的那几条：这几条里不能有保留的名字（有的话读者的字体菜单里就会出现它）。 */
 export const NAMING_IDS = [1, 3, 4, 6, 16, 17, 18] as const;
 /** 做出来的文件里，名称表正好是这几条（原字体里没有的那一条就没有）。 */
 export const NAME_IDS = [0, 1, 2, 3, 4, 5, 6, 7, 10, 13, 14] as const;
 
-/** 四份许可全文在 public/licences/ 里叫什么。两份字体的见 FONT_SOURCES；两份程序库的在这里。 */
+/** 五份许可全文在 public/licences/ 里叫什么。三份字体的见 FONT_SOURCES；两份程序库的在这里。 */
 export const LIBRARY_LICENCES: readonly { file: string; from: string[] }[] = [
   // react、react-dom、scheduler 三个库的许可文件是同一份（一个字节不差），放一份
   { file: 'react-LICENSE.txt', from: ['node_modules/react/LICENSE', 'node_modules/react-dom/LICENSE', 'node_modules/scheduler/LICENSE'] },
@@ -176,6 +231,8 @@ export interface SiteText {
   sources: Record<string, string>;
   /** 界面上用楷体排的固定的字（src/ui/text.ts 的 KAI_LABELS）。 */
   kaiLabels: readonly string[];
+  /** 界面上用黑体排的固定的字（src/ui/text.ts 的 SANS_LABELS）。 */
+  sansLabels: readonly string[];
   /** 首页的人物卡片。 */
   cards: FigureCard[];
   figures: SiteFigure[];
@@ -271,18 +328,22 @@ export function codeOf(ch: string): string {
 
 /** 要做的一个字体文件。 */
 export interface PlannedFile {
-  /** 文件名，不带 .woff2：yanlu-kai、yanlu-song、yanlu-song-more；按站拆开以后还有 yanlu-song-<站>、yanlu-song-<站>-more。 */
+  /** 文件名，不带 .woff2：yanlu-sans、yanlu-song、yanlu-kai、yanlu-song-more；按站拆开以后还有 yanlu-song-<站>、yanlu-song-<站>-more。 */
   name: string;
-  /** 装的是哪一组字：kai、song、song-more、song-<站>、song-<站>-more。 */
+  /** 装的是哪一组字：sans、song、kai、song-more、song-<站>、song-<站>-more。 */
   group: string;
   source: FontSourceId;
   /** 写进文件里的两个名称。 */
   family: string;
   postscript: string;
-  /** 样式表里要不要给它写 unicode-range（楷体和头一个宋体文件不写：它们总是要下载的）。 */
+  /** 这套字体的粗细（原字体的那一种）：样式表里这个文件的 @font-face 照它写。 */
+  weight: number;
+  /** 样式表里要不要给它写 unicode-range（黑体、头一个宋体文件和楷体不写）。 */
   range: boolean;
   /** 装的是不是“不用点开就看得见”的字。 */
   first: boolean;
+  /** 要不要在 index.html 里预先声明（见 PRELOAD_GROUPS）。 */
+  preload: boolean;
   /** 只归哪一站（按站拆开以后）；大家共用的是 null。 */
   stop: string | null;
   /** 这一组字，按编码的先后连成一串。 */
@@ -299,9 +360,9 @@ export interface FontPlan {
   fallback: string;
 }
 
-/** 文件名对应的 PostScript 名称：yanlu-song-more → YanluSongMore-Regular。 */
-export function postscriptName(name: string): string {
-  return `${name.split('-').map((part) => part.charAt(0).toUpperCase() + part.slice(1)).join('')}-Regular`;
+/** 文件名对应的 PostScript 名称：yanlu-song-more → YanluSongMore-Regular；粗细是 500 的（黑体）结尾写 Medium：yanlu-sans → YanluSans-Medium。 */
+export function postscriptName(name: string, weight = 400): string {
+  return `${name.split('-').map((part) => part.charAt(0).toUpperCase() + part.slice(1)).join('')}-${weight === 500 ? 'Medium' : 'Regular'}`;
 }
 
 /**
@@ -317,7 +378,7 @@ export function planFonts(
   const fallbackOk = options.fallbackOk ?? FALLBACK_OK;
   const pressedSources = options.pressedSources ?? PRESSED_SOURCES;
 
-  // 三种篮子：kai；first:<归谁>；more:<归谁>。“归谁”是 common（界面、首页、人物页）或者一站的 id。每个篮子：字 → 用在哪。
+  // 四种篮子：sans；kai；first:<归谁>；more:<归谁>。“归谁”是 common（界面、首页、人物页）或者一站的 id。每个篮子：字 → 用在哪。
   const baskets = new Map<string, Map<string, Set<string>>>();
   const fallbackUsed = new Set<string>();
   const put = (basket: string, label: string, text: string | undefined | null): void => {
@@ -346,6 +407,19 @@ export function planFonts(
     put('kai', label, text);
     first(home, label, text);
   };
+  /**
+   * 用黑体排的。同一个字在头一组宋体里也放一份，道理和楷体一样：黑体文件还在路上、或者黑体的名单在哪里漏了一个字的时候，
+   * 这个字落到宋体上，不能为它去下载点开才要的那个文件。（这些字本来也都在头一组宋体里：两个宋体文件不因为黑体多一个字。）
+   */
+  const sans = (home: string, label: string, text: string | undefined | null): void => {
+    put('sans', label, text);
+    first(home, label, text);
+  };
+  /** 眼下标题、按钮这些还是楷体排的，黑体的文件先备着：这样的字两套字体里都放。 */
+  const title = (home: string, label: string, text: string | undefined | null): void => {
+    kai(home, label, text);
+    sans(home, label, text);
+  };
 
   // ---- 界面：程序里原样写着的每一个字（注释不算），index.html 里的字，英文字母、数字和半角的符号
   for (const [path, text] of Object.entries(site.sources)) {
@@ -355,16 +429,22 @@ export function planFonts(
   }
   for (let code = 0x20; code < 0x7f; code++) first('common', '英文字母、数字和半角符号', String.fromCodePoint(code));
   for (const label of site.kaiLabels) kai('common', '界面上用楷体排的字', label);
-  for (const label of Object.values(SCENE_CLASS_LABEL)) kai('common', '沙盘上东西的类别名', label);
+  for (const label of site.sansLabels) sans('common', '界面上用黑体排的字', label);
+  for (const label of Object.values(SCENE_CLASS_LABEL)) title('common', '沙盘上东西的类别名', label);
   put('kai', '空格', ' ');
-  // 一行楷体的字放不下、被截掉的时候（沙盘旁边的题记只占一行），浏览器自己在行尾添一个省略号：楷体文件里有它，
+  put('sans', '空格', ' ');
+  // 一行楷体的字放不下、被截掉的时候（标题、站名只占一行的地方），浏览器自己在行尾添一个省略号：楷体文件里有它，
   // 这个省略号才是楷体画的。没有的话 Chromium 改画三个半角的句点，用的是设备自带的字体（在浏览器里看过）。
   kai('common', '一行楷体截掉时行尾的省略号', '…');
+  // 黑体的一行也会截（沙盘旁边的时间只占一行）：一样的道理
+  sans('common', '一行黑体截掉时行尾的省略号', '…');
 
   // ---- 首页
   for (const card of site.cards) {
     for (const text of [card.name, card.era, card.years, card.tagline]) first('common', '首页的人物卡片', text);
-    kai('common', '首页的人物卡片', card.name);
+    title('common', '首页的人物卡片', card.name);
+    // 朝代和年份那一行是黑体
+    for (const text of [card.era, card.years]) sans('common', '首页的人物卡片', text);
   }
 
   // ---- 每位人物
@@ -372,13 +452,18 @@ export function planFonts(
   for (const { figure, stops, route } of site.figures) {
     const page = `${figure.name}的人物页`;
     for (const text of [figure.name, figure.era, figure.years, figure.tagline, ...figure.intro]) first('common', page, text);
-    kai('common', page, figure.name);
+    title('common', page, figure.name);
+    for (const text of [figure.era, figure.years]) sans('common', page, text);
     for (const stop of figure.stops) {
       // 目录里的一行；站点页的抬头、底下的上一站和下一站用的也是这几样
       for (const text of [stop.years, stop.age, stop.summary, placeLabel(stop.place)]) first('common', `${page}（各站目录）`, text);
-      kai('common', `${page}（各站目录）`, stop.title);
-      kai('common', `${page}（各站目录）`, stop.shortTitle);
+      title('common', `${page}（各站目录）`, stop.title);
+      title('common', `${page}（各站目录）`, stop.shortTitle);
+      // 目录里每一行的时间、地点、年纪是黑体（站点页抬头里的同样几个字是宋体，所以两套里都有）
+      for (const text of [stop.years, stop.age, placeLabel(stop.place)]) sans('common', `${page}（各站目录）`, text);
     }
+    // 全程沙盘上站名的题签脚上写着第几站的印：印上的字是楷体的，照页面拼印的那个函数数（网址用不着，给个空的）
+    if (route) for (const mark of Object.values(stopMarks(figure, () => ''))) kai('common', `${page}（全程沙盘的印）`, mark.label);
 
     // ---- 每一站
     for (const { id, content, scene } of stops) {
@@ -389,16 +474,16 @@ export function planFonts(
       if (content) {
         const cite = new Map(content.sources.map((source) => [source.id, source.cite]));
         const cites = (ids: string[]): string[] => ids.flatMap((sourceId) => cite.get(sourceId) ?? []);
-        // 正文：小节标题是楷体，段落和引用是宋体
+        // 正文：小节标题是楷体（黑体的文件里也备着，下同），段落和引用是宋体
         for (const section of content.sections) {
-          kai(id, says('正文'), section.heading);
+          title(id, says('正文'), section.heading);
           for (const block of section.blocks) {
             for (const text of block.type === 'quote' ? block.lines : block.segments.map((segment) => segment.text)) first(id, says('正文'), text);
           }
         }
         // 小注：点开才有。标题是楷体
         for (const note of content.notes) {
-          kai(id, says('小注'), note.title);
+          title(id, says('小注'), note.title);
           for (const text of [note.title, note.body, ...cites(note.sourceIds)]) more(id, says('小注'), text);
         }
         // 原文：标题印在折着的那一行上，别的点开才有
@@ -413,7 +498,7 @@ export function planFonts(
         }
         // 凭据：点开才有。小节标题是楷体
         for (const group of content.provenance) {
-          kai(id, says('凭据'), group.section);
+          title(id, says('凭据'), group.section);
           more(id, says('凭据'), group.section);
           for (const item of group.items) for (const text of [item.what, ...cites(item.sourceIds)]) more(id, says('凭据'), text);
         }
@@ -431,15 +516,16 @@ export function planFonts(
   /**
    * 一座沙盘（站点沙盘，或者全程沙盘）要显示的字：都是页面生成它们的那几个函数算出来的。
    * home 是这些字归谁（一站的 id，或者 common）；says 给出“用在哪”的叫法。
-   * 全程沙盘上站名的题签脚上还有写着站号的印：那几个数字（一到十）是楷体的，列在界面上用楷体排的字里（KAI_LABELS）。
+   * 全程沙盘上站名的题签脚上还有写着站号的印：那几个数字是楷体的，在上面“每位人物”那一段里数（照页面拼印的函数）。
    */
   function table(home: string, says: (what: string) => string, scene: TableScene, sources: Source[]): void {
-    // 沙盘旁边的字：小节名和题记是楷体；时间、远处的那句话、一句说明的两种写法是宋体；完整的说明点开才有
+    // 沙盘旁边的字：小节名是楷体（黑体的文件里也备着）；时间在黑体的文件里备着；
+    // 题记是一句话，和时间、远处的那句话、一句说明的两种写法一样是宋体；完整的说明点开才有
     for (const heading of sectionHeadings(scene)) {
       const info = sectionInfo(scene, heading);
-      kai(home, says('沙盘'), info.section);
-      kai(home, says('沙盘'), info.line);
-      for (const text of [info.date, info.note.short, info.note.brief, ...info.far.map((far) => `${far.name}：${far.say}`)]) first(home, says('沙盘'), text);
+      title(home, says('沙盘'), info.section);
+      sans(home, says('沙盘'), info.date);
+      for (const text of [info.line, info.date, info.note.short, info.note.brief, ...info.far.map((far) => `${far.name}：${far.say}`)]) first(home, says('沙盘'), text);
       for (const line of info.note.lines) more(home, says('“说明”'), line);
       // 题签：古名、今名两种叫法
       for (const names of ['ancient', 'modern'] as const) for (const strip of stripTexts(scene, heading, names)) kai(home, says('题签'), strip.text);
@@ -493,8 +579,10 @@ export function planFonts(
     if (list) list.push(ch);
     else groups.set(group, [ch]);
   }
-  // 文件的先后：楷体；song；各站自己的；song-more；各站自己的 -more。样式表里也是这个先后
-  const order = ['song', ...stopIds.map((stop) => `song-${stop}`), 'song-more', ...stopIds.map((stop) => `song-${stop}-more`)];
+  // 文件的先后：黑体；song；楷体（这三个不带 unicode-range）；各站自己的；song-more；各站自己的 -more。样式表里也是这个先后
+  const ranged = [...stopIds.map((stop) => `song-${stop}`), 'song-more', ...stopIds.map((stop) => `song-${stop}-more`)];
+  /** 不带 unicode-range 的三组：页面一用到这套字体，浏览器就取它。 */
+  const WHOLE = ['sans', 'song', 'kai'];
 
   const fileOf = (group: string, source: FontSourceId, chars: Iterable<string>, baskets: string[]): PlannedFile => {
     const characters = sortedString(chars);
@@ -505,26 +593,28 @@ export function planFonts(
       group,
       source,
       family: FONT_SOURCES[source].family,
-      postscript: postscriptName(name),
-      range: group !== 'kai' && group !== 'song',
-      first: group === 'kai' || !(group === 'song-more' || group.endsWith('-more')),
+      postscript: postscriptName(name, FONT_SOURCES[source].weight),
+      weight: FONT_SOURCES[source].weight,
+      range: !WHOLE.includes(group),
+      first: !(group === 'song-more' || group.endsWith('-more')),
+      preload: PRELOAD_GROUPS.includes(group),
       stop,
       characters,
       where: new Map([...characters].map((ch) => [ch, whereOf(ch, baskets)])),
     };
   };
-  const files: PlannedFile[] = [fileOf('kai', 'kai', basket('kai').keys(), ['kai'])];
-  for (const group of order) {
-    const chars = groups.get(group);
-    if (!chars && group !== 'song' && group !== 'song-more') continue; // 这一站没有自己独有的字：不做空文件
-    files.push(fileOf(group, 'song', chars ?? [], group.endsWith('more') ? [...allFirst, ...allMore] : allFirst));
+  const songFile = (group: string): PlannedFile => fileOf(group, 'song', groups.get(group) ?? [], group.endsWith('more') ? [...allFirst, ...allMore] : allFirst);
+  const files: PlannedFile[] = [fileOf('sans', 'sans', basket('sans').keys(), ['sans']), songFile('song'), fileOf('kai', 'kai', basket('kai').keys(), ['kai'])];
+  for (const group of ranged) {
+    if (!groups.get(group) && group !== 'song-more') continue; // 这一站没有自己独有的字：不做空文件
+    files.push(songFile(group));
   }
 
   // 只在程序里出现、content/ 里哪儿也没有的字（下面这几种来处不算 content/ 里的）
-  const NOT_CONTENT = ['英文字母、数字和半角符号', '界面上用楷体排的字', '沙盘上东西的类别名', '一行楷体截掉时行尾的省略号'];
+  const NOT_CONTENT = ['英文字母、数字和半角符号', '界面上用楷体排的字', '界面上用黑体排的字', '沙盘上东西的类别名', '一行楷体截掉时行尾的省略号', '一行黑体截掉时行尾的省略号'];
   const fromContent = new Set<string>();
   for (const [name, map] of baskets) {
-    if (name === 'kai') continue;
+    if (name === 'kai' || name === 'sans') continue;
     for (const [ch, labels] of map) if ([...labels].some((label) => !label.startsWith('程序里（') && !NOT_CONTENT.includes(label))) fromContent.add(ch);
   }
   const onlyFromSrc = sortedString([...song].filter((ch) => !fromContent.has(ch) && (ch.codePointAt(0) ?? 0) > 0x7e));
@@ -570,7 +660,7 @@ export async function readSite(): Promise<SiteText> {
     const route = existsSync(new URL(routePath, ROOT)) ? (JSON.parse(readText(routePath).replace(/^﻿/, '')) as RouteScene) : null;
     figures.push({ figure, stops, route });
   }
-  return { sources, kaiLabels: KAI_LABELS, cards: await loadFigureCards(), figures };
+  return { sources, kaiLabels: KAI_LABELS, sansLabels: SANS_LABELS, cards: await loadFigureCards(), figures };
 }
 
 // ================================================================ 三、做文件
@@ -581,9 +671,10 @@ export function nameRecordsFor(file: Pick<PlannedFile, 'source' | 'family' | 'po
   const en = (id: number): string | undefined => englishName(original, id);
   const version = en(5);
   if (!version) throw new Error(`${source.file} 的名称表里没有版本那一条`);
-  // 原字体里写“谁做的、谁设计的”那几条不单独留着（那样看起来像是原作者在给这个裁剪过的文件署名），并进说明那一条里
+  // 原字体里写“谁做的、谁设计的”那几条不单独留着（那样看起来像是原作者在给这个裁剪过的文件署名），并进说明那一条里；
+  // 宋体和黑体的原字体自己的说明（第 10 条）接在后面；楷体的照旧不接
   const sentence = (label: string, text: string | undefined): string | undefined => (text ? `${label}: ${text.replace(/\.$/, '')}.` : undefined);
-  const credits = [sentence('Manufacturer', en(8)), sentence('Designer', en(9)), file.source === 'song' ? en(10) : undefined].filter((text): text is string => Boolean(text));
+  const credits = [sentence('Manufacturer', en(8)), sentence('Designer', en(9)), file.source !== 'kai' ? en(10) : undefined].filter((text): text is string => Boolean(text));
   const records: { nameId: number; text: string | undefined }[] = [
     { nameId: 0, text: en(0) },
     { nameId: 1, text: file.family },
@@ -642,14 +733,14 @@ export async function makeFont(file: PlannedFile, original: Uint8Array, options:
 /** 一个字的 unicode-range 写法：U+4E11。 */
 const rangeOf = (ch: string): string => `U+${(ch.codePointAt(0) ?? 0).toString(16).toUpperCase()}`;
 
-/** 样式表（fonts.css）的字：每个文件一条 @font-face，不带 unicode-range 的在前。 */
-export function fontsCss(files: readonly Pick<PlannedFile, 'name' | 'family' | 'range' | 'characters'>[]): string {
+/** 样式表（fonts.css）的字：每个文件一条 @font-face，不带 unicode-range 的在前；粗细写的是这套字体自己的那一种。 */
+export function fontsCss(files: readonly Pick<PlannedFile, 'name' | 'family' | 'weight' | 'range' | 'characters'>[]): string {
   const rule = (file: (typeof files)[number]): string =>
     [
       '@font-face {',
       `  font-family: '${file.family}';`,
       `  src: url('./${file.name}.woff2') format('woff2');`,
-      '  font-weight: 400;',
+      `  font-weight: ${file.weight};`,
       '  font-style: normal;',
       '  font-display: swap;',
       ...(file.range ? [`  unicode-range: ${[...file.characters].map(rangeOf).join(', ')};`] : []),
@@ -671,8 +762,12 @@ export interface FontFileRecord {
   source: FontSourceId;
   group: string;
   range: boolean;
-  /** 装的是不是“不用点开就看得见”的字（楷体也算）。 */
+  /** 装的是不是“不用点开就看得见”的字（黑体、楷体也算）。 */
   first: boolean;
+  /** 要不要在 index.html 里预先声明（PRELOAD_GROUPS）。 */
+  preload: boolean;
+  /** 粗细：从做出来的文件里读的（sfnt.ts 的 weightOf），要和原字体那一项里写的一样。 */
+  weight: number;
   /** 只归哪一站（宋体按站拆开以后）；大家共用的是 null。 */
   stop: string | null;
   bytes: number;
@@ -691,7 +786,7 @@ export interface FontRecord {
   tool: number;
   recipe: number;
   made: Record<string, string>;
-  /** 两个原字体各一项：FONT_SOURCES 里的那一项，去掉 family（它在每个文件那一项里）。 */
+  /** 三个原字体各一项：FONT_SOURCES 里的那一项，去掉 family（它在每个文件那一项里）。 */
   sources: Record<FontSourceId, Omit<FontSource, 'family'>>;
   files: FontFileRecord[];
 }
@@ -713,6 +808,8 @@ export function fileRecord(file: PlannedFile, woff2: Uint8Array, onlyFromSrc: st
     group: file.group,
     range: file.range,
     first: file.first,
+    preload: file.preload,
+    weight: weightOf(tables),
     stop: file.stop,
     bytes: woff2.length,
     sha256: sha256(woff2),
@@ -733,7 +830,7 @@ export function sourceRecord(id: FontSourceId): Omit<FontSource, 'family'> {
 
 /** 整份记录。 */
 export function fontRecord(files: FontFileRecord[], made: Record<string, string>): FontRecord {
-  return { tool: RECORD_VERSION, recipe: RECIPE, made, sources: { kai: sourceRecord('kai'), song: sourceRecord('song') }, files };
+  return { tool: RECORD_VERSION, recipe: RECIPE, made, sources: { sans: sourceRecord('sans'), song: sourceRecord('song'), kai: sourceRecord('kai') }, files };
 }
 
 /** 记录写成文件里的字：缩进两格，行尾是 LF，最后有一个换行。 */
@@ -751,16 +848,20 @@ export function shippedTs(probe: string): string {
     '// 工具做的（npm run fonts），不要手改。说明见 docs/data-spec.md“随站的字体”。',
     '// 给页面用的几样。页面不引入 fonts.json：那里面记着每一个字，太大。',
     '',
-    '/** 随站的两套字体：文件里的名称、原字体叫什么、哪一版、它的网站、许可全文在网站上的地址（相对网站的根）。 */',
+    '/** 随站的三套字体：文件里的名称、原字体叫什么、哪一版、它的网站、许可全文在网站上的地址（相对网站的根）。 */',
     'export const SHIPPED_FONTS = {',
-    entry('kai'),
-    entry('song'),
+    ...FONT_SOURCE_IDS.map(entry),
     '} as const;',
     '',
     '/** 点开才要的那个宋体文件里的一个字：页面空下来的时候拿它叫浏览器先把那个文件取来。 */',
     `export const SONG_MORE_PROBE = '${probe}';`,
     '',
   ].join('\n');
+}
+
+/** 记录里的一个文件，写样式表要的那几样。粗细照原字体那一项里写的（记录里读回来的那个数要和它一样，测试守着）。 */
+export function cssFace(item: Pick<FontFileRecord, 'file' | 'family' | 'source' | 'range' | 'characters'>): Pick<PlannedFile, 'name' | 'family' | 'weight' | 'range' | 'characters'> {
+  return { name: item.file.replace(/\.woff2$/, ''), family: item.family, weight: FONT_SOURCES[item.source].weight, range: item.range, characters: item.characters };
 }
 
 /**
@@ -772,7 +873,7 @@ export function writtenFromRecord(record: FontRecord): { css: string; shipped: s
   const probe = [...(more?.characters ?? '')][0];
   if (!probe) throw new Error('点开才看得见的那一组一个字也没有：shipped.ts 里的那一个字没处取。');
   return {
-    css: fontsCss(record.files.map((item) => ({ name: item.file.replace(/\.woff2$/, ''), family: item.family, range: item.range, characters: item.characters }))),
+    css: fontsCss(record.files.map(cssFace)),
     shipped: shippedTs(probe),
   };
 }
@@ -801,11 +902,13 @@ export function readShipped(dir: string = FONTS_DIR): ShippedFonts {
 /**
  * 一个要做的文件里的字，放进仓库的字体里哪几个文件有了才算数：
  *   楷体        只认楷体那个文件；
+ *   黑体        只认黑体那个文件（宋体的文件里有不算：那样这个字在一行黑体里是宋体画的）；
  *   看得见的     自己那个文件，或者大家共用的头一个宋体文件（它们是一打开就下载的；光在点开才下载的文件里有不算）；
  *   点开才看得见的 同一站的两个文件和大家共用的两个文件里，哪个有都行。
  */
 export function servedBy(file: PlannedFile): string[] {
   if (file.group === 'kai') return ['yanlu-kai'];
+  if (file.group === 'sans') return ['yanlu-sans'];
   const own = file.stop ? [`yanlu-song-${file.stop}`] : [];
   if (file.first) return [...new Set([file.name, ...own, 'yanlu-song'])];
   return [...new Set([file.name, ...own, ...own.map((name) => `${name}-more`), 'yanlu-song', 'yanlu-song-more'])];
@@ -838,7 +941,7 @@ export function recordIsFresh(plan: FontPlan, record: FontRecord, made: Record<s
   if (record.tool !== RECORD_VERSION) return no('记录的格式换了');
   if (record.recipe !== RECIPE) return no('做法改过了');
   if (JSON.stringify(record.made) !== JSON.stringify(made)) return no('裁剪字体的库换了版本');
-  for (const id of ['kai', 'song'] as const) {
+  for (const id of FONT_SOURCE_IDS) {
     if (record.sources[id]?.sha256 !== FONT_SOURCES[id].sha256) return no('原字体换了');
     // 不只比记号：名字、版本、网站写进了文件里的名称表，留哪些排版功能决定文件里有什么；别的几样（从哪里取、许可文件）
     // 记录和给页面用的模块里也写着。改了哪一样都重做，免得“测试说对不上、工具说已经是新的”
@@ -854,6 +957,10 @@ export function recordIsFresh(plan: FontPlan, record: FontRecord, made: Record<s
       const gone = sortedString([...have].filter((ch) => !want.has(ch)));
       return no(`${file.name} 的字变了${added ? `，多了“${added}”` : ''}${gone ? `，少了“${gone}”` : ''}`);
     }
+    // 字没变，写在记录里的别的几样变了（最要紧的是“要不要预先声明”：它不改字体文件，只改记录）：也要重写
+    const flags = (item: Pick<FontFileRecord, 'family' | 'postscript' | 'source' | 'group' | 'range' | 'first' | 'preload' | 'stop'>): string =>
+      JSON.stringify([item.family, item.postscript, item.source, item.group, item.range, item.first, item.preload, item.stop]);
+    if (recorded && flags(recorded) !== flags(file)) return no(`${file.name} 的说明变了（名称、归哪一组、带不带 unicode-range、是不是一打开就要、预不预先声明）`);
   }
   return { fresh: true, why: '' };
 }

@@ -275,7 +275,7 @@ describe('沙盘栏 + 替身 + 题签层', () => {
     expect(attr(page.pane(), 'data-stage-state')).toBe('lost');
     expect(attr(page.pane(), 'data-stage-picture')).toBe('none');
     expect(attr(page.pane(), 'data-stage-section')).toBeNull();
-    expect(page.pane().className).toBe('stage-pane is-pinned is-wide is-kai');
+    expect(page.pane().className).toBe('stage-pane is-pinned is-wide');
     expect(page.q('.stage-says')).toBe(says);
     expect(page.q('.stage-says .stage-message p')?.textContent).toBe('沙盘的画面断了。');
     expect(page.q('.fake-stage')).toBeNull();
@@ -303,7 +303,32 @@ describe('沙盘栏 + 替身 + 题签层', () => {
     warn.mockRestore();
   });
 
-  it('栏的宽窄记在栏上：连边线 584 像素起挂 is-wide，栏里面 661 像素起再挂 is-kai，栏里面的宽度写成 --pane-w，题记的字号写成 --line-size（整数的像素）；窗口的大小变了就重写，重画也冲不掉；栏窄了比例尺换一段短的', { timeout: 30_000 }, async () => {
+  it('指北针只有朝北的一头是实心的箭头，另一头是一根直线；“北”字在它旁边', { timeout: 30_000 }, async () => {
+    const page = await mount('?stage=fake');
+    // 指北和比例尺是有了画面才有的：等替身摆好
+    await page.until(() => page.q('.stage-caption-head .stage-north') !== null);
+    const north = page.q('.stage-caption-head .stage-north')!;
+    // “北”字和针并排在一块里，字在前
+    expect(north.childNodes.map((node) => (node as MiniElement).tagName?.toLowerCase())).toEqual(['span', 'svg']);
+    expect(north.querySelector('span')?.textContent).toBe('北');
+    // 针（跟着镜头转的那一组）里正好两样：一个带 stage-north-tip 的实心箭头，一根直线
+    const paths = north.querySelectorAll('g path');
+    expect(paths).toHaveLength(2);
+    const tips = paths.filter((item) => item.className.split(' ').includes('stage-north-tip'));
+    expect(tips).toHaveLength(1);
+    // 箭头是合上的一块（路径以 Z 收尾），不另描边；尖在上头（y 是负的），就是朝北的那一头
+    expect(attr(tips[0], 'd')).toMatch(/^M0 -\d+(\.\d+)? .*Z$/);
+    expect(attr(tips[0], 'stroke')).toBeNull();
+    // 另一头：不合上（没有 Z），只有一道线，画在针的下半截（从圆心往下）
+    const [shaft] = paths.filter((item) => item !== tips[0]);
+    expect(attr(shaft, 'd')).not.toMatch(/[Zz]/);
+    expect(attr(shaft, 'd')).toMatch(/^M0 \d+(\.\d+)?V\d+(\.\d+)?$/);
+    expect(attr(shaft, 'stroke')).toBe('currentColor');
+    expect(attr(shaft, 'class')).toBeNull();
+    await page.unmount();
+  });
+
+  it('栏的宽窄记在栏上：连边线 584 像素起挂 is-wide，栏里面的宽度写成 --pane-w，题记的字号写成 --line-size（整数的像素）；栏上不再挂 is-kai；窗口的大小变了就重写，重画也冲不掉；栏窄了比例尺换一段短的', { timeout: 30_000 }, async () => {
     const page = await mount('?stage=fake');
     const fake = () => page.q('.fake-stage')!;
     await page.until(() => attr(page.pane(), 'data-stage-state') === 'ready');
@@ -311,7 +336,7 @@ describe('沙盘栏 + 替身 + 题签层', () => {
     /** 页面写在栏上的题记字号：（栏里面的宽度 − 21）÷ 40 往下取整，最小 14、最大 19 像素。 */
     const lineSize = () => page.pane().style.getPropertyValue('--line-size');
     // 假的页面上这一栏 800 像素宽：宽的排法，题记用楷体；比例尺是沙盘报来的那一段。
-    expect(shape()).toEqual({ cls: 'stage-pane is-pinned is-wide is-kai', w: '800px', scale: '2 公里', bar: '96px' });
+    expect(shape()).toEqual({ cls: 'stage-pane is-pinned is-wide', w: '800px', scale: '2 公里', bar: '96px' });
     expect(lineSize()).toBe('19px');
     // 把栏改成这么宽，再告诉页面窗口的大小变了。
     const resizeTo = async (width: number) => {
@@ -326,7 +351,7 @@ describe('沙盘栏 + 替身 + 题签层', () => {
     // (660 − 21) ÷ 40 = 15.975：往下取整是 15，不是四舍五入的 16（16 × 40 = 640，这一行只有 640 − 1）
     expect(lineSize()).toBe('15px');
     await resizeTo(661);
-    expect(shape().cls).toBe('stage-pane is-pinned is-wide is-kai');
+    expect(shape().cls).toBe('stage-pane is-pinned is-wide');
     expect(lineSize()).toBe('16px');
     // 竖着拿的平板（768）：18.675 取成 18
     await resizeTo(768);
@@ -345,9 +370,9 @@ describe('沙盘栏 + 替身 + 题签层', () => {
     // 重画会把类名整个重写（收起、展开）：重画完，栏的宽窄还记在上面。
     await resizeTo(700);
     await act(async () => page.q('.stage-fold')!.click());
-    expect(page.pane().className).toBe('stage-pane is-pinned is-folded is-wide is-kai');
+    expect(page.pane().className).toBe('stage-pane is-pinned is-folded is-wide');
     await act(async () => page.q('.stage-fold')!.click());
-    expect(shape()).toEqual({ cls: 'stage-pane is-pinned is-wide is-kai', w: '700px', scale: '2 公里', bar: '96px' });
+    expect(shape()).toEqual({ cls: 'stage-pane is-pinned is-wide', w: '700px', scale: '2 公里', bar: '96px' });
     await page.unmount();
   });
 
@@ -451,7 +476,7 @@ describe('沙盘栏 + 替身 + 题签层', () => {
     await page.until(() => attr(page.pane(), 'data-stage-state') === 'failed');
     expect(attr(page.pane(), 'data-stage-state')).toBe('failed');
     expect(attr(page.pane(), 'data-stage-section')).toBeNull();
-    expect(page.pane().className).toBe('stage-pane is-wide is-kai');
+    expect(page.pane().className).toBe('stage-pane is-wide');
     expect(page.q('.stage-says .stage-message p')?.textContent).toBe('沙盘没能摆出来，正文可以照常读。');
     expect(page.q('.stage-retry')?.textContent).toBe('再试一次');
     expect(page.q('.stage-controls')).toBeNull();

@@ -11,7 +11,7 @@
 // 另外查四件事：沙盘程序不能是页面一打开就下载的东西（页面只许用动态 import 取它）；
 // 沙盘用到的文件（地形文件、先画好的地面、定格图）的网址也不能在页面一打开就下载的那一块里
 //（一座沙盘十几二十个网址，沙盘越多越长：它们单独一块，打开人物页或者一站时才下载）；
-// 随站的字体带得对不对（dist/ 里正好是放进仓库的那三个文件，index.html 预先声明的和样式表里写的是同一个文件），
+// 随站的字体带得对不对（dist/ 里正好是放进仓库的那四个文件，index.html 预先声明的和样式表里写的是同一个文件），
 // 字体多大也印出来；构建出来的样式表里没有 Safari 读不懂的那几种写法（查的是构建以后的原文：构建的工具会改写样式表）。
 // 后两件怎么查在 tests/support/builtFonts.ts。
 // 按家分块的零件（src/stage/families.ts）：每一家是单独的一块，场景里写到了才下载。对 content/ 里的每一座沙盘查
@@ -241,23 +241,24 @@ function readBuiltSite(): BuiltSite {
 /** 放进仓库的字体文件（src/fonts/fonts.json 里记的）。 */
 function committedFonts(): CommittedFont[] {
   const record = JSON.parse(utf8.decode(readFileSync(new URL('../../src/fonts/fonts.json', import.meta.url)))) as { files: CommittedFont[] };
-  return record.files.map(({ file, sha256, range, first, stop }) => ({ file, sha256, range, first, stop }));
+  return record.files.map(({ file, sha256, range, preload, first, stop }) => ({ file, sha256, range, preload, first, stop }));
 }
 
 describe('随站的字体在构建出来的网站里', () => {
-  it('dist/ 里正好是放进仓库的那几个字体文件（现在是三个）；index.html 预先声明的两个就是样式表里一打开就要用的两个，地址是同一个文件；大小不超过上限', () => {
+  it('dist/ 里正好是放进仓库的那几个字体文件（现在是四个）；index.html 预先声明的两个就是记录里说要预先声明的两个，地址和样式表里写的是同一个文件；大小不超过上限', () => {
     expect(existsSync(MANIFEST), '没有 dist/.vite/manifest.json：先运行 npm run build').toBe(true);
     // 是哪几个文件，照记录（src/fonts/fonts.json）来，不在这里另写一遍名字：记录对不对由 tests/fonts/font-files.test.ts 查
     const committed = committedFonts();
-    expect(committed.length).toBeGreaterThanOrEqual(3);
+    expect(committed.length).toBeGreaterThanOrEqual(4);
     const site = readBuiltSite();
     const built = builtFonts(site, committed);
     expect(built.problems).toEqual([]);
     expect(Object.keys(site.fonts)).toHaveLength(committed.length);
     expect(built.files.map((item) => item.file)).toEqual(committed.map((item) => item.file));
-    // 一打开就下载的（index.html 里预先声明了的）：正好是样式表里不带 unicode-range 的那几个——楷体和头一个宋体文件
-    expect(built.files.filter((item) => item.first).map((item) => item.file)).toEqual(committed.filter((item) => !item.range).map((item) => item.file));
-    expect(built.files.filter((item) => item.first).map((item) => item.file)).toEqual(['yanlu-kai.woff2', 'yanlu-song.woff2']);
+    // 一打开就下载的（index.html 里预先声明了的）：正好是记录里说要预先声明的那几个——现在是头一个宋体文件和楷体
+    //（黑体的文件不带 unicode-range，也不预先声明：页面的样式眼下还没有用它）
+    expect(built.files.filter((item) => item.first).map((item) => item.file)).toEqual(committed.filter((item) => item.preload).map((item) => item.file));
+    expect(built.files.filter((item) => item.first).map((item) => item.file).sort()).toEqual(['yanlu-kai.woff2', 'yanlu-song.woff2']);
     // 大小量的是 dist/ 里的文件；哪几个算首次打开要下载的、各归哪一站，照记录（宋体按站拆开以后按站分开算）
     const sized = built.files.map(({ file, bytes }) => {
       const record = committed.find((item) => item.file === file);
@@ -284,46 +285,75 @@ describe('随站的字体在构建出来的网站里', () => {
 });
 
 describe('字体带得不对的时候这里通不过（用编出来的网页和样式表，走的是同一条路）', () => {
+  // 四个文件。黑体的不带 unicode-range、也不预先声明（页面上用到这套字体时浏览器才取）；楷体和头一个宋体预先声明
   const COMMITTED: CommittedFont[] = [
-    { file: 'yanlu-kai.woff2', sha256: 'k', range: false, first: true, stop: null },
-    { file: 'yanlu-song.woff2', sha256: 's', range: false, first: true, stop: null },
-    { file: 'yanlu-song-more.woff2', sha256: 'm', range: true, first: false, stop: null },
+    { file: 'yanlu-sans.woff2', sha256: 'h', range: false, preload: false, first: true, stop: null },
+    { file: 'yanlu-song.woff2', sha256: 's', range: false, preload: true, first: true, stop: null },
+    { file: 'yanlu-kai.woff2', sha256: 'k', range: false, preload: true, first: true, stop: null },
+    { file: 'yanlu-song-more.woff2', sha256: 'm', range: true, preload: false, first: false, stop: null },
   ];
-  const FONTS = { 'assets/kai-1.woff2': { bytes: 50_000, sha256: 'k' }, 'assets/song-2.woff2': { bytes: 240_000, sha256: 's' }, 'assets/more-3.woff2': { bytes: 180_000, sha256: 'm' } };
+  const FONTS = {
+    'assets/sans-0.woff2': { bytes: 49_000, sha256: 'h' },
+    'assets/kai-1.woff2': { bytes: 50_000, sha256: 'k' },
+    'assets/song-2.woff2': { bytes: 240_000, sha256: 's' },
+    'assets/more-3.woff2': { bytes: 180_000, sha256: 'm' },
+  };
   const RANGE = ';unicode-range:U+A9,U+2014';
   const face = (family: string, file: string, rest = ''): string => `@font-face{font-family:${family};src:url(./${file})format("woff2");font-weight:400;font-style:normal;font-display:swap${rest}}`;
-  const SHEET = [face('Yanlu Kai', 'kai-1.woff2'), face('Yanlu Song', 'song-2.woff2'), face('Yanlu Song', 'more-3.woff2', RANGE), '.a{color:red}'].join('');
+  const SHEET = [face('Yanlu Sans', 'sans-0.woff2').replace('font-weight:400', 'font-weight:500'), face('Yanlu Song', 'song-2.woff2'), face('Yanlu Kai', 'kai-1.woff2'), face('Yanlu Song', 'more-3.woff2', RANGE), '.a{color:red}'].join('');
   const link = (file: string, rest = ' crossorigin'): string => `<link rel="preload" href="./assets/${file}" as="font" type="font/woff2"${rest} />`;
   const HTML = `<html><head>${link('kai-1.woff2')}${link('song-2.woff2')}<link rel="stylesheet" crossorigin href="./assets/index.css"></head></html>`;
   const site = (change: Partial<BuiltSite> = {}): BuiltSite => ({ html: HTML, sheets: { 'assets/index.css': SHEET }, fonts: FONTS, ...change });
   const sheet = (css: string): Partial<BuiltSite> => ({ sheets: { 'assets/index.css': css } });
 
-  it('都对：没有话说，前两个是一打开就下载的', () => {
+  it('都对：没有话说，预先声明了的两个是一打开就下载的', () => {
     const built = builtFonts(site(), COMMITTED);
     expect(built.problems).toEqual([]);
     expect(built.files).toEqual([
-      { file: 'yanlu-kai.woff2', built: 'assets/kai-1.woff2', bytes: 50_000, first: true },
+      { file: 'yanlu-sans.woff2', built: 'assets/sans-0.woff2', bytes: 49_000, first: false },
       { file: 'yanlu-song.woff2', built: 'assets/song-2.woff2', bytes: 240_000, first: true },
+      { file: 'yanlu-kai.woff2', built: 'assets/kai-1.woff2', bytes: 50_000, first: true },
       { file: 'yanlu-song-more.woff2', built: 'assets/more-3.woff2', bytes: 180_000, first: false },
     ]);
+  });
+
+  it('不带 unicode-range、记录里又说不预先声明的文件：index.html 里没有它是对的，有了通不过；记录里说要预先声明的没有声明，也通不过', () => {
+    // 黑体的文件现在就是这样：不声明是对的（上一项）；声明了，说得出来
+    expect(builtFonts(site({ html: HTML.replace('</head>', `${link('sans-0.woff2')}</head>`) }), COMMITTED).problems).toEqual([
+      'index.html 里预先声明的 ./assets/sans-0.woff2不是记录里说要预先声明的字体文件（要预先声明的是 assets/song-2.woff2、assets/kai-1.woff2）：会多下载一个文件，或者下载得太早',
+    ]);
+    // 反过来：记录改成“楷体不预先声明、黑体预先声明”（页面换成用黑体排标题以后就是这样），index.html 还是旧的两行——两处都说得出来
+    const flipped = COMMITTED.map((item) => (item.file === 'yanlu-kai.woff2' ? { ...item, preload: false } : item.file === 'yanlu-sans.woff2' ? { ...item, preload: true } : item));
+    expect(builtFonts(site(), flipped).problems).toEqual([
+      'index.html 里预先声明的 ./assets/kai-1.woff2不是记录里说要预先声明的字体文件（要预先声明的是 assets/sans-0.woff2、assets/song-2.woff2）：会多下载一个文件，或者下载得太早',
+      '记录里说要预先声明的 assets/sans-0.woff2 没有在 index.html 里预先声明',
+    ]);
+    // index.html 跟着改了：没有话说，楷体的文件不算一打开就下载的
+    const flippedHtml = HTML.replace(link('kai-1.woff2'), link('sans-0.woff2'));
+    const built = builtFonts(site({ html: flippedHtml }), flipped);
+    expect(built.problems).toEqual([]);
+    expect(built.files.filter((item) => item.first).map((item) => item.file)).toEqual(['yanlu-sans.woff2', 'yanlu-song.woff2']);
+    // 带 unicode-range 的文件，记录里标成要预先声明：记错了
+    const wrong = COMMITTED.map((item) => (item.file === 'yanlu-song-more.woff2' ? { ...item, preload: true } : item));
+    expect(builtFonts(site({ html: HTML.replace('</head>', `${link('more-3.woff2')}</head>`) }), wrong).problems).toEqual(['yanlu-song-more.woff2 带着 unicode-range（用到时才下载），记录里却说要预先声明']);
   });
 
   it('预先声明的和样式表里的成了两个文件（同一个字体有两份）：通不过', () => {
     const problems = builtFonts(site({ html: HTML.replace('kai-1.woff2', 'kai-9.woff2'), fonts: { ...FONTS, 'assets/kai-9.woff2': { bytes: 50_000, sha256: 'k' } } }), COMMITTED).problems;
     expect(problems).toContain('yanlu-kai.woff2 在 dist/ 里有两份：assets/kai-1.woff2 和 assets/kai-9.woff2（同一个字体会下载两遍）');
-    expect(problems).toContain('样式表里一打开就要用的 assets/kai-1.woff2 没有在 index.html 里预先声明');
+    expect(problems).toContain('记录里说要预先声明的 assets/kai-1.woff2 没有在 index.html 里预先声明');
   });
 
   it('预先声明少了 crossorigin、把第三个文件也预先声明了、少声明了一个：各有一句；写在注释里的不算声明了', () => {
     expect(builtFonts(site({ html: HTML.replace(link('kai-1.woff2'), link('kai-1.woff2', '')) }), COMMITTED).problems).toEqual(['index.html 里预先声明的 ./assets/kai-1.woff2没有 crossorigin：浏览器取来的这一份样式表用不上，会再取一遍']);
     expect(builtFonts(site({ html: HTML.replace('</head>', `${link('more-3.woff2')}</head>`) }), COMMITTED).problems).toHaveLength(1);
-    expect(builtFonts(site({ html: HTML.replace(link('song-2.woff2'), '') }), COMMITTED).problems).toEqual(['样式表里一打开就要用的 assets/song-2.woff2 没有在 index.html 里预先声明']);
+    expect(builtFonts(site({ html: HTML.replace(link('song-2.woff2'), '') }), COMMITTED).problems).toEqual(['记录里说要预先声明的 assets/song-2.woff2 没有在 index.html 里预先声明']);
     expect(builtFonts(site({ html: HTML.replace(link('song-2.woff2'), `<!-- ${link('song-2.woff2')} -->`) }), COMMITTED).problems).toHaveLength(1);
   });
 
   it('dist/ 里的字体不是放进仓库的那一个、少了一个、font-display 不是 swap、第三个文件没带 unicode-range、指着别的网站：通不过', () => {
     expect(builtFonts(site({ fonts: { ...FONTS, 'assets/kai-1.woff2': { bytes: 50_000, sha256: 'x' } } }), COMMITTED).problems).toContain('dist/ 里的 assets/kai-1.woff2 不是放进仓库的字体文件（记号对不上）');
-    const two = { 'assets/kai-1.woff2': FONTS['assets/kai-1.woff2'], 'assets/song-2.woff2': FONTS['assets/song-2.woff2'] };
+    const two = { 'assets/sans-0.woff2': FONTS['assets/sans-0.woff2'], 'assets/kai-1.woff2': FONTS['assets/kai-1.woff2'], 'assets/song-2.woff2': FONTS['assets/song-2.woff2'] };
     expect(builtFonts(site({ ...sheet(SHEET.replace(face('Yanlu Song', 'more-3.woff2', RANGE), '')), fonts: two }), COMMITTED).problems).toContain('放进仓库的 yanlu-song-more.woff2 不在 dist/ 里：页面没有用上它');
     expect(builtFonts(site(sheet(SHEET.replace('font-display:swap', 'font-display:block'))), COMMITTED).problems.some((line) => line.includes('应该是 swap'))).toBe(true);
     expect(builtFonts(site(sheet(SHEET.replace(RANGE, ''))), COMMITTED).problems.some((line) => line.includes('unicode-range'))).toBe(true);

@@ -4,7 +4,7 @@
 
 import type { NoteKind, Place } from '../domain';
 import type { StageReadout } from '../stage/types';
-import { REGISTER_TEXT } from './foldText';
+import { BASIS_LABEL, REGISTER_TEXT } from './foldText';
 import { SOURCES_TEXT } from './sourcesText';
 
 export const SITE_TITLE = '沿着他走过的路';
@@ -154,6 +154,80 @@ function kaiLabels(): string[] {
     SOURCES_LABEL,
     ...SOURCES_TEXT.headings,
     '一二三四五六七八九十',
+  ];
+}
+
+/**
+ * 界面上用黑体排的固定的字，一处列全。做字体的工具照这张表把这些字放进黑体的文件
+ *（tests/support/fontTool.ts；说明见 docs/data-spec.md“随站的字体”）：要用黑体排的字没有列在这里，
+ * 黑体文件里就没有它，页面上它会掉到别的字体上（tests/e2e/fonts.spec.ts 会发现）。
+ * 不在这张表里、也用黑体排的，是内容里来的字（人物的名字、朝代和年份，各站的标题、年份、地点和年纪，小节标题，
+ * 小注的标题，沙盘旁边的小节名和时间），和沙盘上东西的五个类别名（src/domain/scene.ts 的 SCENE_CLASS_LABEL），工具自己去数。
+ * 黑体的文件已经做好、随站带着；页面的样式眼下还没有用它（标题、按钮现在还是上面那张表里的楷体），换框架的样子时才换过来，
+ * 那时上面那张楷体的表就不要了：楷体只剩沙盘上的题签和题签脚上的印在用，那些字工具照页面拼题签的函数去数。
+ * 和上面那张表一样写成“叫一个函数”再标上 PURE：页面的程序里不带它。
+ */
+export const SANS_LABELS: readonly string[] = /* @__PURE__ */ sansLabels();
+
+function sansLabels(): string[] {
+  return [
+    // 上面那张楷体的表里列着的（标题、按钮、小标签）：照旧
+    SITE_TITLE,
+    STAGE_TEXT.ancient,
+    STAGE_TEXT.modern,
+    STAGE_TEXT.reset,
+    STAGE_TEXT.resetHere,
+    STAGE_TEXT.resetWhole,
+    STAGE_TEXT.resetRoad,
+    STAGE_TEXT.fold,
+    STAGE_TEXT.unfold,
+    STAGE_TEXT.retry,
+    STAGE_TEXT.rebuild,
+    STAGE_TEXT.tryTable,
+    STAGE_TEXT.noteTitle,
+    STAGE_TEXT.north,
+    REGISTER_TEXT.heading,
+    REGISTER_TEXT.notDrawn,
+    '时间',
+    '地点',
+    '年纪',
+    '各站目录',
+    VIEWS_HEADING,
+    '读原文',
+    '凭据',
+    '问讲解员',
+    '发送',
+    '没有找到这位人物',
+    '没有这一站',
+    START_READING,
+    SOURCES_LABEL,
+    ...SOURCES_TEXT.headings,
+    '一二三四五六七八九十',
+    // 小标签
+    NOT_WRITTEN,
+    '正在看',
+    ...Object.values(NOTE_KIND_LABEL),
+    ...Object.values(BASIS_LABEL),
+    // 一页的抬头
+    STAGE_TEXT.toStage,
+    '第 站 · 共',
+    // 小注、原文、凭据
+    STAGE_TEXT.noteClose,
+    '小注',
+    '+−',
+    '白话',
+    // 一页的末尾，贴着底边的那一条，讲解员面板
+    '回到各站目录',
+    '上一站',
+    '下一站',
+    '可以这样问',
+    '以后可以这样问',
+    '你的问题',
+    // 沙盘栏：两个小按钮，比例尺上的数和单位
+    STAGE_TEXT.backToStills,
+    STAGE_TEXT.note,
+    ' 米 公里',
+    '0123456789',
   ];
 }
 

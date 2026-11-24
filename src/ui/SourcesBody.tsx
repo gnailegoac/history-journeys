@@ -2,11 +2,11 @@
 // 这一段程序和它上面的话（sourcesText.ts）自成一块，读者打开“来源”页才下载（架子在 SourcesPage.tsx）。
 //
 // 每一行从哪里来，页面自己不另记一份，免得和随站发的东西对不上：
-//   字体      两套字体的名字、哪一版、网站、许可全文的地址：src/fonts/shipped.ts（做字体的工具写的）。
+//   字体      三套字体的名字、哪一版、网站、许可全文的地址：src/fonts/shipped.ts（做字体的工具写的）。
 //   地形和水  内容里的原话：每位可以点进去的人物的全程沙盘的 credits，他每一站的沙盘的 credits；说过的不再印一遍（见 uniqueLines）。
 //   图片      每一站正文里的图片：是哪一站的、题记、作者、许可、出处的地址（那一站的 images）。
 //   程序      两个程序库的许可全文：public/licences/ 里的两个文件。
-// 四份许可全文是网站自己带着的文本文件，链接直接打开它们。“字体的网站”“图片出处”是通到别的网站的平常链接，
+// 五份许可全文是网站自己带着的文本文件，链接直接打开它们。“字体的网站”“图片出处”是通到别的网站的平常链接，
 // 读者点了才去；页面自己不取它们。
 // 印给读者看的字都不写在这个文件里（在 sourcesText.ts 和内容里）：做字体的工具是按文件分字的。
 //
@@ -80,7 +80,7 @@ export function SourcesBody() {
     };
   }, []);
 
-  const { kai, song } = SHIPPED_FONTS;
+  const { sans, song, kai } = SHIPPED_FONTS;
   const [fonts, land, pictures, program] = SOURCES_TEXT.headings;
   /** 还没读到、没读出来时站在那一栏里的一句。 */
   const waiting = found ? null : <p className="quiet">{found === null ? SOURCES_TEXT.failed : SOURCES_TEXT.loading}</p>;
@@ -91,10 +91,11 @@ export function SourcesBody() {
 
       <section data-sources="fonts">
         <h2 className="section-heading">{fonts}</h2>
-        {[kai, song].map((font) => (
+        {/* 三套字体，先后是黑体、宋体、楷体。 */}
+        {[sans, song, kai].map((font) => (
           <div key={font.family} className="sources-item" data-font={font.family}>
-            <p>{font === kai ? SOURCES_TEXT.kai(font) : SOURCES_TEXT.song(font)}</p>
-            {/* 两套字体的两个链接写的是一样的字：读屏软件把链接单列出来的时候分不出谁是谁的，所以另给一个带着字体名字的名字。 */}
+            <p>{font === sans ? SOURCES_TEXT.sans(font) : font === song ? SOURCES_TEXT.song(font) : SOURCES_TEXT.kai(font)}</p>
+            {/* 三套字体的两个链接写的是一样的字：读屏软件把链接单列出来的时候分不出谁是谁的，所以另给一个带着字体名字的名字。 */}
             <p className="sources-links">
               <a href={font.licence} aria-label={`${font.name} ${SOURCES_TEXT.licence}`}>
                 {SOURCES_TEXT.licence}
@@ -105,7 +106,7 @@ export function SourcesBody() {
             </p>
           </div>
         ))}
-        <p>{SOURCES_TEXT.subset(kai, song)}</p>
+        <p>{SOURCES_TEXT.subset(sans, song, kai)}</p>
       </section>
 
       <section data-sources="land">

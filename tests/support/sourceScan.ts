@@ -37,11 +37,12 @@ export function scanProgram(file: string, text: string): Finding[] {
 
 // ---------------------------------------------------------------- 样式表
 
-/** 样式表里的一条声明：在哪个选择器（或者 @font-face 这样的块）下面，属性，值。 */
+/** 样式表里的一条声明：在哪个选择器（或者 @font-face 这样的块）下面，属性，值；rule 是它所在的那一条规则在这份样式表里排第几（同一条规则里的声明是同一个数）。 */
 export interface Declaration {
   selector: string;
   property: string;
   value: string;
+  rule: number;
 }
 
 const tidy = (text: string): string => text.replace(/\s+/g, ' ').trim();
@@ -60,7 +61,8 @@ export function readCss(css: string): { declarations: Declaration[]; nested: str
   const declarations: Declaration[] = [];
   const nested: string[] = [];
   /** 一层大括号：它前面写的是什么，是哪一种。group 是 @media 这样的一组规则；rule 是一条规则（里面是声明）。 */
-  const stack: { prelude: string; kind: 'group' | 'rule' | 'keyframes' }[] = [];
+  const stack: { prelude: string; kind: 'group' | 'rule' | 'keyframes'; rule: number }[] = [];
+  let rules = 0;
   let buffer = '';
   let quote = '';
   let parens = 0;
@@ -71,7 +73,7 @@ export function readCss(css: string): { declarations: Declaration[]; nested: str
     if (!top || top.kind !== 'rule' || piece === '') return;
     const colon = piece.indexOf(':');
     if (colon < 0) return;
-    declarations.push({ selector: top.prelude, property: piece.slice(0, colon).trim(), value: piece.slice(colon + 1).trim() });
+    declarations.push({ selector: top.prelude, property: piece.slice(0, colon).trim(), value: piece.slice(colon + 1).trim(), rule: top.rule });
   };
   for (let i = 0; i < text.length; i++) {
     const c = text[i];
@@ -98,7 +100,7 @@ export function readCss(css: string): { declarations: Declaration[]; nested: str
       const parent = stack[stack.length - 1];
       const kind = /^@(media|supports|container|layer)\b/.test(prelude) ? 'group' : /^@keyframes\b/.test(prelude) ? 'keyframes' : 'rule';
       if (kind === 'rule' && parent?.kind === 'rule') nested.push(prelude);
-      stack.push({ prelude, kind });
+      stack.push({ prelude, kind, rule: kind === 'rule' ? ++rules : 0 });
     } else if (c === '}') {
       declare();
       stack.pop();
@@ -114,19 +116,66 @@ export function readCss(css: string): { declarations: Declaration[]; nested: str
 /** 一个值里有没有非空的引号字符串（content: '+' 这样的）。 */
 const hasQuotedText = (value: string): boolean => /"[^"]+"|'[^']+'/.test(value);
 
-/** 字体的两个记号。别的 --font-… 都不许有。 */
+/** 字体的两个记号（框架的）。别的 --font-… 都不许有；题签用的是人物自己的 --figure-font。 */
 const FONT_TOKENS = ['--font-song', '--font-kai'];
-/** font-family 的值只许是这几种：两个记号之一；记号后面带一串兜底的字体（题签用，开发时单看沙盘的页面没有记号）；跟着上一层。 */
-const familyAllowed = (value: string): boolean => /^var\(--font-(song|kai)\)$/.test(value) || /^var\(--font-(song|kai),/.test(value) || value === 'inherit';
+/** font-family 的值只许是这几种：两个记号之一；跟着上一层；题签的规则里是人物自己的字体记号、后面带一串备用的字体（开发时单看沙盘的页面没有记号）。 */
+const familyAllowed = (value: string, strips: boolean): boolean => /^var\(--font-(song|kai)\)$/.test(value) || value === 'inherit' || (strips && /^var\(--figure-font,/.test(value));
 /** 设备自带的黑体一类：哪里都不该出现。 */
 const SANS_WORDS = ['system-ui', 'sans-serif', 'PingFang', 'YaHei'];
+
+/** 一条规则的选择器，一个一个分开（括号里的逗号不算）。 */
+function selectorsOf(prelude: string): string[] {
+  const list: string[] = [];
+  let depth = 0;
+  let piece = '';
+  for (const c of prelude) {
+    if (c === '(') depth++;
+    if (c === ')') depth--;
+    if (c === ',' && depth === 0) {
+      list.push(piece.trim());
+      piece = '';
+    } else piece += c;
+  }
+  list.push(piece.trim());
+  return list.filter(Boolean);
+}
+
+/** 题签的选择器：里面有 .strip、.strip-seal、.strip-leaders 这样的类（.strips 是放题签的那一层，不算）。 */
+const STRIP = /\.strip(?:-[a-z]+)*(?![\w-])/;
+/** 这一条规则是不是题签的：它的每一个选择器都是。 */
+const isStripRule = (prelude: string): boolean => selectorsOf(prelude).every((selector) => STRIP.test(selector));
+/** 人物自己的那一套记号写在哪：选择器的末尾是 .stage-pane（tokens.css 末尾的那一块；再添的人物写成 [data-figure='…'] .stage-pane）。 */
+const isFigureBlock = (prelude: string): boolean => selectorsOf(prelude).every((selector) => /\.stage-pane$/.test(selector));
+/** 许可直接读沙盘栏底色的两条规则：栏自己，和测试用的沙盘替身。 */
+const READS_GROUND = ['.stage-pane', '.fake-stage'];
+/** 一个值里读了哪几个记号。 */
+const varsRead = (value: string): string[] => Array.from(value.matchAll(/var\(\s*(--[A-Za-z0-9-]+)/g), (match) => match[1]);
+/** 人物自己的记号：--figure-… ，和沙盘栏的底色。 */
+const isFigureToken = (name: string): boolean => name.startsWith('--figure-') || name === '--color-paper-sunk';
+
+/**
+ * 框架的样式和人物的样式各读各的那一套记号（tokens.css 开头说的两套）。找这些，都记成 seam：
+ *   人物的记号（--figure-…、--color-paper-sunk）写在了沙盘栏以外的规则上；
+ *   题签的规则读了人物那一套以外的记号；
+ *   别的规则读了人物的记号——沙盘栏自己和沙盘的替身读栏的底色除外。
+ */
+function seamFindings(declarations: Declaration[], add: (rule: string, what: string) => void): void {
+  for (const { selector, property, value } of declarations) {
+    const strips = isStripRule(selector);
+    if (isFigureToken(property) && !isFigureBlock(selector)) add('seam', `${selector} { ${property}: … }`);
+    for (const name of varsRead(value)) {
+      if (strips ? !name.startsWith('--figure-') : isFigureToken(name) && !(name === '--color-paper-sunk' && READS_GROUND.includes(selector))) add('seam', `${selector} { ${property}: ${value} }`);
+    }
+  }
+}
 
 /**
  * 扫一份样式表。找这些：
  *   font-weight   不是 400、也不是 var(--weight-heading) 的；--weight-heading 这个记号不是 400
  *   font-style    不是 normal 的；哪里写了 italic、oblique
  *   font          简写（只许 font: inherit）
- *   font-family   不是两个记号的；别的 --font-… 记号；system-ui、sans-serif、PingFang、YaHei 这几个词
+ *   font-family   不是两个记号的（题签的规则里是人物自己的那一个）；别的 --font-… 记号；system-ui、sans-serif、PingFang、YaHei 这几个词
+ *   seam          框架的规则读了人物的记号，题签的规则读了框架的记号，人物的记号写在了沙盘栏以外（见 seamFindings）
  *   content       content: 里写了字（工具不看样式表，这些字进不了字体）
  *   text-decoration  简写里除了线的种类还写了别的（Safari 26.2 以前不认，线会没有）：要拆成 text-decoration-line 这几条
  *   color-mix、text-wrap  Safari 15 没有
@@ -140,13 +189,13 @@ export function scanStyle(file: string, css: string): Finding[] {
   };
   const { declarations, nested } = readCss(css);
   for (const prelude of nested) add('nesting', prelude);
-  for (const { property, value } of declarations) {
+  for (const { selector, property, value } of declarations) {
     const line = `${property}: ${value}`;
     if (property === 'font-weight' && value !== '400' && value !== 'var(--weight-heading)') add('font-weight', line);
     if (property === '--weight-heading' && value !== '400') add('font-weight', line);
     if (property === 'font-style' && value !== 'normal') add('font-style', line);
     if (property === 'font' && value !== 'inherit') add('font', line);
-    if (property === 'font-family' && !familyAllowed(value)) add('font-family', line);
+    if (property === 'font-family' && !familyAllowed(value, isStripRule(selector))) add('font-family', line);
     if (property.startsWith('--font-') && !FONT_TOKENS.includes(property)) add('font-family', `${property}: …`);
     if (property === 'content' && hasQuotedText(value)) add('content', line);
     if ((property === 'text-decoration' || property === '-webkit-text-decoration') && value.split(/\s+/).length > 1) add('text-decoration', line);
@@ -154,6 +203,7 @@ export function scanStyle(file: string, css: string): Finding[] {
     if (/color-mix\(/.test(value)) add('color-mix', line);
     if (property === 'text-wrap' || property.startsWith('text-wrap-')) add('text-wrap', line);
   }
+  seamFindings(declarations, add);
   const text = stripCssComments(css);
   for (const word of SANS_WORDS) for (let i = 0; i < countIn(text, word); i++) add('sans', word);
   return found;

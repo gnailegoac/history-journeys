@@ -16,13 +16,17 @@ import {
   FALLBACK_OK,
   FONTS_DIR,
   FONT_SOURCES,
+  FONT_SOURCE_IDS,
   KAI_FORBIDDEN,
   LIBRARY_LICENCES,
   LICENCES_DIR,
   RECIPE,
   RECORD_VERSION,
   SPLIT_SONG_BY_STOP,
+  SQUEEZE_FEATURES,
+  SQUEEZE_KEPT,
   codeOf,
+  cssFace,
   fontFileProblems,
   fontsCss,
   isInterfaceSource,
@@ -35,13 +39,14 @@ import {
   sortedString,
   sourceFiles,
   sourceRecord,
+  squeezeProblems,
   stripComments,
   toolVersions,
   unusedInShipped,
   writtenFromRecord,
 } from '../support/fontTool';
 import type { FontPlan, PlannedFile } from '../support/fontTool';
-import { charactersOf, englishName, featuresOf, glyphCountOf, hintingOf, readWoff2 } from '../support/sfnt';
+import { charactersOf, englishName, featuresOf, glyphCountOf, hintingOf, readWoff2, weightOf } from '../support/sfnt';
 import { countIn, mediaProblems, mediaQueries, scanMedia, scanProgram, scanStyle, stripCssComments, tally } from '../support/sourceScan';
 
 /** 项目的根目录：这个文件在 tests/fonts/ 里，往上两层。 */
@@ -53,6 +58,12 @@ const text = (path: string): string => utf8.decode(readFileSync(at(path)));
 /** 现在的网站要哪些字、各归哪个文件（读一次，几项测试共用）。 */
 const plan: Promise<FontPlan> = readSite().then((site) => planFonts(site));
 const shipped = readShipped();
+/** 要做的清单里装某一组字的那个文件（不照先后取：文件的先后是黑体、宋体、楷体……）。 */
+const planned = async (group: string): Promise<PlannedFile> => {
+  const found = (await plan).files.find((item) => item.group === group);
+  if (!found) throw new Error(`要做的文件里没有 ${group} 这一组`);
+  return found;
+};
 
 /** 照一份要做的清单另编一份：给其中一组添一个字（看“少了字”查不查得出来）。 */
 function withExtra(from: FontPlan, group: string, ch: string, where: string): FontPlan {
@@ -65,7 +76,7 @@ function withExtra(from: FontPlan, group: string, ch: string, where: string): Fo
 // ---------------------------------------------------------------- 一、字都在
 
 describe('网站上显示的每一个字都在随站的字体里', () => {
-  it('用楷体排的字都在 yanlu-kai 里；不用点开就看得见的字都在 yanlu-song 里；点开才看得见的字在两个宋体文件之一里', async () => {
+  it('用楷体排的字都在 yanlu-kai 里；用黑体排的字都在 yanlu-sans 里；不用点开就看得见的字都在 yanlu-song 里；点开才看得见的字在两个宋体文件之一里', async () => {
     expect(missingFromShipped(await plan, shipped)).toEqual([]);
   });
 
@@ -76,6 +87,7 @@ describe('网站上显示的每一个字都在随站的字体里', () => {
     if (!absent) return;
     for (const [group, where] of [
       ['kai', '徐州的题签'],
+      ['sans', '徐州的标题'],
       ['song', '徐州的正文'],
       ['song-more', '徐州的原文'],
     ]) {
@@ -83,9 +95,10 @@ describe('网站上显示的每一个字都在随站的字体里', () => {
     }
   });
 
-  it('查得出来：要一打开就看得见的字，只在点开才下载的那个文件里有，不算数；要用楷体排的字，只在宋体里有，也不算数', async () => {
+  it('查得出来：要一打开就看得见的字，只在点开才下载的那个文件里有，不算数；要用楷体排的字、要用黑体排的字，只在宋体里有，也不算数', async () => {
     const file = (name: string) => shipped.files.find((item) => item.record.file === name);
     const kai = file('yanlu-kai.woff2')?.characters ?? new Set<string>();
+    const sans = file('yanlu-sans.woff2')?.characters ?? new Set<string>();
     const song = file('yanlu-song.woff2')?.characters ?? new Set<string>();
     const more = file('yanlu-song-more.woff2')?.characters ?? new Set<string>();
     const onlyMore = [...more].find((ch) => !song.has(ch));
@@ -94,21 +107,24 @@ describe('网站上显示的每一个字都在随站的字体里', () => {
     if (!onlyMore || !onlySong) return;
     expect(missingFromShipped(withExtra(await plan, 'song', onlyMore, '徐州的正文'), shipped)).toEqual([`“${onlyMore}”（${codeOf(onlyMore)}，徐州的正文里）不在随站的字体里：运行 npm run fonts，再提交。`]);
     expect(missingFromShipped(withExtra(await plan, 'kai', onlySong, '徐州的题签'), shipped)).toEqual([`“${onlySong}”（${codeOf(onlySong)}，徐州的题签里）不在随站的字体里：运行 npm run fonts，再提交。`]);
+    // 黑体的字只认黑体的文件：头一个宋体文件里有、黑体文件里没有的一个汉字，排进黑体那一组——不算数
+    const notInSans = [...song].find((ch) => !sans.has(ch) && (ch.codePointAt(0) ?? 0) > 0x2e7f);
+    expect(notInSans, '要有只在 yanlu-song 里、不在 yanlu-sans 里的汉字，这一项才试得了').toBeTruthy();
+    if (!notInSans) return;
+    expect(missingFromShipped(withExtra(await plan, 'sans', notInSans, '徐州的标题'), shipped)).toEqual([`“${notInSans}”（${codeOf(notInSans)}，徐州的标题里）不在随站的字体里：运行 npm run fonts，再提交。`]);
     // 反过来不算错：点开才看得见的字，头一个宋体文件里有也行
     expect(missingFromShipped(withExtra(await plan, 'song-more', onlySong, '徐州的原文'), shipped)).toEqual([]);
   });
 
   it('用楷体排的字里没有弯引号（这套楷体里它们只有三分之一个字宽）', async () => {
-    const kai = (await plan).files[0];
-    expect(kai.group).toBe('kai');
+    const kai = await planned('kai');
     const found = [...KAI_FORBIDDEN].filter((ch) => kai.characters.includes(ch)).map((ch) => `“${ch}”（${codeOf(ch)}）用在${(kai.where.get(ch) ?? []).join('、')}里：换个说法，或者先问一声`);
     expect(found).toEqual([]);
   });
 
-  it('楷体那一组的每一个字，头一组宋体里也有（楷体文件还在路上时先用宋体显示，不为它去取点开才要的文件）', async () => {
-    const [kai, song] = (await plan).files;
-    expect(song.group).toBe('song');
-    expect([...kai.characters].filter((ch) => !song.characters.includes(ch))).toEqual([]);
+  it('楷体那一组、黑体那一组的每一个字，头一组宋体里也有（那个文件还在路上时先用宋体显示，不为它去取点开才要的文件）', async () => {
+    const song = await planned('song');
+    for (const group of ['kai', 'sans']) expect([...(await planned(group)).characters].filter((ch) => !song.characters.includes(ch)), group).toEqual([]);
   });
 
   it('没有哪个字是指望设备自带的字体的；有的话要记着理由', async () => {
@@ -133,7 +149,8 @@ describe('放进仓库的字体文件和它的记录、样式表、许可全文�
     expect(shipped.record.tool, '记录的格式换了（RECORD_VERSION）：运行 npm run fonts，再提交').toBe(RECORD_VERSION);
     expect(shipped.record.recipe, '做法改过了（RECIPE）：运行 npm run fonts，再提交').toBe(RECIPE);
     // 原字体的每一项说明（名字、版本、从哪里取、网站、字节数、记号、版权声明、许可文件、留哪些排版功能）都和现在写的一样
-    for (const id of ['kai', 'song'] as const) {
+    expect(Object.keys(shipped.record.sources).sort(), '记录里的原字体正好是这三个').toEqual([...FONT_SOURCE_IDS].sort());
+    for (const id of FONT_SOURCE_IDS) {
       expect(shipped.record.sources[id], `${FONT_SOURCES[id].name} 的说明改过了（tests/support/fontTool.ts 的 FONT_SOURCES）：运行 npm run fonts，再提交`).toEqual(sourceRecord(id));
     }
     // 做的时候裁剪工具的版本，就是现在装着的（换了版本，字节可能不一样：重做一遍）
@@ -144,8 +161,15 @@ describe('放进仓库的字体文件和它的记录、样式表、许可全文�
     expect(shipped.record.files.map((item) => item.file)).toEqual((await plan).files.map((file) => `${file.name}.woff2`));
     for (const file of (await plan).files) {
       const item = shipped.record.files.find((entry) => entry.file === `${file.name}.woff2`);
-      expect([item?.family, item?.postscript, item?.source, item?.group, item?.range, item?.first, item?.stop], file.name).toEqual([file.family, file.postscript, file.source, file.group, file.range, file.first, file.stop]);
+      expect([item?.family, item?.postscript, item?.source, item?.group, item?.range, item?.first, item?.preload, item?.stop], file.name).toEqual([file.family, file.postscript, file.source, file.group, file.range, file.first, file.preload, file.stop]);
     }
+    // 四个文件：黑体、头一个宋体、楷体不带 unicode-range，点开才要的那个宋体带着
+    expect(shipped.record.files.map((item) => [item.group, item.source, item.range])).toEqual([
+      ['sans', 'sans', false],
+      ['song', 'song', false],
+      ['kai', 'kai', false],
+      ['song-more', 'song', true],
+    ]);
   });
 
   it('宋体按站拆开的开关关着：页面那一头还没有接上，现在不能打开', () => {
@@ -155,7 +179,7 @@ describe('放进仓库的字体文件和它的记录、样式表、许可全文�
     expect(shipped.record.files.every((item) => item.stop === null)).toBe(true);
   });
 
-  it.each(shipped.files.map((file) => [file.record.file, file] as const))('%s：字节数、记号、里面的字、字形数、留下的排版功能，都和记录里写的一样', (_name, file) => {
+  it.each(shipped.files.map((file) => [file.record.file, file] as const))('%s：字节数、记号、里面的字、字形数、粗细、留下的排版功能，都和记录里写的一样', (_name, file) => {
     const { record, bytes, tables } = file;
     expect(bytes.length).toBe(record.bytes);
     expect(sha256(bytes)).toBe(record.sha256);
@@ -169,12 +193,21 @@ describe('放进仓库的字体文件和它的记录、样式表、许可全文�
     expect([...new Set([...featuresOf(tables, 'GSUB'), ...featuresOf(tables, 'GPOS')])].sort()).toEqual(record.features);
     // 留下的排版功能都在说好留的那几种里
     for (const feature of record.features) expect(FONT_SOURCES[record.source].keepFeatures, feature).toContain(feature);
-    // 把标点挤窄的那几种一种也没有，说好留的名单里也不许有：“全角的标点个个占满一个字宽”靠的就是文件里没有它们
-    //（浏览器没有这几种功能可用，就挤不了；html 上的 text-spacing-trim 只管得到设备自带的字体顶着的那一会儿）
-    for (const squeeze of ['halt', 'vhal', 'chws', 'vchw', 'palt', 'vpal']) {
-      expect(record.features, `${record.file} 里有把标点挤窄的排版功能 ${squeeze}`).not.toContain(squeeze);
-      expect(FONT_SOURCES[record.source].keepFeatures, `说好留的排版功能里有把标点挤窄的 ${squeeze}`).not.toContain(squeeze);
+    // 把标点挤窄的那六种：楷体和宋体的文件里一种也没有，说好留的名单里也不许有——“全角的标点个个占满一个字宽”靠的就是文件里没有它们
+    //（浏览器没有这几种功能可用，就挤不了）。黑体的文件里有 halt 这一种、而且一定要有（标题上写了 font-feature-settings 的地方，
+    // 全角标点占半个字宽）；别的五种它也没有。没有写 font-feature-settings 的黑体字不挤，靠的是 html 上的 text-spacing-trim: space-all
+    //（tests/e2e/fonts.spec.ts 在浏览器里量）
+    expect(squeezeProblems(record)).toEqual([]);
+    for (const squeeze of SQUEEZE_FEATURES) {
+      const kept = SQUEEZE_KEPT[record.source].includes(squeeze);
+      expect(record.features.includes(squeeze), `${record.file} 里${kept ? '该有' : '不该有'}把标点挤窄的排版功能 ${squeeze}`).toBe(kept);
+      expect(FONT_SOURCES[record.source].keepFeatures.includes(squeeze), `说好留的排版功能里${kept ? '该有' : '不该有'}把标点挤窄的 ${squeeze}`).toBe(kept);
     }
+    expect(SQUEEZE_KEPT, '只有黑体留着 halt').toEqual({ kai: [], song: [], sans: ['halt'] });
+    // 粗细：记录里写的就是从这个文件里读出来的，也是原字体那一项里写的（样式表里这个文件的 @font-face 照它写）
+    expect(weightOf(tables), '文件里写的粗细').toBe(record.weight);
+    expect(record.weight, '这套字体的粗细').toBe(FONT_SOURCES[record.source].weight);
+    expect(record.weight).toBe(record.source === 'sans' ? 500 : 400);
     // 留没留提示信息：记录里写的就是从这个文件里读出来的（和做法对不对得上，下一项的 fontFileProblems 查）
     expect(hintingOf(tables), '文件里留没留提示信息').toBe(record.hinting);
     for (const ch of record.onlyFromSrc) expect(record.characters).toContain(ch);
@@ -203,7 +236,7 @@ describe('放进仓库的字体文件和它的记录、样式表、许可全文�
 
   it('样式表正好是照这几个文件写的：一个文件一条，带 unicode-range 的那一条列的正好是这个文件里的字', () => {
     const css = text(`${FONTS_DIR}/fonts.css`);
-    expect(css, '样式表不是照记录写的：运行 npm run fonts（字体文件没变的话它只把这一份照记录重写），再提交').toBe(fontsCss(shipped.record.files.map((item) => ({ name: item.file.replace(/\.woff2$/, ''), family: item.family, range: item.range, characters: item.characters }))));
+    expect(css, '样式表不是照记录写的：运行 npm run fonts（字体文件没变的话它只把这一份照记录重写），再提交').toBe(fontsCss(shipped.record.files.map(cssFace)));
     // 工具重写这一份时用的就是这一个函数
     expect(writtenFromRecord(shipped.record).css).toBe(css);
     // 不靠写样式表的那个函数，另读一遍
@@ -213,6 +246,8 @@ describe('放进仓库的字体文件和它的记录、样式表、许可全文�
       const file = shipped.files[i];
       expect(rule.match(/url\('\.\/([^']+)'\)/)?.[1]).toBe(file.record.file);
       expect(rule.match(/font-family: '([^']+)'/)?.[1]).toBe(file.record.family);
+      // 粗细是这个文件自己的那一种：黑体那一条是 500，别的是 400
+      expect(rule.match(/font-weight: (\d+);/)?.[1], `${file.record.file} 的粗细`).toBe(String(file.record.weight));
       const range = rule.match(/unicode-range: ([^;]+);/)?.[1];
       expect(range !== undefined, file.record.file).toBe(file.record.range);
       if (range === undefined) return;
@@ -241,13 +276,14 @@ describe('放进仓库的字体文件和它的记录、样式表、许可全文�
     expect(readdirSync(at(`${FONTS_DIR}/`)).sort()).toEqual(want);
   });
 
-  it('四份许可全文都在 public/licences/：两份字体的和记录里记的记号一样，两份程序库的和装着的一样', () => {
-    const want = [...(['kai', 'song'] as const).map((id) => FONT_SOURCES[id].licence.file), ...LIBRARY_LICENCES.map((licence) => licence.file)].sort();
+  it('五份许可全文都在 public/licences/：三份字体的和记录里记的记号一样，两份程序库的和装着的一样', () => {
+    const want = [...FONT_SOURCE_IDS.map((id) => FONT_SOURCES[id].licence.file), ...LIBRARY_LICENCES.map((licence) => licence.file)].sort();
+    expect(want).toHaveLength(5);
     expect(readdirSync(at(`${LICENCES_DIR}/`)).sort()).toEqual(want);
-    for (const id of ['kai', 'song'] as const) {
+    for (const id of FONT_SOURCE_IDS) {
       const { file, sha256: recorded } = shipped.record.sources[id].licence;
       expect(sha256(readFileSync(at(`${LICENCES_DIR}/${file}`))), `${file} 不是记录里记的那一份许可全文：运行 npm run fonts（它照 .cache/fonts/ 里的那一份重抄），再提交`).toBe(recorded);
-      // 许可的开头就是原字体里的版权声明的头一行（宋体的许可文件没有版权那一行，不查）
+      // 许可的开头就是原字体里的版权声明的头一行（宋体、黑体的许可文件没有版权那一行，不查）
       if (id === 'kai') expect(text(`${LICENCES_DIR}/${file}`).startsWith(FONT_SOURCES.kai.copyright.split('\n')[0])).toBe(true);
     }
     for (const licence of LIBRARY_LICENCES) {
@@ -312,7 +348,7 @@ describe('源文件里的写法', () => {
     expect(tally(scanProgram('index.html', page.replace(/<!--[\s\S]*?-->/g, '')))).toEqual(['index.html | entity | &hellip; × 1', 'index.html | escape | \\u2026 × 1']);
   });
 
-  it('样式表里：不加粗、不用斜体、字体只用两个记号、content 里不写字、不用 Safari 15 读不懂的写法（PENDING 里点了名的除外：现在一处也没有）', () => {
+  it('样式表里：不加粗、不用斜体、字体只用两个记号（题签另用人物自己的一个）、框架的样式和题签的样式各读各的那一套记号、content 里不写字、不用 Safari 15 读不懂的写法（PENDING 里点了名的除外：现在一处也没有）', () => {
     expect(styles.length).toBeGreaterThan(5);
     const found = tally(styles.flatMap((path) => scanStyle(path, text(path))));
     const allowed = PENDING.map((item) => `${item.file} | ${item.rule} | ${item.what} × ${item.times}`).sort();
@@ -323,7 +359,7 @@ describe('源文件里的写法', () => {
     for (const item of PENDING) expect(item.unit, `${item.file} ${item.what}：要写明由哪个单元去掉`).toMatch(/^U[2-6]$/);
   });
 
-  it('查得出来：样式表里加粗、斜体、别的字体、content 里的字、带颜色的 text-decoration 简写、color-mix、text-wrap、嵌套', () => {
+  it('查得出来：样式表里加粗、斜体、别的字体、content 里的字、带颜色的 text-decoration 简写、color-mix、text-wrap、嵌套、框架和题签读错了记号', () => {
     const bad = `
       :root { --font-ui: system-ui, 'PingFang SC', 'Microsoft YaHei', sans-serif; --weight-heading: 700; --grain: url("data:image/svg+xml;utf8,<svg/>"); }
       h1 { font-weight: 700; font-style: italic; font-family: var(--font-ui); font: bold 1rem serif; }
@@ -336,12 +372,18 @@ describe('源文件里的写法', () => {
       .card { color: red; &:hover { color: blue; } .inner { color: green; } }
       @media (min-width: 960px) { .wide { color: red; } @supports (height: 100dvh) { .tall { height: 100dvh; } } }
       @keyframes arrive { from { opacity: 0; } to { opacity: 1; } }
+      .strip-seal { font-family: var(--figure-font, 'Kaiti SC', serif); color: var(--figure-mark, #b03a2a); }
+      .stage-pane:not(.is-wide) .strip { color: var(--color-ink); border-radius: var(--radius); }
+      .tag { color: var(--figure-ink); background: var(--color-paper-sunk); }
+      .stage-pane { background: var(--color-paper-sunk); --figure-ink: #28231f; }
+      .card-name { --figure-ink: #000000; }
     `;
     expect(tally(scanStyle('x.css', bad))).toEqual([
       'x.css | color-mix | color: color-mix(in srgb, red, blue) × 1',
       "x.css | content | content: '+' × 1",
       'x.css | font | font: bold 1rem serif × 1',
       'x.css | font-family | --font-ui: … × 1',
+      "x.css | font-family | font-family: var(--font-kai, 'Kaiti SC', serif) × 1",
       'x.css | font-family | font-family: var(--font-ui) × 1',
       'x.css | font-style | font-style: italic × 1',
       'x.css | font-weight | --weight-heading: 700 × 1',
@@ -352,6 +394,12 @@ describe('源文件里的写法', () => {
       'x.css | sans | YaHei × 1',
       'x.css | sans | sans-serif × 1',
       'x.css | sans | system-ui × 1',
+      'x.css | seam | .card-name { --figure-ink: … } × 1',
+      'x.css | seam | .stage-pane:not(.is-wide) .strip { border-radius: var(--radius) } × 1',
+      'x.css | seam | .stage-pane:not(.is-wide) .strip { color: var(--color-ink) } × 1',
+      "x.css | seam | .strip { font-family: var(--font-kai, 'Kaiti SC', serif) } × 1",
+      'x.css | seam | .tag { background: var(--color-paper-sunk) } × 1',
+      'x.css | seam | .tag { color: var(--figure-ink) } × 1',
       'x.css | text-decoration | text-decoration: underline dotted var(--color-accent) × 1',
       'x.css | text-wrap | text-wrap: balance × 1',
     ]);
@@ -407,7 +455,7 @@ describe('源文件里的写法', () => {
     const container = count('@container');
     const cqw = count('cqw');
     const has = count(':has(');
-    expect(container, '样式表里又有了 @container：老平板上它里面的东西等于没有。改用沙盘栏上的 .is-wide、.is-kai（见 stage.css 开头）').toEqual({});
+    expect(container, '样式表里又有了 @container：老平板上它里面的东西等于没有。改用沙盘栏上的 .is-wide（见 stage.css 开头）').toEqual({});
     expect(cqw, '样式表里又有了 cqw：老平板不认。沙盘栏的宽度用 --pane-w（见 stage.css 开头）').toEqual({});
     // 给沙盘栏起“可以按它的宽度查询”的名字（container、container-type、container-name）也不要了：用不着，还会让新旧浏览器排版的规矩不一样
     expect(count('container:'), JSON.stringify(count('container:'))).toEqual({});

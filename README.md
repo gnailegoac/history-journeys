@@ -73,12 +73,12 @@ npm start
 
 ## 随站的字体
 
-网站自己带着两套字体，打开网页时不向别的网站要：楷体是霞鹜文楷 GB，宋体是 Noto Serif SC（思源宋体的谷歌发行版），都按 SIL 开放字体许可 1.1 版使用。只带网站用到的字，做成三个文件放在 `src/fonts/`，随仓库走，发布的流程不重新做；这些文件都不手改。哪些字归哪个文件、记录里记了什么，见 [docs/data-spec.md](docs/data-spec.md) 的“随站的字体”。页面上的字全用这两套：宋体排正文，楷体排标题、题签和按钮；怎么用、什么时候下载，见同一节的“页面怎么用这两套字体”。
+网站自己带着三套字体，打开网页时不向别的网站要：黑体是 Noto Sans SC 的 Medium（思源黑体的谷歌发行版），宋体是 Noto Serif SC（思源宋体的谷歌发行版），楷体是霞鹜文楷 GB，都按 SIL 开放字体许可 1.1 版使用。只带网站用到的字，做成四个文件放在 `src/fonts/`，随仓库走，发布的流程不重新做；这些文件都不手改。哪些字归哪个文件、记录里记了什么，见 [docs/data-spec.md](docs/data-spec.md) 的“随站的字体”。页面上的字眼下全用宋体和楷体：宋体排正文，楷体排标题、题签和按钮；怎么用、什么时候下载，见同一节的“页面怎么用这两套字体”。黑体的文件是 2026-11-24 添的：框架要换成中性的样子，标题、标签、按钮、年份改用黑体；文件已经做好随站带着，页面的样式下一步才换过去。
 
 | 命令 | 做什么 |
 |---|---|
-| `npm run fonts` | 数出网站上显示的字，从原字体里裁出来，做成 `src/fonts/` 里的三个字体文件、样式表、记录和给页面用的一个小模块，并把四份许可全文照原样放进 `public/licences/`。字、原字体的说明和做法都没有变时不重做：说一声“已经是新的”，什么也不写；这时样式表、那个小模块或者哪一份字体的许可全文要是不在、被改过，它照记录把这一样重写（前两样用不到原字体）。做一遍几秒钟，不开浏览器 |
-| `FONTS_OUT=.cache/fonts-trial npm run fonts` | 试做：做出来的放到那个文件夹（相对项目的根目录；`.cache/` 不进仓库），不动 `src/fonts/` 和 `public/licences/`，不管新不新都做。再加 `FONTS_COMPARE=1`，另外印出宋体不留提示信息时有多大 |
+| `npm run fonts` | 数出网站上显示的字，从原字体里裁出来，做成 `src/fonts/` 里的四个字体文件、样式表、记录和给页面用的一个小模块，并把五份许可全文照原样放进 `public/licences/`。字、原字体的说明和做法都没有变时不重做：说一声“已经是新的”，什么也不写；这时样式表、那个小模块或者哪一份字体的许可全文要是不在、被改过，它照记录把这一样重写（前两样用不到原字体）。做一遍几秒钟，不开浏览器 |
+| `FONTS_OUT=.cache/fonts-trial npm run fonts` | 试做：做出来的放到那个文件夹（相对项目的根目录；`.cache/` 不进仓库），不动 `src/fonts/` 和 `public/licences/`，不管新不新都做。再加 `FONTS_COMPARE=1`，另外印出宋体和黑体不留提示信息时有多大 |
 
 （`FONTS_OUT=…` 放在命令前面是 bash 的写法；PowerShell 里先写 `$env:FONTS_OUT = '.cache/fonts-trial'`，做完 `Remove-Item Env:FONTS_OUT`。）
 
@@ -88,12 +88,14 @@ npm start
 |---|---|---|---|
 | `LXGWWenKaiGB-Regular.ttf` | 霞鹜文楷 GB 1.530 版：<https://github.com/lxgw/LxgwWenkaiGB/releases/download/v1.530/LXGWWenKaiGB-Regular.ttf> | 26,170,696 | `5561d48097d92e5ab99fe7b1459d381bbcdff533bfc479207b089c6860c3990e` |
 | `NotoSerifSC-Regular.otf` | Noto Serif SC 2.003 版：<https://github.com/notofonts/noto-cjk> 的 `Serif2.003` 这一版，`Serif/SubsetOTF/SC/NotoSerifSC-Regular.otf` | 11,625,800 | `e8f396decc1f0963a016a989c3d8852e863d1350996f573860a80767c83a1cd3` |
+| `NotoSansSC-Medium.otf` | Noto Sans SC 2.004 版 Medium：<https://github.com/notofonts/noto-cjk> 的 `Sans2.004` 这一版，`Sans/SubsetOTF/SC/NotoSansSC-Medium.otf` | 8,345,436 | `7633f5a016d4dd95e685a69633d818aabc4644c4b08e26bd35b1b30c45ed5dda` |
 | `lxgw-wenkai-gb-OFL.txt` | 霞鹜文楷 GB 的许可全文：它的仓库里 v1.530 这一版的 `OFL.txt` | 5,173 | `a8aa32c38a3402ba4e40fb6d39c913300dd4a0336290dce5c14e3a2f9308d092` |
 | `noto-serif-cjk-OFL.txt` | Noto Serif CJK 的许可全文：它的仓库里的 `Serif/LICENSE` | 4,301 | `6a73f9541c2de74158c0e7cf6b0a58ef774f5a780bf191f2d7ec9cc53efe2bf2` |
+| `noto-sans-cjk-OFL.txt` | Noto Sans CJK 的许可全文：它的仓库里的 `Sans/LICENSE`（和上一行是同样的字，各放一份） | 4,301 | `6a73f9541c2de74158c0e7cf6b0a58ef774f5a780bf191f2d7ec9cc53efe2bf2` |
 
 工具自己不下载：要用的时候照这张表取来放好。裁剪用的是开发依赖 `subset-font`（`npm install` 就装上了，不随网站发）。
 
-现在的大小（2026-11-20，两站正文、徐州和全程两座沙盘、“来源”页）：`yanlu-kai.woff2` 65,508 字节（295 个字），`yanlu-song.woff2` 240,408 字节（994 个字），`yanlu-song-more.woff2` 229,364 字节（793 个字）。首次打开要下载的是前两个，合计 305,916 字节（上限 460,800）；一个文件的上限是 307,200，过了 286,720 提醒。
+现在的大小（2026-11-24；徐州、黄州两站的正文，徐州、黄州、眉州和全程四座沙盘，“来源”页）：`yanlu-sans.woff2` 49,756 字节（294 个字），`yanlu-song.woff2` 249,012 字节（1,025 个字），`yanlu-kai.woff2` 62,560 字节（271 个字），`yanlu-song-more.woff2` 270,892 字节（941 个字）。首次打开要下载的照前三个算，合计 361,328 字节（上限 460,800）；一个文件的上限是 307,200，过了 286,720 提醒。四个文件一共 632,220 字节。
 
 忘了重做会怎样：正文、小注、场景文件或者界面上添了字体文件里没有的字，`npm test` 通不过，说出是哪个字、在哪里用的：
 
@@ -125,8 +127,8 @@ src/stage/           沙盘适配层：页面只认 types.ts 里的约定；地�
 src/guide/           答疑适配层（原型里是占位）
 src/app/ src/ui/     界面：首页、人物页、站点页、讲解员面板
 src/styles/          样式
-src/fonts/           随站的字体：三个字体文件、样式表、记录（都是工具做的，不手改）
-public/licences/     两套字体和两个程序库（React、three.js）的许可全文，随网站发
+src/fonts/           随站的字体：四个字体文件、样式表、记录（都是工具做的，不手改）
+public/licences/     三套字体和两个程序库（React、three.js）的许可全文，随网站发
 tests/unit/          单元测试
 tests/fonts/         查随站的字体：网站上的字都在不在字体文件里，文件和记录对不对得上
 tests/stage/         沙盘程序的单元测试，以及拿真的场景文件做的验收（地面、镜头、三角形数和别的预算）

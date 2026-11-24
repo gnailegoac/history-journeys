@@ -16,18 +16,22 @@
 //       · 样式里写着用楷体的，只用了楷体那一个文件（楷体文件里没有的字不能排成楷体）；别的只用了宋体的文件；
 //       · 没有加粗、没有斜体（两套字体都只带了一种粗细）。
 //     另有两处问的是整个元素：故意把题记写长、让它被截掉，行尾那个浏览器自己添的省略号也得是那一行的字体画的——
-//     竖着拿的平板上题记是楷体（够 16px 才用楷体），横着拿的平板上是宋体（只有 14px）。
+//     题记是一句话，多大都是宋体：竖着拿的平板上（18px）、横着拿的平板上（14px）各查一遍，省略号都得是随站的宋体。
 //     沙盘的替身和定格图的替身（.fake-stage、.fake-still）上面的字是给测试看的，不查。
 //     查不到的：样式表用 content 画出来的字。样式表里不许这样写（tests/fonts/font-files.test.ts 守着）：“读原文”“凭据”前面的
 //     加号、减号是页面上真的字，折着显加号，点开显减号，两样这里都看得到。
-// 二、两个全角的标点挨着，占满两个字宽（不被浏览器挤紧）：宋体量句号和后引号，楷体量逗号和句号。
-//     这里量出来的 200 像素，靠的是随站的字体里没有把标点挤窄的排版功能（halt、chws 这些；由 tests/fonts/font-files.test.ts 守着）：
+// 二、两个全角的标点挨着，占满两个字宽（不被浏览器挤紧）：宋体量句号和后引号，楷体量逗号和冒号
+//     （题记不用楷体以后，楷体的文件里没有句号了；量以前先对着记录查这两个标点真在楷体的文件里，不然量到的是宋体）。
+//     这两套量出来的 200 像素，靠的是文件里没有把标点挤窄的排版功能（halt、chws 这些；由 tests/fonts/font-files.test.ts 守着）：
 //     在这个浏览器里，样式表里那一句 text-spacing-trim: space-all 写不写，量出来都是 200（两个数都印出来）。
-//     那一句管的是设备自带的字体顶着的那一会儿，这里量不到。
+//     黑体不一样：它的文件里留着 halt（标题上要用它把全角标点收成半个字宽）。所以黑体量四个数（冒号和前括号）：
+//     照页面的写法、不开 halt，两个挨着是 200——这回靠的就是 html 上那一句 text-spacing-trim: space-all（去掉那一句是多少也印出来）；
+//     开着 halt，“州：大”是 250，冒号和前括号挨着是 100；不开，“州：大”是 300。
+//     黑体的文件页面的样式眼下还没有用，量以前先叫浏览器把它取来（不然量到的是设备自带的字体）。
 // 三、从打开网站走到最后，没有一个请求出了网站自己的地址。
 // 四、第三个字体文件（点开才看得见的字）什么时候取：首页、人物页上等五秒也不取；还没写的站上等三秒半也不取；
 //     写好的站上，从点开算起不到两秒不取，字体到齐以后五秒之内自己取来，只取一次；以后点开什么、换到哪一站，都不再取。
-//     头两个文件各只取一次（index.html 里预先声明的那一份，样式表接着用）。这一项不用沙盘的替身：替身上那几行给测试看的字
+//     头两个文件各只取一次（index.html 里预先声明的那一份，样式表接着用）；黑体的文件一次也不取（页面的样式还没有用它）。这一项不用沙盘的替身：替身上那几行给测试看的字
 //     不在头两个文件里，有它在，第三个文件一打开就会被取来。用的是“只放图片”的样子。
 //     “来源”页上的话是点进那一页才看得见的，它们独有的字在第三个文件里（tests/support/fontTool.ts 的 PRESSED_SOURCES）：
 //     另有一项看，在首页上等着不取，点进“来源”页才取、只取一次，那一页里面的那一段程序也是点进去才下载的。
@@ -56,9 +60,10 @@ const DIR = env.SHOTS_DIR ?? 'tests/shots/fonts';
 /** “来源”页上说楷体的那一条（照 shipped.ts 里的名字和版本拼出来的原话）。 */
 const SOURCES_KAI_LINE = SOURCES_TEXT.kai(SHIPPED_FONTS.kai);
 
-/** 工具写进字体文件里的两个名字（src/fonts/fonts.css 的 font-family）。 */
+/** 工具写进字体文件里的三个名字（src/fonts/fonts.css 的 font-family）。 */
 const KAI = 'Yanlu Kai';
 const SONG = 'Yanlu Song';
+const SANS = 'Yanlu Sans';
 
 /** 页面上显出来的一段字：在哪个元素里，开头是什么，那个元素的样式算出来的字体、粗细、正斜。 */
 interface Run {
@@ -78,12 +83,13 @@ interface UsedFont {
 }
 
 /** 一个请求要的是哪个字体文件（构建以后文件名里多了一串字符，照名字的开头认）；不是字体文件是 null。 */
-function fontFileOf(url: string): 'yanlu-kai' | 'yanlu-song' | 'yanlu-song-more' | null {
+function fontFileOf(url: string): 'yanlu-sans' | 'yanlu-kai' | 'yanlu-song' | 'yanlu-song-more' | null {
   const name = new URL(url).pathname.split('/').pop() ?? '';
   if (!name.endsWith('.woff2')) return null;
   if (name.startsWith('yanlu-song-more')) return 'yanlu-song-more';
   if (name.startsWith('yanlu-song')) return 'yanlu-song';
   if (name.startsWith('yanlu-kai')) return 'yanlu-kai';
+  if (name.startsWith('yanlu-sans')) return 'yanlu-sans';
   return null;
 }
 
@@ -156,12 +162,12 @@ async function fontsOfElement(client: CDPSession, selector: string): Promise<Use
 }
 
 /**
- * 浏览器报的这个字体是不是随站的那一套。名字照工具写进文件里的认：family 是 Yanlu Kai / Yanlu Song，
- * 或者 PostScript 名字是 YanluKai-Regular / YanluSong-Regular / YanluSongMore-Regular。
+ * 浏览器报的这个字体是不是随站的那一套。名字照工具写进文件里的认：family 是 Yanlu Kai / Yanlu Song / Yanlu Sans，
+ * 或者 PostScript 名字是 YanluKai-Regular / YanluSong-Regular / YanluSongMore-Regular / YanluSans-Medium。
  * 两样认一样就算：调试接口只说名字是“系统报上来的”，Windows 上两样都是我们写的名字，别的系统上哪一样靠得住没有试过。
  */
 function isShipped(font: UsedFont, family: string): boolean {
-  const postScript = family === KAI ? ['YanluKai-Regular'] : ['YanluSong-Regular', 'YanluSongMore-Regular'];
+  const postScript = family === KAI ? ['YanluKai-Regular'] : family === SANS ? ['YanluSans-Medium'] : ['YanluSong-Regular', 'YanluSongMore-Regular'];
   return font.isCustomFont && (font.familyName === family || postScript.includes(font.postScriptName));
 }
 
@@ -206,21 +212,25 @@ async function checkPage(page: Page, client: CDPSession, label: string, tally: T
 }
 
 /**
- * 量一量两个挨着的全角标点有多宽（字号 100px，所以两个字宽是 200）。trim 不写是照页面的写法量（html 上的
+ * 量一量几个挨着的字有多宽（字号 100px，所以两个全角标点占满是 200）。trim 不写是照页面的写法量（html 上的
  * text-spacing-trim: space-all 传下来）；写 normal 是量“要是没有那一句，浏览器平常会怎样”，只为印出来对比。
+ * font 是样式表里的一个记号（--font-song），或者直接是字体的名字（不是“--”打头的就原样写进 font-family：黑体眼下还没有记号）。
+ * 量黑体时粗细写 500（它只有这一种）；features 是 font-feature-settings 的值（如 "'halt'"），不写就不设。
  */
-async function twoMarksWide(page: Page, token: string, marks: string, trim = ''): Promise<number> {
+async function twoMarksWide(page: Page, font: string, marks: string, trim = '', features = ''): Promise<number> {
   return page.evaluate(
-    ({ token, marks, trim }) => {
+    ({ font, marks, trim, features, sans }) => {
       const probe = document.createElement('span');
-      probe.style.cssText = `position:absolute;left:0;top:0;visibility:hidden;white-space:nowrap;letter-spacing:0;font-size:100px;font-family:var(${token})${trim === '' ? '' : `;text-spacing-trim:${trim}`}`;
+      const family = font.startsWith('--') ? `var(${font})` : `'${font}'`;
+      const weight = font === sans ? ';font-weight:500' : '';
+      probe.style.cssText = `position:absolute;left:0;top:0;visibility:hidden;white-space:nowrap;letter-spacing:0;font-size:100px;font-family:${family}${weight}${trim === '' ? '' : `;text-spacing-trim:${trim}`}${features === '' ? '' : `;font-feature-settings:${features}`}`;
       probe.textContent = marks;
       document.body.appendChild(probe);
       const width = probe.getBoundingClientRect().width;
       probe.remove();
       return width;
     },
-    { token, marks, trim },
+    { font, marks, trim, features, sans: SANS },
   );
 }
 
@@ -263,10 +273,29 @@ test('走一遍网站：每一个字都是随站的字体画的，楷体的只�
 
   // 全角标点：两个挨着，占满两个字宽
   const songMarks = await twoMarksWide(page, '--font-song', '。”');
-  const kaiMarks = await twoMarksWide(page, '--font-kai', '，。');
-  const untrimmed = [await twoMarksWide(page, '--font-song', '。”', 'normal'), await twoMarksWide(page, '--font-kai', '，。', 'normal')];
+  // 楷体量的两个标点要真在楷体的文件里（照记录查）：文件里没有的话，这两个字是宋体画的，量出来的就不是楷体的宽度
+  const KAI_MARKS = '，：';
+  const kaiRecord = (JSON.parse(new TextDecoder().decode(readBytes('src/fonts/fonts.json'))) as { files: { group: string; characters: string }[] }).files.find((item) => item.group === 'kai');
+  for (const mark of KAI_MARKS) expect(kaiRecord?.characters ?? '', `楷体的文件里没有“${mark}”：换两个它有的全角标点来量`).toContain(mark);
+  const kaiMarks = await twoMarksWide(page, '--font-kai', KAI_MARKS);
+  const untrimmed = [await twoMarksWide(page, '--font-song', '。”', 'normal'), await twoMarksWide(page, '--font-kai', KAI_MARKS, 'normal')];
   expect(songMarks, '宋体里句号和后引号挨着的宽度（字号 100px）').toBeCloseTo(200, 0);
-  expect(kaiMarks, '楷体里逗号和句号挨着的宽度（字号 100px）').toBeCloseTo(200, 0);
+  expect(kaiMarks, '楷体里逗号和冒号挨着的宽度（字号 100px）').toBeCloseTo(200, 0);
+  // 黑体：文件里留着 halt。页面的样式眼下还没有用黑体，先叫浏览器把文件取来，不然量到的是设备自带的字体
+  const sansLoaded = await page.evaluate((family) => document.fonts.load(`500 100px '${family}'`, '州：大（').then((faces) => faces.map((face) => `${face.family} ${face.weight} ${face.status}`)), SANS);
+  expect(sansLoaded, '黑体的文件取来了（样式表里声明的那一条，粗细 500）').toEqual([`${SANS} 500 loaded`]);
+  const HALT = "'halt'";
+  const sansMarks = {
+    plain: await twoMarksWide(page, SANS, '：（'),
+    untrimmed: await twoMarksWide(page, SANS, '：（', 'normal'),
+    haltTitle: await twoMarksWide(page, SANS, '州：大', '', HALT),
+    haltPair: await twoMarksWide(page, SANS, '：（', '', HALT),
+    plainTitle: await twoMarksWide(page, SANS, '州：大'),
+  };
+  expect(sansMarks.plain, '黑体里冒号和前括号挨着的宽度（字号 100px，不开 halt）').toBeCloseTo(200, 0);
+  expect(sansMarks.haltTitle, '黑体开着 halt：“州：大”的宽度').toBeCloseTo(250, 0);
+  expect(sansMarks.haltPair, '黑体开着 halt：冒号和前括号挨着的宽度').toBeCloseTo(100, 0);
+  expect(sansMarks.plainTitle, '黑体不开 halt：“州：大”的宽度').toBeCloseTo(300, 0);
 
   // ---- 人物页
   await page.goto(fakeUrl(`#/${figureId}`));
@@ -434,9 +463,9 @@ test('走一遍网站：每一个字都是随站的字体画的，楷体的只�
     await expect(fold).toHaveText('收起沙盘');
     // 题记放不下、被截掉的时候，行尾的省略号是浏览器自己添的，不是页面上的字（上面一段一段地问，问不到它）。
     // 这里故意把题记写长三倍让它被截掉，再问整个元素：连那个省略号在内，都得是那一行的字体画的。
-    // 竖着拿的平板上题记够大（18px），是楷体：省略号也得是随站的楷体
-    //（楷体文件里没有省略号的话，Chromium 改画三个半角的句点，用的是设备自带的字体）。
-    // 横着拿的平板上题记只有 14px，是宋体（楷体小了发灰）：那里再查一遍，省略号得是随站的宋体。
+    // 题记是一句话，多大都是宋体：竖着拿的平板上（18px）省略号得是随站的宋体
+    //（文件里没有省略号的话，Chromium 改画三个半角的句点，用的是设备自带的字体）。
+    // 横着拿的平板上题记只有 14px：那里再查一遍。
     const line = pane.locator('.stage-line');
     const cutLineFonts = async (family: string, where: string): Promise<void> => {
       expect(await line.evaluate((el) => getComputedStyle(el).fontFamily), `${where}题记的字体`).toMatch(new RegExp(`^"?${family}`));
@@ -452,7 +481,7 @@ test('走一遍网站：每一个字都是随站的字体画的，楷体的只�
         `${where}题记被截掉时，行尾的省略号不是随站的${family === KAI ? '楷体' : '宋体'}画的`,
       ).toEqual([]);
     };
-    await cutLineFonts(KAI, '768 × 1024：');
+    await cutLineFonts(SONG, '768 × 1024：');
 
     await page.setViewportSize({ width: 1024, height: 768 });
     await openPane('stage=fake');
@@ -507,6 +536,7 @@ test('走一遍网站：每一个字都是随站的字体画的，楷体的只�
     [
       `看了 ${visited.length} 处，显出来的字 ${tally.runs} 段（样式是楷体的 ${tally.kaiRuns} 段），字形 ${tally.glyphs} 个（楷体画的 ${tally.kaiGlyphs} 个）：全是随站的字体画的`,
       `两个全角标点挨着（字号 100px）：宋体 ${songMarks} 像素，楷体 ${kaiMarks} 像素（不写 text-spacing-trim: space-all 的话，这个浏览器里是 ${untrimmed[0]} 和 ${untrimmed[1]}）`,
+      `黑体（文件里留着 halt；字号 100px）：冒号和前括号挨着，照页面的写法 ${sansMarks.plain} 像素（不写 text-spacing-trim: space-all 的话是 ${sansMarks.untrimmed}）；开着 halt，“州：大” ${sansMarks.haltTitle} 像素、冒号和前括号 ${sansMarks.haltPair} 像素；不开 halt，“州：大” ${sansMarks.plainTitle} 像素`,
       ...visited.map((label) => `  ${label}`),
     ].join('\n'),
   );
@@ -667,6 +697,8 @@ test('第三个字体文件：首页、人物页、还没写的站上不取；�
   expect(fonts.of('yanlu-song-more'), `第三个字体文件只该取一次（${fonts.all().join(' ')}）`).toHaveLength(1);
   expect(fonts.of('yanlu-kai'), `楷体文件只该取一次（${fonts.all().join(' ')}）`).toHaveLength(1);
   expect(fonts.of('yanlu-song'), `头一个宋体文件只该取一次（${fonts.all().join(' ')}）`).toHaveLength(1);
+  // 黑体的文件做好了、样式表里也声明了，页面的样式眼下还没有用它：哪一页都不取（页面换成用黑体排标题以后，这里改成“只取一次”）
+  expect(fonts.of('yanlu-sans'), `黑体的文件现在没有谁用，不该取（${fonts.all().join(' ')}）`).toEqual([]);
   console.log(
     `${figureId}/${stopId}：第三个字体文件是点开这一站以后 ${asked - clicked} 毫秒、字体到齐以后 ${took} 毫秒取的，以后没有再取；` +
       `${unwrittenId ? `还没写的一站（${unwrittenId}）上没有取。` : '没有还没写的站可试。'}取字体的记录（文件@毫秒）：${fonts.all().join(' ')}`,
@@ -715,11 +747,13 @@ test('“来源”页：在首页上等着，第三个字体文件和那一页�
   expect(scripts, '“来源”页里面的那一段程序：点进去才取，只取一次').toHaveLength(1);
   // 楷体那一条里有“楷”“鹜”这些头两个文件里没有的字：问浏览器这一段是拿什么字体画的，得全是随站的宋体
   //（整页每一段字都查的是上面“走一遍网站”那一项）
-  const first = page.locator('.sources-item p').first();
+  //（三套字体照黑体、宋体、楷体排：楷体那一条照 data-font 找，不靠它排第几）
+  const KAI_ITEM = `.sources-item[data-font="${KAI}"] p`;
+  const kaiLine = page.locator(KAI_ITEM).first();
   expect([...onlyLater].some((ch) => SOURCES_KAI_LINE.includes(ch)), '楷体那一条里没有只在第三个文件里有的字：这一句查不到东西').toBe(true);
-  await expect(first).toHaveText(SOURCES_KAI_LINE);
+  await expect(kaiLine).toHaveText(SOURCES_KAI_LINE);
   const client = await debugger_(page);
-  const used = await fontsOfElement(client, '.sources-item p');
+  const used = await fontsOfElement(client, KAI_ITEM);
   expect(used.reduce((sum, font) => sum + font.glyphCount, 0), '楷体那一条画出来的字形').toBeGreaterThanOrEqual([...SOURCES_KAI_LINE].filter((ch) => ch !== ' ').length);
   expect(used.filter((font) => !isShipped(font, SONG)).map((font) => `${font.familyName}（${font.glyphCount} 个字形）`), '“来源”页上楷体那一条里有字不是随站的宋体画的').toEqual([]);
   // 回首页再进来：都不再取

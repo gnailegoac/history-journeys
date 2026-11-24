@@ -10,8 +10,8 @@
 //     写着“从第一站读起”，点了进人物页；还没写的不是链接，标着“还没写”，点了哪也不去。页面不比窗口宽。
 //     （能点的东西够不够 44 像素见方在 tests/e2e/leaf.spec.ts：首页和“来源”页都在那里一个一个点。）
 // 二、“来源”页：一页纸独自立在绢上（最宽 640 像素，和屏幕一样高），没有沙盘栏。标题和四个小标题是楷体，字是宋体 17 像素。
-//     两套字体各一条，名字、版本就是 shipped.ts 里的；每位可以点进去的人物的全程图片、每一座沙盘写的每一行都在，不重复；
-//     每一站正文里的每一张图片都在。四份许可全文的链接答的是 200，是文本，和 public/licences/ 里的文件一个字不差；
+//     三套字体各一条（黑体、宋体、楷体），名字、版本就是 shipped.ts 里的；每位可以点进去的人物的全程图片、每一座沙盘写的每一行都在，不重复；
+//     每一站正文里的每一张图片都在。五份许可全文的链接答的是 200，是文本，和 public/licences/ 里的文件一个字不差；
 //     点了就在这一页打开。“字体的网站”“图片出处”是新开一页的平常链接，页面自己不去取。链接下面是一道印泥红的线。
 // 三、“来源”页里面的那一段程序是点进这一页才下载的：在首页、人物页、站点页上都没有取；从首页、人物页的目录后面、
 //     一站的末尾三处都点得进去，那一段程序只取一次。从头到尾没有一个请求出了网站自己的地址。
@@ -255,7 +255,7 @@ test('首页，四种标准的窗口上：一页纸（网站的名字、一句�
   console.log(['首页：', ...rows].join('\n'));
 });
 
-test('“来源”页：一页纸立在绢上；两套字体照 shipped.ts，地形和水、图片照内容，一条不少；四份许可全文答的是 200、是文本；通到别的网站的只是链接', async ({ page, baseURL }) => {
+test('“来源”页：一页纸立在绢上；三套字体照 shipped.ts，地形和水、图片照内容，一条不少；五份许可全文答的是 200、是文本；通到别的网站的只是链接', async ({ page, baseURL }) => {
   test.setTimeout(180_000);
   const requests: string[] = [];
   page.on('request', (request) => requests.push(request.url()));
@@ -345,11 +345,11 @@ test('“来源”页：一页纸立在绢上；两套字体照 shipped.ts，地
     expect(got.headings.map((h) => h.text)).toEqual(['字体', '地形和水', '图片', '程序']);
     for (const heading of got.headings) expect(heading, `${where}：小标题“${heading.text}”`).toMatchObject({ family: 'Yanlu Kai', colour: INK });
 
-    // ---- 字体：两套各一条，照 shipped.ts
-    expect(got.fonts.map((font) => font.family)).toEqual([SHIPPED_FONTS.kai.family, SHIPPED_FONTS.song.family]);
-    for (const [i, font] of [SHIPPED_FONTS.kai, SHIPPED_FONTS.song].entries()) {
+    // ---- 字体：三套各一条（黑体、宋体、楷体），照 shipped.ts
+    expect(got.fonts.map((font) => font.family)).toEqual([SHIPPED_FONTS.sans.family, SHIPPED_FONTS.song.family, SHIPPED_FONTS.kai.family]);
+    for (const [i, font] of [SHIPPED_FONTS.sans, SHIPPED_FONTS.song, SHIPPED_FONTS.kai].entries()) {
       const shown = got.fonts[i];
-      expect(shown.says, `${where}：${font.family} 那一条`).toBe(i === 0 ? SOURCES_TEXT.kai(font) : SOURCES_TEXT.song(font));
+      expect(shown.says, `${where}：${font.family} 那一条`).toBe([SOURCES_TEXT.sans, SOURCES_TEXT.song, SOURCES_TEXT.kai][i](font));
       expect(shown.says, `${where}：${font.family} 那一条里的名字`).toContain(font.name);
       expect(shown.says, `${where}：${font.family} 那一条里的版本`).toContain(`${font.version} 版`);
       expect(shown.type, `${where}：${font.family} 那一条的字`).toEqual({ family: 'Yanlu Song', size: 17, colour: INK });
@@ -359,7 +359,7 @@ test('“来源”页：一页纸立在绢上；两套字体照 shipped.ts，地
       ]);
       for (const link of shown.links) expect({ line: link.line, colour: link.colour, lineColour: link.lineColour }, `${where}：链接“${link.text}”下面一道印泥红的线`).toEqual({ line: 'underline', colour: SEAL_RED, lineColour: SEAL_RED });
     }
-    expect(got.subset).toBe(SOURCES_TEXT.subset(SHIPPED_FONTS.kai, SHIPPED_FONTS.song));
+    expect(got.subset).toBe(SOURCES_TEXT.subset(SHIPPED_FONTS.sans, SHIPPED_FONTS.song, SHIPPED_FONTS.kai));
 
     // ---- 地形和水：每一行都在，不重复
     expect(got.land, `${where}：地形和水`).toEqual(wantedLines);
@@ -380,10 +380,10 @@ test('“来源”页：一页纸立在绢上；两套字体照 shipped.ts，地
     expect(got.program.last).toBe(SOURCES_TEXT.shipped);
   }
 
-  // ---- 四份许可全文：答的是 200，是文本，和 public/licences/ 里的文件一个字不差
+  // ---- 五份许可全文：答的是 200，是文本，和 public/licences/ 里的文件一个字不差
   //      （光看 200 不够：测试用的这个服务对不存在的地址也答 200，给的是首页；所以还要看它是文本、内容对得上）
-  const licences = [SHIPPED_FONTS.kai.licence, SHIPPED_FONTS.song.licence, LIBRARY_LICENCES.react, LIBRARY_LICENCES.three];
-  expect(new Set(licences).size).toBe(4);
+  const licences = [SHIPPED_FONTS.sans.licence, SHIPPED_FONTS.song.licence, SHIPPED_FONTS.kai.licence, LIBRARY_LICENCES.react, LIBRARY_LICENCES.three];
+  expect(new Set(licences).size).toBe(5);
   const said: string[] = [];
   for (const href of licences) {
     const address = new URL(href, page.url()).href;
@@ -397,9 +397,9 @@ test('“来源”页：一页纸立在绢上；两套字体照 shipped.ts，地
     expect(text, `${href} 是不是许可的原文`).toMatch(href.includes('OFL') ? /SIL OPEN FONT LICENSE Version 1\.1/ : /MIT License/);
     said.push(`${href} ${text.length} 个字`);
   }
-  // 点“许可全文”：就在这一页打开那份文本；后退，回到“来源”页
+  // 点头一条（黑体）的“许可全文”：就在这一页打开那份文本；后退，回到“来源”页
   await page.locator('.sources [data-sources="fonts"] .sources-links a').first().click();
-  await expect(page).toHaveURL(new RegExp(`${SHIPPED_FONTS.kai.licence.replace(/[.]/g, '[.]')}$`));
+  await expect(page).toHaveURL(new RegExp(`${SHIPPED_FONTS.sans.licence.replace(/[.]/g, '[.]')}$`));
   await expect(page.locator('body')).toContainText('SIL OPEN FONT LICENSE');
   await page.goBack();
   await expect(page.locator('.sources .page-title')).toHaveText('来源');
@@ -409,7 +409,7 @@ test('“来源”页：一页纸立在绢上；两套字体照 shipped.ts，地
   const base = new URL(baseURL ?? page.url()).origin;
   expect(requests.length).toBeGreaterThan(10);
   expect(requests.filter((url) => !/^(data|blob|about):/.test(url) && new URL(url).origin !== base), '出了网站自己地址的请求').toEqual([]);
-  console.log(`“来源”页：字体 2 条，地形和水 ${wantedLines.length} 行（${scenes} 座沙盘、${FIGURES.length} 位人物），图片 ${pictures.length} 张；许可全文：${said.join('，')}；${requests.length} 个请求都是网站自己的地址`);
+  console.log(`“来源”页：字体 ${Object.keys(SHIPPED_FONTS).length} 条，地形和水 ${wantedLines.length} 行（${scenes} 座沙盘、${FIGURES.length} 位人物），图片 ${pictures.length} 张；许可全文：${said.join('，')}；${requests.length} 个请求都是网站自己的地址`);
 });
 
 test('“来源”页里面的那一段程序点进去才下载：首页、人物页、站点页上都不取；从首页、人物页、一站的末尾三处都点得进去，只取一次', async ({ page }) => {

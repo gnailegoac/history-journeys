@@ -1,15 +1,22 @@
 /* 工具做的（npm run fonts），不要手改。说明见 docs/data-spec.md“随站的字体”。
    带 unicode-range 的文件，页面上用到它里面的字时浏览器才下载；那一行逐个列着它里面的字。 */
 @font-face {
-  font-family: 'Yanlu Kai';
-  src: url('./yanlu-kai.woff2') format('woff2');
-  font-weight: 400;
+  font-family: 'Yanlu Sans';
+  src: url('./yanlu-sans.woff2') format('woff2');
+  font-weight: 500;
   font-style: normal;
   font-display: swap;
 }
 @font-face {
   font-family: 'Yanlu Song';
   src: url('./yanlu-song.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Yanlu Kai';
+  src: url('./yanlu-kai.woff2') format('woff2');
   font-weight: 400;
   font-style: normal;
   font-display: swap;

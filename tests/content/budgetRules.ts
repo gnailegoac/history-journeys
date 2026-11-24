@@ -33,7 +33,7 @@ export const COLOUR_PSNR_MIN_ROUTE = 36;
 // ---------------------------------------------------------------- 随站的字体
 
 /**
- * 首次打开网站要下载的字体（楷体和头一个宋体文件；宋体按站拆开以后，再加上这一站自己的那个）合计最大多少字节：450 KB。
+ * 首次打开网站要下载的字体（黑体、头一个宋体文件和楷体；宋体按站拆开以后，再加上这一站自己的那个）合计最大多少字节：450 KB。
  * 字体的大小都按放进仓库的 .woff2 文件自己的字节数算（它本身就是压缩过的），不另外压。
  */
 export const FONT_FIRST_MAX_BYTES = 450 * 1024;
@@ -140,7 +140,7 @@ export interface FontFileSize {
 
 /**
  * 字体文件对着上限查一遍：每个文件一行，再加首次打开要下载的合计和全部合计（全部合计没有上限，只是印出来）。
- * 首次打开要下载的：first 是 true、大家共用的那几个（楷体和头一个宋体文件）。宋体按站拆开以后，打开一站还要这一站
+ * 首次打开要下载的：first 是 true、大家共用的那几个（黑体、头一个宋体文件和楷体）。宋体按站拆开以后，打开一站还要这一站
  * 自己的那一个（first 是 true、stop 是这一站）；一位读者一次只打开一站，所以按站分开算，取最大的那一站——
  * 不是把各站自己的文件都加在一起（那样站越多越大，其实没有谁要下载那么多）。
  */
@@ -151,7 +151,9 @@ export function fontReport(files: FontFileSize[]): SizeReport {
     report.lines.push(`${file}：${withCommas(bytes)} 字节，上限 ${withCommas(FONT_FILE_MAX_BYTES)}（用了 ${share}%）`);
     const result = verdict(bytes, FONT_FILE_MAX_BYTES, FONT_FILE_WARN_BYTES);
     if (result === 'fail') report.fails.push(`字体文件 ${file} 有 ${withCommas(bytes)} 字节，超过了上限 ${withCommas(FONT_FILE_MAX_BYTES)}`);
-    if (result === 'warn') report.warns.push(`字体文件 ${file} 有 ${withCommas(bytes)} 字节，快到上限 ${withCommas(FONT_FILE_MAX_BYTES)} 了（过了 ${withCommas(FONT_FILE_WARN_BYTES)} 就提醒）：该把宋体按站拆开了（打开以前还要做什么，写在 tests/support/fontTool.ts 的 SPLIT_SONG_BY_STOP 上面）`);
+    // 怎么办只对宋体的文件说：按站拆开的是宋体；黑体、楷体的文件大了，拆宋体帮不上忙
+    const advice = file.startsWith('yanlu-song') ? '：该把宋体按站拆开了（打开以前还要做什么，写在 tests/support/fontTool.ts 的 SPLIT_SONG_BY_STOP 上面）' : '';
+    if (result === 'warn') report.warns.push(`字体文件 ${file} 有 ${withCommas(bytes)} 字节，快到上限 ${withCommas(FONT_FILE_MAX_BYTES)} 了（过了 ${withCommas(FONT_FILE_WARN_BYTES)} 就提醒）${advice}`);
   }
   const bytesOf = (list: FontFileSize[]): number => list.reduce((sum, item) => sum + item.bytes, 0);
   const common = files.filter((item) => item.first && !item.stop);

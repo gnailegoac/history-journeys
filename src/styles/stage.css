@@ -2,7 +2,7 @@
    沙盘栏本身的位置和大小在 layout.css。
    样子：沙盘栏的底是一块绢（平的一种颜色）。绢上的字都是墨色，红只做记号；摆在绢上的东西——按钮、题签、
    展开的说明、一句话底下垫的那一小块——都是纸条：浅纸色，里面一圈深色的细线，右下一点影子，方角。
-   栏宽、栏窄各一种排法，由页面量了栏的宽度以后在栏上挂类名来分（.is-wide、.is-kai，见 StagePane.tsx），
+   栏宽、栏窄各一种排法，由页面量了栏的宽度以后在栏上挂类名来分（.is-wide，见 StagePane.tsx），
    题记的字号是页面照栏里面的宽度算好、写在栏上的（--line-size；栏里面的宽度是 --pane-w）：不用按栏宽查询的写法（@container、cqw），
    老平板（iPadOS 15 的 Safari）不认那两样。别的也只用它认得的写法。
    各处的边、垫的空、高度都不动（tests/e2e/pane-boxes.spec.ts 守着沙盘四边留的空）：换的只是颜色、字和影子。 */
@@ -155,7 +155,7 @@
   gap: var(--gap-2);
   height: 1.875rem;
   padding: 0 var(--gap-2);
-  background: var(--color-paper-sunk);
+  background: var(--color-stage-veil);
   box-shadow: inset 0 -1px 0 var(--color-line-on-silk);
   color: var(--color-ink);
   font-size: clamp(0.75rem, 3.6vw, var(--size-small));
@@ -170,7 +170,7 @@
   right: 0;
   bottom: 100%;
   height: var(--notice-top);
-  background: var(--color-paper-sunk);
+  background: var(--color-stage-veil);
 }
 
 .stage-notice p {
@@ -579,7 +579,7 @@
    一个字只占整数个像素，14.95px 的字一个占 15px，40 个就比算好的宽出 2px，行尾被截掉。字号是整数，哪里都是 40 × 字号。
    --line-size 还没写上的那一下是 14px。
    横着拿的平板上栏里面宽 583px，算出来 14px；竖着拿的平板上 18px；电脑上 19px。
-   题记够 16px 才用楷体（.is-kai，栏里面宽 661px 起）；不到 16px 用宋体：楷体的笔画细，小了就发灰，比下面的说明还淡。 */
+   题记是一句话：多大都是宋体。 */
 .stage-pane.is-wide .stage-caption {
   display: flex;
   flex-direction: column;
@@ -616,10 +616,6 @@
   line-height: 1.625rem;
   white-space: nowrap;
   text-overflow: ellipsis;
-}
-
-.stage-pane.is-kai .stage-line {
-  font-family: var(--font-kai);
 }
 
 /* 说明那一句占满这一条的宽（栏有多宽，一行就有多长），“说明”按钮立在这一条的右头，和这一句的头一行对齐，
@@ -806,7 +802,7 @@
   height: 1.25rem;
 }
 
-/* 指北针朝北的那一头。 */
+/* 指北针朝北的那一头：实心的箭头（另一头是一根直线，颜色跟着字）。 */
 .stage-north-tip {
   fill: var(--color-accent);
 }
@@ -840,11 +836,15 @@
   }
 }
 
+/* ================================================================ 人物自己的一层（从这里到文件末尾）：只读 tokens.css 里写在 .stage-pane 上的那一套（--figure-…） */
+
 /* ---------------------------------------------------------------- 题签 */
 
 /* 题签是沙盘程序挂在自己容器里的（src/stage/overlay）：竖写的字，一条引线指着地方。
    位置和竖写由程序写在元素上，这里只管样子：一张纸条，最外面一道纸色、里面一道深色的细线，右下有影子，
    脚上一方小红印（画出来的，不是字）。字是随站的楷体，水的名字用靛青；沙盘外面的远处，里面那道线是虚线。
+   这是这位人物自己的样子，框架换了风格它不动：颜色和字体取的都是人物的那一套（--figure-…，tokens.css 里写在 .stage-pane 上），
+   不读框架的颜色、字体、圆角和影子。
    纸条多大是算好的，Node 里摆题签的测试照同样的数算（tests/stage/support/stripSizes.ts）：
      大的（栏宽 584px 起）：字 17px，字距 0.12em，上垫 6、下垫 16（印在这里面）、左右各垫 6 → 宽 29，高 22 + 19.04 × 字数；
      小的（栏不到 584px 宽）：字 14px，上垫 4、下垫 13、左右各垫 5 → 宽 24，高 17 + 15.68 × 字数。
@@ -853,10 +853,10 @@
 .strip {
   padding: 6px 6px 16px;
   border: 0;
-  background-color: var(--color-paper-raised, #faf5e7);
-  box-shadow: inset 0 0 0 1px var(--color-paper-raised, #faf5e7), inset 0 0 0 2px rgb(60 46 32 / 0.55), 0 1px 1px rgb(60 40 10 / 0.3), 2px 4px 8px -2px rgb(60 40 10 / 0.4);
-  color: var(--color-ink, #28231f);
-  font-family: var(--font-kai, 'Kaiti SC', 'STKaiti', 'KaiTi', serif);
+  background-color: var(--figure-strip, #faf5e7);
+  box-shadow: inset 0 0 0 1px var(--figure-strip, #faf5e7), inset 0 0 0 2px rgb(60 46 32 / 0.55), 0 1px 1px rgb(60 40 10 / 0.3), 2px 4px 8px -2px rgb(60 40 10 / 0.4);
+  color: var(--figure-ink, #28231f);
+  font-family: var(--figure-font, 'Kaiti SC', 'STKaiti', 'KaiTi', serif);
   font-size: 17px;
   line-height: 1;
   letter-spacing: 0.12em;
@@ -872,7 +872,7 @@
   height: 6px;
   margin-left: -3px;
   border-radius: 1px;
-  background: var(--color-accent, #b03a2a);
+  background: var(--figure-mark, #b03a2a);
   opacity: 0.92;
 }
 
@@ -897,8 +897,8 @@
   height: 19px;
   margin: 3px -1px 0;
   border-radius: 2px;
-  box-shadow: inset 0 0 0 1.5px var(--color-accent, #b03a2a);
-  color: var(--color-accent, #b03a2a);
+  box-shadow: inset 0 0 0 1.5px var(--figure-mark, #b03a2a);
+  color: var(--figure-mark, #b03a2a);
   font-size: 13px;
   line-height: 19px;
   letter-spacing: 0;
@@ -909,12 +909,12 @@
 }
 
 .strip-seal[data-filled='true'] {
-  background: var(--color-accent, #b03a2a);
-  color: var(--color-paper-raised, #faf5e7);
+  background: var(--figure-mark, #b03a2a);
+  color: var(--figure-strip, #faf5e7);
 }
 
 .strip-seal[data-here='true'] {
-  outline: 2px solid var(--color-ink, #28231f);
+  outline: 2px solid var(--figure-ink, #28231f);
 }
 
 .strip-seal::after {
@@ -930,25 +930,25 @@
 
 /* 水名用靛青。 */
 .strip[data-tone='water'] {
-  color: var(--color-water, #3e6072);
+  color: var(--figure-water, #3e6072);
 }
 
 /* 沙盘外面的远处：里面那道线是虚线。 */
 .strip[data-tone='far'] {
   outline: 1px dashed rgb(60 46 32 / 0.7);
   outline-offset: -2px;
-  box-shadow: inset 0 0 0 1px var(--color-paper-raised, #faf5e7), 0 1px 1px rgb(60 40 10 / 0.3), 2px 4px 8px -2px rgb(60 40 10 / 0.4);
+  box-shadow: inset 0 0 0 1px var(--figure-strip, #faf5e7), 0 1px 1px rgb(60 40 10 / 0.3), 2px 4px 8px -2px rgb(60 40 10 / 0.4);
 }
 
 .strip-leaders line {
-  stroke: var(--color-ink, #28231f);
+  stroke: var(--figure-leader, #28231f);
   stroke-width: 1;
   opacity: 0.72;
 }
 
 .strip-leaders circle {
-  fill: var(--color-ink, #28231f);
-  stroke: var(--color-paper, #f5eedd);
+  fill: var(--figure-leader, #28231f);
+  stroke: var(--figure-halo, #f5eedd);
   stroke-width: 1.4;
 }
 

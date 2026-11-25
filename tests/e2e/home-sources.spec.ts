@@ -3,9 +3,9 @@
 //
 // 一、首页，四种标准的窗口上：文字栏和沙盘栏。
 //     宽屏（窗口 960 像素以上宽，而且横着）：文字栏在左，宽是窗口的 46%（最窄 464、最宽 640 像素），和屏幕一样高；沙盘栏在右，占满剩下的，
-//     钉着不动。别的窗口：沙盘栏在上，和窗口一样宽，钉在顶上，高是屏幕的 56%（和人物页一样）；文字栏在下。
+//     钉着不动。别的窗口：沙盘栏在上，和窗口一样宽，钉在顶上，高是屏幕的 56% 再加一条时间轴（和人物页一样）；文字栏在下。
 //     沙盘栏里摆的是第一位可以点进去的人物的全程沙盘，和人物页上是同一栏、同一座：看的是“全程”那一节，按钮是“古名、今名”“回到全程”，
-//     下面是同一条题记；栏多大就是 tests/stage/support/standardPanes.ts 的 HOME_PANES 里写的；按一方印，就到那一站。
+//     下面是同一条题记；栏多大就是 tests/stage/support/standardPanes.ts 的 ROUTE_HOME_PANES 里写的（带着时间轴）；按一方印，就到那一站。
 //     网站的名字是黑体，一行；内容里的每一张卡片都在，名字横着写，和朝代、年份在一行（四种窗口上都只占一行；
 //     窗口再窄、放不下的时候折在年份的前面，年份不拆开：另拿一个很窄的窗口查）；可以点进去的是链接，是一块白底的板，
 //     写着“从第一站读起”，点了进人物页；还没写的不是链接，只是单子上的一行，标着“还没写”，点了哪也不去。页面不比窗口宽。
@@ -24,7 +24,7 @@ import type { Page } from '@playwright/test';
 import type { Figure, FigureCard, StopExtras } from '../../src/domain/types';
 import { SHIPPED_FONTS } from '../../src/fonts/shipped';
 import { LIBRARY_LICENCES, SOURCES_TEXT } from '../../src/ui/sourcesText';
-import { HOME_PANES, STANDARD_PANES } from '../stage/support/standardPanes';
+import { BAR_BAND_PX, ROUTE_HOME_PANES, STANDARD_PANES } from '../stage/support/standardPanes';
 import { readBytes } from '../support/readBytes';
 import { expectStageAt, expectRoute, fakeUrl, fontsReady, headingsOf, routeOnDisk, sceneOnDisk, stagePane } from './helpers';
 
@@ -167,10 +167,10 @@ test('首页，四种标准的窗口上：文字栏（网站的名字、一句�
       expect(Math.abs(got.pane.right - size.width), `${where}：沙盘栏占满右边`).toBeLessThan(1);
       expect({ y: got.pane.y, height: got.pane.height, position: got.panePosition }, `${where}：沙盘栏和屏幕一样高，钉着不动`).toEqual({ y: 0, height: size.height, position: 'sticky' });
     } else {
-      // 沙盘栏在上：和人物页上一样，钉在顶上，高是屏幕的 56%
+      // 沙盘栏在上：和人物页上一样，钉在顶上，高是屏幕的 56% 再加一条时间轴（首页的栏带着时间轴）
       expect({ x: got.pane.x, y: got.pane.y, width: got.pane.width }, `${where}：沙盘栏在上，和窗口一样宽`).toEqual({ x: 0, y: 0, width: size.width });
       expect(got.panePosition, `${where}：沙盘栏钉在顶上`).toBe('sticky');
-      expect(Math.abs(got.pane.height - size.height * 0.56), `${where}：沙盘栏高 ${got.pane.height}，该是屏幕的 56%`).toBeLessThan(1);
+      expect(Math.abs(got.pane.height - (size.height * 0.56 + BAR_BAND_PX)), `${where}：沙盘栏高 ${got.pane.height}，该是屏幕的 56% 再加一条时间轴（${BAR_BAND_PX} 像素）`).toBeLessThan(1);
       expect(got.leaf.x, `${where}：文字栏在下，和窗口一样宽`).toBe(0);
       expect(got.leaf.width, `${where}：文字栏和窗口一样宽`).toBe(size.width);
       expect(Math.abs(got.leaf.y - got.pane.bottom), `${where}：文字栏紧接在沙盘栏的下面`).toBeLessThan(1);
@@ -179,9 +179,9 @@ test('首页，四种标准的窗口上：文字栏（网站的名字、一句�
     }
 
     // ---- 沙盘栏里摆的是第一位可以点进去的人物的全程沙盘：看的是头一节，印通到他的各站。
-    //      栏多大就是 HOME_PANES 里写的（宽屏上首页的文字栏比人物页的宽，沙盘栏就窄一些；题签在这样的栏上摆不摆得下，
+    //      栏多大就是 ROUTE_HOME_PANES 里写的（带着时间轴；宽屏上首页的文字栏比人物页的宽，沙盘栏就窄一些；题签在这样的栏上摆不摆得下，
     //      tests/stage/route-views.test.ts 照同一份数查）；按钮、题记和人物页上是同一套。
-    const wantedPane = HOME_PANES.find((pane) => pane.window.width === size.width && pane.window.height === size.height)!;
+    const wantedPane = ROUTE_HOME_PANES.find((pane) => pane.window.width === size.width && pane.window.height === size.height)!;
     expect(got.paneSize, `${where}：沙盘栏多大`).toBe(`${wantedPane.size.width} × ${wantedPane.size.height}`);
     expect({ section: got.section, reset: got.reset, strips: got.strips }, `${where}：沙盘栏里的全程沙盘`).toEqual({ section: route.sections[0].heading, reset: '回到全程', strips: route.sections[0].strips });
     expect(got.controls, `${where}：栏上的按钮`).toEqual(['古名', '今名', '回到全程']);

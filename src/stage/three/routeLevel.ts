@@ -30,6 +30,7 @@ import './engine';
 export { buildRouteGround, readRouteDem, routeSamplers } from '../ground/route';
 export { buildRouteModels } from './routeKit';
 export { buildPiece } from './piece';
+export { aroundPiece } from '../overlay/placeAround';
 
 // ---------------------------------------------------------------- 小像站在哪
 

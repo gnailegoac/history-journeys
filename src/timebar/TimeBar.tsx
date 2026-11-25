@@ -3,21 +3,30 @@
 //   只从 react 直接引钩子，不引 src/app/、src/ui/ 里的东西（引了，打包的工具会把 React 的核心从页面的程序里单拆出去）；
 //   自己不写动态 import；颜色和字号都在 src/styles/timebar.css，这里只算位置。
 //
-// 现在画的是不动的一版：照行迹（./barData.ts）画出第一行（哪一年、虚岁多少、在哪）、第二行（这一段知道些什么）和那一条轴，
-// 圆钮停在一个日子上，沙盘上的小像站到那一天他在的地方。日子是地址里 ?bar= 给的，没给就是出生的那一天；
-// 按钮和轴上还没有接手指和按键。
+// 照行迹（./barData.ts）画出第一行（哪一年、虚岁多少、在哪）、第二行（这一段知道些什么）和那一条轴；圆钮停在一个日子上，
+// 沙盘上的小像站到那一天他在的地方。读者拖圆钮、按在轴上、用键盘走，圆钮跟着走，两行字和小像马上跟着换；
+// 日子记在 ./barStore.ts 的那一份里（地址里 ?bar= 给了哪一天就从那一天起，没给就从记着的那一天起，头一回是出生的那一天）；
+// 怎么走、什么时候叫沙盘栏换小节，在 ./barState.ts。“播放”和“图例”两个按钮还没有接上。
 //
-// 它不同沙盘栏说话，只看沙盘栏写在自己身上的东西（data-stage-state），小像经 slot.current.view?.placePiece?.() 摆到沙盘上：
+// 它不同沙盘说镜头的事，只向沙盘栏报“该看哪一节”（onGoal），再看沙盘栏写在自己身上的东西（data-stage-state、data-stage-section……）。
+// 小像经 slot.current.view?.placePiece?.() 摆到沙盘上：
 //   沙盘摆好了（data-stage-state 是 ready）、这一条有地方（没有收起来、样式表没有把它拿掉），小像摆到这一天的地方；
+//   时间轴停着的时候（没有在拖、没有在连着按键）一并告诉沙盘“停着”：他在路上，题签也让开他；
 //   这一条没有地方（没有时间轴的时候，沙盘上只摆一个小像，说不出是哪一天的），或者这一天沙盘上没有他：拿走。
-// 放着图片的时候 view 是 null（图片上不画小像，两行字说他在哪）；站点沙盘没有这一条。
+// 这一条有没有地方、多宽，是看着量的（ResizeObserver：栏收起、展开，页面长出滚动条，都不发“窗口变了大小”）；
+// 浏览器没有 ResizeObserver 的，窗口变了大小的时候量。
+// 放着图片的时候 view 是 null（图片上不画小像，两行字说他在哪）；一站的页面上没有这一条。
 
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
+import type { KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent } from 'react';
 import type { ItineraryBar } from '../domain/itinerary';
 import type { BarProps, PiecePlace, StopStageView } from '../stage/types';
 import { barFor } from './barData';
-import { barScale, barTicks, groupSpans, labelledTicks, squeezed, THIN_BLOCK_PX, unitsAt } from './barScale';
+import { barTicks, discAt, groupSpans, labelledTicks, squeezed, THIN_BLOCK_PX, unitsAt, yearsShort } from './barScale';
 import type { BarBlock } from './barScale';
+import { BAR_KEYS, barControl } from './barState';
+import type { BarControl, BarKey, PaneReport } from './barState';
+import { barStore } from './barStore';
 import { BAR_TEXT } from './barText';
 import { stretchIndexAt, whereAt } from './barWhere';
 import { barFit, barSwitch, wordsAt } from './barWords';
@@ -29,59 +38,102 @@ const ROAD_Y = 28.5;
 const SPAN_Y = 21.5;
 const TICK_BOTTOM = 37;
 
-export function TimeBar({ table, marks, slot }: BarProps) {
+export function TimeBar({ table, marks, slot, onGoal }: BarProps) {
   const bar = barFor(table.key);
   // 地址里的开关只在这一条摆上的时候读一次
   const [asked] = useState(() => barSwitch(window.location.search));
   if (!bar || !asked.on) return null;
-  return <Bar bar={bar} day={asked.day ?? 0} marks={marks} slot={slot} />;
+  return <Bar bar={bar} table={table} start={asked.day} marks={marks} slot={slot} onGoal={onGoal} />;
 }
 
 interface Props {
   bar: ItineraryBar;
-  /** 圆钮停在第几天。 */
-  day: number;
+  table: BarProps['table'];
+  /** 地址里指定从第几天起；没有指定是 null（从记着的那一天起）。 */
+  start: number | null;
   marks: BarProps['marks'];
   slot: BarProps['slot'];
+  onGoal: BarProps['onGoal'];
 }
 
-function Bar({ bar, day, marks, slot }: Props) {
+function Bar({ bar, table, start, marks, slot, onGoal }: Props) {
   const root = useRef<HTMLDivElement>(null);
   const track = useRef<HTMLDivElement>(null);
   /** 量到的两个宽：这一条里面多宽（定摆哪几样），轴多宽（定每一格画在哪）。这一条没有地方的时候是 null。 */
   const [box, setBox] = useState<{ inner: number; track: number } | null>(null);
   /** 上一回把小像摆在了哪座沙盘的哪里（写成字比较；'null' 是没有摆）：没变就不再叫沙盘。刚摆出来的沙盘上本来就没有小像。 */
   const placed = useRef<{ view: StopStageView | null; where: string }>({ view: null, where: 'null' });
+  /** 沙盘栏交来的“该看哪一节”（每一回重画都可能是新的一个函数：记最新的）。 */
+  const goal = useRef(onGoal);
+  goal.current = onGoal;
 
-  const scale = barScale(bar);
-  const at = Math.min(Math.max(day, 0), scale.lastDay);
+  // 记着日子的那一份，和接着它的那一套走法：这一条摆上的时候各造一回。地址里指定了哪一天，就从那一天起（这不算读者动过）
+  const [control] = useState((): BarControl => {
+    const store = barStore(table.key);
+    const pane = (): Element | null => root.current?.closest('.stage-pane') ?? null;
+    const made = barControl(bar, table.scene.sections, store, {
+      now: () => performance.now(),
+      frame: (run) => requestAnimationFrame(run),
+      cancelFrame: (id) => cancelAnimationFrame(id),
+      later: (run, ms) => window.setTimeout(run, ms),
+      cancelLater: (id) => window.clearTimeout(id),
+      calm: window.matchMedia('(prefers-reduced-motion: reduce)').matches,
+      pane: (): PaneReport => {
+        const el = pane();
+        const reset = el?.querySelector('.stage-reset');
+        return {
+          section: el?.getAttribute('data-stage-section') ?? null,
+          figure: el?.getAttribute('data-stage-state') === 'ready' && el.getAttribute('data-stage-picture') === 'table',
+          moved: !!reset && reset.getAttribute('aria-disabled') !== 'true',
+        };
+      },
+      goal: (heading) => goal.current?.(heading),
+      reset: () => pane()?.querySelector<HTMLElement>('.stage-reset')?.click(),
+    });
+    if (start !== null) store.set({ day: Math.min(start, made.scale.lastDay), rest: true });
+    return made;
+  });
+  const store = barStore(table.key);
+  const now = useSyncExternalStore(store.subscribe, store.get);
+  useEffect(() => () => control.dispose(), [control]);
+
+  const scale = control.scale;
+  const at = Math.min(Math.max(now.day, 0), scale.lastDay);
   const words = wordsAt(bar, at);
   const stretch = bar.stretches[stretchIndexAt(bar, at)];
 
-  // 这一条摆上、窗口大小变了的时候量一遍。量的是这一条自己（.stage-bar）：它没有地方的时候两个宽都是 0。
+  // 看着这一条（.stage-bar）量：它没有地方的时候两个宽都是 0。栏收起、展开，页面长出滚动条，这一条的大小变了都量一遍。
   useLayoutEffect(() => {
+    const band = root.current?.parentElement;
     const measure = (): void => {
-      const band = root.current?.parentElement;
       const inner = band ? band.clientWidth : 0;
       const wide = track.current ? track.current.clientWidth : 0;
       setBox((was) => (inner > 0 && wide > 0 ? (was && was.inner === inner && was.track === wide ? was : { inner, track: wide }) : null));
     };
     measure();
+    const watcher = band && typeof ResizeObserver === 'function' ? new ResizeObserver(measure) : null;
+    if (band) watcher?.observe(band);
     window.addEventListener('resize', measure);
-    return () => window.removeEventListener('resize', measure);
+    return () => {
+      watcher?.disconnect();
+      window.removeEventListener('resize', measure);
+    };
   }, []);
 
-  // 每一回沙盘栏重画以后看一眼（这一条是沙盘栏的孩子，沙盘栏重画它也重画）：小像该不该在沙盘上、该在哪。
+  // 每一回沙盘栏重画以后看一眼（这一条是沙盘栏的孩子，沙盘栏重画它也重画）：播放等着的那一节摆好了没有；小像该不该在沙盘上、该在哪。
   useEffect(() => {
+    control.paneChanged();
     const view = slot.current.view;
     const ready = root.current?.closest('.stage-pane')?.getAttribute('data-stage-state') === 'ready';
     const where: PiecePlace | null = box && ready ? whereAt(bar, at) : null;
-    const key = JSON.stringify(where);
+    // 在路上的，停着和走着是两回事（停着题签让开他）：连它一起比
+    const rest = where?.on === 'road' && now.rest;
+    const key = `${JSON.stringify(where)}${rest ? '!' : ''}`;
     // 换了一座沙盘（再试一次、降了一档、重新摆出来）：新的那一座上还什么都没有摆
     if (placed.current.view !== view) placed.current = { view, where: 'null' };
     if (placed.current.where === key) return;
     placed.current.where = key;
-    view?.placePiece?.(where);
+    view?.placePiece?.(where, now.rest);
   });
   // 这一条拿走的时候（换了一页、沙盘栏换成了一站自己的沙盘）把小像也拿走
   useEffect(
@@ -98,6 +150,23 @@ function Bar({ bar, day, marks, slot }: Props) {
   const mark = stretch.group ? marks?.[stretch.group] : undefined;
   const px = box ? box.track / scale.total : 0;
   const ticks = barTicks(bar, scale);
+
+  /** 手指（鼠标）在轴上的哪一个单位。 */
+  const unitsUnder = (event: ReactPointerEvent<HTMLDivElement>): number => {
+    const rect = event.currentTarget.getBoundingClientRect();
+    return rect.width > 0 ? ((event.clientX - rect.left) / rect.width) * scale.total : 0;
+  };
+  // 按下去就抓住这根手指：拖出了轴、拖到了沙盘上，圆钮还跟着它走，沙盘不转
+  const onDown = (event: ReactPointerEvent<HTMLDivElement>): void => {
+    if (event.pointerType === 'mouse' && event.button !== 0) return;
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+    control.press(unitsUnder(event));
+  };
+  const onKey = (event: ReactKeyboardEvent<HTMLDivElement>): void => {
+    if (!BAR_KEYS.includes(event.key) || event.altKey || event.ctrlKey || event.metaKey) return;
+    event.preventDefault();
+    control.key(event.key as BarKey);
+  };
 
   return (
     <div className={fit.roomy ? 'bar is-roomy' : 'bar'} data-bar-look={stretch.look} data-bar-stop={stretch.group} ref={root}>
@@ -116,6 +185,12 @@ function Bar({ bar, day, marks, slot }: Props) {
           aria-valuenow={Math.round((unitsAt(scale, at) / scale.total) * 1000)}
           aria-valuetext={words.spoken}
           ref={track}
+          onPointerDown={onDown}
+          onPointerMove={(event) => control.drag(unitsUnder(event))}
+          onPointerUp={control.release}
+          onPointerCancel={control.release}
+          onLostPointerCapture={control.release}
+          onKeyDown={onKey}
         >
           {box && (
             <>
@@ -132,13 +207,20 @@ function Bar({ bar, day, marks, slot }: Props) {
               </svg>
               {groupSpans(scale).map((span) => {
                 const stop = marks?.[span.stop];
-                return (
-                  stop && (
-                    <span key={span.stop} className={stop.written ? 'bar-disc' : 'bar-disc is-unwritten'} style={{ left: r(((span.u0 + span.u1) / 2) * px) }} aria-hidden="true">
-                      {stop.label}
+                if (!stop) return null;
+                // 这一站已发布的年份：这一段放得下圆点和它才写
+                const years = bar.stopYears[span.stop];
+                const spot = discAt(span, px, years && yearsShort(years));
+                return [
+                  <span key={span.stop} className={stop.written ? 'bar-disc' : 'bar-disc is-unwritten'} style={{ left: r(spot.disc) }} aria-hidden="true">
+                    {stop.label}
+                  </span>,
+                  spot.years !== null && (
+                    <span key={`${span.stop}-years`} className="bar-years" style={{ left: r(spot.years) }} aria-hidden="true">
+                      {yearsShort(years)}
                     </span>
-                  )
-                );
+                  ),
+                ];
               })}
               {labelledTicks(ticks, px).map((tick, i) => (
                 <span key={tick.year} className={i === 0 ? 'bar-year is-first' : 'bar-year'} style={{ left: r(tick.u * px) }} aria-hidden="true">

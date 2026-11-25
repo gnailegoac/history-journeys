@@ -692,6 +692,7 @@ describe('数字：哪些字归哪一组（编出来的一位人物）', () => {
         [1000, '熙宁', null, 1],
         [1001, '丰祐', 30, 2],
       ],
+      stopYears: {},
       first: { label: '诞', says: '曩' },
       last: { label: '殁', says: '迄' },
       stretches: [

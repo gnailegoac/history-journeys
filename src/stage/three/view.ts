@@ -192,6 +192,8 @@ class ThreeStopView implements StopStageView {
   private diving = false;
   /** 小像该站在哪（页面最近一次说的）；null 是不摆。沙盘还没造好的时候先记着，造好了照它摆。 */
   private pieceAt: PiecePlace | null = null;
+  /** 小像在路上的时候算不算停着（页面最近一次说的：时间轴停在这一天）。停着，题签才让开他。 */
+  private pieceRest = false;
   /** 小像的模型：头一回真的要摆的时候才造；全程沙盘以外没有。 */
   private piece: Piece | null = null;
   /** 小像脚下那一点（沙盘里的米）；现在没有摆出来是 null。 */
@@ -412,8 +414,9 @@ class ThreeStopView implements StopStageView {
   }
 
   /** 小像摆到这里（规矩见 src/stage/types.ts）。还没造好就先记着；站点沙盘上只是记着，什么也不摆。 */
-  placePiece(where: PiecePlace | null): void {
+  placePiece(where: PiecePlace | null, atRest?: boolean): void {
     this.pieceAt = where;
+    this.pieceRest = atRest === true;
     // 镜头正在滑（或者正在潜）的时候每一帧本来就画，不另约一帧
     if (this.setPiece() && !this.sequencer.gliding) this.requestRender();
   }
@@ -651,7 +654,8 @@ class ThreeStopView implements StopStageView {
       controls.addEventListener('end', this.onControlEnd);
       this.keep(() => controls.dispose());
 
-      const strips = mountStrips(this.container);
+      // 全程沙盘上题签怎么让开停着的小像，在全程沙盘那一块程序里（overlay/placeAround.ts）；站点沙盘照平常摆
+      const strips = mountStrips(this.container, this.routeLevel?.aroundPiece());
       this.keep(() => strips.destroy());
 
       const built: Built = { renderer, world, camera, controls, sun, hemi, fog, samplers, water, mist, stand, models, strips };
@@ -1380,9 +1384,9 @@ class ThreeStopView implements StopStageView {
 
     if (!this.stripsHidden) {
       const anchors = projectSpots(this.spots(D, b), this.coords, camera, size);
-      // 小像停在一处（地名点上，或者线上没有立名字的一处）的时候，题签让开他：从帽顶到脚下再多 8 像素，左右各 10 像素（底座那么宽）。
-      // 他在路上走的时候不让：题签不跟着一个走动的东西来回换位置
-      const on = this.pieceAt?.on === 'road' ? null : this.pieceOnScreen(b);
+      // 小像停着的时候，题签让开他：从帽顶到脚下再多 8 像素，左右各 10 像素（底座那么宽）。站在一处（地名点上，或者线上没有立名字的一处）
+      // 总算停着；在路上的，页面说时间轴停在这一天才算。他在路上走着的时候不让：题签不跟着一个走动的东西来回换位置
+      const on = this.pieceAt?.on === 'road' && !this.pieceRest ? null : this.pieceOnScreen(b);
       const avoid: StripInput['avoid'] = on ? [{ x0: on.x - PIECE_HALF_PX, y0: on.y - on.h, x1: on.x + PIECE_HALF_PX, y1: on.y + PIECE_UNDER_PX }] : undefined;
       // 读者的手还按着：题签留在原来的位置上，不重新挑（转一下换十几次位置，看上去是在闪）。刚换的一批还没摆过，照常摆
       // 潜到一站上空的路上也一样：留着的那一条不换位置

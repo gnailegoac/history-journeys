@@ -97,7 +97,16 @@
   --stage-height-narrow: 56vh; /* 窄屏上沙盘栏的高度：竖着拿的平板上，沙盘占屏幕的一多半（decisions.md 第 23 条） */
   --stage-height-narrow-min: 11rem;
   --stage-height-folded: calc(var(--tap) + 2 * var(--gap-2)); /* 窄屏上收起后的高度：只留一排按钮 */
-  --stage-bar-h: 0px; /* 全程沙盘下面那一条时间轴的高。这一条还没有摆出来：先是 0，摆出来的那一步改成 6rem */
+  --stage-bar-h: 6rem; /* 全程沙盘下面那一条时间轴的高：96px（上垫 4，哪年几岁在哪一行 24，知道些什么一行 18，轴一行 48，下垫 2），栏宽栏窄都一样 */
+  --stage-bar-rise: var(--stage-bar-h); /* 沙盘在上的排法里，摆着时间轴的沙盘栏比屏幕的 56% 再高出一条时间轴：沙盘和没有时间轴时一样大（改了它，全程沙盘的定格图要重拍） */
+}
+
+/* 沙盘在上的排法里，窗口很矮的时候（不到 768px 高：把网页放大了的电脑，手机）不摆时间轴：沙盘栏只有窗口的 56% 高，
+   再让出一条，沙盘就剩不下什么了。左右排的版面上沙盘栏和窗口一样高，再矮也摆（见下面宽屏的那一条）。 */
+@media (max-height: 767px) {
+  :root {
+    --stage-bar-h: 0px;
+  }
 }
 
 @media (min-width: 600px) {
@@ -109,6 +118,7 @@
 /* 宽屏（文字栏在左、沙盘栏在右）：标题按文字栏的宽窄另定。 */
 @media (min-width: 960px) and (orientation: landscape) {
   :root {
+    --stage-bar-h: 6rem; /* 左右排的版面上，窗口再矮也摆时间轴 */
     --size-site-title: 2.875rem; /* 46px */
     --size-title: 2.125rem; /* 34px：文字栏只有 440px 宽 */
     --bar-h: 4.25rem; /* 68px */

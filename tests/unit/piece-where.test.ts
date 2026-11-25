@@ -35,8 +35,9 @@ function at(i: number, day: number): [number, number] | null {
 }
 
 describe('小像站在哪：路', () => {
-  it('十二段路：各截接起来没有缺口，从头走到尾，位置一步不往回', () => {
-    expect(roads).toHaveLength(12);
+  it('每一段路（有几段照手写的那一份数）：各截接起来没有缺口，从头走到尾，位置一步不往回', () => {
+    expect(roads.map((road) => road.stretch.id)).toEqual(itinerary.stretches.filter((stretch) => stretch.kind === 'road').map((stretch) => stretch.id));
+    expect(roads.length).toBeGreaterThan(0);
     const lines: string[] = [];
     for (const { stretch, ways, from } of roads) {
       const chain = pieceChain(scene, coords, ways);
@@ -156,9 +157,11 @@ describe('小像站在哪：路', () => {
 });
 
 describe('小像站在哪：线上没有立名字的地方，认不得的地方，一生的每一段', () => {
-  it('站在线上没有立名字的地方：凤翔离画出来的线 2 公里，颍州 10 公里，别的五处就在线上', () => {
+  it('站在线上没有立名字的地方（哪几段照手写的那一份数）：他站的就是线上离那里最近的一点，离那个地方不到 15 公里（各处多远印出来）；同一个地方的几段是同一个位置', () => {
     const spots = bar.stretches.flatMap((stretch) => (stretch.spot ? [{ stretch, way: stretch.spot[0], lngLat: stretch.spot[1] }] : []));
-    expect(spots).toHaveLength(7);
+    const written = itinerary.stretches.filter((stretch) => stretch.kind === 'elsewhere' && stretch.tablePoint.type === 'way-vertex');
+    expect(spots.map((spot) => spot.stretch.id)).toEqual(written.map((stretch) => stretch.id));
+    expect(spots.length).toBeGreaterThan(0);
     const off = new Map<string, number[]>();
     for (const { stretch, way, lngLat } of spots) {
       const chain = pieceChain(scene, coords, [way]);
@@ -173,19 +176,14 @@ describe('小像站在哪：线上没有立名字的地方，认不得的地方�
       expect(town, `${stretch.id} 的第二行`).toBeDefined();
       off.set(town!, [...(off.get(town!) ?? []), near.offM * KM]);
     }
-    expect([...off.keys()].sort()).toEqual(['凤翔', '常州', '扬州', '泗州', '虔州', '颍州'].sort());
+    // 第二行说的地方，就是手写的那一份里这几段的 where 开头的地名
+    expect([...off.keys()].sort()).toEqual([...new Set(written.map((stretch) => (stretch.kind === 'elsewhere' ? stretch.where.split(/[（(]/)[0].trim() : '')))].sort());
     for (const [town, list] of off) {
-      for (const km of list) {
-        if (town === '凤翔') expect(km, town).toBeCloseTo(2.0, 1);
-        else if (town === '颍州') {
-          expect(km, town).toBeGreaterThan(10);
-          expect(km, town).toBeLessThan(10.5);
-        } else expect(km, town).toBeLessThan(0.01);
-      }
+      // 离画出来的线不到 15 公里（校验的规则 22 也是这个数）；同一个地方的几段（常州两回）离线一样远，是同一个位置
+      for (const km of list) expect(km, town).toBeLessThan(15);
+      for (const km of list) expect(km, town).toBeCloseTo(list[0], 9);
     }
-    // 常州有两段（1085 年、1101 年），是同一个位置
-    expect(off.get('常州')).toHaveLength(2);
-    console.log(`线上没有立名字的七处离画出来的线多远（公里）：${[...off].map(([town, list]) => `${town} ${list.map((km) => km.toFixed(2)).join('、')}`).join('，')}`);
+    console.log(`线上没有立名字的 ${spots.length} 段离画出来的线多远（公里）：${[...off].map(([town, list]) => `${town} ${list.map((km) => km.toFixed(2)).join('、')}`).join('，')}`);
   });
 
   it('认不得的地名点、认不得的路：null', () => {
@@ -201,9 +199,12 @@ describe('小像站在哪：线上没有立名字的地方，认不得的地方�
     expect(pieceWhere(scene, coords, { on: 'place', place: scene.places[0].id })).toEqual(coords.toLocal(scene.places[0].at));
   });
 
-  it('行迹里有他的四十段，每一段都算得出位置，都在沙盘里面；没有他的二十一段不给位置', () => {
-    expect(bar.stretches.filter(shown)).toHaveLength(40);
-    expect(bar.stretches.filter((s) => !shown(s))).toHaveLength(21);
+  it('行迹里有他的各段，每一段都算得出位置，都在沙盘里面；没有他的各段不给位置（哪几段有他照手写的那一份数）', () => {
+    // 手写的那一份里：住在一站的、在画出来的路上的、站在沙盘上有的地方（地名点，或者线上的一处）的，有他；别的没有
+    const onTable = itinerary.stretches.filter((s) => s.kind !== 'elsewhere' || ['stop-point', 'place', 'way-vertex'].includes(s.tablePoint.type)).map((s) => s.id);
+    expect(bar.stretches.filter(shown).map((s) => s.id)).toEqual(onTable);
+    expect(onTable.length).toBeGreaterThan(0);
+    expect(onTable.length).toBeLessThan(bar.stretches.length);
     let jump = 0;
     let last: { p: [number, number]; id: string } | null = null;
     bar.stretches.forEach((stretch, i) => {

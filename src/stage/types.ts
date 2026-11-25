@@ -264,12 +264,14 @@ export interface StopStageView extends StageView {
   /**
    * 全程沙盘才有：把小像摆到这里；null 是拿走。马上摆到，不滑，不动镜头；之后画一帧（读正文的时候多出来的画法只有这一种）。
    * 还没摆好就调用的，记着最后一次，摆好了照它摆。认不得的 id（地名点、路）当作 null，并在控制台说一句。
-   * 小像停在一处（地名点上，或者 spot）的时候，题签让开它（见 src/stage/overlay/types.ts 的 avoid）；在路上走的时候不让。
+   * 小像停着的时候，题签让开它（只挪碰着它的那几条，见 src/stage/overlay/placeAround.ts）：站在一处（地名点上，或者 spot）总算停着；
+   * 在路上的，atRest 是 true 才算（时间轴停在这一天：读者放了手、按了暂停）。在路上走着的时候（拖着、按着键、播放着）不让：
+   * 题签不跟着一个走动的东西来回换位置。
    * 潜到一站上空的那一趟（dive）一起步，小像收起来——除非他正站在那一站的地名点上；下一次 showSection 再摆出来。
    * 从不抛出；嫌慢以后、画面丢了、关掉以后不做事。站点沙盘上只是记着，什么也不摆。
    * 定格图不写这个方法（图片上不画小像）；沙盘的替身不画，只把叫它摆在哪记在 data-fake-piece 上。
    */
-  placePiece?(where: PiecePlace | null): void;
+  placePiece?(where: PiecePlace | null, atRest?: boolean): void;
 }
 
 export interface StageEngine {
@@ -302,7 +304,7 @@ export interface BarProps {
   marks: StageOptions['marks'];
   /** 现在挂着的立体的沙盘（没摆好、放着图片时 view 是 null）：小像是摆在它上面的。 */
   slot: { current: { view: StopStageView | null } };
-  /** 读者动了时间轴：全程沙盘该看这一节（小节标题）。沙盘栏还没有接这一样的时候不交。 */
+  /** 读者动了时间轴：全程沙盘该看这一节（小节标题）。时间轴只报这一句，镜头怎么过去是沙盘栏的事；读者没动过时间轴的时候不报。 */
   onGoal?: (heading: string) => void;
   /** 时间轴走到了哪一站讲的那几年、目录上该写哪几个字；不在哪一站讲的年份里是 null。人物页的目录还没有接这一样的时候不交。 */
   onHere?: (here: BarHere | null) => void;

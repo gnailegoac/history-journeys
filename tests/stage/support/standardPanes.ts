@@ -73,3 +73,39 @@ export const UPRIGHT_PANES: readonly StandardPane[] = [
   { name: '820 × 661', window: { width: 820, height: 1180 }, size: { width: 820, height: 661 }, insets: leave(54, 131) },
   { name: '834 × 669', window: { width: 834, height: 1194 }, size: { width: 834, height: 669 }, insets: leave(54, 131) },
 ];
+
+// ---------------------------------------------------------------- 带着时间轴的栏（人物页、首页）
+//
+// 人物页和首页的沙盘栏摆的是全程沙盘，题记上面多一条时间轴（96 像素，tokens.css 的 --stage-bar-h）。量到的样子：
+//   左右排的版面（电脑、横着拿的平板）：栏还是那么大，下面多留 96 像素——沙盘的那一块矮了 96 像素；
+//   沙盘在上的版面（竖着拿的平板）：栏高出 96 像素（屏幕的 56% 再加一条时间轴），下面也多留 96 像素——沙盘的那一块和没有时间轴时一样大。
+// 所以下面的几组就是上面各组加上这一条。上面的各组一个数不动：一站自己的沙盘、还没有自己的沙盘的一站的页面（摆的是全程沙盘，没有时间轴）照它们查。
+// tests/e2e/pane-boxes.spec.ts 到人物页、首页上量的要和这里一样；全程沙盘的定格图也是照这几种栏拍的（tests/e2e/still-layout.spec.ts）。
+
+/** 时间轴那一条的高（像素）。 */
+export const BAR_BAND_PX = 96;
+
+/**
+ * 读者在只放图片的时候点了“试试立体的沙盘”，按钮下面那一行话留着（“设备慢的话，可以换回图片”）。带着时间轴的栏上，这时候上面再多留这么多像素：
+ * 小像（三十来像素高）站在最北边的那一处，整个都在这一行话的下面（stage.css 的 --notice-head）。
+ */
+export const NOTICE_HEAD_PX = 36;
+
+/** 一种栏带上时间轴以后的样子。名字后面加“，带时间轴”（沙盘在上的那几种，名字里的高也是加高以后的）。 */
+function withBar(pane: StandardPane): StandardPane {
+  const wide = pane.window.width >= 960 && pane.window.width > pane.window.height;
+  const size = wide ? pane.size : { width: pane.size.width, height: pane.size.height + BAR_BAND_PX };
+  return { name: `${size.width} × ${size.height}，带时间轴`, window: pane.window, size, insets: leave(pane.insets.top, pane.insets.bottom + BAR_BAND_PX) };
+}
+
+/** 人物页的沙盘栏，四种标准的窗口上。 */
+export const ROUTE_PANES: readonly StandardPane[] = STANDARD_PANES.map(withBar);
+/** 首页的沙盘栏，同样四种窗口上（沙盘在上的两种和人物页的一模一样）。 */
+export const ROUTE_HOME_PANES: readonly StandardPane[] = [withBar(HOME_PANES[0]), withBar(HOME_PANES[1]), ROUTE_PANES[2], ROUTE_PANES[3]];
+/** 别的竖着拿的平板上人物页的沙盘栏。 */
+export const ROUTE_UPRIGHT_PANES: readonly StandardPane[] = UPRIGHT_PANES.map(withBar);
+
+/** 带着时间轴的栏，按钮下面多一行话的时候上面留多少：和不带时间轴的那一种一样（栏的名字 → 上面留多少）。 */
+export const ROUTE_NOTICE_ROW_TOP: Readonly<Record<string, number>> = Object.fromEntries(
+  [...STANDARD_PANES, ...UPRIGHT_PANES].map((pane) => [withBar(pane).name, NOTICE_ROW_TOP[pane.name]] as const),
+);

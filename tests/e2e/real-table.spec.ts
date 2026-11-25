@@ -21,6 +21,7 @@
 import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
 import type { RouteScene } from '../../src/domain/scene';
+import { routeCoords } from '../../src/domain/sceneGeoRoute';
 import { stripTexts } from '../../src/domain/sceneText';
 import type { StageTier } from '../../src/stage/types';
 import { DRAW_CALLS_MAX, STANDING_STILL_MS, TRIANGLES_MAX, checkReduced } from '../stage/support/budgets';
@@ -484,6 +485,62 @@ async function sealedStripsMeasured(page: Page, route: RouteScene, whole: string
 test('真的全程沙盘（完整的一档）在人物页上：摆得出来，三角形数和画几批在预算里；带印的题签量出来的大小就是题签的测试照着算的；今名换题签上的字；按一方印就到那一站，沙盘换到它的来路，走到下一站跟着再换；站着不动不再画', async ({ page }) => {
   test.setTimeout(300_000);
   await routeForced(page, 'full');
+});
+
+test('人物页不带时间轴的开关（地址里没有 ?bar=）：全程沙盘下面有时间轴的那一条，第一行是“景祐三年（1037年1月）”“生在眉州”，沙盘的读数里小像站在眉州的地名点上；进了一站的页面，小像拿走了', async ({ page }) => {
+  // 别的测试里时间轴都是在沙盘的替身上、地址里写了 ?bar= 才摆的；真的页面上它本来就在，只有这一项看得到。
+  test.setTimeout(300_000);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  const problems = watchProblems(page);
+  const { figureId } = await openFigureWithTable(page, realUrl('#/', 'full', '&debug=1'));
+  await needWebGL2(page);
+  const route = routeOnDisk(figureId);
+  if (env.CI) expect(route, '发布流程里没有找到全程沙盘：它一次也没有起来过，不能算通过').not.toBeNull();
+  else test.skip(!route, '这位人物还没有全程沙盘');
+  if (!route) return;
+  const pane = stagePane(page);
+  await expectRealTable(page, 'full', READY_MS);
+  await expect(pane).toHaveAttribute('data-stage-section', route.sections[0].heading);
+  // 时间轴的那一条在题记上面，栏上写着“带着时间轴”
+  await expect(pane).toHaveAttribute('data-stage-bar', '');
+  const band = page.locator('.stage-foot .stage-bar');
+  await expect(band).toHaveCount(1);
+  await expect(band.locator('.bar-thumb')).toHaveCount(1);
+  // 一打开停在出生的那一天：第一行三样，括号里是那一天公历的年和月
+  await expect(band.locator('.bar-when span')).toHaveText(['景祐三年（1037年1月）', '虚岁一岁', '生在眉州']);
+  await expect(band.locator('.bar-note')).toHaveText('图例');
+  // 沙盘的读数里有小像，站在眉州的地名点上（平面上的位置就是那个点；高是地面再抬一点，这里不查）
+  const home = route.places.find((place) => place.name === '眉州');
+  expect(home, '全程沙盘上要有眉州这个地名点').toBeDefined();
+  const [x, z] = routeCoords(route.frame).toLocal(home!.at);
+  await expect.poll(async () => (await stageReadout(page))?.piece ?? null, { message: '沙盘的读数里要有小像', timeout: SECTION_MS }).not.toBeNull();
+  const piece = (await stageReadout(page))!.piece!;
+  expect(Math.abs(piece.at[0] - x), `小像在 (${piece.at[0]}, ${piece.at[2]})，眉州的点在 (${x}, ${z})`).toBeLessThan(0.01);
+  expect(Math.abs(piece.at[2] - z), `小像在 (${piece.at[0]}, ${piece.at[2]})，眉州的点在 (${x}, ${z})`).toBeLessThan(0.01);
+  // 在画面上三十来像素高，脚落在沙盘栏里
+  const box = (await pane.boundingBox())!;
+  console.log(`真的全程沙盘上的小像：脚在画面的 (${piece.px.x.toFixed(1)}, ${piece.px.y.toFixed(1)})，${piece.px.h.toFixed(1)} 像素高（沙盘栏 ${box.width} × ${box.height}）`);
+  expect(piece.px.h).toBeGreaterThan(28);
+  expect(piece.px.h).toBeLessThan(40);
+  expect(piece.px.x).toBeGreaterThan(0);
+  expect(piece.px.x).toBeLessThan(box.width);
+  expect(piece.px.y).toBeGreaterThan(0);
+  expect(piece.px.y).toBeLessThan(box.height);
+  // 读者没有动过时间轴：沙盘没有被叫去换小节，中间的按钮还是“回到全程”
+  await expect(pane.locator('.stage-reset')).toHaveText('回到全程');
+
+  // 进一站的页面（还没有自己的沙盘的一站：还是这一座全程沙盘）：没有时间轴的那一条，小像拿走了
+  const target = (await page.locator('.strip-seal').evaluateAll((seals) => seals.map((seal) => seal.getAttribute('data-stop-id') ?? ''))).find((id) => sceneOnDisk(figureId, id) === null);
+  expect(target, '要有一站还没有自己的沙盘').toBeDefined();
+  if (!target) return;
+  await page.goto(realUrl(`#/${figureId}/${target}`, 'full', '&debug=1'));
+  await expect(page.locator('.stop-page')).toHaveAttribute('data-stop-id', target);
+  await expectRealTable(page, 'full', READY_MS);
+  await expect(pane).toHaveAttribute('data-stage-section', roadOf(route, target)!, { timeout: SECTION_MS });
+  await expect(page.locator('.stage-bar')).toHaveCount(0);
+  await expect.poll(async () => (await stageReadout(page))?.piece ?? null, { message: '一站的页面上沙盘里没有小像' }).toBeNull();
+  expect(problems).toEqual([]);
 });
 
 test('真的全程沙盘（减配的一档）在人物页上：摆出来的真是减配的一档，三角形数和画几批在预算里、比完整的一档少；按一方印就到那一站，沙盘换到它的来路；站着不动不再画', async ({ page }) => {

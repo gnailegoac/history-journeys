@@ -212,8 +212,8 @@ describe('时间轴的那一块', () => {
     const read = (file: string): string => new TextDecoder().decode(readFileSync(new URL(file, DIST)));
     const page = staticClosure(manifest, PAGE_ENTRY).map((key) => read(manifest[key].file)).join(' ');
     const chunk = read(manifest[BAR_ENTRY].file);
-    // 固定的字（“说明”不查：题记里也有一个“说明”，页面的程序里本来就有这两个字）
-    for (const word of [BAR_TEXT.play, BAR_TEXT.pause, BAR_TEXT.prev, BAR_TEXT.next, BAR_TEXT.noteName, BAR_TEXT.here, BAR_TEXT.coming, BAR_TEXT.enterName, BAR_TEXT.age]) {
+    // 固定的字
+    for (const word of [BAR_TEXT.play, BAR_TEXT.pause, BAR_TEXT.prev, BAR_TEXT.next, BAR_TEXT.note, BAR_TEXT.noteName, BAR_TEXT.here, BAR_TEXT.coming, BAR_TEXT.enterName, BAR_TEXT.age]) {
       expect(page.includes(word), `“${word}”出现在页面一打开就下载的程序里：src/timebar/barText.ts 的字只许经 SANS_LABELS 那张表进页面的文件，那张表打包的时候是去掉的`).toBe(false);
       expect(chunk.includes(word), `“${word}”不在时间轴的那一块里`).toBe(true);
     }

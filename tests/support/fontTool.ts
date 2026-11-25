@@ -514,6 +514,8 @@ export function planFonts(
       const where = `${page}（时间轴）`;
       sans('common', where, bar.name);
       for (const [, name] of bar.years) sans('common', where, name);
+      // 轴上各站圆点旁边的年份（放得下才写）
+      for (const years of Object.values(bar.stopYears)) sans('common', where, years);
       for (const item of [bar.first, bar.last, ...bar.stretches]) {
         sans('common', where, item.label);
         first('common', where, item.says);

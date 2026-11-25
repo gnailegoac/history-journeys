@@ -171,6 +171,23 @@ export function legPoints(stretch: ItineraryStretch): (ItineraryWaypoint & { at:
   return (stretch.waypoints ?? []).filter((point): point is ItineraryWaypoint & { at: [number, number]; date: ItineraryMoment } => point.at !== undefined && point.date?.precision === 'day');
 }
 
+/**
+ * 路上的一处，它的说不准（unsure）要不要带给读者：句子里说到了它（saysDates 里列着），或者小像照它走（它把路切成一程一程）。
+ * 别的各处只是给写数据的人看的。
+ */
+export function doubtCarrier(stretch: ItineraryStretch, point: ItineraryWaypoint): boolean {
+  return stretch.saysDates.some((entry) => entry.of === `wp:${point.name}`) || legPoints(stretch).some((leg) => leg === point);
+}
+
+/**
+ * 时间轴用的那一份里，一段的“说不准的”：这一段自己的 unsure，后面接上那几处（doubtCarrier）的 unsure，一条一条用分号隔开。
+ * 每一条都是手写的，原样抄；都没有写的是空的。
+ */
+export function unsureOf(stretch: ItineraryStretch): string {
+  const fromPoints = (stretch.waypoints ?? []).filter((point) => doubtCarrier(stretch, point)).map((point) => point.unsure ?? '');
+  return [stretch.unsure, ...fromPoints].filter((written) => written.trim() !== '').join('；');
+}
+
 /** 第 0 天：链的头一天（他出生的那一天）。 */
 export function dayZero(itinerary: Pick<Itinerary, 'stretches'>): number | null {
   return itinerary.stretches.length === 0 ? null : earliestOf(itinerary.stretches[0].start);
@@ -180,16 +197,18 @@ const twoPlaces = (n: number): number => Math.round(n * 100) / 100;
 
 /**
  * 时间轴用的那一份。手写的那一份要先过了校验（规则 22 的前九句）才做得对；头尾放不了的，这里照 NaN 写出来的东西不能用。
- * 句子（label、says、unsure、first、last）原样抄，一个字不动；程序不拼句子。人物的名字照 figure.json 的 name 抄
- *（时间轴给读屏念的名字、首页第一行开头的名字用它）。
+ * 句子（label、says、unsure、first、last）原样抄，一个字不动；程序不拼句子——“说不准的”只是把这一段的和路上那几处的
+ * 一条一条接起来（unsureOf）。人物的名字照 figure.json 的 name 抄（时间轴给读屏念的名字、首页第一行开头的名字用它）；
+ * 各站的年份照 figure.json 里各站的 years 抄（轴上那一站的圆点旁边写的就是已发布的年份，不是这里各段自己排出来的）。
  */
-export function projectItinerary(itinerary: Itinerary, route: Pick<RouteScene, 'places'>, figure: Pick<Figure, 'name'>): ItineraryBar {
+export function projectItinerary(itinerary: Itinerary, route: Pick<RouteScene, 'places'>, figure: Pick<Figure, 'name' | 'stops'>): ItineraryBar {
   const zero = dayZero(itinerary) ?? 0;
   const { numbers } = boundaryNumbers(itinerary);
   const stretches = itinerary.stretches.map((stretch, i): ItineraryBarStretch => {
     const look = lookOf(stretch);
     const out: ItineraryBarStretch = { id: stretch.id, look, label: stretch.label, says: stretch.says, until: twoPlaces(numbers[i + 1] - zero) };
-    if (stretch.unsure.trim() !== '') out.unsure = stretch.unsure;
+    const unsure = unsureOf(stretch);
+    if (unsure !== '') out.unsure = unsure;
     if (stretch.stopYearsOf !== null) out.group = stretch.stopYearsOf;
     const mark = markOf(stretch, route);
     if (mark) out.mark = mark;
@@ -211,6 +230,7 @@ export function projectItinerary(itinerary: Itinerary, route: Pick<RouteScene, '
     day0: isoOfDay(zero),
     name: figure.name,
     years: itinerary.years.map((row) => [row.year, row.name, row.newYear === null ? null : (dayOfIso(row.newYear) ?? NaN) - zero, row.age]),
+    stopYears: Object.fromEntries(figure.stops.filter((stop) => stretches.some((stretch) => stretch.group === stop.id)).map((stop) => [stop.id, stop.years])),
     first: { label: itinerary.first.label, says: itinerary.first.says },
     last: { label: itinerary.last.label, says: itinerary.last.says },
     stretches,

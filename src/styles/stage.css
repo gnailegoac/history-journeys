@@ -170,9 +170,11 @@
   display: flex;
   align-items: center;
   gap: var(--gap-2);
-  height: 1.875rem;
+  height: calc(1.875rem + var(--notice-head, 0px));
   padding: var(--gap-1) var(--gap-2) 0;
+  border-bottom: var(--notice-head, 0px) solid transparent;
   background: var(--color-paper);
+  background-clip: padding-box;
   box-shadow: inset 0 -1px 0 var(--color-line-pane);
   color: var(--color-ink-soft);
   font-size: clamp(0.75rem, 3.6vw, var(--size-small));
@@ -198,7 +200,7 @@
   line-height: 1.25rem;
 }
 
-/* 四个小按钮：那一行话后面的“换回图片”，题记里的“说明”，时间轴上的“说明”和“进第几站”。和上面那一排按钮一样是白底的板——一圈细边
+/* 四个小按钮：那一行话后面的“换回图片”，题记里的“说明”，时间轴上的“图例”和“进第几站”。和上面那一排按钮一样是白底的板——一圈细边
    （就是原来那 1px 的边，算在按钮的大小里），底下一点影子——只是小，圆角也小一号，字是墨蓝的黑体：
    看得出是能按的东西，不是一枚小标签（小标签只有一圈线，没有底，没有影子）。
    看着小（22px、20px 高），能点的地方有 44px 高，由各自的 ::after 撑出来。 */
@@ -240,10 +242,20 @@
 @media (min-width: 960px) and (orientation: landscape) {
   .stage-notice {
     --notice-top: calc(var(--gap-4) + var(--tap) + 2px);
-    height: 2.125rem;
+    height: calc(2.125rem + var(--notice-head, 0px));
     padding: var(--gap-1) var(--gap-4) 0;
     font-size: var(--size-small);
   }
+}
+
+/* 人物页、首页上（栏上有 data-stage-bar），读者点了“试试立体的沙盘”以后（立体的沙盘正在摆、摆好了，这一行话还在）：
+   这一行话的方块往下多算 36px——是一圈透明的下边，看不见，也不接手指（clip-path 把它裁掉了；往上垫到栏顶的那一截留着）。
+   页面量“上面留多少空”量的是这个方块的下边，沙盘就照“这一行话下面再空出 36px”摆：小像（36px 高）站在最北边的那一处，
+   整个都在这一行话下面，不被它盖住。别的时候这一行话下面不多留：没有这一行话的沙盘，小像的帽子探进按钮那一排里，看得见；
+   只放图片的时候图片上没有小像；一站自己的沙盘上没有小像。没有时间轴的时候（很矮的窗口，--stage-bar-h 是 0）也不多留。 */
+.stage-pane[data-stage-bar]:is([data-stage-state='loading'], [data-stage-state='ready']) .stage-notice {
+  --notice-head: min(var(--stage-bar-h), 2.25rem);
+  clip-path: inset(-6rem 0 var(--notice-head) 0);
 }
 
 /* 地址里带 ?debug=1 时印的一行读数（画质、快慢）：贴在题记那一条的上边，手指和鼠标穿过它。不是给读者看的。 */
@@ -463,10 +475,17 @@
   line-height: 1.7;
 }
 
-/* 这一条还没有摆出来（tokens.css 的 --stage-bar-h 先是 0）：先不显，沙盘四边留的空和没有它的时候一个数不差。
-   摆出来的那一步，这一条换成两条：沙盘在上的排法里窗口很矮的时候不摆，左右排的版面上照常摆。 */
-.stage-bar {
-  display: none;
+/* 沙盘在上的排法里窗口很矮的时候不摆时间轴（缘故见 tokens.css 的 --stage-bar-h）；左右排的版面上照常摆。 */
+@media (max-height: 767px) {
+  .stage-bar {
+    display: none;
+  }
+}
+
+@media (min-width: 960px) and (orientation: landscape) {
+  .stage-bar {
+    display: block;
+  }
 }
 
 /* ---------------------------------------------------------------- 题记、说明、指北和比例尺 */
@@ -769,8 +788,8 @@
   line-height: 1.7;
 }
 
-/* 摆着全程沙盘的栏，题记上面那一条时间轴有多高（没有时间轴的栏不写，下面照 0 算）。 */
-.stage-pane[data-stage-level='route'] .stage-foot {
+/* 摆着时间轴的栏（人物页、首页：栏上有 data-stage-bar），题记上面那一条时间轴有多高（没有时间轴的栏不写，下面照 0 算）。 */
+.stage-pane[data-stage-bar] .stage-foot {
   --foot-bar: var(--stage-bar-h);
 }
 

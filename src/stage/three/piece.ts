@@ -24,8 +24,8 @@ const SHADE = 0.7;
 /** 一圈：[半径, 高]。模型从脚到帽顶高 1。 */
 type Ring = [number, number];
 
-/** 头：球心在 0.76、半径 0.06 的球，从下到上六圈。 */
-const HEAD: Ring[] = [0, 1, 2, 3, 4, 5].map((i): Ring => [0.06 * Math.sin((i * Math.PI) / 5), 0.76 - 0.06 * Math.cos((i * Math.PI) / 5)]);
+/** 头：球心在 0.79、半径 0.09 的球，从下到上六圈（比脖子那一圈大出一截：画面上只有三十来像素高的时候，头和袍子分得开）。 */
+const HEAD: Ring[] = [0, 1, 2, 3, 4, 5].map((i): Ring => [0.09 * Math.sin((i * Math.PI) / 5), 0.79 - 0.09 * Math.cos((i * Math.PI) / 5)]);
 
 /** 各段：哪种颜色、一圈分几段、从下到上的几圈。 */
 const PARTS: [keyof PieceStyle, number, Ring[]][] = [
@@ -33,7 +33,7 @@ const PARTS: [keyof PieceStyle, number, Ring[]][] = [
   ['base', 12, [[0.2, 0.06], [0.15, 0.06]]],
   ['robe', 12, [[0.15, 0.06], [0.13, 0.35], [0.09, 0.58], [0.1, 0.63], [0.04, 0.7]]],
   ['head', 8, HEAD],
-  ['cap', 8, [[0.05, 0.81], [0.055, 1], [0, 1]]],
+  ['cap', 8, [[0.05, 0.87], [0.055, 1], [0, 1]]],
 ];
 
 export interface Piece {

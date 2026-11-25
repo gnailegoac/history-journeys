@@ -314,4 +314,22 @@ describe('src/stage/roadLines.ts 只给全程沙盘的那一块程序用', () =>
     expect(pieceImporters({ ...sources, '/src/timebar/planted.ts': "import { pieceWhere } from '../stage/pieceWhere';" })).toContain('/src/timebar/planted.ts');
     expect(pieceImporters({ '/src/stage/three/view.ts': "import type { PieceChain } from '../pieceWhere';", '/src/stage/index.ts': "const where = await import('./pieceWhere');" })).toEqual(['/src/stage/three/view.ts', '/src/stage/index.ts']);
   });
+
+  it('placeAround.ts（小像停着的时候题签只挪碰着他的那几条）只有全程沙盘那一块程序引它（routeLevel.ts）：页面的程序、站点沙盘的程序、题签层自己都不引', () => {
+    /** 哪些文件引了 placeAround（只取类型的也算，动态的也算）。 */
+    const importers = (files: Record<string, string>): string[] =>
+      Object.entries(files)
+        .filter(([file, text]) => file !== '/src/stage/overlay/placeAround.ts' && /from\s*['"][^'"]*\/placeAround['"]|import\(\s*['"][^'"]*\/placeAround['"]\s*\)/.test(text))
+        .map(([file]) => file);
+    const text = sources['/src/stage/overlay/placeAround.ts'];
+    expect(text).toBeDefined();
+    // 它自己真的引进来的只有摆题签的那一个文件（那一个在页面的程序里：定格图也用它）
+    expect(runtimeImports(text)).toEqual(['./placeStrips']);
+    expect(importers(sources)).toEqual(['/src/stage/three/routeLevel.ts']);
+    // 题签层的入口（src/stage/overlay/index.ts）不把它转出去：转出去，页面的程序就带上它了
+    expect(sources['/src/stage/overlay/index.ts']).not.toContain('placeAround');
+    // 这个查法认得出来
+    expect(importers({ ...sources, '/src/stage/overlay/strips.ts': "import { aroundPiece } from './placeAround';" })).toContain('/src/stage/overlay/strips.ts');
+    expect(importers({ '/src/stage/three/view.ts': "import type { StripPlacer } from '../overlay/placeAround';", '/src/stage/index.ts': "const around = await import('./overlay/placeAround');" })).toEqual(['/src/stage/three/view.ts', '/src/stage/index.ts']);
+  });
 });

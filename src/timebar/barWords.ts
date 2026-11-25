@@ -1,6 +1,7 @@
 // 时间轴上跟着日子变的字：第一行（哪一年、虚岁多少、在哪）、第二行（这一段知道些什么）、给读屏念的那一句；
 // 栏多宽摆哪几样；地址里的开关。只算数、只拼字，不碰页面。
-// 程序算出来的只有“哪一个农历年”：行迹的 years 表里，正月初一不晚于这一天的最后一行，年名、括号里的公元年、虚岁都是那一行的。
+// 程序算出来的只有“哪一个农历年”：行迹的 years 表里，正月初一不晚于这一天的最后一行，年名、括号里的公元年、虚岁都是那一行的；
+// 这一天公历已经是下一年的（农历年末的那几十天），括号里换成那一天公历的年和月。
 // “在哪”和第二行的句子是行迹里手写的，原样印，这里不改一个字。日子从不印出来（它是第几天，可以带小数）。
 
 import type { ItineraryBar } from '../domain/itinerary';
@@ -34,9 +35,28 @@ export function yearRowAt(bar: Pick<ItineraryBar, 'years'>, day: number): Itiner
   return found;
 }
 
+/**
+ * 第 day 天是公历（1582 年以前通行的儒略历）的哪一年、哪一月。day0 是第 0 天的公历日子（行迹里写的，“1037-01-08”）。
+ * 只用来认“这一天公历已经是下一年了”和那是几月；哪一天从不印出来。算法同做行迹的工具里的那一个（tests/unit/bar-words.test.ts 拿它来对）。
+ */
+export function westernAt(day0: string, day: number): { year: number; month: number } {
+  const [y0, m0, d0] = day0.split('-').map(Number);
+  // 儒略历的某年某月某日是第几天（儒略日数）
+  const a = Math.floor((14 - m0) / 12);
+  const start = d0 + Math.floor((153 * (m0 + 12 * a - 3) + 2) / 5) + 365 * (y0 + 4800 - a) + Math.floor((y0 + 4800 - a) / 4) - 32083;
+  // 倒回去：第几天是哪年哪月
+  const c = start + Math.floor(day) + 32082;
+  const d = Math.floor((4 * c + 3) / 1461);
+  const m = Math.floor((5 * (c - Math.floor((1461 * d) / 4)) + 2) / 153);
+  return { year: d - 4800 + Math.floor(m / 10), month: m + 3 - 12 * Math.floor(m / 10) };
+}
+
 /** 时间轴停在第 day 天的时候印的字。 */
 export interface BarWords {
-  /** 年名和括号里的公元年：元丰五年（1082）。 */
+  /**
+   * 年名和括号里的公元年：元丰五年（1082）。一个农历年的最后几十天落在公历的下一年里（腊月常常已经是下一年的一月）：
+   * 那些天括号里写那一天公历的年和月——景祐三年（1037年1月）——不然读的人看到的是“1036”，而他生在 1037 年 1 月。
+   */
   year: string;
   /** 虚岁四十七。 */
   age: string;
@@ -55,12 +75,15 @@ export function wordsAt(bar: ItineraryBar, day: number): BarWords {
   const [year, name, , age] = yearRowAt(bar, at);
   const stretch = at <= 0 ? bar.first : at >= lastDay ? bar.last : bar.stretches[stretchIndexAt(bar, at)];
   const ageSays = ageWords(age);
+  // 这一天公历是不是已经到了下一年（括号里平常写的是这个农历年大半落在的那一年）
+  const west = westernAt(bar.day0, at);
+  const later = west.year !== year;
   return {
-    year: `${name}（${year}）`,
+    year: `${name}（${later ? BAR_TEXT.west(west.year, west.month) : year}）`,
     age: ageSays,
     label: stretch.label,
     says: stretch.says,
-    spoken: `${name}，${year} 年，${ageSays}，${stretch.label}。${stretch.says}。`,
+    spoken: `${name}，${later ? `${west.year} 年 ${west.month} 月` : `${year} 年`}，${ageSays}，${stretch.label}。${stretch.says}。`,
   };
 }
 
@@ -90,6 +113,8 @@ export interface BarSwitch {
  *   ?bar=none   不摆（这一条空着）；
  *   ?bar=整数   摆上，从那一天起（0 是出生的那一天）；
  *   没有写      摆上——沙盘的替身上（?stage=fake……）除外：那里不写就不摆，原来的测试看到的还是原来的页面。
+ * “整数”是不带正负号、不带小数点的一串数字（第几天，从 0 起）；别的写法（-3、1.5、空的）都算没有写。
+ * 是不是沙盘的替身，同页面认的一模一样（FAKE_STAGES：src/ui/stageEngineSource.ts 认的那三个词，别的词页面摆的是真的沙盘）。
  * search 是 location.search。
  */
 export function barSwitch(search: string): BarSwitch {
@@ -97,5 +122,8 @@ export function barSwitch(search: string): BarSwitch {
   const asked = params.get('bar');
   if (asked === 'none') return { on: false, day: null };
   if (asked !== null && /^\d+$/.test(asked)) return { on: true, day: Number(asked) };
-  return { on: !(params.get('stage') ?? '').startsWith('fake'), day: null };
+  return { on: !FAKE_STAGES.includes(params.get('stage') ?? ''), day: null };
 }
+
+/** 地址里 ?stage= 写这几个词的时候，页面摆的是沙盘的替身（这个文件夹不引 src/ui/，所以抄一份；tests/unit/bar-words.test.ts 守着两边一样）。 */
+export const FAKE_STAGES: readonly string[] = ['fake', 'fake-fail', 'fake-unsupported'];

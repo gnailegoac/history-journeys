@@ -1,7 +1,8 @@
 // 全程沙盘的验收：每一小节的镜头、题签、说明，照真的场景文件和算出来的地面查。在 Node 里跑，不要浏览器。
 // 查法和站点沙盘的三组（scene-cameras、scene-strips、scene-notes）是同一套：镜头用 src/stage/three/rig.ts 的 placeCamera 摆，
 // 题签指着的点用 screenAnchors 算，摆法是 src/stage/overlay/placeStrips.ts，题签多大照 ./support/stripSizes.ts，
-// 画面是 ./support/standardPanes.ts 的四种标准的沙盘栏。全程沙盘另有三条自己的规矩（docs/data-spec.md“题签摆在哪”）：
+// 画面是 ./support/standardPanes.ts 的标准的沙盘栏：全程沙盘摆在两种栏里——人物页和首页的栏带着时间轴（下面多留一条，竖着拿的平板上栏也高一条），
+// 还没有自己的沙盘的一站的页面上没有时间轴（同一站自己的沙盘的栏一样）——两种都查。全程沙盘另有三条自己的规矩（docs/data-spec.md“题签摆在哪”）：
 //   引线不超过 48 像素（一条题签离它指的那一点太远，孩子会把名字读到别处去）；当时的名字、今天的名字两种都查；
 //   沙盘栏上面多一行说明的四种画面上，题签也一条不能少（最长的引线只打印，不设上限）。
 //   “全程”那一节另有一组（文件靠后）：人物页和首页一打开看的就是它，所以在量过的每一种沙盘栏上——四种标准的、首页的两种、
@@ -23,7 +24,7 @@ import type { StageInsets } from '../../src/stage/types';
 import { LINE_MAX, WORDS_MAX, textWidth } from '../content/sceneRules';
 import { realRouteScene, realSceneKeys } from './support/realScenes';
 import type { RealRouteScene } from './support/realScenes';
-import { HOME_PANES, NOTICE_ROW_TOP, STANDARD_PANES, UPRIGHT_PANES } from './support/standardPanes';
+import { NOTICE_HEAD_PX, NOTICE_ROW_TOP, ROUTE_HOME_PANES, ROUTE_NOTICE_ROW_TOP, ROUTE_PANES, ROUTE_UPRIGHT_PANES, STANDARD_PANES, UPRIGHT_PANES } from './support/standardPanes';
 import { routeSectionStrips, stripSize } from './support/stripSizes';
 
 interface Pane {
@@ -35,16 +36,25 @@ interface Pane {
 const leave = (top: number, bottom: number): StageInsets => ({ top, right: 0, bottom, left: 0 });
 const NO_INSETS: StageInsets = { top: 0, right: 0, bottom: 0, left: 0 };
 
-/** 四种标准的沙盘栏，四边留的是在浏览器里量出来的空。 */
-const STANDARD: Pane[] = STANDARD_PANES.map(({ name, size, insets }) => ({ name, size, insets }));
-/** 一种沙盘栏上面多一行说明的时候（只有图片的那一档；写好了正文、还没有自己的沙盘的一站）。上面留多少是在页面上量出来的。 */
-const withNotice = (pane: { name: string; size: Pane['size']; insets: StageInsets }): Pane => ({ name: `${pane.name}，上面多一行说明`, size: pane.size, insets: leave(NOTICE_ROW_TOP[pane.name], pane.insets.bottom) });
-/** 四种标准的沙盘栏上面多一行说明的时候。 */
-const WITH_NOTICE: Pane[] = STANDARD_PANES.filter((pane) => NOTICE_ROW_TOP[pane.name] !== undefined).map(withNotice);
-/** 别的竖着拿的平板：平常的，和上面多一行说明的。 */
-const UPRIGHT: Pane[] = UPRIGHT_PANES.flatMap((pane) => [{ name: pane.name, size: pane.size, insets: pane.insets }, withNotice(pane)]);
-/** 首页的沙盘栏里和人物页不一样的那几种（宽屏上的两种：首页的文字栏宽，沙盘栏就窄）。 */
-const HOME: Pane[] = HOME_PANES.filter((pane) => !STANDARD_PANES.includes(pane)).map(({ name, size, insets }) => ({ name, size, insets }));
+const plain = ({ name, size, insets }: Pane): Pane => ({ name, size, insets });
+/** 四种标准的沙盘栏，不带时间轴（还没有自己的沙盘的一站的页面），四边留的是在浏览器里量出来的空。 */
+const WITHOUT_BAR: Pane[] = STANDARD_PANES.map(plain);
+/** 带着时间轴的四种（人物页）。 */
+const WITH_BAR: Pane[] = ROUTE_PANES.map(plain);
+/** 标准的沙盘栏：两种都算。 */
+const STANDARD: Pane[] = [...WITHOUT_BAR, ...WITH_BAR];
+/** 一种栏上面多一行说明的时候，上面留多少（在页面上量出来的）。 */
+const noticeTop = (name: string): number => NOTICE_ROW_TOP[name] ?? ROUTE_NOTICE_ROW_TOP[name];
+/** 一种沙盘栏上面多一行说明的时候（只有图片的那一档；写好了正文、还没有自己的沙盘的一站）。 */
+const withNotice = (pane: Pane): Pane => ({ name: `${pane.name}，上面多一行说明`, size: pane.size, insets: leave(noticeTop(pane.name), pane.insets.bottom) });
+/** 带着时间轴的栏上，读者点了“试试立体的沙盘”以后：那一行话下面再给小像留出 36 像素。 */
+const withHead = (pane: Pane): Pane => ({ name: `${pane.name}，上面多一行说明、再给小像留出地方`, size: pane.size, insets: leave(noticeTop(pane.name) + NOTICE_HEAD_PX, pane.insets.bottom) });
+/** 标准的沙盘栏上面多一行说明的时候；带着时间轴的四种另有“再给小像留出地方”的时候。 */
+const WITH_NOTICE: Pane[] = [...STANDARD.filter((pane) => noticeTop(pane.name) !== undefined).map(withNotice), ...WITH_BAR.map(withHead)];
+/** 别的竖着拿的平板上人物页的栏（带着时间轴）：平常的，和上面多一行说明的。 */
+const UPRIGHT: Pane[] = ROUTE_UPRIGHT_PANES.flatMap((pane) => [plain(pane), withNotice(pane)]);
+/** 首页的沙盘栏里和人物页不一样的那几种（宽屏上的两种：首页的文字栏宽，沙盘栏就窄）。带着时间轴。 */
+const HOME: Pane[] = ROUTE_HOME_PANES.filter((pane) => !ROUTE_PANES.includes(pane)).map(plain);
 /** 定稿样张的画面：照它定的镜头，在它上面程序不该再挪。 */
 const TRIAL_PANE: Pane = { name: '880 × 900', size: { width: 880, height: 900 }, insets: NO_INSETS };
 
@@ -254,7 +264,7 @@ describe.each(realSceneKeys('route'))('%s 的镜头', (key) => {
     expect(outside).toEqual([]);
   });
 
-  it('把每一节在四种标准的沙盘栏和样张的画面上摆好的数印出来：写的距离的几倍 / 镜头离多少米', () => {
+  it('把每一节在标准的沙盘栏（不带时间轴的四种、带着时间轴的四种）和样张的画面上摆好的数印出来：写的距离的几倍 / 镜头离多少米', () => {
     const R = realRouteScene(key);
     const lines: string[] = [`${key} 每一节的镜头（写的距离的几倍 / 镜头离多少米）：`];
     for (const section of R.scene.sections) {
@@ -297,7 +307,7 @@ describe.each(realSceneKeys('route'))('%s 的题签', (key) => {
     });
   });
 
-  it('四种标准的画面上各摆下几条、最长的引线多少像素（打印出来）', () => {
+  it('标准的画面上（不带时间轴的四种、带着时间轴的四种）各摆下几条、最长的引线多少像素（打印出来）', () => {
     const R = realRouteScene(key);
     const lines: string[] = [];
     for (const pane of STANDARD) {
@@ -320,8 +330,17 @@ describe.each(realSceneKeys('route'))('%s 的题签', (key) => {
     expect(lines.length).toBe(STANDARD.length * NAMES.length);
   });
 
-  it('上面多一行说明的画面查的是四种标准的沙盘栏，一种不少', () => {
-    expect(WITH_NOTICE.map((pane) => pane.name)).toEqual(STANDARD.map((pane) => `${pane.name}，上面多一行说明`));
+  it('上面多一行说明的画面查的是每一种标准的沙盘栏，一种不少；带着时间轴的四种另查“那一行话下面再给小像留出地方”的时候', () => {
+    expect(STANDARD).toHaveLength(STANDARD_PANES.length + ROUTE_PANES.length);
+    expect(WITH_NOTICE.map((pane) => pane.name)).toEqual([...STANDARD.map((pane) => `${pane.name}，上面多一行说明`), ...WITH_BAR.map((pane) => `${pane.name}，上面多一行说明、再给小像留出地方`)]);
+    // 带着时间轴的栏：左右排的版面上栏还是那么大，下面多留一条；沙盘在上的版面上栏也高一条。上面留的不变
+    ROUTE_PANES.forEach((pane, i) => {
+      const without = STANDARD_PANES[i];
+      expect(pane.insets.top, pane.name).toBe(without.insets.top);
+      expect(pane.insets.bottom - without.insets.bottom, pane.name).toBe(96);
+      expect(pane.size.width, pane.name).toBe(without.size.width);
+      expect(pane.size.height - without.size.height, pane.name).toBe(without.window.width > without.window.height && without.window.width >= 960 ? 0 : 96);
+    });
   });
 
   describe.each(WITH_NOTICE)('上面多一行说明的画面 $name', (pane) => {
@@ -343,21 +362,25 @@ describe.each(realSceneKeys('route'))('%s 的题签', (key) => {
 });
 
 describe.each(realSceneKeys('route'))('%s 在首页上', (key) => {
-  // 首页摆的是同一座全程沙盘、同一栏，只看头一节（全程）。宽屏上首页的栏比人物页的窄（./support/standardPanes.ts 的 HOME_PANES），
-  // 所以头一节在这两种栏上另查一遍，规矩和标准的沙盘栏上一样：题签一条不少，不压点、不相叠，引线不超过 48 像素，沙盘摆在正中。
+  // 首页摆的是同一座全程沙盘、同一栏，一打开看的是头一节（全程）；读者动了时间轴，别的各节也在这一栏里看。
+  // 宽屏上首页的栏比人物页的窄（./support/standardPanes.ts 的 ROUTE_HOME_PANES），所以每一节在这两种栏上另查一遍，
+  // 规矩和标准的沙盘栏上一样：题签一条不少，不压点、不相叠，引线不超过 48 像素；头一节的沙盘摆在正中。
   describe.each(HOME)('首页的沙盘栏 $name', (pane) => {
-    it.each(NAMES)(`%s：全程那一节的题签一条也不少，不压点、不相叠、引线不穿过别的题签，没有一条引线超过 ${ROUTE_LEADER_MAX_PX} 像素`, (names) => {
+    it.each(NAMES)(`%s：每一节的题签一条也不少，不压点、不相叠、引线不穿过别的题签，没有一条引线超过 ${ROUTE_LEADER_MAX_PX} 像素`, (names) => {
       const R = realRouteScene(key);
-      const section = R.scene.sections[0];
-      const { input, text } = arranged(R, section, pane, names);
-      expect(input.strips.map((s) => s.id)).toEqual(section.strips);
-      const result = placeStrips(input);
       const problems: string[] = [];
-      for (const p of result) if (p.hidden) problems.push(`“${text(p.id)}”${p.why === 'room' ? '摆不下' : '指的那一点不在画面里'}`);
-      problems.push(...faults(input, result, pane, text));
-      for (const p of result) if (!p.hidden && leaderPx(p) > ROUTE_LEADER_MAX_PX) problems.push(`“${text(p.id)}”的引线 ${leaderPx(p).toFixed(0)} 像素`);
-      const worst = result.reduce((best, p) => (leaderPx(p) > leaderPx(best) ? p : best), result[0]);
-      console.log(`${key} 首页 ${pane.name} ${names === 'ancient' ? '当时的名字' : '今天的名字'}：${result.length} 条里摆下 ${result.filter((p) => !p.hidden).length} 条；最长的引线 ${leaderPx(worst).toFixed(0)} 像素（${text(worst.id)}）`);
+      const lines: string[] = [];
+      for (const section of R.scene.sections) {
+        const { input, text } = arranged(R, section, pane, names);
+        expect(input.strips.map((s) => s.id), section.heading).toEqual(section.strips);
+        const result = placeStrips(input);
+        for (const p of result) if (p.hidden) problems.push(`${section.heading}：“${text(p.id)}”${p.why === 'room' ? '摆不下' : '指的那一点不在画面里'}`);
+        for (const fault of faults(input, result, pane, text)) problems.push(`${section.heading}：${fault}`);
+        for (const p of result) if (!p.hidden && leaderPx(p) > ROUTE_LEADER_MAX_PX) problems.push(`${section.heading}：“${text(p.id)}”的引线 ${leaderPx(p).toFixed(0)} 像素`);
+        const worst = result.reduce((best, p) => (leaderPx(p) > leaderPx(best) ? p : best), result[0]);
+        lines.push(`${section.heading} ${leaderPx(worst).toFixed(0)}（${text(worst.id)}）`);
+      }
+      console.log(`${key} 首页 ${pane.name} ${names === 'ancient' ? '当时的名字' : '今天的名字'}：各节最长的引线 ${lines.join('，')}`);
       expect(problems).toEqual([]);
     });
 
@@ -380,12 +403,12 @@ describe.each(realSceneKeys('route'))('%s 在首页上', (key) => {
   });
 
   it('首页另查的就是宽屏上的那两种栏；沙盘在上的两种窗口上，首页的栏和人物页的一模一样', () => {
-    expect(HOME.map((pane) => pane.name)).toEqual(['800 × 900', '553 × 768']);
-    expect(HOME_PANES.slice(2)).toEqual(STANDARD_PANES.slice(2));
+    expect(HOME.map((pane) => pane.name)).toEqual(['800 × 900，带时间轴', '553 × 768，带时间轴']);
+    expect(ROUTE_HOME_PANES.slice(2)).toEqual(ROUTE_PANES.slice(2));
     // 首页的栏只比人物页的窄，不比它高
     HOME.forEach((pane, i) => {
-      expect(pane.size.height).toBe(STANDARD_PANES[i].size.height);
-      expect(pane.size.width).toBeLessThan(STANDARD_PANES[i].size.width);
+      expect(pane.size.height).toBe(ROUTE_PANES[i].size.height);
+      expect(pane.size.width).toBeLessThan(ROUTE_PANES[i].size.width);
     });
   });
 });
@@ -394,7 +417,8 @@ describe.each(realSceneKeys('route'))('%s：“全程”那一节的站名', (ke
   // 人物页和首页一打开看的就是这一节，八站的名字都在上面。沙盘栏矮了（竖着拿的平板，上面再多一行说明），整块沙盘就小，题签最挤：
   // 2026-11-20 出过的事是徐州的名字站到了密州的东边、海里，汴京的名字落到了大江以南。所以这一节在量过的每一种沙盘栏上都查，
   // 连上面多一行说明的（只放图片的那一档、设备嫌慢、浏览器画不了立体的沙盘时，人物页和首页就是这样）。
-  const WHOLE_VIEW: Pane[] = [...STANDARD, ...WITH_NOTICE, ...HOME, ...UPRIGHT];
+  // 看这一节的只有人物页和首页，它们的栏都带着时间轴：查的是带着时间轴的各种栏。
+  const WHOLE_VIEW: Pane[] = [...WITH_BAR, ...WITH_BAR.map(withNotice), ...HOME, ...UPRIGHT];
 
   describe.each(WHOLE_VIEW)('画面 $name', (pane) => {
     it.each(NAMES)(`%s：题签一条不少，不压点、不相叠；没有一条引线超过 ${ROUTE_LEADER_MAX_PX} 像素；站名不站到别的站那一边去`, (names) => {
@@ -420,6 +444,12 @@ describe.each(realSceneKeys('route'))('%s：“全程”那一节的站名', (ke
     for (const pane of UPRIGHT_PANES) {
       expect(pane.insets, pane.name).toEqual(STANDARD_PANES[2].insets);
       expect(NOTICE_ROW_TOP[pane.name], pane.name).toBe(NOTICE_ROW_TOP[STANDARD_PANES[2].name]);
+    }
+    // 带着时间轴的也一样
+    expect(ROUTE_UPRIGHT_PANES.map((pane) => pane.window.width)).toEqual(UPRIGHT_PANES.map((pane) => pane.window.width));
+    for (const pane of ROUTE_UPRIGHT_PANES) {
+      expect(pane.insets, pane.name).toEqual(ROUTE_PANES[2].insets);
+      expect(ROUTE_NOTICE_ROW_TOP[pane.name], pane.name).toBe(ROUTE_NOTICE_ROW_TOP[ROUTE_PANES[2].name]);
     }
     const R = realRouteScene(key);
     const section = R.scene.sections[0];

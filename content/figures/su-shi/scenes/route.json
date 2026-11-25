@@ -773,6 +773,7 @@
     { "id": "s-mizhou-all", "text": "密州", "modern": "诸城", "of": "mizhou", "side": "right" },
     { "id": "s-xuzhou", "text": "徐州", "of": "xuzhou" },
     { "id": "s-bianjing", "text": "汴京", "modern": "开封", "of": "bianjing" },
+    { "id": "s-bianjing-south", "text": "汴京", "modern": "开封", "of": "bianjing", "side": "below" },
     { "id": "s-huangzhou", "text": "黄州", "modern": "黄冈", "of": "huangzhou", "side": "right" },
     { "id": "s-huizhou", "text": "惠州", "of": "huizhou" },
     { "id": "s-changhua", "text": "昌化军", "modern": "儋州", "of": "changhua" },
@@ -1658,7 +1659,7 @@
         "fov": 18,
         "mustShow": ["j-1094", "j-1097", "dingzhou"]
       },
-      "strips": ["s-dingzhou", "s-bianjing", "s-huizhou", "s-changhua", "s-taihang", "s-bian", "s-dajiang-e", "s-pengli", "s-dayu", "s-sea"],
+      "strips": ["s-dingzhou", "s-bianjing-south", "s-huizhou", "s-changhua", "s-taihang", "s-bian", "s-dajiang-e", "s-pengli", "s-dayu", "s-sea"],
       "explain": ["j-1094", "j-1097", "dingzhou", "levels"],
       "stop": "danzhou"
     }

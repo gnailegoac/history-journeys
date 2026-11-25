@@ -9,7 +9,7 @@
 //   没有先画好的地面：ready 拒绝，说得出缘故（全程沙盘不现画）；
 //   潜到一站上空（dive）：镜头真的照钟点挪过去，读者的手打不断它，不算一趟滑动；还没摆好、要少动的时候不潜。
 //   小像（placePiece）：还没摆好就说的记着、头一帧里就有他；认不得的地方当作没有；不叫就一帧不多画，叫一次多画一帧；
-//     潜的时候收起来（他正站在那一站的除外），回来再摆出来；他站着不动的时候题签层每一次摆都收到让开他的方块，在路上走的时候不给。
+//     潜的时候收起来（他正站在那一站的除外），回来再摆出来；他停着的时候（站在一处，或者停在路上）题签层每一次摆都收到让开他的方块，在路上走的时候不给。
 //     站点沙盘上叫它什么也不摆，在 view.test.ts。
 
 import type { Mesh, Scene } from 'three';
@@ -507,7 +507,7 @@ describe(`${KEY} 上的小像（placePiece）`, () => {
     await until(back);
   });
 
-  it('小像站在一个地方不动：题签那一层每一次摆都收到让开他的方块；他在路上走、收起来了、没有他的时候不给', { timeout: 120_000 }, async () => {
+  it('小像停着（站在一个地方；或者在路上、页面说时间轴停在这一天）：题签那一层每一次摆都收到让开他的方块；他在路上走、收起来了、没有他的时候不给', { timeout: 120_000 }, async () => {
     const s = stage(940, 900);
     const view = await openView(s, baked, { reducedMotion: false });
     await until(view.ready);
@@ -578,6 +578,25 @@ describe(`${KEY} 上的小像（placePiece）`, () => {
     place(view, { on: 'road', ways: road.ways, from: 'start', to: 'end', k: 0.3 });
     await frames(2);
     expect(view.readout().piece).not.toBeNull();
+    expect(strips.places.length).toBeGreaterThan(from);
+    expect(avoids(from).every((a) => a === undefined)).toBe(true);
+    // 明说“没有停着”：也不给
+    from = strips.places.length;
+    view.placePiece?.({ on: 'road', ways: road.ways, from: 'start', to: 'end', k: 0.35 }, false);
+    await frames(2);
+    expect(strips.places.length).toBeGreaterThan(from);
+    expect(avoids(from).every((a) => a === undefined)).toBe(true);
+
+    // 停在路上（页面说时间轴停在这一天）：给，同站在一处一样
+    from = strips.places.length;
+    view.placePiece?.({ on: 'road', ways: road.ways, from: 'start', to: 'end', k: 0.35 }, true);
+    await frames(2);
+    expect(strips.places.length).toBeGreaterThan(from);
+    for (const a of avoids(from)) sameBox(a, '停在路上');
+    // 接着走：又不给
+    from = strips.places.length;
+    view.placePiece?.({ on: 'road', ways: road.ways, from: 'start', to: 'end', k: 0.4 });
+    await frames(2);
     expect(strips.places.length).toBeGreaterThan(from);
     expect(avoids(from).every((a) => a === undefined)).toBe(true);
 

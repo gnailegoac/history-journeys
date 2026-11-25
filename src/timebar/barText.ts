@@ -8,9 +8,10 @@ export const BAR_TEXT = {
   /** 系统设了“减少动态效果”的时候，轴两头的两个按钮。 */
   prev: '上一段',
   next: '下一段',
-  note: '说明',
-  /** “说明”那个按钮给读屏念的名字（题记里也有一个“说明”）。 */
-  noteName: '时间轴的说明',
+  /** 这一条右头的小按钮：点开是这条轴怎么看。写“图例”，不写“说明”——题记里已经有一个“说明”，两个一样的按钮只隔着一百来像素。 */
+  note: '图例',
+  /** 那个按钮给读屏念的名字。 */
+  noteName: '时间轴的图例',
   close: '关闭',
   /** 目录里那一站旁边的几个字。 */
   here: '他在这儿',
@@ -18,6 +19,8 @@ export const BAR_TEXT = {
   /** 第一行的岁数：虚岁一岁……虚岁十岁，虚岁十一……。 */
   age: '虚岁',
   ageUnit: '岁',
+  /** 第一行括号里的公历年和月（农历年末、公历已经是下一年的那些天才这样写）：1037年1月。 */
+  west: (year: number, month: number): string => `${year}年${month}月`,
   /** 通到一站去的那个入口：label 是那一站的印上的字（一、二……）。 */
   enter: (label: string): string => `进第${label}站`,
   /** 入口给读屏念的名字，后面接那一站的印的那一句（第几站，站名）。 */
@@ -49,6 +52,7 @@ function barSans(): string[] {
     BAR_TEXT.coming,
     BAR_TEXT.age,
     BAR_TEXT.ageUnit,
+    BAR_TEXT.west(0, 0),
     BAR_TEXT.enter('一二三四五六七八九十'),
     '（）',
     '0123456789–',

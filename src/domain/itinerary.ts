@@ -167,6 +167,8 @@ export interface ItineraryBar {
   name: string;
   /** 农历年：公元年、年名、正月初一是第几天、虚岁；头一行是出生的那一年，第三个数是 null。 */
   years: [number, string, number | null, number][];
+  /** 各站已发布的年份（figure.json 里那一站的 years，如“1080–1084”），照站的 id：轴上那一站的圆点旁边放得下的时候写它。 */
+  stopYears: Record<string, string>;
   first: { label: string; says: string };
   last: { label: string; says: string };
   stretches: ItineraryBarStretch[];

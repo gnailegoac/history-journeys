@@ -19,6 +19,7 @@ import {
   boundaryName,
   boundaryNumbers,
   dayOfIso,
+  doubtCarrier,
   earliestOf,
   isoOfDay,
   latestOf,
@@ -231,6 +232,10 @@ export function dateTokens(written: string): DateToken[] {
   return out;
 }
 
+/** 史料的写法末一个字是季节（“嘉祐元年春”）：只知道是哪一季。这样的日子精度只能是这几种。 */
+const SEASON_END = /[春夏秋冬]$/u;
+const SEASON_PRECISIONS: readonly string[] = ['season', 'before', 'after'];
+
 /** 不带月份也说得出是哪一天的写法（一年的最后一天、头一天）。 */
 const WHOLE_DAY = ['除夜', '除夕', '元日'];
 
@@ -331,7 +336,8 @@ export function checkItineraryChain(itinerary: Itinerary, file: string, figure: 
  * 规则 22 二 对得上：站（stop、stopYearsOf）是 figure.json 里有的；在一站住着的一段，stopYearsOf 就是这一站，
  * place 是全程沙盘上 stops 里写着这一站的地名点；“别的”一段的 tablePoint：stop-point 指的是有 stops 的地名点，
  * place 指的是没有 stops、立了题签的地名点，way-vertex 的 way 是场景里的一截路、at 在沙盘里面、离那截路不超过 15 公里，
- * 而且沙盘上确实没有立这个地方的名字（场景里没有哪一条题签的古名、今名是它：立了，句子里“沙盘上没有立某地的名字”就成了假话）；
+ * 而且沙盘上确实没有立这个地方的名字（场景里没有哪一条题签的古名、今名是它，也没有哪一条的名字套着它、被它套着，
+ * 它离哪一个立了题签的地名点都超过 15 公里：不然句子里“沙盘上没有立某地的名字”就成了假话）；
  * edge-strip 的 strip 是指着远处的一条题签，on-ways 写的路都找得到；saysDates 的 of 是 start、end，或者这一段路上有日子的一处（“wp:名字”）；
  * first 的 saysDates 只能指 start（头一段的），last 的只能指 end（最后一段的）。
  */
@@ -370,7 +376,15 @@ export function checkItineraryIds(itinerary: Itinerary, file: string, figure: Pi
         }
         const town = spotTown(stretch.where);
         const standing = route.strips.find((strip) => strip.text === town || strip.modern === town);
+        // 名字不一样、其实是同一个地方的也算：一个名字套着另一个（“汴京城外”和“汴京”），或者就在立了题签的地名点旁边
+        const akin = route.strips.find((strip) => [strip.text, strip.modern].some((name) => name !== undefined && name !== '' && town !== '' && (town.includes(name) || name.includes(town))));
+        const beside = route.places
+          .filter((item) => route.strips.some((strip) => strip.of === item.id))
+          .map((item) => ({ item, km: (Math.hypot(coords.toLocal(item.at)[0] - coords.toLocal(point.at)[0], coords.toLocal(item.at)[1] - coords.toLocal(point.at)[1]) * route.frame.scale) / 1000 }))
+          .find(({ km }) => km <= SPOT_MAX_KM);
         if (standing) out.push(bad(file, `${field}.type`, `全程沙盘上已经立了“${town}”的题签（${standing.id}）：${what}就不是“线上没有立名字的地方”了。tablePoint 改成 place（是一站的点就写 stop-point），第二行开头的“沙盘上没有立${town}的名字。”也要改掉`));
+        else if (akin) out.push(bad(file, `${field}.type`, `全程沙盘上立着题签“${akin.text}”${akin.modern ? `（今名“${akin.modern}”）` : ''}（${akin.id}），和“${town}”是一个名字套着另一个：小像站在那条题签旁边，句子却说“沙盘上没有立${town}的名字”。tablePoint 改成 place（是一站的点就写 stop-point）`));
+        else if (beside) out.push(bad(file, `${field}.at`, `${what}的位置离立了题签的地名点“${beside.item.name}”只有 ${Math.round(beside.km)} 公里（不超过 ${SPOT_MAX_KM} 公里的都算在它旁边）：小像站在那条题签旁边，句子却说“沙盘上没有立${town}的名字”。tablePoint 改成 place（是一站的点就写 stop-point）`));
       }
       if (point.type === 'edge-strip') {
         const strip = route.strips.find((item) => item.id === point.strip);
@@ -431,7 +445,8 @@ function lineDistance(p: [number, number], line: [number, number][]): { distance
  * 史料的写法（text）自己就说到了哪一天——年号、第几年、几月、哪一天（“十九日”“初一”“晦日”），或者“除夜”“元日”，别的什么也不带；
  * 写法里只有月份、季节，或者带着“以前、以后、或、之间、没有查到”的，精度不许写 day（那一天是编的）；
  * 不精确到日的不许写 month、day，最早、最晚两头都写了、写法对，范围不止一天（只有一天的该写成 day），
- * 写法自己已经说到哪一天的，精度就该是 day；“月”的范围不超过 60 天，“季”的不超过 120 天；
+ * 写法自己已经说到哪一天的，精度就该是 day；写法末一个字是“春夏秋冬”的（只说到季节），精度只能是 season、before、after；
+ * “月”的范围不超过 60 天，“季”的不超过 120 天；
  * year 是最早那一天的公元年；精度是“没有查到”的，text 里写着“没有查到”。链上的日子和路上各处的日子都查。
  */
 export function checkItineraryPrecision(itinerary: Itinerary, file: string): Violation[] {
@@ -452,6 +467,10 @@ export function checkItineraryPrecision(itinerary: Itinerary, file: string): Vio
       out.push(bad(file, field, `${what}的精度是 ${moment.precision}，没有查到是哪一天，不能写 month、day：不编日子。只写范围（earliest、latest）`));
     }
     if (isDayText(moment.text)) out.push(bad(file, `${field}.precision`, `${what}的写法已经说到了哪一天，精度却是 ${moment.precision}：知道是哪一天，精度就写 day`));
+    // 写法只说到季节的，范围不能悄悄收成一个月、一年
+    if (SEASON_END.test(moment.text.trim()) && !SEASON_PRECISIONS.includes(moment.precision)) {
+      out.push(bad(file, `${field}.precision`, `${what}的写法只说到季节，精度却是 ${moment.precision}：只知道是哪一季的，精度写 season（或者 before、after），范围照一季写`));
+    }
     const lo = dayOfIso(moment.earliest);
     const hi = dayOfIso(moment.latest);
     for (const [key, n] of [['earliest', lo], ['latest', hi]] as const) {
@@ -682,9 +701,19 @@ export function isShortening(short: string, full: string): boolean {
 
 /**
  * 句子里像日子的字眼：saysDates 里列过的去掉以后，不能再有。“三月”“二十八日”“七年”，阿拉伯数字，“初八”，“上旬”，
- * 节令和一年里有名字的日子，“春夏秋冬”。“日子”这个词、“哪一年”“哪一天”不算。
+ * 节令和一年里有名字的日子，“春夏秋冬”；岁数（“岁”），多久（“三个月”“六十天”“两夜”“三宿”），
+ * 靠着别的日子说的（“年底、年初、月底、月初、次年、明年、去年、前后”），干支记的日子（“壬戌”）。
+ * “日子”这个词、“哪一年”“哪一天”不算。句子里的地方、做了什么事是手写的字，规则管不到，靠读。
  */
-const STRAY_DATE = /[0-9０-９]|初[一二三四五六七八九十]|旬|除夜|除夕|元日|元旦|上元|寒食|清明|端午|七夕|中秋|重阳|重九|冬至|夏至|腊八|晦|朔|[春夏秋冬]|(?<!哪)[一二三四五六七八九十正元闰腊两]+(?:年|月|日)(?!子)/gu;
+const STRAY_DATE =
+  /[0-9０-９]|初[一二三四五六七八九十]|旬|除夜|除夕|元日|元旦|上元|寒食|清明|端午|七夕|中秋|重阳|重九|冬至|夏至|腊八|晦|朔|[春夏秋冬]|岁|年底|年初|月底|月初|次年|明年|去年|前后|[甲乙丙丁戊己庚辛壬癸][子丑寅卯辰巳午未申酉戌亥]|(?<!哪)[一二三四五六七八九十两半几]+(?:个月|天|夜|宿)|(?<!哪)[一二三四五六七八九十正元闰腊两]+(?:年|月|日)(?!子)/gu;
+/** 最后一个位置的句子里的“虚岁多少”：它另有一条规矩管（要是 years 表最后一年的岁数），查“像日子的字眼”的时候先放过。 */
+const LAST_AGE = /虚岁[一二三四五六七八九十]+/gu;
+/**
+ * 路上一处的 note 里有这些字眼，就是这一处的日子另有一种说法、同别的记载对不上，或者是推出来的：
+ * 句子里说到它、或者小像照它走的，这一处要写 unsure（工具把它接在这一段的 unsure 后面，读者点开“说明”看得见）。
+ */
+export const DOUBT_WORDS = /一本作|一作|引作|录作|谱作|注作|对不上|推出来|也可能|差一天|两说|另有一说/u;
 
 /** 句子里用到的一个日子：saysDates 的一项，连同它指的那个日子的写法、在这一段里排第几（start 最前，路上各处照先后，end 最后）。 */
 interface SaidDate {
@@ -699,17 +728,34 @@ interface SaidDate {
  * 每一项都在句子里，先后和列的一样；它前面、后面紧挨着的字是 BEFORE_DATE、AFTER_DATE 里的；它是照史料的写法缩短来的；
  * 列过的去掉以后，句子里不能再有像日子的字眼。
  */
-function checkSaidDates(says: string, dates: SaidDate[], file: string, field: string, what: string): Violation[] {
+function checkSaidDates(says: string, dates: SaidDate[], file: string, field: string, what: string, options: { beginYear?: string; allowAge?: boolean } = {}): Violation[] {
   const out: Violation[] = [];
   let rest = says;
   let cursor = 0;
   let lastRank = -1;
+  // 读的人拿什么补一个没带年份、没带月份的日子：句子里前一个日子的（史料写的那个年名、那个月）；头一个日子前面没有别的，
+  // 补的是第一行印着的年名（这句话开始摆出来的那个农历年），月份没有东西可补
+  let carried: { year: string | undefined; months: string | null; first: boolean } = { year: options.beginYear, months: null, first: true };
   dates.forEach((entry, j) => {
     if (entry.full === undefined) return; // 规则 22 二 会说
     const where = `${field}.saysDates[${j}]`;
     if (entry.rank <= lastRank) out.push(bad(file, `${where}.of`, `${what}的 saysDates 要照日子的先后列（先 start，再路上各处，最后 end），同一个日子不列两次：“${entry.of}”排在了后面`));
     lastRank = Math.max(lastRank, entry.rank);
     if (!isShortening(entry.text, entry.full)) out.push(bad(file, `${where}.text`, `“${entry.text}”不是照史料的写法“${entry.full}”缩短来的：只许整截地删（“二十八日”不能删成“八日”，“十二月”不能删成“二月”），不许添字、换字，“${KEPT_WORDS.join('、')}”不许删`));
+    else {
+      // 删掉了年份、月份的：读的人会拿前面的补上，补上的要正是史料写的那一个
+      const [short, full] = [saidParts(entry.text), saidParts(entry.full)];
+      const from = carried.first ? '第一行印着的' : '句子里前一个日子的';
+      if (full.name !== undefined && short.year === undefined && carried.year !== undefined && carried.year !== full.name) {
+        out.push(bad(file, `${where}.text`, `${what}的第二行里，“${entry.text}”没有带年份，读的人会当成${from}${carried.year}；史料写的是${full.name}（“${entry.full}”）。把年份写上`));
+      } else if (full.name !== undefined && short.year !== undefined && short.era === undefined && carried.year !== undefined && eraOf(carried.year) !== full.era) {
+        out.push(bad(file, `${where}.text`, `${what}的第二行里，“${entry.text}”没有带年号，读的人会当成${from}${eraOf(carried.year)}的；史料写的是${full.name}（“${entry.full}”）。把年号写上`));
+      }
+      if (full.months !== '' && short.months === '' && short.day && (carried.months !== full.months || carried.year !== full.name)) {
+        out.push(bad(file, `${where}.text`, `${what}的第二行里，“${entry.text}”没有带月份，${carried.months === null ? '它前面又没有哪个日子说过月份' : `读的人会当成${from}${carried.months}`}；史料写的是${full.months}（“${entry.full}”）。把月份写上`));
+      }
+      if (full.name !== undefined) carried = { year: full.name, months: full.months === '' ? null : full.months, first: false };
+    }
     const found = rest.indexOf(entry.text, cursor);
     if (entry.text === '' || found < 0) {
       out.push(bad(file, `${where}.text`, `${what}的第二行里没有“${entry.text}”（先后要和句子里一样：先说的日子在前，同一个日子不能列两次）`));
@@ -722,10 +768,21 @@ function checkSaidDates(says: string, dates: SaidDate[], file: string, field: st
     rest = `${rest.slice(0, found)}${'□'.repeat(entry.text.length)}${rest.slice(found + entry.text.length)}`;
     cursor = found + entry.text.length;
   });
-  const stray = rest.match(STRAY_DATE);
-  if (stray) out.push(bad(file, `${field}.says`, `${what}的第二行里有 saysDates 没有列的日子：${stray.join('、')}。句子里的每一个日子都要列出来，说明是哪一个日子的写法缩短来的`));
+  const stray = (options.allowAge ? rest.replace(LAST_AGE, (age) => '□'.repeat(age.length)) : rest).match(STRAY_DATE);
+  if (stray) out.push(bad(file, `${field}.says`, `${what}的第二行里有 saysDates 没有列的日子：${stray.join('、')}。句子里的每一个日子都要列出来，说明是哪一个日子的写法缩短来的；岁数、住了多久、“次年”“年底”“前后”这样靠着别的日子说的话也算日子，史料里没有的不写`));
   return out;
 }
+
+/** 一个日子的写法里说的年名（年号加第几年）、年号、第几年、哪几个月（“四月或五月”是两个）、说没说到哪一天。没有说的是 undefined、空的。 */
+function saidParts(written: string): { name: string | undefined; era: string | undefined; year: string | undefined; months: string; day: boolean } {
+  const tokens = dateTokens(written);
+  const era = tokens.find((token) => token.kind === 'era')?.text;
+  const year = tokens.find((token) => token.kind === 'year')?.text;
+  return { name: era !== undefined && year !== undefined ? `${era}${year}` : undefined, era, year, months: tokens.filter((token) => token.kind === 'month').map((token) => token.text).join('、'), day: tokens.some((token) => token.kind === 'day') };
+}
+
+/** 年名里的年号（“元丰三年”的“元丰”）。 */
+const eraOf = (yearName: string): string | undefined => YEAR_NAME.exec(yearName)?.[1];
 
 /**
  * 规则 22 八 两行字：label 写了，最多十个字（落在一站讲的年月里的最多七个），没有弯引号，里面有数据里这个地方的名字
@@ -734,8 +791,13 @@ function checkSaidDates(says: string, dates: SaidDate[], file: string, field: st
  * 沙盘上有他的一段不许说“没有他”“没有标出”；站在线上没有立名字的地方的一段，以“沙盘上没有立某地的名字。”开头；
  * says 里的每一个日子都列在 saysDates 里，照日子的先后列，是它指的那个日子的写法缩短来的（只许整截地删：“二十八日”删不成“八日”；
  * “以前、以后、或、之间、初”不删），它前面、后面紧挨着的字是 BEFORE_DATE、AFTER_DATE 里的（日子旁边不许添字），没有列的日子不许有；
+ * 句子里一个日子删掉了年份的，它的年名要和句子里前一个日子的（史料写的）一样，头一个日子的要和这一段开始摆出来的那个农历年一样
+ *（第一行印着的那一年）；只删了年号、留着第几年的，年号要一样；删掉了月份还说着哪一天的，年名、月份都要和前一个日子的一样——
+ * 读的人是拿前面的来补的，补出来的要正是史料写的那个日子；
  * label 里不写日子；first、last 的两行字照同样的长度查，“在哪”里要有头一段、最后一段的那个地方，句子里的日子照同样的办法查
- *（first 的对着头一段的 start，last 的对着最后一段的 end），last 的句子里写了“虚岁多少”的，要是 years 表最后一年的岁数。
+ *（first 的对着头一段的 start，last 的对着最后一段的 end），last 的句子里写了“虚岁多少”的，要是 years 表最后一年的岁数；
+ * 说不准的要说出来：头尾有一个不精确到日（或者写了 earliestIs、latestIs）的一段，unsure 不能空着；句子里说到的、把路切成一程一程的路上一处，
+ * note 里写着另一种说法、对不上、是推出来的（DOUBT_WORDS），这一处要写 unsure（工具把它接在这一段的 unsure 后面）。
  */
 export function checkItineraryWords(itinerary: Itinerary, file: string, route: Pick<RouteScene, 'places'>): Violation[] {
   const out: Violation[] = [];
@@ -751,6 +813,11 @@ export function checkItineraryWords(itinerary: Itinerary, file: string, route: P
   lengths(itinerary.first.label, itinerary.first.says, 'first', '最前一个位置', LABEL_MAX);
   lengths(itinerary.last.label, itinerary.last.says, 'last', '最后一个位置', LABEL_MAX);
 
+  // 每一段开始摆出来的那一天落在哪个农历年里（第一行印着的年名）：句子里头一个日子不带年份的，读的人拿它来补
+  const years = lunarYears(itinerary);
+  const { numbers } = boundaryNumbers(itinerary);
+  const yearAt = (n: number | undefined): string | undefined => (n === undefined || Number.isNaN(n) ? undefined : lunarYearOf(years, n)?.name);
+
   // 最前、最后一个位置：“在哪”说的是头一段、最后一段的那个地方；句子里的日子对着头一段的 start、最后一段的 end
   const [head, tail] = [itinerary.stretches[0], itinerary.stretches[itinerary.stretches.length - 1]];
   const ends: [string, string, Itinerary['first'], ItineraryStretch | undefined, 'start' | 'end'][] = [
@@ -762,7 +829,8 @@ export function checkItineraryWords(itinerary: Itinerary, file: string, route: P
     const named = namedPlace(stretch, route);
     if (named && !words.label.includes(named)) out.push(bad(file, `${field}.label`, `${what}的“${words.label}”里没有“${named}”：${of === 'start' ? '头一段' : '最后一段'}（“${stretch.id}”）他在那里，这里说的要是同一个地方`));
     const dates = words.saysDates.map((entry): SaidDate => ({ ...entry, full: entry.of === of ? stretch[of].text : undefined, rank: 0 }));
-    out.push(...checkSaidDates(words.says, dates, file, field, what));
+    // 这两个位置停在头一天、最后一天上；最后一个位置的“虚岁多少”下面另查
+    out.push(...checkSaidDates(words.says, dates, file, field, what, { beginYear: yearAt(of === 'start' ? numbers[0] : numbers[numbers.length - 1]), allowAge: of === 'end' }));
   }
   const lastAge = /虚岁([一二三四五六七八九十]+)/u.exec(itinerary.last.says)?.[1];
   const died = itinerary.years[itinerary.years.length - 1];
@@ -788,7 +856,15 @@ export function checkItineraryWords(itinerary: Itinerary, file: string, route: P
 
     // 句子里的日子
     const rank = (of: string): number => (of === 'start' ? 0 : of === 'end' ? Infinity : 1 + (stretch.waypoints ?? []).findIndex((point) => `wp:${point.name}` === of));
-    out.push(...checkSaidDates(stretch.says, stretch.saysDates.map((entry) => ({ ...entry, full: momentOf(stretch, entry.of)?.text, rank: rank(entry.of) })), file, at(i), what));
+    out.push(...checkSaidDates(stretch.says, stretch.saysDates.map((entry) => ({ ...entry, full: momentOf(stretch, entry.of)?.text, rank: rank(entry.of) })), file, at(i), what, { beginYear: yearAt(numbers[i]) }));
+
+    // 说不准的要说出来
+    const loose = [stretch.start, stretch.end].some((moment) => moment.precision !== 'day' || moment.earliestIs !== undefined || moment.latestIs !== undefined);
+    if (loose && stretch.unsure.trim() === '') out.push(bad(file, `${at(i)}.unsure`, `${what}的头尾有一个不精确到日，unsure 却空着：哪里说不准要写出来（读者点开“说明”看得见）`));
+    stretch.waypoints?.forEach((point, j) => {
+      if (!doubtCarrier(stretch, point) || !DOUBT_WORDS.test(point.note) || point.unsure?.trim()) return;
+      out.push(bad(file, `${at(i)}.waypoints[${j}].unsure`, `${what}路上的“${point.name}”，note 里写着这个日子另有一种说法、对不上或者是推出来的（“${DOUBT_WORDS.exec(point.note)?.[0]}”），句子里又说到了它（或者小像照它走）：这一处要写 unsure，照 note 里的话写，只删字`));
+    });
   });
   return out;
 }
@@ -900,7 +976,7 @@ export function checkItineraryYears(itinerary: Itinerary, file: string): Violati
  * 规则 22 十 时间轴用的那一份（itinerary.bar.json）：在，而且和工具现在照手写的那一份、全程沙盘的场景和人物的名字做出来的一字不差。
  * 它是工具做的，不手改；手写的那一份改了，要运行 npm run itinerary 重做，再一起提交。
  */
-export function checkItineraryBar(itinerary: Itinerary, route: RouteScene, figure: Pick<Figure, 'name'>, files: ContentFiles, barFile: string): Violation[] {
+export function checkItineraryBar(itinerary: Itinerary, route: RouteScene, figure: Pick<Figure, 'name' | 'stops'>, files: ContentFiles, barFile: string): Violation[] {
   if (!has(files, barFile)) return [bad(barFile, '', '没有这个文件：运行 npm run itinerary，把做出来的文件一起提交')];
   const want = barText(projectItinerary(itinerary, route, figure));
   return files[barFile].replace(/^﻿/, '').replace(/\r\n?/g, '\n') === want ? [] : [bad(barFile, '', '和手写的那一份（itinerary.json）现在做出来的不一样：它是工具做的，不要手改；运行 npm run itinerary 重做，再提交')];

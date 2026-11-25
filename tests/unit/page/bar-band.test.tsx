@@ -87,7 +87,8 @@ async function mount(stopId: string | null) {
   const container = doc.createElement('div');
   doc.body.appendChild(container);
   const root = createRoot(container as any);
-  await act(async () => root.render(<FigureLayout figureId="su-shi" stopId={stopId} />));
+  const show = (next: string | null) => act(async () => root.render(<FigureLayout figureId="su-shi" stopId={next} />));
+  await show(stopId);
   const pane = () => container.querySelector('.stage-pane')!;
   // 等沙盘摆好
   await waitFor(() => attr(pane(), 'data-stage-state') === 'ready');
@@ -95,6 +96,8 @@ async function mount(stopId: string | null) {
     container,
     pane,
     q: (selector: string) => container.querySelector(selector),
+    /** 换一页（同一个版面里换一站，或者回到人物页）。 */
+    show,
     unmount: () => act(async () => root.unmount()),
   };
 }
@@ -133,10 +136,11 @@ describe('沙盘栏里时间轴的那一条', () => {
     }
   });
 
-  it('全程沙盘的栏里，题记上面有时间轴的那一条；一站自己的沙盘（徐州）和没有正文的沙盘上没有', { timeout: 60_000 }, async () => {
-    // 人物页：摆着全程沙盘
+  it('人物页的栏里，题记上面有时间轴的那一条；一站的页面上没有——有自己的沙盘的（徐州、黄州、眉州）没有，还没有自己的沙盘、摆着全程沙盘的也没有——那一段程序也不再画', { timeout: 60_000 }, async () => {
+    // 人物页：摆着全程沙盘；栏上写着“带着时间轴”
     const figurePage = await mount(null);
     expect(attr(figurePage.pane(), 'data-stage-level')).toBe('route');
+    expect(attr(figurePage.pane(), 'data-stage-bar')).toBe('');
     const foot = figurePage.q('.stage-foot')!;
     const band = figurePage.q('.stage-foot .stage-bar');
     expect(band).not.toBeNull();
@@ -151,6 +155,7 @@ describe('沙盘栏里时间轴的那一条', () => {
     expect(props.table.scene.sections.map((s) => s.heading)).toEqual(route.sections.map((s) => s.heading));
     expect(Object.keys(props.marks ?? {})).toEqual(figure.stops.map((stop) => stop.id));
     expect(typeof props.slot.current.view?.placePiece).toBe('function');
+    expect(typeof props.onGoal).toBe('function');
     // 替身记得下叫它把小像摆在哪
     props.slot.current.view?.placePiece?.({ on: 'place', place: route.places[0].id });
     expect(attr(figurePage.q('.fake-stage'), 'data-fake-piece')).toBe(JSON.stringify({ on: 'place', place: route.places[0].id }));
@@ -158,10 +163,17 @@ describe('沙盘栏里时间轴的那一条', () => {
     expect(attr(figurePage.q('.fake-stage'), 'data-fake-piece')).toBe('');
     await figurePage.unmount();
 
-    // 还没有自己的沙盘的一站：摆的还是全程沙盘，也有这一条
+    // 每一站的页面：没有这一条，栏上也不写“带着时间轴”，那一段程序没有再画过
+    // 还没有自己的沙盘的一站：摆的还是全程沙盘，看的是到这一站去的那一节
+    const drawnBefore = (g.__barProps as BarProps[]).length;
     const bare = await mount(BARE);
+    await settle(200);
     expect(attr(bare.pane(), 'data-stage-level')).toBe('route');
-    expect(bare.q('.stage-foot .stage-bar')).not.toBeNull();
+    expect(attr(bare.pane(), 'data-stage-bar')).toBeNull();
+    expect(bare.q('.stage-foot')).not.toBeNull();
+    expect(bare.q('.stage-bar')).toBeNull();
+    expect(bare.q('.bar')).toBeNull();
+    expect((g.__barProps as BarProps[]).length).toBe(drawnBefore);
     await bare.unmount();
 
     // 一站自己的沙盘：没有这一条，那一段程序也没有再画过
@@ -172,10 +184,90 @@ describe('沙盘栏里时间轴的那一条', () => {
       const page = await mount(stopId);
       await settle(200);
       expect(attr(page.pane(), 'data-stage-level'), stopId).toBeNull();
+      expect(attr(page.pane(), 'data-stage-bar'), stopId).toBeNull();
       expect(page.q('.stage-foot'), stopId).not.toBeNull();
       expect(page.q('.stage-bar'), stopId).toBeNull();
       expect(page.q('.bar'), stopId).toBeNull();
       expect((g.__barProps as BarProps[]).length, stopId).toBe(drawn);
+      await page.unmount();
+    }
+  });
+
+  it('没动过时间轴：和原来一模一样——沙盘摆着头一节，中间的按钮写“回到全程”，一次也没有被叫去换小节', { timeout: 60_000 }, async () => {
+    const page = await mount(null);
+    try {
+      await waitFor(() => page.q('.stage-bar .bar') !== null);
+      await settle(300);
+      expect(attr(page.pane(), 'data-stage-section')).toBe(route.sections[0].heading);
+      expect(attr(page.q('.fake-stage'), 'data-fake-section')).toBe(route.sections[0].heading);
+      expect(attr(page.q('.fake-stage'), 'data-fake-requests') ?? '').toBe('');
+      expect(page.q('.stage-reset')!.textContent).toBe('回到全程');
+    } finally {
+      await page.unmount();
+    }
+  });
+
+  it('时间轴报了要看后面的一节：沙盘滑到那一节，中间的按钮写“回到这一段”；再报头一节，按钮又写“回到全程”', { timeout: 60_000 }, async () => {
+    const [whole, , , , , , later] = route.sections.map((s) => s.heading);
+    expect(later).toBeDefined();
+    const page = await mount(null);
+    try {
+      await waitFor(() => page.q('.stage-bar .bar') !== null);
+      const props = (g.__barProps as BarProps[]).at(-1)!;
+      await act(async () => props.onGoal?.(later));
+      await waitFor(() => attr(page.pane(), 'data-stage-section') === later);
+      expect(attr(page.q('.fake-stage'), 'data-fake-section')).toBe(later);
+      // 是滑过去的，只叫了一次
+      expect(attr(page.q('.fake-stage'), 'data-fake-animated')).toBe('true');
+      expect(attr(page.q('.fake-stage'), 'data-fake-requests')).toBe(later);
+      expect(page.q('.stage-reset')!.textContent).toBe('回到这一段');
+      // 报的还是这一节：沙盘不再被叫（叫了，它会从原地滑到原地，题签白白藏起来两秒）
+      await act(async () => props.onGoal?.(later));
+      await settle(200);
+      expect(attr(page.q('.fake-stage'), 'data-fake-requests')).toBe(later);
+      // 再报头一节
+      await act(async () => (g.__barProps as BarProps[]).at(-1)!.onGoal?.(whole));
+      await waitFor(() => attr(page.pane(), 'data-stage-section') === whole);
+      expect(page.q('.stage-reset')!.textContent).toBe('回到全程');
+      expect(attr(page.q('.fake-stage'), 'data-fake-requests')).toBe(`${later}|${whole}`);
+    } finally {
+      await page.unmount();
+    }
+  });
+
+  it('进了徐州自己的沙盘再回人物页：头一个画面就是时间轴停着的那一节，不滑；还没有自己的沙盘的一站的页面上，时间轴报过的那一节不算数', { timeout: 60_000 }, async () => {
+    const later = route.sections[6].heading;
+    const page = await mount(null);
+    try {
+      await waitFor(() => page.q('.stage-bar .bar') !== null);
+      await act(async () => (g.__barProps as BarProps[]).at(-1)!.onGoal?.(later));
+      await waitFor(() => attr(page.pane(), 'data-stage-section') === later);
+
+      // 还没有自己的沙盘的一站：同一座全程沙盘，看的是到这一站去的那一节（不是时间轴报的那一节），按钮写“回到这一段”
+      const road = route.sections.find((s) => s.stop === BARE)!.heading;
+      expect(road).not.toBe(later);
+      await page.show(BARE);
+      await waitFor(() => attr(page.pane(), 'data-stage-section') === road);
+      expect(page.q('.stage-bar')).toBeNull();
+      expect(page.q('.stage-reset')!.textContent).toBe('回到这一段');
+
+      // 进徐州自己的沙盘（这一栏换了一座，全程沙盘关掉了）
+      await page.show(WRITTEN_WITH_TABLE[0]);
+      await waitFor(() => attr(page.pane(), 'data-stage-level') === null && attr(page.pane(), 'data-stage-state') === 'ready');
+      expect(page.q('.stage-bar')).toBeNull();
+
+      // 回人物页：全程沙盘是从头摆的，头一个画面就是时间轴停着的那一节——替身一次也没有被叫去换小节
+      await page.show(null);
+      await waitFor(() => attr(page.pane(), 'data-stage-level') === 'route' && attr(page.pane(), 'data-stage-state') === 'ready');
+      expect(attr(page.pane(), 'data-stage-section')).toBe(later);
+      expect(attr(page.q('.fake-stage'), 'data-fake-section')).toBe(later);
+      expect(attr(page.q('.fake-stage'), 'data-fake-requests') ?? '').toBe('');
+      expect(page.q('.stage-reset')!.textContent).toBe('回到这一段');
+      // 报回头一节，留给后面的测试一个干净的开头
+      await waitFor(() => page.q('.stage-bar .bar') !== null);
+      await act(async () => (g.__barProps as BarProps[]).at(-1)!.onGoal?.(route.sections[0].heading));
+      await waitFor(() => attr(page.pane(), 'data-stage-section') === route.sections[0].heading);
+    } finally {
       await page.unmount();
     }
   });

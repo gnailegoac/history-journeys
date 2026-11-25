@@ -83,8 +83,11 @@ export function sectionStripSpecs(scene: TableScene, heading: string, texts: Str
   });
 }
 
-/** 在沙盘的容器里挂一层题签。只往 container 里面添东西，destroy 时把自己添的都拿走。 */
-export function mountStrips(container: HTMLElement): StripLayer {
+/**
+ * 在沙盘的容器里挂一层题签。只往 container 里面添东西，destroy 时把自己添的都拿走。
+ * place 是算位置的函数：不给就是 placeStrips；全程沙盘交进来的是“小像停着的时候只挪碰着他的那几条”的那一个（./placeAround.ts）。
+ */
+export function mountStrips(container: HTMLElement, place: typeof placeStrips = placeStrips): StripLayer {
   const doc = container.ownerDocument;
 
   const root = doc.createElement('div');
@@ -227,10 +230,14 @@ export function mountStrips(container: HTMLElement): StripLayer {
     // 竖着的引线横向落在整像素上，横着的竖向落在整像素上；那个点跟着线走（朝外的小箭头还从原来那一点起）
     if (Math.abs(x2 - x1) < 0.5) x1 = x2 = onPixel(x1);
     if (Math.abs(y2 - y1) < 0.5) y1 = y2 = onPixel(y1);
-    item.under.setAttribute('d', `M${x1.toFixed(1)} ${y1.toFixed(1)}L${x2.toFixed(1)} ${y2.toFixed(1)}`);
+    // 线从哪里画起：平常就是那一点；小像停在线上的时候，落在他身上的那一截不画（placement.from），圆点照旧在那一点上
+    const from = placement.from ?? 0;
+    const sx = (x1 + (x2 - x1) * from).toFixed(1);
+    const sy = (y1 + (y2 - y1) * from).toFixed(1);
+    item.under.setAttribute('d', `M${sx} ${sy}L${x2.toFixed(1)} ${y2.toFixed(1)}`);
     item.under.style.display = '';
-    item.line.setAttribute('x1', x1.toFixed(1));
-    item.line.setAttribute('y1', y1.toFixed(1));
+    item.line.setAttribute('x1', sx);
+    item.line.setAttribute('y1', sy);
     item.line.setAttribute('x2', x2.toFixed(1));
     item.line.setAttribute('y2', y2.toFixed(1));
     item.line.style.display = '';
@@ -260,7 +267,7 @@ export function mountStrips(container: HTMLElement): StripLayer {
     if (!last) return;
     // 传进来的先后就是要紧的先后。
     const strips = items.map((item, rank) => ({ id: item.spec.id, w: item.w, h: item.h, rank, side: item.spec.side, lean: item.spec.lean }));
-    const placed = placeStrips({ strips, anchors: last.anchors, size: last.size, insets: last.insets, avoid: last.avoid }, placements, { moving: last.moving });
+    const placed = place({ strips, anchors: last.anchors, size: last.size, insets: last.insets, avoid: last.avoid }, placements, { moving: last.moving });
     placements = placed;
     items.forEach((item, i) => show(item, placed[i]));
   }

@@ -46,6 +46,10 @@ export class MiniNode {
     [...this.childNodes].forEach((c) => this.removeChild(c));
     this.append(...nodes);
   }
+  /** 上一层的元素（上一层是整个文档的时候没有）。 */
+  get parentElement(): MiniElement | null {
+    return this.parentNode instanceof MiniElement && this.parentNode.nodeType === 1 ? this.parentNode : null;
+  }
   get firstChild() {
     return this.childNodes[0] ?? null;
   }

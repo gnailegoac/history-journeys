@@ -4,7 +4,7 @@
 import { describe, expect, it } from 'vitest';
 import type { ItineraryBar } from '../../src/domain/itinerary';
 import { BAR_SANS, BAR_TEXT } from '../../src/timebar/barText';
-import { AGE_PX, ROOMY_PX, ageWords, barFit, barSwitch, numeral, wordsAt, yearRowAt } from '../../src/timebar/barWords';
+import { AGE_PX, FAKE_STAGES, ROOMY_PX, ageWords, barFit, barSwitch, numeral, westernAt, wordsAt, yearRowAt } from '../../src/timebar/barWords';
 import { SANS_LABELS } from '../../src/ui/text';
 import { dayOfIso, isoOfDay } from '../support/itineraryTool';
 import { readBytes } from '../support/readBytes';
@@ -45,7 +45,7 @@ describe('时间轴上的字', () => {
     expect([huangzhou.year, huangzhou.age, huangzhou.label]).toEqual(['元丰五年（1082）', '虚岁四十七', '在黄州']);
     // 最前、最后两个位置：年名、岁数照样是表里的，“在哪”和第二行是行迹里那两个位置自己的
     const first = wordsAt(bar, 0);
-    expect([first.year, first.age, first.label, first.says]).toEqual(['景祐三年（1036）', '虚岁一岁', bar.first.label, bar.first.says]);
+    expect([first.year, first.age, first.label, first.says]).toEqual(['景祐三年（1037年1月）', '虚岁一岁', bar.first.label, bar.first.says]);
     expect(wordsAt(bar, -3)).toEqual(first);
     const last = wordsAt(bar, lastDay);
     expect([last.year, last.age, last.label, last.says]).toEqual(['建中靖国元年（1101）', '虚岁六十六', bar.last.label, bar.last.says]);
@@ -59,10 +59,32 @@ describe('时间轴上的字', () => {
     }
   });
 
-  it('腊月里已经是公历下一年的一月：年名和括号里的年份还是那个农历年的', () => {
-    // 他生的那一天：公历已经是 1037 年 1 月，农历还是景祐三年的腊月
+  it('腊月里已经是公历下一年的一月、二月：年名还是那个农历年的，括号里写那一天公历的年和月；别的日子括号里只有年份', () => {
+    // 他生的那一天：公历已经是 1037 年 1 月，农历还是景祐三年的腊月。括号里写“1036”的话，就同轴上的头一个年份、同正文里的“生于 1037 年”对不上
     expect(bar.day0.startsWith('1037-01-')).toBe(true);
-    expect(wordsAt(bar, 0).year).toBe('景祐三年（1036）');
+    expect(wordsAt(bar, 0).year).toBe('景祐三年（1037年1月）');
+    expect(wordsAt(bar, 0).spoken.startsWith('景祐三年，1037 年 1 月，虚岁一岁，')).toBe(true);
+    // 一生的每一天：公历的年份就是表里那一行的，括号里只写年份；公历已经到了下一年的（都在一月、二月，正月初一以前），写年和月
+    let later = 0;
+    const months = new Set<number>();
+    for (let day = 0; day <= lastDay; day++) {
+      const [year, name, , age] = yearRowAt(bar, day);
+      const [y, m] = dateOf(day).split('-').map(Number);
+      expect(westernAt(bar.day0, day), dateOf(day)).toEqual({ year: y, month: m });
+      const words = wordsAt(bar, day + 0.25);
+      if (y === year) {
+        expect(words.year, dateOf(day)).toBe(`${name}（${year}）`);
+        continue;
+      }
+      later++;
+      months.add(m);
+      expect(y, dateOf(day)).toBe(year + 1);
+      expect(words.year, dateOf(day)).toBe(`${name}（${y}年${m}月）`);
+      expect(words.spoken.startsWith(`${name}，${y} 年 ${m} 月，${ageWords(age)}，`), dateOf(day)).toBe(true);
+    }
+    expect(later).toBeGreaterThan(0);
+    expect([...months].sort()).toEqual([1, 2]);
+    console.log(`一生 ${lastDay + 1} 天里，农历年末、公历已经是下一年的有 ${later} 天：括号里写公历的年和月`);
     // 每一个正月初一落在公历一月、二月的年份：前一天公历已经是这一年了，年名和括号里的年份还是上一年的
     let checked = 0;
     bar.years.forEach((row, i) => {
@@ -74,7 +96,7 @@ describe('时间轴上的字', () => {
       if (Number(before.slice(0, 4)) !== row[0]) return;
       checked++;
       const words = wordsAt(bar, newYear - 1);
-      expect(words.year, `${before}（${row[1]}正月初一的前一天）`).toBe(`${bar.years[i - 1][1]}（${bar.years[i - 1][0]}）`);
+      expect(words.year, `${before}（${row[1]}正月初一的前一天）`).toBe(`${bar.years[i - 1][1]}（${row[0]}年${Number(before.slice(5, 7))}月）`);
       expect(bar.years[i - 1][0], row[1]).toBe(row[0] - 1);
     });
     expect(checked).toBeGreaterThan(60);
@@ -98,10 +120,11 @@ describe('时间轴上的字', () => {
     for (const stretch of bar.stretches) {
       const day = (Math.max(from, 0.5) + stretch.until) / 2;
       const [year, name, , age] = yearRowAt(bar, day);
-      expect(wordsAt(bar, day).spoken, stretch.id).toBe(`${name}，${year} 年，${ageWords(age)}，${stretch.label}。${stretch.says}。`);
+      const [y, m] = dateOf(day).split('-').map(Number);
+      expect(wordsAt(bar, day).spoken, stretch.id).toBe(`${name}，${y === year ? `${year} 年` : `${y} 年 ${m} 月`}，${ageWords(age)}，${stretch.label}。${stretch.says}。`);
       from = stretch.until;
     }
-    expect(wordsAt(bar, 0).spoken).toBe(`景祐三年，1036 年，虚岁一岁，${bar.first.label}。${bar.first.says}。`);
+    expect(wordsAt(bar, 0).spoken).toBe(`景祐三年，1037 年 1 月，虚岁一岁，${bar.first.label}。${bar.first.says}。`);
     expect(wordsAt(bar, lastDay).spoken).toBe(`建中靖国元年，1101 年，虚岁六十六，${bar.last.label}。${bar.last.says}。`);
   });
 
@@ -113,14 +136,19 @@ describe('时间轴上的字', () => {
     expect(barSwitch('?bar=0')).toEqual({ on: true, day: 0 });
     expect(barSwitch('?bar=16525')).toEqual({ on: true, day: 16525 });
     expect(barSwitch('?tier=still&bar=23604')).toEqual({ on: true, day: 23604 });
-    // 沙盘的替身上（三种写法）：不写就不摆，写了日子才摆
-    for (const stage of ['fake', 'fake-fail', 'fake-unsupported']) {
+    // 沙盘的替身上（三种写法）：不写就不摆，写了日子才摆。这三个词就是页面认的那三个（src/ui/stageEngineSource.ts）
+    const pageSource = new TextDecoder().decode(readBytes('src/ui/stageEngineSource.ts'));
+    const pageKnows = /function fakeStageChoice\(\)[^{]*\{[^}]*return ([^;]+);/.exec(pageSource)?.[1].match(/'fake[a-z-]*'/g)?.map((word) => word.slice(1, -1));
+    expect([...new Set(pageKnows)].sort()).toEqual([...FAKE_STAGES].sort());
+    // 别的词（大写的、多几个字的）页面摆的是真的沙盘：时间轴照真的沙盘上那样，不写也摆
+    for (const real of ['FAKE', 'fakery', 'fake-slow', 'real']) expect(barSwitch(`?stage=${real}`), real).toEqual({ on: true, day: null });
+    for (const stage of FAKE_STAGES) {
       expect(barSwitch(`?stage=${stage}`), stage).toEqual({ on: false, day: null });
       expect(barSwitch(`?stage=${stage}&bar=none`), stage).toEqual({ on: false, day: null });
       expect(barSwitch(`?stage=${stage}&bar=9697`), stage).toEqual({ on: true, day: 9697 });
     }
     // 不是整数的不认：照没有写算
-    for (const odd of ['abc', '12.5', '-3', '']) {
+    for (const odd of ['abc', '12.5', '1.5', '-3', '+3', '3e2', ' 3', '']) {
       expect(barSwitch(`?bar=${odd}`), odd).toEqual({ on: true, day: null });
       expect(barSwitch(`?stage=fake&bar=${odd}`), odd).toEqual({ on: false, day: null });
     }

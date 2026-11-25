@@ -4,7 +4,7 @@
 
 import { describe, expect, it } from 'vitest';
 import type { ItineraryBar } from '../../src/domain/itinerary';
-import { OTHER_MIN_UNITS, ROAD_UNITS, SQUEEZE_MIN_PX, STAY_MIN_UNITS, YEAR_GAP_PX, barScale, barTicks, blockUnits, dayAt, groupSpans, labelledTicks, squeezed, unitsAt } from '../../src/timebar/barScale';
+import { DISC_PX, OTHER_MIN_UNITS, ROAD_UNITS, SQUEEZE_MIN_PX, STAY_MIN_UNITS, YEARS_EDGE_PX, YEARS_GAP_PX, YEARS_GLYPH_PX, YEAR_GAP_PX, barScale, barTicks, blockUnits, dayAt, discAt, groupSpans, labelledTicks, squeezed, unitsAt, yearsShort } from '../../src/timebar/barScale';
 import { HOME_PANES, STANDARD_PANES } from '../stage/support/standardPanes';
 import { STRIP_NARROW_BELOW_PX } from '../stage/support/stripSizes';
 import { readBytes } from '../support/readBytes';
@@ -92,8 +92,9 @@ describe('时间轴的刻度', () => {
     }
   });
 
-  it('真的那一份：一共 145.4 个单位；最窄的栏上（轴 532 像素）一趟路不少于 18 像素、一站住下来的年月不少于 10 像素', () => {
-    expect(scale.total).toBeCloseTo(145.4, 1);
+  it('真的那一份：最窄的栏上一趟路不少于 18 像素、一站住下来的年月不少于 10 像素（一共多少单位、各种栏上的数印出来）', () => {
+    // 一共多少单位是数据定的：每一格的单位加起来
+    expect(scale.total).toBeCloseTo(scale.blocks.reduce((sum, block) => sum + (block.u1 - block.u0), 0), 9);
     // 最窄的是横着拿的平板上首页的那一栏
     expect(NARROWEST).toBe(532);
     const px = NARROWEST / scale.total;
@@ -102,8 +103,50 @@ describe('时间轴的刻度', () => {
     expect(road).toBeGreaterThanOrEqual(18);
     expect(stay).toBeGreaterThanOrEqual(10);
     console.log(
-      ['各种栏上的轴：', ...PANES.map((pane) => `  ${pane.name}（窗口 ${pane.window.width} × ${pane.window.height}）轴 ${pane.track} 像素：一趟路 ${((5 * pane.track) / scale.total).toFixed(1)}，一站最窄的住处 ${((3 * pane.track) / scale.total).toFixed(1)}，不到 4 像素宽的格子 ${scale.blocks.filter((b) => ((b.u1 - b.u0) * pane.track) / scale.total < 4).length} 个`)].join('\n'),
+      [`一共 ${scale.total.toFixed(1)} 个单位。各种栏上的轴：`, ...PANES.map((pane) => `  ${pane.name}（窗口 ${pane.window.width} × ${pane.window.height}）轴 ${pane.track} 像素：一趟路 ${((5 * pane.track) / scale.total).toFixed(1)}，一站最窄的住处 ${((3 * pane.track) / scale.total).toFixed(1)}，不到 4 像素宽的格子 ${scale.blocks.filter((b) => ((b.u1 - b.u0) * pane.track) / scale.total < 4).length} 个`)].join('\n'),
     );
+  });
+
+  it('一站的年份写在圆点旁边：照这一站已发布的年份写（同一个世纪的后一个只写两位），那一站的那一段放得下圆点和它才写；写了的，两样合起来对着那一段的中间（各种栏上写了哪几站印出来）', () => {
+    expect(yearsShort('1080–1084')).toBe('1080–84');
+    expect(yearsShort('1079')).toBe('1079');
+    expect(yearsShort('1094–1100')).toBe('1094–1100');
+    expect(yearsShort('1099–1101')).toBe('1099–1101');
+    const spans = groupSpans(scale);
+    // 行迹里记着的就是各站已发布的年份，时间轴上有哪几站就有哪几站
+    expect(Object.keys(bar.stopYears)).toEqual(spans.map((span) => span.stop));
+    const lines: string[] = [];
+    for (const pane of PANES) {
+      const px = pane.track / scale.total;
+      const written: string[] = [];
+      spans.forEach((span) => {
+        const text = yearsShort(bar.stopYears[span.stop]);
+        const wide = (span.u1 - span.u0) * px;
+        const mid = ((span.u0 + span.u1) / 2) * px;
+        const at = discAt(span, px, text);
+        const pair = DISC_PX + YEARS_GAP_PX + [...text].length * YEARS_GLYPH_PX;
+        if (wide >= pair + 2 * YEARS_EDGE_PX) {
+          // 放得下：圆点在左、年份在右，合起来对着中间，两头都不出这一段
+          expect(at.years, `${pane.name} ${span.stop}`).not.toBeNull();
+          expect(at.disc - DISC_PX / 2, `${pane.name} ${span.stop}`).toBeCloseTo(mid - pair / 2, 6);
+          expect(at.years as number, `${pane.name} ${span.stop}`).toBeCloseTo(at.disc + DISC_PX / 2 + YEARS_GAP_PX, 6);
+          expect(at.disc - DISC_PX / 2).toBeGreaterThanOrEqual(span.u0 * px + YEARS_EDGE_PX - 1e-6);
+          expect((at.years as number) + [...text].length * YEARS_GLYPH_PX).toBeLessThanOrEqual(span.u1 * px - YEARS_EDGE_PX + 1e-6);
+          written.push(`${span.stop} ${text}`);
+        } else {
+          // 放不下：不写，圆点正对着中间
+          expect(at, `${pane.name} ${span.stop}`).toEqual({ disc: mid, years: null });
+        }
+        // 没有年份可写的（这位人物的资料里没有）：圆点正对着中间
+        expect(discAt(span, px, undefined)).toEqual({ disc: mid, years: null });
+      });
+      lines.push(`  ${pane.name}（轴 ${pane.track} 像素）：${written.length ? written.join('，') : '一站也不写'}`);
+    }
+    console.log(['各种栏上圆点旁边写了年份的站：', ...lines].join('\n'));
+    // 编的一段：正好放得下的写，差一个像素的不写
+    const need = DISC_PX + YEARS_GAP_PX + 7 * YEARS_GLYPH_PX + 2 * YEARS_EDGE_PX;
+    expect(discAt({ u0: 0, u1: need }, 1, '1080–84').years).not.toBeNull();
+    expect(discAt({ u0: 0, u1: need - 1 }, 1, '1080–84').years).toBeNull();
   });
 
   it('每十年一道的刻度一个比一个靠右；年份两个之间不到 40 像素的不写', () => {

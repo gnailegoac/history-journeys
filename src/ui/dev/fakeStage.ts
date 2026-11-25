@@ -15,6 +15,8 @@
 //   data-fake-slow            说没说过“这台设备上太慢”（说过以后它就不再画了）
 //   data-fake-dive            最近一次叫它潜到哪一站上空（页面只在地址里带 ?dive=1 时才叫替身潜）
 //   data-fake-piece           最近一次叫它把小像摆在哪（placePiece 收到的那个东西，写成 JSON；叫它拿走是空的；没叫过就没有这一项）
+//   data-fake-piece-rest      最近一次叫它摆小像的时候，说没说“时间轴停在这一天”（true、false）
+//   data-fake-piece-calls     一共叫过它几次摆小像（连叫它拿走的）
 // 题签用的是真的那一层（src/stage/overlay），只是每条题签指着的位置是编的。
 // 替身上没法拖动，没有会断的三维画面，也量不出快慢，各用一个按钮代替。
 //
@@ -278,9 +280,11 @@ function createFakeView(container: HTMLElement, table: StageTable, options: Stag
       return current === undefined || slow ? Promise.resolve() : moveTo(current, true);
     },
     // 小像：替身不画，只记下页面叫它摆在哪
-    placePiece: (where) => {
+    placePiece: (where, atRest) => {
       if (destroyed || slow) return;
       root.dataset.fakePiece = where ? JSON.stringify(where) : '';
+      root.dataset.fakePieceRest = String(atRest === true);
+      root.dataset.fakePieceCalls = String(Number(root.dataset.fakePieceCalls ?? 0) + 1);
     },
     setNamesMode: (mode_) => {
       if (destroyed || slow) return;

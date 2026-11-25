@@ -530,7 +530,7 @@ describe('源文件里的写法', () => {
     expect(tally(scanMedia('x.css', sheet))).toEqual(['x.css | wide-layout | (min-width: 960px) × 1']);
   });
 
-  it('@container、cqw 一处也没有；:has( 最多六处，只在 layout.css 里（iPadOS 15 的 Safari 都不认：前两样原来分着沙盘栏宽窄两种排法，现在由页面量了栏宽挂类名来分）', () => {
+  it('@container、cqw 一处也没有；:has( 最多七处，只在 layout.css 里（iPadOS 15 的 Safari 都不认：前两样原来分着沙盘栏宽窄两种排法，现在由页面量了栏宽挂类名来分）', () => {
     const count = (needle: string): Record<string, number> => Object.fromEntries(styles.map((path) => [path, countIn(stripCssComments(text(path)), needle)] as const).filter(([, times]) => times > 0));
     const total = (counts: Record<string, number>): number => Object.values(counts).reduce((sum, times) => sum + times, 0);
     const container = count('@container');
@@ -542,6 +542,7 @@ describe('源文件里的写法', () => {
     expect(count('container:'), JSON.stringify(count('container:'))).toEqual({});
     expect(count('container-'), JSON.stringify(count('container-'))).toEqual({});
     expect(Object.keys(has).every((path) => path === 'src/styles/layout.css'), JSON.stringify(has)).toBe(true);
-    expect(total(has)).toBeLessThanOrEqual(6);
+    // 七处：原来的六处，加上摆着时间轴的沙盘栏（比别的栏高一条时间轴）上面留的空那一条。这个数是防着它散开的篱笆，别的样式表里一处也不许有
+    expect(total(has)).toBeLessThanOrEqual(7);
   });
 });

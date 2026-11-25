@@ -13,10 +13,15 @@ html:has(.figure-layout) {
   scroll-padding-bottom: calc(5rem + env(safe-area-inset-bottom, 0px));
 }
 
-/* 下面三条只在窄屏的排法上算数（条件是“不是宽屏”：把宽屏的条件整个反过来）；宽屏上沙盘栏在一边，不挡正文，见后面宽屏的那一条。 */
+/* 下面四条只在窄屏的排法上算数（条件是“不是宽屏”：把宽屏的条件整个反过来）；宽屏上沙盘栏在一边，不挡正文，见后面宽屏的那一条。 */
 @media not all and (min-width: 960px) and (orientation: landscape) {
   html:has(.stage-pane.is-pinned) {
     scroll-padding-top: calc(max(var(--stage-height-narrow), var(--stage-height-narrow-min)) + var(--gap-4));
+  }
+
+  /* 摆着时间轴的沙盘栏（人物页、首页：栏上有 data-stage-bar）比别的栏高出一条时间轴（见下面“沙盘栏”里的那一条）：上面留的空跟着高。 */
+  html:has(.stage-pane.is-pinned[data-stage-bar]) {
+    scroll-padding-top: calc(max(var(--stage-height-narrow), var(--stage-height-narrow-min)) + var(--stage-bar-rise) + var(--gap-4));
   }
 
   html:has(.stage-pane.is-pinned.is-folded) {
@@ -88,6 +93,15 @@ html:has(.figure-layout) {
 
 .stage-pane.is-pinned.is-folded {
   height: var(--stage-height-folded);
+}
+
+/* 人物页和首页的沙盘栏（data-stage-bar，StagePane.tsx 一摆上这一栏就写，全程沙盘还在读的时候就有：栏不会在读者眼前长高）下面多一条时间轴。
+   沙盘在上的排法里，这样的栏比别的栏高出 --stage-bar-rise（tokens.css：就是时间轴的高），沙盘还是原来那么大。收起的时候不算：那时栏的高是上面那一条定的。
+   左右排的版面上栏和窗口一样高，这一条不算数（它写在“不是宽屏”的条件里）。 */
+@media not all and (min-width: 960px) and (orientation: landscape) {
+  .stage-pane.is-pinned[data-stage-bar] {
+    --stage-pane-h: calc(max(var(--stage-height-narrow), var(--stage-height-narrow-min)) + var(--stage-bar-rise));
+  }
 }
 
 /* ---------------------------------------------------------------- 宽屏 */

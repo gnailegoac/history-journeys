@@ -10,7 +10,9 @@
 //   unsupported  这个浏览器画不了
 //   slow         这台设备带不动立体的沙盘（或者地址里指定了只放图片）
 //   lost         画面中途断了，可以重新摆出来
-// 另外五个属性：
+// 另外六个属性：
+//   data-stage-bar      这一栏带着时间轴（人物页和首页；一站的页面上不写）。从这一栏一摆上就写，全程沙盘还在读的时候就有：
+//                       沙盘在上的排法里这样的栏比别的栏高出一条时间轴（layout.css），不会等全程沙盘到了才在读者眼前长高
 //   data-stage-level    摆着的是全程沙盘时写 route；站点沙盘不写
 //   data-stage-picture  现在放着的是什么：table 立体的沙盘，still 图片，none 都没有。
 //                       立体的沙盘盖着图片慢慢显出来的那一小会儿还算 still，显完、图片拿走了才是 table
@@ -28,9 +30,11 @@
 // 这一块字的高度是定死的（stage.css），所以换小节时沙盘四边留的空不变；完整的说明点“说明”才展开，盖在沙盘上，不挤它。
 // 指北和比例尺跟着镜头变，沙盘每一帧都可能通知，所以直接改页面元素，不放进会让整栏重画的状态里。
 //
-// 摆着全程沙盘的栏，底下那一条里题记上面还有一条：时间轴（.stage-bar）。它里面的东西是另一段程序（src/timebar/），
+// 人物页和首页的栏（摆的是全程沙盘），底下那一条里题记上面还有一条：时间轴（.stage-bar）。它里面的东西是另一段程序（src/timebar/），
 // 栏里摆上全程沙盘才去取（见 BarBand）；这里只留出地方。这一条的高是样式表定死的（--stage-bar-h），那一段程序到没到，
-// 沙盘四边留的空都一样。站点沙盘的栏没有这一条。
+// 沙盘四边留的空都一样。一站的页面上没有这一条，那一段程序也不去取：一站自己的沙盘上没有小像；还没有自己的沙盘的一站摆的虽是全程沙盘，
+// 看的只是到这一站去的那一节，一条走完一生的时间轴在那里大半的日子都没有小像。
+// 读者动了时间轴以后，全程沙盘看哪一节听时间轴的（BAR_GOAL）：它只报“该看哪一节”，镜头怎么过去还是这一栏原来的那一套。
 
 import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { MutableRefObject, ReactNode, Ref } from 'react';
@@ -152,7 +156,7 @@ export function StagePane({ onStopPage, table, section, route, stopId, marks, wr
 
   if (source.state === 'loading') {
     return (
-      <Pane state="loading" picture="none" pinned>
+      <Pane state="loading" picture="none" pinned bar={!onStopPage}>
         <Says>{late && <p className="stage-loading">{STAGE_TEXT.loading}</p>}</Says>
       </Pane>
     );
@@ -190,6 +194,7 @@ export function StagePane({ onStopPage, table, section, route, stopId, marks, wr
       section={whole ? (road ?? null) : section}
       resetLabel={!whole ? (bare ? STAGE_TEXT.resetHere : STAGE_TEXT.reset) : onStopPage ? STAGE_TEXT.resetRoad : STAGE_TEXT.resetWhole}
       bare={bare}
+      bar={!onStopPage}
       marks={marks}
       standing={whole && onStopPage && written ? STAGE_TEXT.roadNotice : null}
       namesMode={namesMode}
@@ -229,6 +234,8 @@ interface PaneProps {
   section?: string;
   /** 摆着的是全程沙盘。 */
   route?: boolean;
+  /** 这一栏带着时间轴（人物页和首页）。 */
+  bar?: boolean;
   /** 全程沙盘的镜头正往哪一站潜。 */
   dive?: string | null;
   /** 窄屏上钉在顶上不动（有画面的时候，或者摆着的沙盘画面断了）；不写就跟着页面一起滚走。 */
@@ -239,7 +246,7 @@ interface PaneProps {
 }
 
 // tabIndex={-1}：这一栏自己不在 Tab 的顺序里，但程序可以把焦点放上来（见 restoreFocus 和站点页的“到沙盘”）。
-function Pane({ state, picture, tier, section, route, dive, pinned = false, folded = false, paneRef, children }: PaneProps) {
+function Pane({ state, picture, tier, section, route, bar, dive, pinned = false, folded = false, paneRef, children }: PaneProps) {
   const className = ['stage-pane', pinned ? 'is-pinned' : '', pinned && folded ? 'is-folded' : ''].filter(Boolean).join(' ');
   return (
     <section
@@ -252,6 +259,7 @@ function Pane({ state, picture, tier, section, route, dive, pinned = false, fold
       data-stage-tier={tier ?? undefined}
       data-stage-section={section}
       data-stage-level={route ? 'route' : undefined}
+      data-stage-bar={bar ? '' : undefined}
       data-stage-dive={dive ?? undefined}
     >
       {children}
@@ -348,6 +356,8 @@ interface TableProps {
   resetLabel: string;
   /** 正在读的一站没有正文：摆不出来时的那一句不说“正文可以照常读”。 */
   bare: boolean;
+  /** 这一栏带着时间轴（人物页和首页：摆的是全程沙盘）。 */
+  bar: boolean;
   marks: StageOptions['marks'];
   /** 这一座从头到尾都印在按钮下面的一行话（这一站没有自己的沙盘）；没有是 null。立体的沙盘摆不了、放着图片时，让给那时候的那一句。 */
   standing: string | null;
@@ -365,7 +375,7 @@ interface TableProps {
 // 每换一座沙盘，这个组件从头来（外面给了不同的 key），里面的状态不会带着上一座的。
 // 同一座沙盘重摆（再试一次、重新摆出来、降一档、读者要试试立体的）不从头来：只是下面“摆立体的沙盘”那一段重跑一遍，
 // 图片、按钮、题记都留在原处。
-function TableStage({ table, section, resetLabel, bare, marks, standing, namesMode, onNamesMode, folded, onFolded, choice, onChoice, openedAt, keepFocus }: TableProps) {
+function TableStage({ table, section, resetLabel, bare, bar, marks, standing, namesMode, onNamesMode, folded, onFolded, choice, onChoice, openedAt, keepFocus }: TableProps) {
   const pane = useRef<HTMLElement>(null);
   const host = useRef<HTMLDivElement>(null);
   const stillHost = useRef<HTMLDivElement>(null);
@@ -436,7 +446,12 @@ function TableStage({ table, section, resetLabel, bare, marks, standing, namesMo
   // 沙盘该摆哪一小节：读到的那一节。读到的小节场景里没有时（正文和场景的标题对不上）留在上一次认得的那一节；
   // 一节都还不认得，就是第一节。
   const headings = useMemo(() => headingsOf(table.scene), [table]);
-  const known = section !== null && headings.includes(section) ? section : null;
+  // 带着时间轴的栏上，读者动过时间轴以后，全程沙盘看哪一节听时间轴的（BAR_GOAL，见下面的 BarBand）；没动过，还是上面交下来的头一节。
+  // 一站的页面上不听：那里看的总是到这一站去的那一节。
+  const [barGoal, setBarGoal] = useState(BAR_GOAL[table.key]);
+  const wanted = (bar && barGoal) || section;
+  const onGoal = (heading: string): void => setBarGoal((BAR_GOAL[table.key] = heading));
+  const known = wanted !== null && headings.includes(wanted) ? wanted : null;
   const [lastKnown, setLastKnown] = useState<string | null>(null);
   if (known !== null && known !== lastKnown) setLastKnown(known);
   const goal = known ?? lastKnown ?? headings[0] ?? null;
@@ -1046,6 +1061,7 @@ function TableStage({ table, section, resetLabel, bare, marks, standing, namesMo
       tier={tableUp ? tier : null}
       section={onShow ?? undefined}
       route={table.kind === 'route'}
+      bar={bar}
       dive={diving}
       pinned={area || phase === 'lost'}
       folded={area && folded}
@@ -1073,7 +1089,8 @@ function TableStage({ table, section, resetLabel, bare, marks, standing, namesMo
           {!forGood && (
             // 点不了的时候用 aria-disabled，不用 disabled：点完它就变成点不了的，用 disabled 的话焦点会掉到页面外头去。
             <button key="reset" type="button" className="stage-button stage-reset" aria-disabled={!canReset} onClick={resetView}>
-              {resetLabel}
+              {/* 时间轴把全程沙盘带到了别的一节：这个按钮回的是那一节，不是全程 */}
+              {wanted === section ? resetLabel : STAGE_TEXT.resetRoad}
             </button>
           )}
           {forGood && stateAction && (
@@ -1106,8 +1123,8 @@ function TableStage({ table, section, resetLabel, bare, marks, standing, namesMo
 
       {/* under-notice：按钮下面有一行话。展开的说明照它再矮一行（stage.css）。 */}
       <div className={area && line !== null ? 'stage-foot under-notice' : 'stage-foot'} ref={foot}>
-        {/* 时间轴：只有全程沙盘有，在题记上面。这一条的高是定死的（stage.css），它里面的东西到没到，沙盘四边留的空都一样。 */}
-        {table.kind === 'route' && <BarBand table={table} marks={marks} slot={tableSlot} />}
+        {/* 时间轴：人物页和首页才有（摆的是全程沙盘），在题记上面。这一条的高是定死的（stage.css），它里面的东西到没到，沙盘四边留的空都一样。 */}
+        {bar && table.kind === 'route' && <BarBand table={table} marks={marks} slot={tableSlot} onGoal={onGoal} />}
         {info ? (
           <SectionCaption info={info} legend={legend} noteOpen={noteOpen} onToggleNote={toggleNote} noteId={noteId} noteButton={noteButton} />
         ) : (
@@ -1124,6 +1141,12 @@ function TableStage({ table, section, resetLabel, bare, marks, standing, namesMo
 
 /** 时间轴里面的东西是另一段程序（src/timebar/），栏里摆上全程沙盘才去取。这一句动态 import 要写在页面自己的文件里（缘故见 src/stage/index.ts）。 */
 const loadBar = () => import('../timebar/TimeBar');
+
+/**
+ * 这一次访问里，时间轴让全程沙盘看哪一节：键是沙盘的 key，值是小节标题；读者还没动过时间轴的那一座没有。
+ * 记在组件外面：进了一站自己的沙盘再回来，这一栏是从头摆的，头一个画面就该是时间轴停着的那一节，不先摆全程再滑过去。
+ */
+const BAR_GOAL: Record<string, string> = {};
 
 /**
  * 全程沙盘下面、题记上面的一条：时间轴。这里只管留出地方、去取那一段程序；没取到说一句话。

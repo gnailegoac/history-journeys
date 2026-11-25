@@ -158,6 +158,15 @@ export interface RouteLineStyle {
   widthPx: number;
 }
 
+/** 小像（沙盘上标出人物在哪的那个泥人）各段的颜色，'#rrggbb'：底座的面、底座的边、袍子、头、帽子。 */
+export interface PieceStyle {
+  base: string;
+  rim: string;
+  robe: string;
+  head: string;
+  cap: string;
+}
+
 /** 一种时代样式：颜色、地面怎么上色、模型跟着远近怎么变、题签抬多高、灯、雾。 */
 export interface StageStyle {
   id: SceneStyleId;
@@ -188,6 +197,8 @@ export interface StageStyle {
   mistFor(distanceM: number): number;
   /** 全程沙盘自己的那一份。这种样式还摆不了全程沙盘时不写。 */
   route?: RouteStyle;
+  /** 小像的颜色。它是这位人物的东西，颜色跟着时代样式走，不从页面的样式表里取。这种样式还没有小像时不写。 */
+  piece?: PieceStyle;
 }
 
 /** 零件库造模型时拿到的东西。 */

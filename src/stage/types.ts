@@ -129,7 +129,28 @@ export interface StageReadout {
   };
   /** 给拍定格图的工具用：现在这个画面的底细。只有摆出来的立体沙盘给。 */
   shot?: StageShot;
+  /**
+   * 给测试用：小像现在在哪。at 是它脚下那一点（沙盘里的米）；px 是脚下那一点落在画面的哪里（x、y）和它在画面上多高（h，从脚到帽顶，像素）。
+   * 沙盘上没有小像（没有摆、拿走了、潜的时候收起来了）是 null；摆不了小像的沙盘（站点沙盘、定格图、沙盘的替身）不写。
+   */
+  piece?: { at: [number, number, number]; px: { x: number; y: number; h: number } } | null;
 }
+
+/**
+ * 小像站在哪。三种说法；页面只说这些，路的线在沙盘这一边：
+ *   place  一个地名点上（场景里 places 的 id）；
+ *   road   一趟路上：ways 是走的那几截路，照走的先后，倒着走的前面一个减号（和场景文件里的写法一样）；
+ *          从 from 到 to 沿着画出来的线匀着走，走到 k 成（0 到 1）。from、to 是这几截路接起来的两头（'start'、'end'），
+ *          或者路上一处的经纬度（落在线上离它最近的一点）；
+ *   spot   画出来的一截路上、沙盘没有立名字的一处：way 是那一截路，at 是那一处的经纬度（落在线上离它最近的一点）。
+ */
+export type PiecePlace =
+  | { on: 'place'; place: string }
+  | { on: 'road'; ways: string[]; from: PieceEnd; to: PieceEnd; k: number }
+  | { on: 'spot'; way: string; at: [number, number] };
+
+/** 一趟路上的一头。 */
+export type PieceEnd = 'start' | 'end' | [number, number];
 
 export interface StageShot {
   section: string;
@@ -239,6 +260,16 @@ export interface StopStageView extends StageView {
    * 潜完以后镜头留在那里：页面接着换到那一站；不换的话，要再叫一次 showSection 才回到原来的小节。
    */
   dive?(stop: string, ms: number): Promise<boolean>;
+
+  /**
+   * 全程沙盘才有：把小像摆到这里；null 是拿走。马上摆到，不滑，不动镜头；之后画一帧（读正文的时候多出来的画法只有这一种）。
+   * 还没摆好就调用的，记着最后一次，摆好了照它摆。认不得的 id（地名点、路）当作 null，并在控制台说一句。
+   * 小像停在一处（地名点上，或者 spot）的时候，题签让开它（见 src/stage/overlay/types.ts 的 avoid）；在路上走的时候不让。
+   * 潜到一站上空的那一趟（dive）一起步，小像收起来——除非他正站在那一站的地名点上；下一次 showSection 再摆出来。
+   * 从不抛出；嫌慢以后、画面丢了、关掉以后不做事。站点沙盘上只是记着，什么也不摆。
+   * 定格图不写这个方法（图片上不画小像）；沙盘的替身不画，只把叫它摆在哪记在 data-fake-piece 上。
+   */
+  placePiece?(where: PiecePlace | null): void;
 }
 
 export interface StageEngine {
@@ -253,4 +284,26 @@ export interface StageEngine {
    * 前一座从此不再画，并通过 onLost 通知页面（还没摆好的那一座则是 ready 拒绝）。页面应当先 destroy 前一座。
    */
   create(container: HTMLElement, table: StageTable, options: StageOptions): StopStageView;
+}
+
+// ---------------------------------------------------------------- 时间轴（src/timebar/，摆上全程沙盘才下载的一段程序）
+
+/** 时间轴走到了哪一站讲的那几年（stop 是站的 id）；says 是目录里那一站上添的几个字：他正住在那里、正往那里去时才有，别的时候是空的。 */
+export interface BarHere {
+  stop: string;
+  says: string;
+}
+
+/** 沙盘栏交给时间轴的几样。 */
+export interface BarProps {
+  /** 摆着的全程沙盘（场景里有哪几节、各看哪一站；它的 key 的头一段是哪位人物）。 */
+  table: RouteTable;
+  /** 每一站的印：印上的字、网址、写好了没有（src/domain/stopMarks.ts）。 */
+  marks: StageOptions['marks'];
+  /** 现在挂着的立体的沙盘（没摆好、放着图片时 view 是 null）：小像是摆在它上面的。 */
+  slot: { current: { view: StopStageView | null } };
+  /** 读者动了时间轴：全程沙盘该看这一节（小节标题）。沙盘栏还没有接这一样的时候不交。 */
+  onGoal?: (heading: string) => void;
+  /** 时间轴走到了哪一站讲的那几年、目录上该写哪几个字；不在哪一站讲的年份里是 null。人物页的目录还没有接这一样的时候不交。 */
+  onHere?: (here: BarHere | null) => void;
 }

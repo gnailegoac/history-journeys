@@ -32,6 +32,7 @@
 
 import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
+import type { ItineraryBar } from '../../src/domain/itinerary';
 import type { RouteScene, StopScene } from '../../src/domain/scene';
 import { sectionHeadings, stripTexts } from '../../src/domain/sceneText';
 import type { LngLat, Figure, StopContent, StopMeta } from '../../src/domain/types';
@@ -301,6 +302,7 @@ function madeUpSite(change: (site: SiteText) => void = () => {}): SiteText {
           },
         ],
         route: null,
+        bar: null,
       },
     ],
   };
@@ -679,6 +681,49 @@ describe('数字：哪些字归哪一组（编出来的一位人物）', () => {
     for (const file of split.files.filter((item) => item.stop !== null)) for (const ch of file.characters) expect(fileOf(same, file.group).characters, `${file.name} “${ch}”`).toContain(ch);
     const moved = [...fileOf(same, 'song-s2').characters].filter((ch) => !fileOf(split, 'song-s2').characters.includes(ch)).join('');
     expect(has(split, 'song', moved)).toBe(true);
+  });
+
+  it('行迹：年名和“在哪”进黑体，第二行的句子进不用点开就看得见的宋体，说不准的进点开才看得见的', () => {
+    // 编出来的一份时间轴用的行迹：每一样用的字都是这座编出来的网站别处没有的
+    const bar: ItineraryBar = {
+      day0: '1000-01-01',
+      name: '轼',
+      years: [
+        [1000, '熙宁', null, 1],
+        [1001, '丰祐', 30, 2],
+      ],
+      first: { label: '诞', says: '曩' },
+      last: { label: '殁', says: '迄' },
+      stretches: [
+        { id: 't1', look: 'quiet', label: '徙', says: '匀', unsure: '疑', until: 100, place: 'a' },
+        { id: 't2', look: 'off', label: '谪', says: '迹', until: 200 },
+      ],
+    };
+    const all = '轼熙宁丰祐诞殁徙谪曩迄匀迹疑';
+    const without = planFonts(madeUpSite());
+    for (const group of ['sans', 'song', 'kai', 'song-more']) expect(hasNone(without, group, all), group).toBe(true);
+    const plan = planFonts(madeUpSite((site) => (site.figures[0].bar = bar)));
+    // 第一行是黑体：首页上排在最前面的名字，每一个农历年的年名，每一段的“在哪”（连最前、最后两个位置的）
+    expect(has(plan, 'sans', '轼熙宁丰祐诞殁徙谪')).toBe(true);
+    // 第二行的句子是宋体，拖到哪一段就印哪一句：在头一个宋体文件里，不进黑体
+    expect(has(plan, 'song', '曩迄匀迹')).toBe(true);
+    expect(hasNone(plan, 'sans', '曩迄匀迹疑')).toBe(true);
+    // 说不准的点开“说明”才看得见：在点开才下载的那个文件里，头一个宋体文件里没有
+    expect(has(plan, 'song-more', '疑')).toBe(true);
+    expect(hasNone(plan, 'song', '疑')).toBe(true);
+    expect(hasNone(plan, 'song-more', '曩迄匀迹轼熙宁丰祐诞殁徙谪')).toBe(true);
+    // 黑体的字头一个宋体文件里也有一份；楷体里一个也没有
+    expect(has(plan, 'song', '轼熙宁丰祐诞殁徙谪')).toBe(true);
+    expect(hasNone(plan, 'kai', all)).toBe(true);
+    // 时间轴摆在人物页和首页上：按站拆开的时候这些字也归大家共用的文件，不归哪一站
+    const split = planFonts(madeUpSite((site) => (site.figures[0].bar = bar)), { splitByStop: true });
+    expect(has(split, 'song', '曩迄匀迹轼熙宁丰祐诞殁徙谪')).toBe(true);
+    expect(has(split, 'song-more', '疑')).toBe(true);
+    for (const file of split.files.filter((item) => item.stop !== null)) expect(hasNone(split, file.group, all), file.name).toBe(true);
+    // 用在哪记着：给“哪个字不在字体里”那句话用
+    expect(fileOf(plan, 'song').where.get('匀')).toEqual(['某人的人物页（时间轴）']);
+    expect(fileOf(plan, 'sans').where.get('徙')).toEqual(['某人的人物页（时间轴）']);
+    expect(fileOf(plan, 'song-more').where.get('疑')).toEqual(['某人的人物页（时间轴）']);
   });
 
   it('记在“用设备自带的字显示”里的字不进字体，另外报出来', () => {

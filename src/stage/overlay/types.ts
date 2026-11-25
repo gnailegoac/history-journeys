@@ -54,6 +54,11 @@ export interface StripInput {
   size: { width: number; height: number };
   /** 四边各留出多少，题签不摆进去。 */
   insets: StageInsets;
+  /**
+   * 沙盘上另有东西占着画面的时候（全程沙盘上停在一处的小像）：它在画面上占的方块，一样一块。题签不压这几块，引线也不从上面穿过去；
+   * 只有指着一块里面的一点的题签，引线可以从里面出来（小像站在这个地名点上，名字的线从他脚下出去）。不写就是没有，摆出来的和不认得这个字段时一个数不差。
+   */
+  avoid?: { x0: number; y0: number; x1: number; y1: number }[];
 }
 
 /** 一条题签摆在哪。 */
@@ -84,8 +89,9 @@ export interface StripLayer {
    * 按这一帧各点的位置把题签摆好。
    * opts.moving 是 true（读者的手还在动沙盘）时不重新挑位置：每条题签留在原来的候选位置上，
    * 留不住的先藏起来、留一个空心的圈；手放开以后的那一次（moving 不写或 false）再整个重摆。
+   * opts.avoid 是这一帧不许压的那几块（见 StripInput.avoid）；不写就是没有。
    */
-  place(anchors: StripInput['anchors'], size: StripInput['size'], insets: StageInsets, opts?: { moving?: boolean }): void;
+  place(anchors: StripInput['anchors'], size: StripInput['size'], insets: StageInsets, opts?: { moving?: boolean; avoid?: StripInput['avoid'] }): void;
   /** 先都藏起来（镜头滑动的时候）。下一次 place 再显出来。 */
   hide(): void;
   /**

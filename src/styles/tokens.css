@@ -33,7 +33,7 @@
 
   /* 影子：只有下面这几样有影子，都是浮在别的东西上面的；正文那一栏里别的东西没有影子。 */
   --shadow-plate: 0 1px 2px rgb(22 22 20 / 0.1), 0 3px 10px -3px rgb(22 22 20 / 0.22); /* 浮着的板：沙盘上面的按钮、那几句话、展开的说明，和“到沙盘” */
-  --shadow-small: 0 1px 2px rgb(22 22 20 / 0.1); /* 沙盘栏里的两个小按钮 */
+  --shadow-small: 0 1px 2px rgb(22 22 20 / 0.1); /* 沙盘栏里的小按钮，和时间轴上的几块白底小板（“播放”“说明”“进第几站”） */
   --shadow-card: 0 1px 2px rgb(22 22 20 / 0.04), 0 8px 20px -12px rgb(22 22 20 / 0.16); /* 首页上点得进去的卡片 */
   --shadow-panel: 0 -12px 28px -16px rgb(22 22 20 / 0.32); /* 讲解员面板往上投的 */
   --shadow-pane: 0 10px 20px -14px rgb(22 22 20 / 0.4); /* 窄屏上钉在顶上的沙盘栏往下面的正文上投的 */
@@ -97,6 +97,7 @@
   --stage-height-narrow: 56vh; /* 窄屏上沙盘栏的高度：竖着拿的平板上，沙盘占屏幕的一多半（decisions.md 第 23 条） */
   --stage-height-narrow-min: 11rem;
   --stage-height-folded: calc(var(--tap) + 2 * var(--gap-2)); /* 窄屏上收起后的高度：只留一排按钮 */
+  --stage-bar-h: 0px; /* 全程沙盘下面那一条时间轴的高。这一条还没有摆出来：先是 0，摆出来的那一步改成 6rem */
 }
 
 @media (min-width: 600px) {

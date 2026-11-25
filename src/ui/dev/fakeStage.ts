@@ -14,6 +14,7 @@
 //   data-fake-asked           是不是读者自己点“试试立体的沙盘”要来的
 //   data-fake-slow            说没说过“这台设备上太慢”（说过以后它就不再画了）
 //   data-fake-dive            最近一次叫它潜到哪一站上空（页面只在地址里带 ?dive=1 时才叫替身潜）
+//   data-fake-piece           最近一次叫它把小像摆在哪（placePiece 收到的那个东西，写成 JSON；叫它拿走是空的；没叫过就没有这一项）
 // 题签用的是真的那一层（src/stage/overlay），只是每条题签指着的位置是编的。
 // 替身上没法拖动，没有会断的三维画面，也量不出快慢，各用一个按钮代替。
 //
@@ -275,6 +276,11 @@ function createFakeView(container: HTMLElement, table: StageTable, options: Stag
     resetView: () => {
       if (destroyed) return Promise.reject(new Error('沙盘的替身已经关掉'));
       return current === undefined || slow ? Promise.resolve() : moveTo(current, true);
+    },
+    // 小像：替身不画，只记下页面叫它摆在哪
+    placePiece: (where) => {
+      if (destroyed || slow) return;
+      root.dataset.fakePiece = where ? JSON.stringify(where) : '';
     },
     setNamesMode: (mode_) => {
       if (destroyed || slow) return;

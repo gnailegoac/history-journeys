@@ -878,6 +878,36 @@ describe('沙盘自己的几条规矩（零件库、上色、地形板是假的�
     });
   });
 
+  it('站点沙盘上叫 placePiece：什么也不摆，读数里没有 piece 这一项', { timeout: 60_000 }, async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const s = stage();
+    const view = await openView(s, { reducedMotion: true });
+    if (!view.placePiece) throw new Error('沙盘程序的画面没有 placePiece');
+    // 摆好以前、摆好以后各叫一次：都只是记着
+    view.placePiece({ on: 'place', place: 'xuzhou' });
+    await until(view.ready);
+    await wait(400);
+    const before = s.frames.length;
+    const children = s.fake.lastWorld()?.children.length;
+    view.placePiece({ on: 'place', place: 'xuzhou' });
+    view.placePiece({ on: 'road', ways: ['w-1056'], from: 'start', to: 'end', k: 0.5 });
+    view.placePiece(null);
+    await wait(400);
+    // 一帧不多画，场景里不多一样东西，读数里没有这一项，题签层没有收到让开的方块，控制台也不说话
+    expect(s.frames).toHaveLength(before);
+    expect(s.fake.lastWorld()?.children.length).toBe(children);
+    let pieces = 0;
+    s.fake.lastWorld()?.traverse((o) => {
+      if ((o as Mesh).isMesh && o.renderOrder === 14) pieces++;
+    });
+    expect(pieces).toBe(0);
+    expect('piece' in view.readout()).toBe(false);
+    expect(strips.places.length).toBeGreaterThan(0);
+    expect(strips.places.every((p) => p.avoid === undefined)).toBe(true);
+    expect(warn).not.toHaveBeenCalled();
+    warn.mockRestore();
+  });
+
   it('读者的手按着的时候告诉题签层“还在动”；放开以后整个重摆一次；点一下、没有拖，什么也不画', { timeout: 60_000 }, async () => {
     const s = stage();
     const view = await openView(s, { section: headings[2] });

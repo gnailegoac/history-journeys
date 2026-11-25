@@ -1,10 +1,19 @@
 // 题签摆在画面的哪里（src/stage/overlay/placeStrips.ts），和题签层怎么把它们放到页面上（strips.ts）。
 // 前一半是纯函数，后一半用一个很小的假页面；都不用浏览器。真的沙盘、真的镜头上摆不摆得下，在 tests/stage/scene-strips.test.ts。
 
+import { PerspectiveCamera } from 'three';
 import { describe, expect, it } from 'vitest';
+import type { NamesMode, RouteSection, SceneSection, SceneStrip, TableScene } from '../../src/domain/scene';
+import type { FrameCoords } from '../../src/domain/sceneGeo';
+import type { GroundSamplers } from '../../src/stage/ground/types';
 import { mountStrips, placeStrips, sideOfSlot } from '../../src/stage/overlay';
 import type { StripInput, StripPlacement, StripSpec } from '../../src/stage/overlay';
+import { centreShift, equivalentDistance, placeCamera, screenAnchors } from '../../src/stage/three/rig';
+import { styleFor } from '../../src/stage/three/style';
 import type { StageInsets } from '../../src/stage/types';
+import { realRouteScene, realScene, realSceneKeys } from '../stage/support/realScenes';
+import { HOME_PANES, STANDARD_PANES } from '../stage/support/standardPanes';
+import { routeSectionStrips, sectionStrips } from '../stage/support/stripSizes';
 
 const SIZE = { width: 800, height: 600 };
 const NO_INSETS: StageInsets = { top: 0, right: 0, bottom: 0, left: 0 };
@@ -1489,5 +1498,176 @@ describe('题签层：手还在动沙盘时（T9）', () => {
     // 字多了，题签高了，还是在那一点的正上方
     expect(m.centre('b').x).toBe(300);
     expect(m.centre('b').y).toBeLessThan(200);
+  });
+});
+
+// ---------------------------------------------------------------- 沙盘上另有东西占着的一块（avoid）
+
+describe('沙盘上另有东西占着画面的一块（avoid：全程沙盘上停在一处的小像）', () => {
+  type AvoidBox = NonNullable<StripInput['avoid']>[number];
+  const NAMES: NamesMode[] = ['ancient', 'modern'];
+
+  /** 真的一座沙盘的一小节，在一种沙盘栏上：交给 placeStrips 的那一份（镜头、那几点的算法和页面上的沙盘是同一套）。 */
+  function realInput(
+    scene: TableScene,
+    coords: FrameCoords,
+    samplers: GroundSamplers,
+    section: SceneSection | RouteSection,
+    pane: { size: { width: number; height: number }; insets: StageInsets },
+    list: StripInput['strips'],
+  ): StripInput {
+    const style = styleFor(scene.style);
+    const view = placeCamera(section, scene, samplers, coords, style, pane.size, pane.insets);
+    const camera = new PerspectiveCamera(view.pose.fov, pane.size.width / pane.size.height, Math.max(60, view.distanceM * 0.1), view.distanceM * 3 + 30000);
+    camera.position.set(...view.pose.position);
+    camera.lookAt(...view.pose.target);
+    const [shiftX, shiftY] = centreShift(pane.insets);
+    if (shiftX || shiftY) camera.setViewOffset(pane.size.width, pane.size.height, -shiftX, -shiftY, pane.size.width, pane.size.height);
+    camera.updateProjectionMatrix();
+    camera.updateMatrixWorld(true);
+    const written = list.map((s) => scene.strips.find((x) => x.id === s.id)).filter((s): s is SceneStrip => s !== undefined);
+    const D = equivalentDistance(view.distanceM, view.pose.fov, pane.size.height);
+    return { strips: list, anchors: screenAnchors(written, scene, samplers, coords, style, D, camera, pane.size), size: pane.size, insets: pane.insets };
+  }
+
+  /** content/ 里的每一座沙盘（站点的、全程的）、每一小节、每一种标准的沙盘栏（全程沙盘再加首页的两种）、古今两种名字。 */
+  function everyRealInput(): { at: string; input: StripInput }[] {
+    const out: { at: string; input: StripInput }[] = [];
+    for (const key of realSceneKeys()) {
+      const R = realScene(key);
+      for (const pane of STANDARD_PANES)
+        for (const section of R.scene.sections)
+          for (const names of NAMES) out.push({ at: `${key} ${pane.name} ${section.heading} ${names}`, input: realInput(R.scene, R.coords, R.samplers, section, pane, sectionStrips(R.scene, section.heading, pane.size.width, names)) });
+    }
+    for (const key of realSceneKeys('route')) {
+      const R = realRouteScene(key);
+      for (const pane of [...STANDARD_PANES, ...HOME_PANES.filter((p) => !STANDARD_PANES.includes(p))])
+        for (const section of R.scene.sections)
+          for (const names of NAMES) out.push({ at: `${key} ${pane.name} ${section.heading} ${names}`, input: realInput(R.scene, R.coords, R.samplers, section, pane, routeSectionStrips(R.scene, section.heading, pane.size.width, names)) });
+    }
+    return out;
+  }
+
+  const rectOf = (p: StripPlacement, s: { w: number; h: number }): AvoidBox => ({ x0: p.x - s.w / 2, y0: p.y - s.h / 2, x1: p.x + s.w / 2, y1: p.y + s.h / 2 });
+  const touches = (a: AvoidBox, b: AvoidBox): boolean => a.x0 < b.x1 && a.x1 > b.x0 && a.y0 < b.y1 && a.y1 > b.y0;
+  /** 一条线段有没有从一块里面穿过去：沿线取很多点，看有没有落在里面的。 */
+  function passes(leader: readonly [number, number, number, number], b: AvoidBox): boolean {
+    const [x1, y1, x2, y2] = leader;
+    const steps = Math.max(8, Math.ceil(Math.hypot(x2 - x1, y2 - y1) * 4));
+    for (let i = 0; i <= steps; i++) {
+      const x = x1 + ((x2 - x1) * i) / steps;
+      const y = y1 + ((y2 - y1) * i) / steps;
+      if (x > b.x0 + 0.01 && x < b.x1 - 0.01 && y > b.y0 + 0.01 && y < b.y1 - 0.01) return true;
+    }
+    return false;
+  }
+  const insideBox = (a: { x: number; y: number }, b: AvoidBox): boolean => a.x > b.x0 && a.x < b.x1 && a.y > b.y0 && a.y < b.y1;
+
+  it(
+    '不给 avoid、给一个空的 avoid：摆出来的和原来一个数不差（四座沙盘、每一种标准的画面、古今两种名字）',
+    () => {
+      const all = everyRealInput();
+      let placements = 0;
+      for (const { at: where, input: given } of all) {
+        // “原来”：这个字段根本不写（改以前的页面给的就是这样）
+        expect('avoid' in given, where).toBe(false);
+        const plain = placeStrips(given);
+        placements += plain.length;
+        expect(placeStrips({ ...given, avoid: [] }), `${where}：空的 avoid`).toEqual(plain);
+        expect(placeStrips({ ...given, avoid: undefined }), `${where}：avoid 写成 undefined`).toEqual(plain);
+        // 接着上一次摆、手还按着的时候也一样
+        expect(placeStrips({ ...given, avoid: [] }, plain), `${where}：接着上一次摆`).toEqual(placeStrips(given, plain));
+        expect(placeStrips({ ...given, avoid: [] }, plain, { moving: true }), `${where}：手还按着`).toEqual(placeStrips(given, plain, { moving: true }));
+      }
+      // 四座沙盘都在里面，每一座都摆了题签
+      const tables = [...realSceneKeys(), ...realSceneKeys('route')];
+      expect(tables.length).toBeGreaterThanOrEqual(4);
+      for (const key of tables) expect(all.some((x) => x.at.startsWith(`${key} `) && x.input.strips.length > 0), key).toBe(true);
+      console.log(`不给 avoid 和给空的 avoid：${tables.length} 座沙盘，${all.length} 个画面，${placements} 条题签，摆出来的一个数不差`);
+    },
+    60_000,
+  );
+
+  it(
+    '给了一块：没有一条题签压着它，也没有一条引线从它上面穿过去；指着它里面一点的那一条，引线从里面出来',
+    () => {
+      // 先是编的一个画面：a 指的那一点就在那一块里面（小像站在这个地名点上），b、c 在它旁边
+      const box: AvoidBox = { x0: 390, y0: 264, x1: 410, y1: 308 };
+      const three = input({ strips: strips('a', 'b', 'c'), anchors: [at('a', 400, 300), at('b', 400, 380), at('c', 452, 290)] });
+      const without = placeStrips(three);
+      // 没有那一块的时候，a 摆在正上方，正好压着它（不然这个测试什么也没查）
+      expect(touches(rectOf(without[0], { w: W, h: H }), box)).toBe(true);
+      const withBox = placeStrips({ ...three, avoid: [box] });
+      expect(withBox.map((p) => p.hidden)).toEqual([false, false, false]);
+      for (const p of withBox) {
+        expect(touches(rectOf(p, { w: W, h: H }), box), `${p.id} 压着那一块`).toBe(false);
+        if (p.id !== 'a') expect(passes(p.leader!, box), `${p.id} 的引线穿过那一块`).toBe(false);
+      }
+      // a 的引线从那一块里面出来：起头就是它指的那一点
+      expect(withBox[0].leader!.slice(0, 2)).toEqual([400, 300]);
+      expect(insideBox({ x: withBox[0].leader![0], y: withBox[0].leader![1] }, box)).toBe(true);
+      // 只有一条、指的点在那一块正下方：不给那一块时它摆在正上方，压着那一块；给了以后换了地方，引线也不从那一块上穿过去
+      const below = input({ anchors: [at('a', 400, 340)] });
+      expect(touches(rectOf(placeStrips(below)[0], { w: W, h: H }), box)).toBe(true);
+      const aside = placeStrips({ ...below, avoid: [box] })[0];
+      expect(aside.hidden).toBe(false);
+      expect(touches(rectOf(aside, { w: W, h: H }), box)).toBe(false);
+      expect(passes(aside.leader!, box)).toBe(false);
+
+      // 再是真的全程沙盘：小像依次站在每一条站名题签指的那一点上（那一块照 view.ts 的量法：左右各 10，往上 36，往下 8）
+      let cases = 0;
+      let moved = 0;
+      for (const key of realSceneKeys('route')) {
+        const R = realRouteScene(key);
+        for (const pane of STANDARD_PANES)
+          for (const section of R.scene.sections) {
+            const given = realInput(R.scene, R.coords, R.samplers, section, pane, routeSectionStrips(R.scene, section.heading, pane.size.width));
+            const plain = placeStrips(given);
+            for (const anchor of given.anchors) {
+              const strip = R.scene.strips.find((s) => s.id === anchor.id);
+              if (!anchor.visible || !strip || !('of' in strip) || !R.scene.places.some((place) => place.id === strip.of)) continue;
+              const stand: AvoidBox = { x0: anchor.x - 10, y0: anchor.y - 36, x1: anchor.x + 10, y1: anchor.y + 8 };
+              const result = placeStrips({ ...given, avoid: [stand] });
+              cases++;
+              if (JSON.stringify(result) !== JSON.stringify(plain)) moved++;
+              result.forEach((p, i) => {
+                if (p.hidden) return;
+                const where = `${key} ${pane.name} ${section.heading}，小像在 ${anchor.id}：${p.id}`;
+                expect(touches(rectOf(p, given.strips[i]), stand), `${where} 压着他`).toBe(false);
+                const own = given.anchors.find((a) => a.id === p.id)!;
+                if (!insideBox(own, stand)) expect(passes(p.leader!, stand), `${where} 的引线从他身上穿过去`).toBe(false);
+              });
+            }
+          }
+      }
+      expect(cases).toBeGreaterThan(0);
+      // 这一块不是白给的：有的画面上题签真的为它挪了位置
+      expect(moved).toBeGreaterThan(0);
+      console.log(`全程沙盘上小像站在各个地名点上：${cases} 个画面，其中 ${moved} 个画面上有题签为他挪了位置；没有一条压着他、引线穿过他`);
+    },
+    60_000,
+  );
+
+  it('给了一块，手还按着沙盘（moving）：原来的位置压着它的那一条先藏起来，不挪别的', () => {
+    const three = input({ strips: strips('a', 'b', 'c'), anchors: [at('a', 300, 300), at('b', 500, 300), at('c', 650, 420)] });
+    const before = placeStrips(three);
+    expect(before.map((p) => p.hidden)).toEqual([false, false, false]);
+    // 那一块正压在 b 现在的位置上（b 指的点不在它里面）
+    const r = rectOf(before[1], { w: W, h: H });
+    const box: AvoidBox = { x0: r.x0 + 4, y0: r.y0 + 10, x1: r.x1 - 4, y1: r.y0 + 40 };
+    expect(insideBox({ x: 500, y: 300 }, box)).toBe(false);
+    const held = placeStrips({ ...three, avoid: [box] }, before, { moving: true });
+    // b 先藏起来，缘故是 room，号还记着；a、c 一个数不动
+    expect(held[1]).toEqual({ id: 'b', x: 500, y: 300, hidden: true, leader: null, why: 'room', slot: before[1].slot });
+    expect(held[0]).toEqual(before[0]);
+    expect(held[2]).toEqual(before[2]);
+    // 手放开以后的那一次：b 换一个不压那一块的位置摆出来，别的还在原处
+    const released = placeStrips({ ...three, avoid: [box] }, held);
+    expect(released[1].hidden).toBe(false);
+    expect(touches(rectOf(released[1], { w: W, h: H }), box)).toBe(false);
+    expect(released[0]).toEqual(before[0]);
+    expect(released[2]).toEqual(before[2]);
+    // 那一块拿走了，手还按着：b 摆回原来的号上
+    expect(placeStrips(three, held, { moving: true })).toEqual(before);
   });
 });

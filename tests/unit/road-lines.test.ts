@@ -267,8 +267,13 @@ describe.each(real)('$key 的路画成的线', ({ key, scene }) => {
 
 describe('src/stage/roadLines.ts 只给全程沙盘的那一块程序用', () => {
   const sources = import.meta.glob<string>('/src/**/*.{ts,tsx}', { query: '?raw', import: 'default', eager: true });
-  /** 可以引它的文件：全程沙盘才下载的那一块，和它后面画路的文件。 */
-  const MAY_IMPORT = ['/src/stage/three/routeLevel.ts', '/src/stage/three/routeKit.ts'];
+  /** 可以引它的文件：全程沙盘才下载的那一块，它后面画路的文件，和算小像站在哪的文件（也只跟着那一块下载）。 */
+  const MAY_IMPORT = ['/src/stage/three/routeLevel.ts', '/src/stage/three/routeKit.ts', '/src/stage/pieceWhere.ts'];
+  /** 哪些文件引了 pieceWhere（只取类型的也算，动态的也算）。 */
+  const pieceImporters = (files: Record<string, string>): string[] =>
+    Object.entries(files)
+      .filter(([file, text]) => file !== '/src/stage/pieceWhere.ts' && /from\s*['"][^'"]*\/pieceWhere['"]|import\(\s*['"][^'"]*\/pieceWhere['"]\s*\)/.test(text))
+      .map(([file]) => file);
 
   /** 一个文件里运行时真的引进来的东西（只取类型的不算）：从哪里引的。动态的 import() 也算。 */
   const runtimeImports = (text: string): string[] => [
@@ -297,5 +302,16 @@ describe('src/stage/roadLines.ts 只给全程沙盘的那一块程序用', () =>
     // 这个查法认得出来：页面的一个文件引了它（哪怕只取类型、哪怕是动态的）就查得到
     expect(importersOf({ ...sources, '/src/ui/planted.ts': "import { roadRuns } from '../stage/roadLines';" })).toContain('/src/ui/planted.ts');
     expect(importersOf({ '/src/stage/index.ts': "const lines = await import('./roadLines');", '/src/stage/three/view.ts': "import type { RoadRun } from '../roadLines';" })).toEqual(['/src/stage/index.ts', '/src/stage/three/view.ts']);
+  });
+
+  it('pieceWhere.ts 只有全程沙盘那一块程序引它（routeLevel.ts）：页面的程序、站点沙盘的程序都不引', () => {
+    const text = sources['/src/stage/pieceWhere.ts'];
+    expect(text).toBeDefined();
+    // 它自己不引 three；真的引进来的只有路的线（roadLines.ts），别的只取类型
+    expect(runtimeImports(text)).toEqual(['./roadLines']);
+    expect(pieceImporters(sources)).toEqual(['/src/stage/three/routeLevel.ts']);
+    // 这个查法认得出来：页面的一个文件、沙盘程序的一个文件引了它（哪怕只取类型、哪怕是动态的）就查得到
+    expect(pieceImporters({ ...sources, '/src/timebar/planted.ts': "import { pieceWhere } from '../stage/pieceWhere';" })).toContain('/src/timebar/planted.ts');
+    expect(pieceImporters({ '/src/stage/three/view.ts': "import type { PieceChain } from '../pieceWhere';", '/src/stage/index.ts': "const where = await import('./pieceWhere');" })).toEqual(['/src/stage/three/view.ts', '/src/stage/index.ts']);
   });
 });

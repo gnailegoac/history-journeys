@@ -347,8 +347,8 @@ export interface FakeStrips {
   log: string[];
   /** 最近一次换上的那批题签。 */
   specs(): StripSpec[];
-  /** 每一次 place 收到的东西；moving 是这一次说没说“读者的手还在动”。 */
-  places: { anchors: StripInput['anchors']; size: StripInput['size']; insets: StageInsets; moving: boolean }[];
+  /** 每一次 place 收到的东西；moving 是这一次说没说“读者的手还在动”；avoid 是这一次给的不许压的那几块（没给就是 undefined）。 */
+  places: { anchors: StripInput['anchors']; size: StripInput['size']; insets: StageInsets; moving: boolean; avoid: StripInput['avoid'] }[];
 }
 
 /** 假的题签层：什么也不摆，只记下沙盘叫它做了什么。 */
@@ -366,7 +366,7 @@ export function fakeStrips(): FakeStrips {
         log.push(`set ${strips.map((s) => s.text).join(',')}`);
       },
       place(anchors, size, insets, opts) {
-        places.push({ anchors, size: { ...size }, insets: { ...insets }, moving: opts?.moving === true });
+        places.push({ anchors, size: { ...size }, insets: { ...insets }, moving: opts?.moving === true, avoid: opts?.avoid?.map((box) => ({ ...box })) });
         if (log[log.length - 1] !== 'place') log.push('place');
       },
       hide() {

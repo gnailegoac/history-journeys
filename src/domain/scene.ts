@@ -457,6 +457,8 @@ export interface RouteScene {
   /** 头一节是全程；后面每一站一节，先后和 figure.json 里的站一样。 */
   sections: RouteSection[];
   notDrawn: SceneOmission[];
+  /** 凭据里“记号”一栏印的小像：名字、照什么摆、哪些是示意的。它站在哪里不写在这里，照行迹走。 */
+  piece?: { name: string; basis: string; note: string };
 }
 
 /** 一座沙盘的场景：站点沙盘或者全程沙盘。看 level 分。 */

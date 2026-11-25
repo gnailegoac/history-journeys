@@ -1,0 +1,1995 @@
+{
+  "about": {
+    "what": "苏轼一生在哪里：从出生到去世，一段接一段，不留空、不重叠。上一段的 end 就是下一段的 start。",
+    "kinds": {
+      "stop": "在某一站、而且在这一站讲的年份里。stop 是 figure.json 里的站 id，place 是 route.json 里地名点的 id。",
+      "road": "在全程沙盘画出来的一趟路上。journey 是 route.json 里 roads.journeys 的 id；parts 里的 name、ways 照 route.json 原样，ways 按他走的先后排；partial 为 true 表示只走了这一截里的一部分。",
+      "elsewhere": "别的：不在哪一站讲的年份里，也不在画出来的哪一趟路上。where 说在哪；moving 说是不是在路上；tablePoint 说这个地方在全程沙盘上有没有。"
+    },
+    "tablePoint": {
+      "stop-point": "是某一站的那个点（place 是 route.json 的地名点 id），只是年份不在这一站里",
+      "place": "沙盘上立了名字的地方，不是站（湖州）",
+      "way-vertex": "在画出来的某条线上，或者紧挨着它（颍州离线约十公里），沙盘上没有立它的名字（way 是那条线的 id，at 是经纬度）。小像站在线上的这个位置，时间轴第二行开头说“沙盘上没有立某地的名字。”",
+      "edge-strip": "在沙盘北边框外一点，框上立着带箭头的题签（定州）：小像不出现",
+      "on-ways": "路上的一趟：经过的地方大半在画出来的线上，ways 列出是哪些线；这一趟本身沙盘没有画，小像不出现",
+      "none": "沙盘上没有这个地方，或者路线没有查到：小像不出现"
+    },
+    "stopYearsOf": "这一段落在哪一站已发布的年份里（时间轴上各站的色带用它）；不在哪一站里写 null。",
+    "date": {
+      "text": "照史料的写法（年号纪年）",
+      "year": "公元年。精确到日的另写 month、day；别的精度不写月日，只写 earliest、latest（能定出来的最早、最晚一天）",
+      "calendar": "公元的月日一律是儒略历（1582 年以前通行的历法），照中央研究院《两千年中西历转换》的表换算，出处 id 是 cal。没有换算的不写月日。",
+      "precision": ["day", "month", "season", "year", "before", "after", "not-found"]
+    },
+    "class": "沿用本站的类别。路的每一截照 route.json 原来的类别（text 实线，schematic 虚线）。不是路的各段：他在哪里有文字可据的写 text，日子说不准的写进 unsure。本站的数据规格里类别是五类，这里只用到这两类。",
+    "waypoints": "路上有日子的地方，或者只知道先后的地方。有 date 的，人像可以在那一天站在那里；没有 date 的只知道先后。at 是考证记录里已有的经纬度。",
+    "ages": "年纪用虚岁：生在景祐三年腊月十九，算一岁；每过一个农历新年加一岁，不是过公元 1 月 1 日。years 里每一年写了正月初一是公元哪一天、这一年虚岁几岁（元丰三年，1080，虚岁四十五）。",
+    "years": "years 是时间轴上面那一行字用的：每个农历年的名字、正月初一的公元日子（儒略历，出处 cal）、虚岁。年名照纪年录逐年的写法；年中改元的年份（如绍圣元年）整年用后来的年号，这是史书通行的叫法。",
+    "label": "时间轴第一行“在哪”的几个字，最多十个字，手写。",
+    "says": "时间轴第二行的一句话，最多三十二个字，手写；要紧的半句在前（“匀着走的：”“这一趟没有画，沙盘上没有他。”“某地没有标出，沙盘上没有他。”“沙盘上没有立某地的名字。”）。saysDates 列出这句话里用到的每一个日子是哪一个 start、end 或途中一处（wp:名字）的写法缩短来的，照日子的先后列：只许整截地删（“二十八日”不能删成“八日”），不许添字，“以前、以后、或、之间、初”不许删；日子的前面、后面紧挨着的字只能是校验规则里那两张单子上的（日子旁边不添字）。",
+    "window": "不是精确到日的日子，earliest、latest 两头都要写。earliestIs、latestIs 说这一头是怎么定的。写着“日历……卡出来的最宽的范围”的，真正的日子没有查到，只知道不会超出这一头。",
+    "sharesWindow": "前后两个日子的范围一模一样时（先动身、后到），写明谁先谁后；程序把它们匀着排在范围里，排出来的位置从不显示成日子。",
+    "longRoad": "在路上超过三个月、到的日子又不是精确到日的一段，写明为什么这么长（史料怎么说的）。",
+    "firstLast": "first、last 是时间轴最前和最后一个位置上的两行字；句子里的日子也列在 saysDates 里（first 的只能指头一段的 start，last 的只能指最后一段的 end）。",
+    "notRead": "孔凡礼《苏轼年谱》等今人的年谱没有读到。凡是“通行的说法”而南宋两种年表和他自己的文字里没有的日子，这里都写“没有核到原文”，不当成日期用。农历年的表（years）和公元的月日是照历表换算的，没有另找一份历表对过。",
+    "revised": "2026-11-23 照评审改过：十个只有一头的范围补了另一头，两处共用范围写了先后，六十一段各加了 label、says。日子本身一个没改。2026-11-24：在画出来的线上、沙盘上没有立名字的七段（凤翔、泗州、常州两次、颍州、扬州、虔州），小像站到线上的那个位置，第二行开头改成“沙盘上没有立某地的名字。”；后面的日子一个字没动。同一天又照评审改了四处：first、last 各添了 saysDates；虔州那一段的“在哪”不再说等水涨（那是今人的说法，没有核到原文）；“元丰八年十一月或十二月”的精度从 season 改成 month（两个月，同“四月或五月”一样写）；添了 notRead。日子、范围、句子都没有动。"
+  },
+  "sources": [
+    {
+      "id": "site",
+      "basis": "later",
+      "cite": "本站已发布的年份和日期（figure.json、route.json、徐州和黄州两站的正文和凭据、全程沙盘的考证记录）",
+      "read": "读了"
+    },
+    { "id": "nianpu", "basis": "record", "cite": "王宗稷《东坡先生年谱》（南宋）", "read": "读了全文（维基文库《文章辨体汇选》卷五百五十九的录文）" },
+    { "id": "jinianlu", "basis": "record", "cite": "傅藻《东坡纪年录》（南宋）", "read": "读了全文（维基文库四部丛刊本的录文）" },
+    { "id": "zha", "basis": "later", "cite": "查慎行《苏诗补注》各卷题注和编次（清）", "read": "读了四十六卷的卷首题注，查了有关的诗题和按语" },
+    { "id": "zhe", "basis": "record", "cite": "苏辙《逍遥堂会宿二首》引", "read": "照全程沙盘考证记录的引文" },
+    { "id": "muzhi", "basis": "record", "cite": "苏辙《亡兄子瞻端明墓志铭》", "read": "只读了王宗稷年谱里的引文" },
+    { "id": "sima", "basis": "record", "cite": "司马光《程夫人墓志铭》", "read": "只读了王宗稷年谱里的引文" },
+    { "id": "ouyang", "basis": "record", "cite": "欧阳修《苏明允墓志铭》", "read": "只读了王宗稷年谱里的引文" },
+    {
+      "id": "own-1056",
+      "basis": "own-words",
+      "cite": "苏轼《凤鸣驿记》；《和子由渑池怀旧》自注；《牛口见月》",
+      "read": "前两篇照考证记录的引文，第三篇照纪年录的引文"
+    },
+    {
+      "id": "own-1059",
+      "basis": "own-words",
+      "cite": "苏轼《南行前集叙》；《上王兵部书》；《新渠诗》引；嘉祐四年、五年途中诗题",
+      "read": "照考证记录、纪年录、查注的引文和诗题"
+    },
+    {
+      "id": "own-1061",
+      "basis": "own-words",
+      "cite": "苏轼诗题《辛丑十一月十九日既与子由别于郑州西门之外，马上赋诗一篇寄之》；《石鼓》诗；《和子由渑池怀旧》",
+      "read": "诗题见查注卷三；《石鼓》句照纪年录的引文"
+    },
+    { "id": "own-1064", "basis": "own-words", "cite": "苏轼《华阴寄子由》", "read": "读了查注卷五的录文" },
+    { "id": "own-1066", "basis": "own-words", "cite": "苏轼《四菩萨阁记》", "read": "照考证记录和王宗稷年谱的引文" },
+    {
+      "id": "own-1071",
+      "basis": "own-words",
+      "cite": "苏轼熙宁四年途中诗题（《出都来陈》《颍州初别子由》《出颍口初见淮山是日至寿州》《十月二日将至涡口五里所遇风留宿》《十月十六日记所见》《游金山寺》等）",
+      "read": "诗题见查注卷六、卷七"
+    },
+    {
+      "id": "own-1073",
+      "basis": "own-words",
+      "cite": "苏轼诗题《去年秋偶游宝山上方……今年六月自常润还……》；熙宁六年冬到七年夏往返常州、润州的诗题",
+      "read": "前一题见查注卷十二；其余照纪年录列的题目"
+    },
+    {
+      "id": "own-1074",
+      "basis": "own-words",
+      "cite": "苏轼《记游松江》；《别天竺观音》诗序；《师子屏风赞》；熙宁七年途中诗题；《密州谢上表》",
+      "read": "照考证记录和王宗稷年谱的引文"
+    },
+    {
+      "id": "own-1077",
+      "basis": "own-words",
+      "cite": "苏轼熙宁十年途中诗题（《除夜大雪留潍州，元日早晴，遂行，中途雪复作》《至济南李公择以诗相迎》等）",
+      "read": "诗题见查注卷十五"
+    },
+    {
+      "id": "own-1079",
+      "basis": "own-words",
+      "cite": "苏轼《罢徐州往南京马上走笔寄子由五首》《灵壁张氏园亭记》《湖州谢上表》《杭州召还乞郡状》《黄州上文潞公书》",
+      "read": "照考证记录的引文"
+    },
+    {
+      "id": "own-1080",
+      "basis": "own-words",
+      "cite": "苏轼诗题《今年正月十四日与子由别于陈州……》《正月十八日蔡州道上遇雪》《正月二十日往岐亭……》；《岐亭五首》叙；《到黄州谢表》",
+      "read": "照本站黄州一站的凭据、考证记录和查注卷二十、二十一"
+    },
+    {
+      "id": "own-1084",
+      "basis": "own-words",
+      "cite": "苏轼《满庭芳》（归去来兮）序；《岐亭五首》叙；《圆通禅院……》诗叙；《石钟山记》；诗题《去岁九月二十七日，在黄州生子遯……今年七月二十八日病亡于金陵》；《满庭芳》（与刘仲达）序",
+      "read": "诗叙、诗题见查注卷二十三；两篇词序照王宗稷年谱的引文"
+    },
+    {
+      "id": "own-1085",
+      "basis": "own-words",
+      "cite": "苏轼《正月一日雪中过淮谒客回作》；《骡驮驿试笔》；《到常州谢表》；《登州海市》叙",
+      "read": "诗题、诗叙见查注卷二十五、二十六；《试笔》照王宗稷年谱的引文"
+    },
+    { "id": "own-zhazi", "basis": "own-words", "cite": "苏轼《辨题诗札子》（元祐六年八月初八日）", "read": "读了维基文库的录文" },
+    {
+      "id": "own-fengxiang",
+      "basis": "own-words",
+      "cite": "苏轼《凤翔到任谢执政启》（“违去轩屏，忽已改岁……前月十四日到任”）",
+      "read": "只读了维基文库搜索结果里的开头几句；评审的时候另把开头抓了下来核对过，日子对得上"
+    },
+    {
+      "id": "own-dengzhou",
+      "basis": "own-words",
+      "cite": "苏轼《登州谢上表二首》（“臣已于今月十五日到任上讫”）",
+      "read": "只读了维基文库搜索结果里的开头几句；评审的时候另把开头抓了下来核对过，日子对得上"
+    },
+    {
+      "id": "own-yangzhou",
+      "basis": "own-words",
+      "cite": "苏轼《扬州谢到任表二首》（“臣已于今月二十六日到任讫”）",
+      "read": "只读了维基文库搜索结果里的开头几句；评审的时候另把开头抓了下来核对过，日子对得上"
+    },
+    {
+      "id": "own-yingzhou",
+      "basis": "own-words",
+      "cite": "苏轼《颍州谢到任表二首》（“臣已于今月二十二日到任讫”）",
+      "read": "只读了维基文库搜索结果里的开头几句；评审的时候另把开头抓了下来核对过，日子对得上"
+    },
+    {
+      "id": "own-1091",
+      "basis": "own-words",
+      "cite": "苏轼《感旧诗》叙（“元祐六年，予自杭州召还，寓居子由东府，数月复出领汝阴”）",
+      "read": "照王宗稷年谱、纪年录的引文"
+    },
+    {
+      "id": "own-1092",
+      "basis": "own-words",
+      "cite": "苏轼《上巳日与二子迨、过游涂山、荆山，记所见》并自注；《东府雨中别子由》",
+      "read": "读了查注卷三十五、三十七的录文"
+    },
+    {
+      "id": "own-1094",
+      "basis": "own-words",
+      "cite": "苏轼《临城道中作》引、《赴英州乞舟行状》；绍圣元年途中诗题；《到惠州谢表》",
+      "read": "照考证记录的引文，诗题见查注卷三十七、三十八"
+    },
+    {
+      "id": "own-1097",
+      "basis": "own-words",
+      "cite": "苏轼《到昌化军谢表》《和陶止酒》引、《伏波将军庙碑》《行琼儋间，肩舆坐睡》",
+      "read": "《和陶止酒》引读了查注卷四十一的录文，其余照考证记录"
+    },
+    {
+      "id": "own-1100",
+      "basis": "own-words",
+      "cite": "苏轼《六月二十日夜渡海》；《书合浦舟行》；《瓶笙诗》引；广庆寺题名；《与郑靖老书》",
+      "read": "诗题、诗引、题名见查注卷四十三、四十四；《书合浦舟行》照纪年录和考证记录的引文；书信照王宗稷年谱的引文"
+    },
+    {
+      "id": "own-1101",
+      "basis": "own-words",
+      "cite": "苏轼《九成台铭》《南华长老题名记》；题《石钟山记》后；《顺济王庙新获石砮记》；《与钱济明书》",
+      "read": "都没有读原文：照查注卷四十四按语、王宗稷年谱、纪年录的转述"
+    },
+    { "id": "mo", "basis": "later", "cite": "今人莫砺锋的文章（本站黄州一站凭据里的 l-mo）", "read": "没有读，照本站凭据的转述" },
+    {
+      "id": "cal",
+      "basis": "later",
+      "cite": "中央研究院《两千年中西历转换》（https://sinocal.sinica.edu.tw/），2026 年 11 月 23 日查",
+      "read": "按公元的月份逐月取了表"
+    }
+  ],
+  "years": [
+    { "year": 1036, "name": "景祐三年", "newYear": null, "age": 1 },
+    { "year": 1037, "name": "景祐四年", "newYear": "1037-01-19", "age": 2 },
+    { "year": 1038, "name": "宝元元年", "newYear": "1038-02-07", "age": 3 },
+    { "year": 1039, "name": "宝元二年", "newYear": "1039-01-27", "age": 4 },
+    { "year": 1040, "name": "康定元年", "newYear": "1040-02-15", "age": 5 },
+    { "year": 1041, "name": "庆历元年", "newYear": "1041-02-04", "age": 6 },
+    { "year": 1042, "name": "庆历二年", "newYear": "1042-01-25", "age": 7 },
+    { "year": 1043, "name": "庆历三年", "newYear": "1043-02-13", "age": 8 },
+    { "year": 1044, "name": "庆历四年", "newYear": "1044-02-02", "age": 9 },
+    { "year": 1045, "name": "庆历五年", "newYear": "1045-01-21", "age": 10 },
+    { "year": 1046, "name": "庆历六年", "newYear": "1046-02-09", "age": 11 },
+    { "year": 1047, "name": "庆历七年", "newYear": "1047-01-29", "age": 12 },
+    { "year": 1048, "name": "庆历八年", "newYear": "1048-01-18", "age": 13 },
+    { "year": 1049, "name": "皇祐元年", "newYear": "1049-02-05", "age": 14 },
+    { "year": 1050, "name": "皇祐二年", "newYear": "1050-01-26", "age": 15 },
+    { "year": 1051, "name": "皇祐三年", "newYear": "1051-02-14", "age": 16 },
+    { "year": 1052, "name": "皇祐四年", "newYear": "1052-02-04", "age": 17 },
+    { "year": 1053, "name": "皇祐五年", "newYear": "1053-01-23", "age": 18 },
+    { "year": 1054, "name": "至和元年", "newYear": "1054-02-11", "age": 19 },
+    { "year": 1055, "name": "至和二年", "newYear": "1055-01-31", "age": 20 },
+    { "year": 1056, "name": "嘉祐元年", "newYear": "1056-01-20", "age": 21 },
+    { "year": 1057, "name": "嘉祐二年", "newYear": "1057-02-07", "age": 22 },
+    { "year": 1058, "name": "嘉祐三年", "newYear": "1058-01-27", "age": 23 },
+    { "year": 1059, "name": "嘉祐四年", "newYear": "1059-02-15", "age": 24 },
+    { "year": 1060, "name": "嘉祐五年", "newYear": "1060-02-05", "age": 25 },
+    { "year": 1061, "name": "嘉祐六年", "newYear": "1061-01-24", "age": 26 },
+    { "year": 1062, "name": "嘉祐七年", "newYear": "1062-02-12", "age": 27 },
+    { "year": 1063, "name": "嘉祐八年", "newYear": "1063-02-01", "age": 28 },
+    { "year": 1064, "name": "治平元年", "newYear": "1064-01-21", "age": 29 },
+    { "year": 1065, "name": "治平二年", "newYear": "1065-02-08", "age": 30 },
+    { "year": 1066, "name": "治平三年", "newYear": "1066-01-29", "age": 31 },
+    { "year": 1067, "name": "治平四年", "newYear": "1067-01-18", "age": 32 },
+    { "year": 1068, "name": "熙宁元年", "newYear": "1068-02-06", "age": 33 },
+    { "year": 1069, "name": "熙宁二年", "newYear": "1069-01-26", "age": 34 },
+    { "year": 1070, "name": "熙宁三年", "newYear": "1070-02-14", "age": 35 },
+    { "year": 1071, "name": "熙宁四年", "newYear": "1071-02-03", "age": 36 },
+    { "year": 1072, "name": "熙宁五年", "newYear": "1072-01-23", "age": 37 },
+    { "year": 1073, "name": "熙宁六年", "newYear": "1073-02-10", "age": 38 },
+    { "year": 1074, "name": "熙宁七年", "newYear": "1074-01-30", "age": 39 },
+    { "year": 1075, "name": "熙宁八年", "newYear": "1075-01-20", "age": 40 },
+    { "year": 1076, "name": "熙宁九年", "newYear": "1076-02-08", "age": 41 },
+    { "year": 1077, "name": "熙宁十年", "newYear": "1077-01-27", "age": 42 },
+    { "year": 1078, "name": "元丰元年", "newYear": "1078-01-17", "age": 43 },
+    { "year": 1079, "name": "元丰二年", "newYear": "1079-02-05", "age": 44 },
+    { "year": 1080, "name": "元丰三年", "newYear": "1080-01-25", "age": 45 },
+    { "year": 1081, "name": "元丰四年", "newYear": "1081-02-12", "age": 46 },
+    { "year": 1082, "name": "元丰五年", "newYear": "1082-02-01", "age": 47 },
+    { "year": 1083, "name": "元丰六年", "newYear": "1083-01-21", "age": 48 },
+    { "year": 1084, "name": "元丰七年", "newYear": "1084-02-09", "age": 49 },
+    { "year": 1085, "name": "元丰八年", "newYear": "1085-01-29", "age": 50 },
+    { "year": 1086, "name": "元祐元年", "newYear": "1086-01-18", "age": 51 },
+    { "year": 1087, "name": "元祐二年", "newYear": "1087-02-06", "age": 52 },
+    { "year": 1088, "name": "元祐三年", "newYear": "1088-01-27", "age": 53 },
+    { "year": 1089, "name": "元祐四年", "newYear": "1089-02-13", "age": 54 },
+    { "year": 1090, "name": "元祐五年", "newYear": "1090-02-03", "age": 55 },
+    { "year": 1091, "name": "元祐六年", "newYear": "1091-01-23", "age": 56 },
+    { "year": 1092, "name": "元祐七年", "newYear": "1092-02-10", "age": 57 },
+    { "year": 1093, "name": "元祐八年", "newYear": "1093-01-30", "age": 58 },
+    { "year": 1094, "name": "绍圣元年", "newYear": "1094-01-19", "age": 59 },
+    { "year": 1095, "name": "绍圣二年", "newYear": "1095-02-08", "age": 60 },
+    { "year": 1096, "name": "绍圣三年", "newYear": "1096-01-28", "age": 61 },
+    { "year": 1097, "name": "绍圣四年", "newYear": "1097-01-16", "age": 62 },
+    { "year": 1098, "name": "元符元年", "newYear": "1098-02-04", "age": 63 },
+    { "year": 1099, "name": "元符二年", "newYear": "1099-01-24", "age": 64 },
+    { "year": 1100, "name": "元符三年", "newYear": "1100-02-12", "age": 65 },
+    { "year": 1101, "name": "建中靖国元年", "newYear": "1101-01-31", "age": 66 }
+  ],
+  "stretches": [
+    {
+      "id": "t01",
+      "kind": "elsewhere",
+      "where": "眉州（家里）",
+      "moving": false,
+      "tablePoint": { "type": "stop-point", "place": "meizhou" },
+      "stopYearsOf": null,
+      "start": { "text": "景祐三年十二月十九日", "year": 1037, "month": 1, "day": 8, "precision": "day" },
+      "end": { "text": "嘉祐元年春", "year": 1056, "precision": "season", "earliest": "1056-01-20", "latest": "1056-05-16" },
+      "sourceIds": ["nianpu", "jinianlu", "site"],
+      "class": "text",
+      "unsure": "这十九年里出过几次门没有查全；只知道至和二年（1055）到过成都见张方平",
+      "note": "头一站讲的是 1056 到 1060 年，这以前他一直在眉州长大。",
+      "label": "在眉州家里",
+      "says": "生在景祐三年十二月十九日；嘉祐元年春离家赶考",
+      "saysDates": [{ "of": "start", "text": "景祐三年十二月十九日" }, { "of": "end", "text": "嘉祐元年春" }]
+    },
+    {
+      "id": "t02",
+      "kind": "road",
+      "journey": "j-1056",
+      "from": "眉州",
+      "to": "汴京",
+      "stopYearsOf": "meishan",
+      "parts": [{ "name": "1056 年眉州到汴京的陆路", "ways": ["w-1056"], "class": "schematic" }],
+      "start": { "text": "嘉祐元年春", "year": 1056, "precision": "season", "earliest": "1056-01-20", "latest": "1056-05-16" },
+      "end": { "text": "嘉祐元年夏", "year": 1056, "precision": "season", "earliest": "1056-05-17", "latest": "1056-08-13" },
+      "sourceIds": ["own-1056", "site"],
+      "class": "schematic",
+      "unsure": "动身和到京的月份（今人多说三月动身、五六月间到，没有核到原文；这一年有闰三月）；凤翔、渑池以外的路线",
+      "waypoints": [
+        { "name": "凤翔", "at": [107.39, 34.52], "sourceIds": ["own-1056"], "note": "《凤鸣驿记》；哪一天没有记载" },
+        { "name": "崤山、渑池", "at": [111.75, 34.77], "sourceIds": ["own-1056"], "note": "《和子由渑池怀旧》自注；哪一天没有记载" }
+      ],
+      "label": "去汴京的路上",
+      "says": "匀着走的：嘉祐元年春出眉州，夏到汴京；途中日子没有查到",
+      "saysDates": [{ "of": "start", "text": "嘉祐元年春" }, { "of": "end", "text": "夏" }],
+      "longRoad": "两头都只查到季节（春天离家，夏天到汴京），这一趟实际走了多久没有查到"
+    },
+    {
+      "id": "t03",
+      "kind": "elsewhere",
+      "where": "汴京（赶考，考中进士）",
+      "moving": false,
+      "tablePoint": { "type": "stop-point", "place": "bianjing" },
+      "stopYearsOf": "meishan",
+      "start": { "text": "嘉祐元年夏", "year": 1056, "precision": "season", "earliest": "1056-05-17", "latest": "1056-08-13" },
+      "end": {
+        "text": "嘉祐二年四月八日以后",
+        "year": 1057,
+        "precision": "after",
+        "earliest": "1057-05-14",
+        "latest": "1058-01-26",
+        "latestIs": "嘉祐二年的最后一天：史料把动身放在嘉祐二年，月日没有查到",
+        "sharesWindow": { "order": 1, "of": 2 }
+      },
+      "sourceIds": ["nianpu", "jinianlu", "sima"],
+      "class": "text",
+      "unsure": "离京的日子（母亲四月初在眉州去世，消息哪一天到汴京没有查到）；母亲去世的日子两种记载差一天：纪年录写四月八日，司马光作的墓志写四月癸丑，照历表癸丑是四月七日",
+      "label": "在汴京赶考",
+      "says": "嘉祐元年夏到；嘉祐二年四月八日以后离开，哪一天没有查到",
+      "saysDates": [{ "of": "start", "text": "嘉祐元年夏" }, { "of": "end", "text": "嘉祐二年四月八日以后" }]
+    },
+    {
+      "id": "t04",
+      "kind": "elsewhere",
+      "where": "从汴京回眉州的路上",
+      "moving": true,
+      "tablePoint": { "type": "none" },
+      "stopYearsOf": "meishan",
+      "start": {
+        "text": "嘉祐二年四月八日以后",
+        "year": 1057,
+        "precision": "after",
+        "earliest": "1057-05-14",
+        "latest": "1058-01-26",
+        "latestIs": "嘉祐二年的最后一天：史料把动身放在嘉祐二年，月日没有查到",
+        "sharesWindow": { "order": 1, "of": 2 }
+      },
+      "end": {
+        "text": "嘉祐二年，月日没有查到",
+        "year": 1057,
+        "precision": "not-found",
+        "earliest": "1057-05-14",
+        "latest": "1058-01-26",
+        "latestIs": "嘉祐二年的最后一天：史料把到家放在嘉祐二年，月日没有查到",
+        "sharesWindow": { "order": 2, "of": 2 }
+      },
+      "sourceIds": ["jinianlu"],
+      "class": "schematic",
+      "unsure": "走哪条路、哪一天到家，都没有查到",
+      "label": "赶回眉州的路上",
+      "says": "沙盘上没有画这一趟，所以没有他。走哪条路、哪天到家没有查到",
+      "saysDates": []
+    },
+    {
+      "id": "t05",
+      "kind": "stop",
+      "stop": "meishan",
+      "place": "meizhou",
+      "stopYearsOf": "meishan",
+      "start": {
+        "text": "嘉祐二年，月日没有查到",
+        "year": 1057,
+        "precision": "not-found",
+        "earliest": "1057-05-14",
+        "latest": "1058-01-26",
+        "latestIs": "嘉祐二年的最后一天：史料把到家放在嘉祐二年，月日没有查到",
+        "sharesWindow": { "order": 2, "of": 2 }
+      },
+      "end": { "text": "嘉祐四年十月", "year": 1059, "precision": "month", "earliest": "1059-11-08", "latest": "1059-12-07" },
+      "sourceIds": ["nianpu", "jinianlu", "zha"],
+      "class": "text",
+      "unsure": "动身的月份（“十月”是清人查慎行的说法；他自己只说从四川到江陵坐了六十天船，十二月八日已在江陵）",
+      "note": "在家守母亲的丧。",
+      "label": "在眉州",
+      "says": "嘉祐二年到家，月日没有查到；嘉祐四年十月离开",
+      "saysDates": [{ "of": "start", "text": "嘉祐二年" }, { "of": "end", "text": "嘉祐四年十月" }]
+    },
+    {
+      "id": "t06",
+      "kind": "road",
+      "journey": "j-1059",
+      "from": "眉州",
+      "to": "汴京",
+      "stopYearsOf": "meishan",
+      "parts": [{ "name": "1059 到 1060 年眉州到汴京的路", "ways": ["w-min", "w-min-low", "w-jiang-upper", "w-jiangling-bianjing"], "class": "text" }],
+      "start": { "text": "嘉祐四年十月", "year": 1059, "precision": "month", "earliest": "1059-11-08", "latest": "1059-12-07" },
+      "end": { "text": "嘉祐五年春", "year": 1060, "precision": "season", "earliest": "1060-02-05", "latest": "1060-05-02" },
+      "sourceIds": ["own-1059", "zha", "jinianlu"],
+      "class": "text",
+      "unsure": "到京的月份（通行的说法是二月，没有核到原文）；从江陵动身的日子（苏辙诗里有“新春始涉五”，像是正月初五，没有核到全诗）",
+      "waypoints": [
+        { "name": "嘉州、戎州、渝州、巫山、夷陵", "sourceIds": ["own-1059"], "note": "诗题照先后；日子没有记载" },
+        {
+          "name": "江陵",
+          "at": [112.19, 30.35],
+          "date": { "text": "嘉祐四年十二月八日", "year": 1060, "month": 1, "day": 14, "precision": "day" },
+          "sourceIds": ["own-1059"],
+          "note": "《南行前集叙》“时十二月八日，江陵驿书”（查注引作十八日）。这一天已经在江陵，在江陵过的年。"
+        },
+        {
+          "name": "唐州",
+          "at": [112.83, 32.69],
+          "date": { "text": "嘉祐五年正月", "year": 1060, "precision": "month", "earliest": "1060-02-05", "latest": "1060-03-04" },
+          "sourceIds": ["own-1059"],
+          "note": "《新渠诗》引“庚子正月，予过唐州”"
+        },
+        { "name": "荆门、襄阳、叶县、颍桥、许州", "sourceIds": ["own-1059"], "note": "诗题和自注；日子没有记载" }
+      ],
+      "label": "去汴京的路上",
+      "says": "匀着走的：嘉祐四年十月出眉州，十二月八日在江陵，五年春到汴京",
+      "saysDates": [{ "of": "start", "text": "嘉祐四年十月" }, { "of": "wp:江陵", "text": "十二月八日" }, { "of": "end", "text": "五年春" }],
+      "longRoad": "嘉祐四年十月出发，十二月八日才到江陵，嘉祐五年春到汴京：本来就走了四个月上下"
+    },
+    {
+      "id": "t07",
+      "kind": "elsewhere",
+      "where": "汴京（等官、考制科）",
+      "moving": false,
+      "tablePoint": { "type": "stop-point", "place": "bianjing" },
+      "stopYearsOf": null,
+      "start": { "text": "嘉祐五年春", "year": 1060, "precision": "season", "earliest": "1060-02-05", "latest": "1060-05-02" },
+      "end": { "text": "嘉祐六年十一月，十九日以前", "year": 1061, "precision": "before", "earliest": "1061-12-15", "latest": "1062-01-02" },
+      "sourceIds": ["nianpu", "jinianlu"],
+      "class": "text",
+      "unsure": "离京是十一月的哪一天（十九日已经走到郑州）",
+      "label": "在汴京",
+      "says": "嘉祐五年春到；嘉祐六年十一月十九日以前离开，去凤翔做官",
+      "saysDates": [{ "of": "start", "text": "嘉祐五年春" }, { "of": "end", "text": "嘉祐六年十一月十九日以前" }]
+    },
+    {
+      "id": "t08",
+      "kind": "elsewhere",
+      "where": "从汴京去凤翔的路上",
+      "moving": true,
+      "tablePoint": { "type": "on-ways", "ways": ["-w-1056"], "note": "郑州、渑池、凤翔都在 1056 年那条线上，这一回是反着走，只走到凤翔" },
+      "stopYearsOf": null,
+      "start": { "text": "嘉祐六年十一月，十九日以前", "year": 1061, "precision": "before", "earliest": "1061-12-15", "latest": "1062-01-02" },
+      "end": { "text": "嘉祐六年十二月十四日", "year": 1062, "month": 1, "day": 27, "precision": "day" },
+      "sourceIds": ["own-1061", "own-fengxiang", "nianpu", "zha"],
+      "class": "text",
+      "unsure": "郑州、渑池以外的路线和日子；到任的月份是从“忽已改岁……前月十四日到任”推的（过了年写的，前月就是十二月），同《石鼓》诗“冬十二月岁辛丑，我初从政”对得上",
+      "waypoints": [
+        {
+          "name": "郑州西门外",
+          "at": [113.67, 34.76],
+          "date": { "text": "嘉祐六年十一月十九日", "year": 1062, "month": 1, "day": 2, "precision": "day" },
+          "sourceIds": ["own-1061"],
+          "note": "诗题：同弟弟在这里分手"
+        },
+        { "name": "渑池", "at": [111.75, 34.77], "sourceIds": ["own-1061"], "note": "《和子由渑池怀旧》，查注编在这一趟；日子没有记载" }
+      ],
+      "label": "去凤翔的路上",
+      "says": "这一趟没有画，沙盘上没有他。十一月十九日过郑州，十二月十四日到",
+      "saysDates": [{ "of": "wp:郑州西门外", "text": "十一月十九日" }, { "of": "end", "text": "十二月十四日" }]
+    },
+    {
+      "id": "t09",
+      "kind": "elsewhere",
+      "where": "凤翔（做签判）",
+      "moving": false,
+      "tablePoint": { "type": "way-vertex", "way": "w-1056", "at": [107.39, 34.52] },
+      "stopYearsOf": null,
+      "start": { "text": "嘉祐六年十二月十四日", "year": 1062, "month": 1, "day": 27, "precision": "day" },
+      "end": { "text": "治平元年十二月", "year": 1065, "precision": "month", "earliest": "1065-01-10", "latest": "1065-02-07" },
+      "sourceIds": ["own-fengxiang", "nianpu", "jinianlu", "own-1064"],
+      "class": "text",
+      "unsure": "离任的日子（纪年录写治平元年冬任满，王宗稷年谱照墓志写治平二年罢还）",
+      "note": "中间出过几趟差：嘉祐七年二月十三日到十九日去宝鸡、虢、郿、盩厔四县，七月二十四日到二十七日去磻溪求雨（纪年录）。",
+      "label": "在凤翔做官",
+      "says": "沙盘上没有立凤翔的名字。嘉祐六年十二月到，治平元年十二月离开",
+      "saysDates": [{ "of": "start", "text": "嘉祐六年十二月" }, { "of": "end", "text": "治平元年十二月" }]
+    },
+    {
+      "id": "t10",
+      "kind": "elsewhere",
+      "where": "从凤翔回汴京的路上",
+      "moving": true,
+      "tablePoint": { "type": "on-ways", "ways": ["w-1056"], "note": "华阴在 1056 年那条线上；别的地方没有查到" },
+      "stopYearsOf": null,
+      "start": { "text": "治平元年十二月", "year": 1065, "precision": "month", "earliest": "1065-01-10", "latest": "1065-02-07" },
+      "end": {
+        "text": "治平二年初，月日没有查到",
+        "year": 1065,
+        "precision": "not-found",
+        "earliest": "1065-02-08",
+        "latest": "1065-07-04",
+        "earliestIs": "治平二年正月初一：史料说的是治平二年初"
+      },
+      "sourceIds": ["own-1064", "jinianlu"],
+      "class": "text",
+      "unsure": "到京的月日（只知道治平二年五月二十八日夫人王氏在京去世以前已经到了）",
+      "waypoints": [
+        {
+          "name": "华阴",
+          "at": [110.09, 34.57],
+          "date": { "text": "治平元年十二月", "year": 1065, "precision": "month", "earliest": "1065-01-10", "latest": "1065-02-07" },
+          "sourceIds": ["own-1064"],
+          "note": "《华阴寄子由》“腊酒送寒催去国”，是腊月"
+        }
+      ],
+      "label": "回汴京的路上",
+      "says": "这一趟没有画，沙盘上没有他。治平元年十二月过华阴，二年初到汴京",
+      "saysDates": [{ "of": "wp:华阴", "text": "治平元年十二月" }, { "of": "end", "text": "二年初" }]
+    },
+    {
+      "id": "t11",
+      "kind": "elsewhere",
+      "where": "汴京（判登闻鼓院、直史馆）",
+      "moving": false,
+      "tablePoint": { "type": "stop-point", "place": "bianjing" },
+      "stopYearsOf": null,
+      "start": {
+        "text": "治平二年初，月日没有查到",
+        "year": 1065,
+        "precision": "not-found",
+        "earliest": "1065-02-08",
+        "latest": "1065-07-04",
+        "earliestIs": "治平二年正月初一：史料说的是治平二年初"
+      },
+      "end": {
+        "text": "治平三年四月二十五日以后",
+        "year": 1066,
+        "precision": "after",
+        "earliest": "1066-05-21",
+        "latest": "1067-01-17",
+        "latestIs": "治平三年的最后一天：史料把护丧离京放在治平三年，月日没有查到"
+      },
+      "sourceIds": ["nianpu", "jinianlu", "ouyang"],
+      "class": "text",
+      "unsure": "护送父亲灵柩离京的日子（父亲四月二十五日在京去世；通行的说法是六月动身，没有核到原文）",
+      "label": "在汴京",
+      "says": "治平二年初到；治平三年四月二十五日以后因父亲去世离开",
+      "saysDates": [{ "of": "start", "text": "治平二年初" }, { "of": "end", "text": "治平三年四月二十五日以后" }]
+    },
+    {
+      "id": "t12",
+      "kind": "elsewhere",
+      "where": "护送父亲的灵柩回眉州的路上（坐船：汴河、淮水、大江）",
+      "moving": true,
+      "tablePoint": {
+        "type": "on-ways",
+        "ways": [
+          "w-bian-a",
+          "w-bian-b",
+          "w-bian-c",
+          "w-huai-low",
+          "w-canal-n1",
+          "w-canal-n2",
+          "w-yangzhou-zhenzhou",
+          "-w-jiang-lower",
+          "-w-jiang-upper",
+          "-w-min-low",
+          "-w-min"
+        ],
+        "note": "只有“自汴入淮，溯于江”一句；湖口到江陵之间的大江，沙盘没有画路；这些线是照这一句推的"
+      },
+      "stopYearsOf": null,
+      "start": {
+        "text": "治平三年四月二十五日以后",
+        "year": 1066,
+        "precision": "after",
+        "earliest": "1066-05-21",
+        "latest": "1067-01-17",
+        "latestIs": "治平三年的最后一天：史料把护丧离京放在治平三年，月日没有查到"
+      },
+      "end": {
+        "text": "治平四年，八月以前",
+        "year": 1067,
+        "precision": "before",
+        "latest": "1067-10-10",
+        "earliest": "1067-01-18",
+        "earliestIs": "治平四年正月初一：史料说的是治平四年到家"
+      },
+      "sourceIds": ["own-1066", "nianpu"],
+      "class": "schematic",
+      "unsure": "路上哪一天到哪里，一处也没有查到；到家的月份（通行的说法是治平四年四月，没有核到原文；年谱只记八月壬辰在眉州下葬）",
+      "label": "回眉州的路上",
+      "says": "这一趟没有画，沙盘上没有他。坐船走的，治平四年八月以前到眉州",
+      "saysDates": [{ "of": "end", "text": "治平四年八月以前" }],
+      "longRoad": "坐船护丧，逆着大江往上走；治平三年动身，治平四年才到家，哪天动身、哪天到都没有查到"
+    },
+    {
+      "id": "t13",
+      "kind": "elsewhere",
+      "where": "眉州（守父亲的丧）",
+      "moving": false,
+      "tablePoint": { "type": "stop-point", "place": "meizhou" },
+      "stopYearsOf": null,
+      "start": {
+        "text": "治平四年，八月以前",
+        "year": 1067,
+        "precision": "before",
+        "latest": "1067-10-10",
+        "earliest": "1067-01-18",
+        "earliestIs": "治平四年正月初一：史料说的是治平四年到家"
+      },
+      "end": {
+        "text": "熙宁元年十月二十六日以后",
+        "year": 1068,
+        "precision": "after",
+        "earliest": "1068-11-23",
+        "latest": "1069-01-25",
+        "latestIs": "熙宁元年的最后一天：史料把离开眉州放在熙宁元年，月日没有查到"
+      },
+      "sourceIds": ["nianpu", "jinianlu", "own-1066"],
+      "class": "text",
+      "unsure": "离开眉州的日子（十月二十六日还在四川写《四菩萨阁记》；通行的说法是十二月动身，没有核到原文）",
+      "note": "这是他最后一次在家乡。头一站讲的年份（1056–1060）不包括这一段。",
+      "label": "在眉州守丧",
+      "says": "治平四年八月以前到家；熙宁元年十月二十六日以后离开",
+      "saysDates": [{ "of": "start", "text": "治平四年八月以前" }, { "of": "end", "text": "熙宁元年十月二十六日以后" }]
+    },
+    {
+      "id": "t14",
+      "kind": "elsewhere",
+      "where": "从眉州回汴京的路上",
+      "moving": true,
+      "tablePoint": { "type": "none" },
+      "stopYearsOf": null,
+      "start": {
+        "text": "熙宁元年十月二十六日以后",
+        "year": 1068,
+        "precision": "after",
+        "earliest": "1068-11-23",
+        "latest": "1069-01-25",
+        "latestIs": "熙宁元年的最后一天：史料把离开眉州放在熙宁元年，月日没有查到"
+      },
+      "end": { "text": "熙宁二年春，三月以前", "year": 1069, "precision": "before", "earliest": "1069-01-26", "latest": "1069-04-23" },
+      "sourceIds": ["nianpu", "jinianlu"],
+      "class": "schematic",
+      "unsure": "走哪条路没有查到（通行的说法是陆路，没有核到原文）；到京的月份（纪年录记他三月在京送客）",
+      "label": "回汴京的路上",
+      "says": "这一趟没有画，沙盘上没有他。走哪条路没有查到，熙宁二年春到汴京",
+      "saysDates": [{ "of": "end", "text": "熙宁二年春" }]
+    },
+    {
+      "id": "t15",
+      "kind": "elsewhere",
+      "where": "汴京（判官告院、开封府推官）",
+      "moving": false,
+      "tablePoint": { "type": "stop-point", "place": "bianjing" },
+      "stopYearsOf": null,
+      "start": { "text": "熙宁二年春，三月以前", "year": 1069, "precision": "before", "earliest": "1069-01-26", "latest": "1069-04-23" },
+      "end": {
+        "text": "熙宁四年秋",
+        "year": 1071,
+        "precision": "season",
+        "earliest": "1071-07-30",
+        "latest": "1071-10-25",
+        "latestIs": "这一头是日历和前后有日子的记载卡出来的最宽的范围，不是估的；真正的日子没有查到。两天以后（十月二日）他已经快到涡口，实际动身一定早得多"
+      },
+      "sourceIds": ["nianpu", "jinianlu", "zha"],
+      "class": "text",
+      "unsure": "出京的月份（通行的说法是七月；纪年录这一句有错字，没有核定）",
+      "label": "在汴京",
+      "says": "熙宁二年春到；熙宁四年秋离开，去杭州做官",
+      "saysDates": [{ "of": "start", "text": "熙宁二年春" }, { "of": "end", "text": "熙宁四年秋" }]
+    },
+    {
+      "id": "t16",
+      "kind": "road",
+      "journey": "j-1071",
+      "from": "汴京",
+      "to": "杭州",
+      "stopYearsOf": "hangzhou-1",
+      "parts": [
+        {
+          "name": "1071 年汴京到润州的水路",
+          "ways": ["w-bianjing-chenzhou", "w-ying", "w-huai-mid", "w-huai-low", "w-canal-n1", "w-canal-n2", "w-cross"],
+          "class": "text"
+        },
+        { "name": "1071 年润州到杭州的路", "ways": ["w-canal-s1", "w-canal-s2"], "class": "schematic" }
+      ],
+      "start": {
+        "text": "熙宁四年秋",
+        "year": 1071,
+        "precision": "season",
+        "earliest": "1071-07-30",
+        "latest": "1071-10-25",
+        "latestIs": "这一头是日历和前后有日子的记载卡出来的最宽的范围，不是估的；真正的日子没有查到。两天以后（十月二日）他已经快到涡口，实际动身一定早得多"
+      },
+      "end": { "text": "熙宁四年十一月", "year": 1071, "precision": "month", "earliest": "1071-11-25", "latest": "1071-12-23" },
+      "sourceIds": ["own-1071", "nianpu", "jinianlu", "zha"],
+      "class": "text",
+      "unsure": "到杭州是十一月的哪一天（通行的说法是二十八日，没有核到原文）；在陈州、颍州各住了多久；润州到杭州途中的地方",
+      "waypoints": [
+        { "name": "陈州", "at": [114.88, 33.73], "sourceIds": ["own-1071", "jinianlu"], "note": "弟弟在这里做官，住了一阵；住多久没有核到" },
+        { "name": "颍州", "at": [115.81, 32.89], "sourceIds": ["own-1071", "jinianlu"], "note": "同弟弟去看欧阳修，在这里同弟弟分手；日子没有记载" },
+        { "name": "寿州", "at": [116.71, 32.71], "sourceIds": ["own-1071"], "note": "《出颍口初见淮山，是日至寿州》" },
+        {
+          "name": "涡口前五里",
+          "at": [117.2, 32.97],
+          "date": { "text": "熙宁四年十月二日", "year": 1071, "month": 10, "day": 27, "precision": "day" },
+          "sourceIds": ["own-1071"],
+          "note": "诗题；查注说一本作“十月一日”，差一天"
+        },
+        { "name": "濠州、洪泽", "sourceIds": ["own-1071"], "note": "诗题；日子没有记载" },
+        {
+          "name": "楚州（山阳）",
+          "at": [119.14, 33.51],
+          "date": { "text": "熙宁四年十月十六日", "year": 1071, "month": 11, "day": 10, "precision": "day" },
+          "sourceIds": ["own-1071"],
+          "note": "《十月十六日记所见》“淮阴夜发朝山阳”：夜里从淮阴开船，早上到山阳",
+          "unsure": "查注在《十月十六日记所见》题下注“一作十月六日”：这一天也可能是十月六日"
+        },
+        { "name": "扬州", "at": [119.43, 32.4], "sourceIds": ["own-1071", "nianpu"], "note": "同三位老同事相聚；日子没有记载" },
+        {
+          "name": "润州金山",
+          "at": [119.43, 32.21],
+          "date": { "text": "熙宁四年十一月初", "year": 1071, "precision": "month", "earliest": "1071-11-25", "latest": "1071-12-23" },
+          "sourceIds": ["own-1071", "zha"],
+          "note": "《游金山寺》“是时江月初生魄”，是月初；哪一天没有核到"
+        }
+      ],
+      "label": "去杭州的路上",
+      "says": "匀着走的：熙宁四年秋出汴京，十月二日快到涡口，十一月到杭州",
+      "saysDates": [{ "of": "start", "text": "熙宁四年秋" }, { "of": "wp:涡口前五里", "text": "十月二日" }, { "of": "end", "text": "十一月" }]
+    },
+    {
+      "id": "t17",
+      "kind": "stop",
+      "stop": "hangzhou-1",
+      "place": "hangzhou",
+      "stopYearsOf": "hangzhou-1",
+      "start": { "text": "熙宁四年十一月", "year": 1071, "precision": "month", "earliest": "1071-11-25", "latest": "1071-12-23" },
+      "end": { "text": "熙宁六年冬", "year": 1073, "precision": "season", "earliest": "1073-11-02", "latest": "1074-01-29" },
+      "sourceIds": ["nianpu", "jinianlu", "zha"],
+      "class": "text",
+      "unsure": "熙宁六年冬出差动身的月份",
+      "note": "中间出过短差：熙宁五年十二月到湖州看堤岸（年谱、纪年录）。",
+      "label": "在杭州",
+      "says": "熙宁四年十一月到；熙宁六年冬出差救灾，离开杭州半年多",
+      "saysDates": [{ "of": "start", "text": "熙宁四年十一月" }, { "of": "end", "text": "熙宁六年冬" }]
+    },
+    {
+      "id": "t18",
+      "kind": "elsewhere",
+      "where": "常州、润州、苏州、秀州一带（奉命出差救灾，来回走了半年多）",
+      "moving": true,
+      "tablePoint": { "type": "on-ways", "ways": ["w-canal-s2", "w-canal-s1"], "note": "这几处都在杭州到润州的运河线上" },
+      "stopYearsOf": "hangzhou-1",
+      "start": { "text": "熙宁六年冬", "year": 1073, "precision": "season", "earliest": "1073-11-02", "latest": "1074-01-29" },
+      "end": { "text": "熙宁七年六月", "year": 1074, "precision": "month", "earliest": "1074-06-27", "latest": "1074-07-26" },
+      "sourceIds": ["own-1073", "zha", "jinianlu", "nianpu"],
+      "class": "text",
+      "unsure": "半年里哪些天在哪一处，只知道下面几点",
+      "waypoints": [
+        {
+          "name": "常州城外",
+          "at": [119.97, 31.81],
+          "date": { "text": "熙宁六年除夜", "year": 1074, "month": 1, "day": 29, "precision": "day" },
+          "sourceIds": ["jinianlu"],
+          "note": "纪年录：“除夜宿常州城外作诗”。王宗稷年谱把在润州道上过除夜记在熙宁七年，同这里对不上。"
+        },
+        {
+          "name": "丹阳",
+          "date": { "text": "熙宁七年元日", "year": 1074, "month": 1, "day": 30, "precision": "day" },
+          "sourceIds": ["jinianlu"],
+          "note": "纪年录：“元日以事过丹阳”"
+        },
+        { "name": "润州、苏州、秀州、常州", "sourceIds": ["zha", "jinianlu"], "note": "查注卷十一：“往返常润苏秀道中作”；五月在常州（纪年录）" }
+      ],
+      "label": "出差救灾的路上",
+      "says": "这一趟没有画，沙盘上没有他。除夜在常州城外，熙宁七年六月回杭州",
+      "saysDates": [{ "of": "wp:常州城外", "text": "除夜" }, { "of": "end", "text": "熙宁七年六月" }],
+      "longRoad": "出差救灾，来回走了半年多（熙宁六年冬到熙宁七年六月）"
+    },
+    {
+      "id": "t19",
+      "kind": "stop",
+      "stop": "hangzhou-1",
+      "place": "hangzhou",
+      "stopYearsOf": "hangzhou-1",
+      "start": { "text": "熙宁七年六月", "year": 1074, "precision": "month", "earliest": "1074-06-27", "latest": "1074-07-26" },
+      "end": {
+        "text": "熙宁七年九月二十日以后",
+        "year": 1074,
+        "precision": "after",
+        "earliest": "1074-10-13",
+        "latest": "1074-11-21",
+        "latestIs": "这一头是日历和前后有日子的记载卡出来的最宽的范围，不是估的；真正的日子没有查到。三天以后最早就可能到密州了，实际动身一定早得多"
+      },
+      "sourceIds": ["own-1073", "own-1074", "nianpu", "jinianlu"],
+      "class": "text",
+      "unsure": "离开杭州的日子（九月二十日还在杭州同南山北山的朋友告别；纪年录写十月赴密州）",
+      "note": "秋天到临安、于潜一带捕蝗（纪年录）。",
+      "label": "在杭州",
+      "says": "熙宁七年六月回到杭州；九月二十日以后离开，去密州做官",
+      "saysDates": [{ "of": "start", "text": "熙宁七年六月" }, { "of": "end", "text": "九月二十日以后" }]
+    },
+    {
+      "id": "t20",
+      "kind": "road",
+      "journey": "j-1074",
+      "from": "杭州",
+      "to": "密州",
+      "stopYearsOf": "mizhou",
+      "parts": [
+        { "name": "1074 年杭州到湖州的路", "ways": ["w-hangzhou-huzhou"], "class": "text" },
+        { "name": "1074 年湖州到吴江的路", "ways": ["w-huzhou-wujiang"], "class": "schematic" },
+        { "name": "1074 年吴江到海州的路", "ways": ["-w-canal-s1", "-w-cross", "-w-canal-n2", "-w-canal-n1", "w-chuzhou-haizhou"], "class": "text" },
+        { "name": "1074 年海州到密州的路", "ways": ["w-haizhou-mizhou"], "class": "schematic" }
+      ],
+      "start": {
+        "text": "熙宁七年九月二十日以后",
+        "year": 1074,
+        "precision": "after",
+        "earliest": "1074-10-13",
+        "latest": "1074-11-21",
+        "latestIs": "这一头是日历和前后有日子的记载卡出来的最宽的范围，不是估的；真正的日子没有查到。三天以后最早就可能到密州了，实际动身一定早得多"
+      },
+      "end": { "text": "熙宁七年冬，三日", "year": 1074, "precision": "season", "earliest": "1074-11-24", "latest": "1074-12-23" },
+      "sourceIds": ["own-1074", "zha", "jinianlu", "site"],
+      "class": "text",
+      "unsure": "到密州的月份（他的表只写“今月三日”；通行的说法是十二月三日，纪年录写十一月三日）；到海州的日子（通行的说法是十一月十五日，出自一首词的叙，没有核到原文）",
+      "waypoints": [
+        { "name": "湖州", "at": [120.09, 30.89], "sourceIds": ["own-1074"], "note": "《记游松江》；日子没有记载" },
+        { "name": "吴江垂虹亭", "at": [120.645, 31.158], "sourceIds": ["own-1074"], "note": "《记游松江》：“夜半月出，置酒垂虹亭上”；日子没有记载" },
+        { "name": "润州、扬州、涟水、海州", "sourceIds": ["own-1074", "zha"], "note": "诗题照先后；日子没有核到" }
+      ],
+      "label": "去密州的路上",
+      "says": "匀着走的：熙宁七年九月二十日以后出杭州，冬到密州",
+      "saysDates": [{ "of": "start", "text": "熙宁七年九月二十日以后" }, { "of": "end", "text": "冬" }]
+    },
+    {
+      "id": "t21",
+      "kind": "stop",
+      "stop": "mizhou",
+      "place": "mizhou",
+      "stopYearsOf": "mizhou",
+      "start": { "text": "熙宁七年冬，三日", "year": 1074, "precision": "season", "earliest": "1074-11-24", "latest": "1074-12-23" },
+      "end": { "text": "熙宁九年十二月", "year": 1076, "precision": "month", "earliest": "1076-12-29", "latest": "1077-01-26" },
+      "sourceIds": ["own-1074", "nianpu", "jinianlu"],
+      "class": "text",
+      "unsure": "离开密州是十二月的哪一天（除夜已经走到潍州）",
+      "label": "在密州",
+      "says": "熙宁七年冬到；熙宁九年十二月离开",
+      "saysDates": [{ "of": "start", "text": "熙宁七年冬" }, { "of": "end", "text": "熙宁九年十二月" }]
+    },
+    {
+      "id": "t22",
+      "kind": "road",
+      "journey": "j-1077",
+      "from": "密州",
+      "to": "汴京",
+      "stopYearsOf": "xuzhou",
+      "parts": [
+        { "name": "1077 年密州到济南的路", "ways": ["w-mizhou-jinan"], "class": "text" },
+        { "name": "1077 年济南到汴京、再到徐州的路", "ways": ["w-jinan-bianjing"], "class": "schematic", "partial": true }
+      ],
+      "start": { "text": "熙宁九年十二月", "year": 1076, "precision": "month", "earliest": "1076-12-29", "latest": "1077-01-26" },
+      "end": { "text": "熙宁十年二月", "year": 1077, "precision": "month", "earliest": "1077-02-26", "latest": "1077-03-26" },
+      "sourceIds": ["own-1077", "zhe", "jinianlu", "zha"],
+      "class": "text",
+      "unsure": "在济南住了多久；济南以后的路线和日子（只有“二月会于澶濮之间”一句）",
+      "waypoints": [
+        {
+          "name": "潍州",
+          "at": [119.1, 36.71],
+          "date": { "text": "熙宁九年除夜", "year": 1077, "month": 1, "day": 26, "precision": "day" },
+          "sourceIds": ["own-1077"],
+          "note": "诗题：除夜大雪留在潍州"
+        },
+        {
+          "name": "离开潍州",
+          "at": [119.1, 36.71],
+          "date": { "text": "熙宁十年元日", "year": 1077, "month": 1, "day": 27, "precision": "day" },
+          "sourceIds": ["own-1077"],
+          "note": "诗题：“元日早晴，遂行”"
+        },
+        { "name": "青州、龙山、济南", "sourceIds": ["own-1077"], "note": "诗题和词句；日子没有记载" },
+        {
+          "name": "澶州、濮州之间",
+          "at": [115.27, 35.69],
+          "date": { "text": "熙宁十年二月", "year": 1077, "precision": "month", "earliest": "1077-02-26", "latest": "1077-03-26" },
+          "sourceIds": ["zhe"],
+          "note": "苏辙：“熙宁十年二月，始复会于澶濮之间”"
+        }
+      ],
+      "label": "去汴京的路上",
+      "says": "匀着走的：熙宁九年十二月出密州，除夜在潍州，十年二月到汴京城外",
+      "saysDates": [{ "of": "start", "text": "熙宁九年十二月" }, { "of": "wp:潍州", "text": "除夜" }, { "of": "end", "text": "十年二月" }]
+    },
+    {
+      "id": "t23",
+      "kind": "elsewhere",
+      "where": "汴京城外（等改派，四月才去徐州）",
+      "moving": false,
+      "tablePoint": { "type": "stop-point", "place": "bianjing" },
+      "stopYearsOf": "xuzhou",
+      "start": { "text": "熙宁十年二月", "year": 1077, "precision": "month", "earliest": "1077-02-26", "latest": "1077-03-26" },
+      "end": {
+        "text": "熙宁十年四月，动身的日子没有查到",
+        "year": 1077,
+        "precision": "month",
+        "earliest": "1077-04-25",
+        "latest": "1077-05-24",
+        "sharesWindow": { "order": 1, "of": 2 }
+      },
+      "sourceIds": ["nianpu", "jinianlu", "zha"],
+      "class": "text",
+      "unsure": "住在京城外的哪里（今人说不许进城、住在范镇的东园，没有核到原文）；三月一日在京同王诜相会（纪年录）",
+      "label": "在汴京城外",
+      "says": "熙宁十年二月到，在城外等改派；四月动身去徐州，日子没有查到",
+      "saysDates": [{ "of": "start", "text": "熙宁十年二月" }, { "of": "end", "text": "四月" }]
+    },
+    {
+      "id": "t24",
+      "kind": "road",
+      "journey": "j-1077",
+      "from": "汴京",
+      "to": "徐州",
+      "stopYearsOf": "xuzhou",
+      "parts": [
+        { "name": "1077 年济南到汴京、再到徐州的路", "ways": ["w-bian-a", "w-bian-b", "w-nandu-xuzhou"], "class": "schematic", "partial": true }
+      ],
+      "start": {
+        "text": "熙宁十年四月，动身的日子没有查到",
+        "year": 1077,
+        "precision": "month",
+        "earliest": "1077-04-25",
+        "latest": "1077-05-24",
+        "sharesWindow": { "order": 1, "of": 2 }
+      },
+      "end": {
+        "text": "熙宁十年四月，到任的日子没有查到",
+        "year": 1077,
+        "precision": "month",
+        "earliest": "1077-04-25",
+        "latest": "1077-05-24",
+        "sharesWindow": { "order": 2, "of": 2 }
+      },
+      "sourceIds": ["nianpu", "site"],
+      "class": "schematic",
+      "unsure": "途中的地方一处也没有查到；到任的日子（本站徐州一站只写四月；通行的说法是四月二十一日，没有核到原文；纪年录写五月到徐州）",
+      "label": "去徐州的路上",
+      "says": "匀着走的：熙宁十年四月出汴京，四月到徐州，两头的日子都没有查到",
+      "saysDates": [{ "of": "start", "text": "熙宁十年四月" }, { "of": "end", "text": "四月" }]
+    },
+    {
+      "id": "t25",
+      "kind": "stop",
+      "stop": "xuzhou",
+      "place": "xuzhou",
+      "stopYearsOf": "xuzhou",
+      "start": {
+        "text": "熙宁十年四月，到任的日子没有查到",
+        "year": 1077,
+        "precision": "month",
+        "earliest": "1077-04-25",
+        "latest": "1077-05-24",
+        "sharesWindow": { "order": 2, "of": 2 }
+      },
+      "end": {
+        "text": "元丰二年三月",
+        "year": 1079,
+        "precision": "month",
+        "earliest": "1079-04-05",
+        "latest": "1079-05-01",
+        "latestIs": "这一头是日历和前后有日子的记载卡出来的最宽的范围，不是估的；真正的日子没有查到。这一天（三月二十七日）他已经在灵璧写文章了，实际动身一定更早"
+      },
+      "sourceIds": ["nianpu", "jinianlu", "site"],
+      "class": "text",
+      "unsure": "离开徐州是三月的哪一天",
+      "label": "在徐州",
+      "says": "熙宁十年四月到；元丰二年三月离开，去湖州做官",
+      "saysDates": [{ "of": "start", "text": "熙宁十年四月" }, { "of": "end", "text": "元丰二年三月" }]
+    },
+    {
+      "id": "t26",
+      "kind": "road",
+      "journey": "j-1079-out",
+      "from": "徐州",
+      "to": "湖州",
+      "stopYearsOf": "bianjing",
+      "parts": [
+        {
+          "name": "1079 年徐州到吴江的路",
+          "ways": ["-w-nandu-xuzhou", "w-bian-c", "w-huai-low", "w-canal-n1", "w-canal-n2", "w-cross", "w-canal-s1"],
+          "class": "text"
+        },
+        { "name": "1079 年吴江到湖州的路", "ways": ["-w-huzhou-wujiang"], "class": "schematic" }
+      ],
+      "start": {
+        "text": "元丰二年三月",
+        "year": 1079,
+        "precision": "month",
+        "earliest": "1079-04-05",
+        "latest": "1079-05-01",
+        "latestIs": "这一头是日历和前后有日子的记载卡出来的最宽的范围，不是估的；真正的日子没有查到。这一天（三月二十七日）他已经在灵璧写文章了，实际动身一定更早"
+      },
+      "end": { "text": "元丰二年四月二十日", "year": 1079, "month": 5, "day": 23, "precision": "day" },
+      "sourceIds": ["own-1079", "jinianlu", "zha"],
+      "class": "text",
+      "unsure": "在南都住了多久；灵璧以后各处的日子",
+      "waypoints": [
+        { "name": "南都", "at": [115.61, 34.38], "sourceIds": ["own-1079", "jinianlu"], "note": "骑马到南都，三月里；在这里上船" },
+        {
+          "name": "灵璧",
+          "at": [117.55, 33.54],
+          "date": { "text": "元丰二年三月二十七日", "year": 1079, "month": 5, "day": 1, "precision": "day" },
+          "sourceIds": ["jinianlu", "own-1079"],
+          "note": "纪年录：“二十七日作灵壁张氏园亭记”。记里说“由宋登舟，三宿而至其下”，从南都上船到这里是三夜。",
+          "unsure": "三月二十七日是《灵璧张氏园亭记》写成的日子（纪年录：“二十七日作灵壁张氏园亭记”）；那一天他人在灵璧是推出来的"
+        },
+        {
+          "name": "宿州、泗州、高邮、润州金山、无锡惠山、吴江",
+          "sourceIds": ["jinianlu", "zha"],
+          "note": "纪年录和诗题照先后（宿州在灵璧的上游，纪年录把它排在后面）；日子没有记载"
+        }
+      ],
+      "label": "去湖州的路上",
+      "says": "匀着走的：元丰二年三月出徐州，二十七日在灵璧，四月二十日到湖州",
+      "saysDates": [{ "of": "start", "text": "元丰二年三月" }, { "of": "wp:灵璧", "text": "二十七日" }, { "of": "end", "text": "四月二十日" }]
+    },
+    {
+      "id": "t27",
+      "kind": "elsewhere",
+      "where": "湖州（做知州）",
+      "moving": false,
+      "tablePoint": { "type": "place", "place": "huzhou" },
+      "stopYearsOf": "bianjing",
+      "start": { "text": "元丰二年四月二十日", "year": 1079, "month": 5, "day": 23, "precision": "day" },
+      "end": { "text": "元丰二年七月二十八日", "year": 1079, "month": 8, "day": 27, "precision": "day" },
+      "sourceIds": ["own-1079", "nianpu", "jinianlu"],
+      "class": "text",
+      "unsure": "到任的日子另有一说（王宗稷年谱、查注作四月二十九日，以他自己的表为准）；七月二十八日是差官到湖州的日子，当天上路是通行的说法",
+      "label": "在湖州做官",
+      "says": "元丰二年四月二十日到；七月二十八日被捕，押回汴京",
+      "saysDates": [{ "of": "start", "text": "元丰二年四月二十日" }, { "of": "end", "text": "七月二十八日" }]
+    },
+    {
+      "id": "t28",
+      "kind": "road",
+      "journey": "j-1079-back",
+      "from": "湖州",
+      "to": "汴京",
+      "stopYearsOf": "bianjing",
+      "parts": [
+        {
+          "name": "1079 年从湖州押回汴京的路",
+          "ways": ["w-huzhou-wujiang", "-w-canal-s1", "-w-cross", "-w-canal-n2", "-w-canal-n1", "-w-huai-low", "-w-bian-c", "-w-bian-b", "-w-bian-a"],
+          "class": "schematic"
+        }
+      ],
+      "start": { "text": "元丰二年七月二十八日", "year": 1079, "month": 8, "day": 27, "precision": "day" },
+      "end": { "text": "元丰二年八月十八日", "year": 1079, "month": 9, "day": 15, "precision": "day" },
+      "sourceIds": ["own-1079", "jinianlu", "nianpu"],
+      "class": "schematic",
+      "unsure": "路上哪一天到哪里，一处也没有记载",
+      "waypoints": [
+        { "name": "扬子江", "sourceIds": ["own-1079"], "note": "“过扬子江，便欲自投江中”；日子没有记载" },
+        { "name": "南都", "at": [115.61, 34.38], "sourceIds": ["jinianlu"], "note": "纪年录：“过南京”；日子没有记载" }
+      ],
+      "label": "押回汴京的路上",
+      "says": "匀着走的：元丰二年七月二十八日在湖州被捕，八月十八日到汴京",
+      "saysDates": [{ "of": "start", "text": "元丰二年七月二十八日" }, { "of": "end", "text": "八月十八日" }]
+    },
+    {
+      "id": "t29",
+      "kind": "stop",
+      "stop": "bianjing",
+      "place": "bianjing",
+      "stopYearsOf": "bianjing",
+      "start": { "text": "元丰二年八月十八日", "year": 1079, "month": 9, "day": 15, "precision": "day" },
+      "end": { "text": "元丰三年正月初一", "year": 1080, "month": 1, "day": 25, "precision": "day" },
+      "sourceIds": ["jinianlu", "nianpu", "zha", "site", "mo"],
+      "class": "text",
+      "unsure": "离京的日子（正月初一是本站黄州一站照今人的文章写的，更早的出处没有查到）；出狱的日子（十二月二十八日或二十九日，两种年表差一天）",
+      "note": "八月十八日进御史台的牢，十二月底出来。",
+      "label": "在汴京",
+      "says": "元丰二年八月十八日到；元丰三年正月初一离开，去黄州",
+      "saysDates": [{ "of": "start", "text": "元丰二年八月十八日" }, { "of": "end", "text": "元丰三年正月初一" }]
+    },
+    {
+      "id": "t30",
+      "kind": "road",
+      "journey": "j-1080",
+      "from": "汴京",
+      "to": "黄州",
+      "stopYearsOf": "huangzhou",
+      "parts": [{ "name": "1080 年汴京到黄州的路", "ways": ["w-bianjing-chenzhou", "w-chenzhou-huangzhou"], "class": "text" }],
+      "start": { "text": "元丰三年正月初一", "year": 1080, "month": 1, "day": 25, "precision": "day" },
+      "end": { "text": "元丰三年二月一日", "year": 1080, "month": 2, "day": 24, "precision": "day" },
+      "sourceIds": ["own-1080", "nianpu", "zha", "site"],
+      "class": "text",
+      "unsure": "过新息、光山、麻城的日子；在哪个山口翻的大别山",
+      "waypoints": [
+        {
+          "name": "陈州",
+          "at": [114.88, 33.73],
+          "date": { "text": "元丰三年正月十四日", "year": 1080, "month": 2, "day": 7, "precision": "day" },
+          "sourceIds": ["own-1080", "nianpu"],
+          "note": "诗题：“今年正月十四日与子由别于陈州”。弟弟来陈州住了三天，这一天分手。"
+        },
+        {
+          "name": "蔡州道上",
+          "at": [114.34, 33.01],
+          "date": { "text": "元丰三年正月十八日", "year": 1080, "month": 2, "day": 11, "precision": "day" },
+          "sourceIds": ["own-1080"],
+          "note": "诗题《正月十八日蔡州道上遇雪》"
+        },
+        {
+          "name": "新息、光山净居寺、麻城",
+          "sourceIds": ["own-1080"],
+          "note": "诗题照先后；日子没有记载。一年后他有诗说“去年今日关山路”（题作正月二十日），同十八日还在蔡州道上不大对得上，只能当“正月二十日前后过山”。"
+        },
+        { "name": "岐亭", "at": [114.75, 31.02], "sourceIds": ["own-1080"], "note": "《岐亭五首》叙：在陈慥家“为留五日”；哪五天没有记载" }
+      ],
+      "label": "去黄州的路上",
+      "says": "匀着走的：正月初一出汴京，十八日在蔡州道上，二月一日到黄州",
+      "saysDates": [{ "of": "start", "text": "正月初一" }, { "of": "wp:蔡州道上", "text": "十八日" }, { "of": "end", "text": "二月一日" }]
+    },
+    {
+      "id": "t31",
+      "kind": "stop",
+      "stop": "huangzhou",
+      "place": "huangzhou",
+      "stopYearsOf": "huangzhou",
+      "start": { "text": "元丰三年二月一日", "year": 1080, "month": 2, "day": 24, "precision": "day" },
+      "end": { "text": "元丰七年四月", "year": 1084, "precision": "month", "earliest": "1084-05-08", "latest": "1084-05-31" },
+      "sourceIds": ["own-1080", "own-1084", "nianpu", "site"],
+      "class": "text",
+      "unsure": "离开黄州是四月的哪一天（四月一日还在黄州写词留别，二十四日已到庐山）",
+      "note": "中间到岐亭、蕲水、江对面的武昌西山去过，都是几天的来回。",
+      "label": "在黄州",
+      "says": "元丰三年二月一日到，元丰七年四月离开",
+      "saysDates": [{ "of": "start", "text": "元丰三年二月一日" }, { "of": "end", "text": "元丰七年四月" }]
+    },
+    {
+      "id": "t32",
+      "kind": "elsewhere",
+      "where": "离开黄州以后的路上：坐船下大江，上庐山，到筠州看弟弟，回到湖口，过金陵、真州、润州、常州、扬州，到泗州",
+      "moving": true,
+      "tablePoint": {
+        "type": "on-ways",
+        "ways": ["-w-jiang-lower", "-w-yangzhou-zhenzhou", "-w-canal-n2", "-w-canal-n1", "-w-huai-low"],
+        "note": "湖口往下到真州、扬州、楚州、泗州，都在画出来的线上；黄州到湖口的大江、去筠州的来回、去常州的来回，沙盘没有画路"
+      },
+      "stopYearsOf": null,
+      "start": { "text": "元丰七年四月", "year": 1084, "precision": "month", "earliest": "1084-05-08", "latest": "1084-05-31" },
+      "end": {
+        "text": "元丰七年冬，十一月晦日以前",
+        "year": 1084,
+        "precision": "before",
+        "latest": "1084-12-29",
+        "earliest": "1084-11-01",
+        "earliestIs": "元丰七年十月初一：史料说的是冬天"
+      },
+      "sourceIds": ["own-1084", "nianpu", "jinianlu", "zha"],
+      "class": "text",
+      "unsure": "八月到十一月在真州、润州、常州、扬州之间来回的日子；到泗州的日子（纪年录记十一月晦日已在泗上；词序只说“晦日”，没有写月份）",
+      "waypoints": [
+        {
+          "name": "庐山圆通禅院",
+          "date": { "text": "元丰七年四月二十四日", "year": 1084, "month": 5, "day": 31, "precision": "day" },
+          "sourceIds": ["own-1084", "nianpu", "jinianlu"],
+          "note": "诗叙：“四月二十四日晚至，宿焉，明日先君忌日也”（四库本查注作“二十日”，同“明日先君忌日”对不上，父亲是四月二十五日去世的）"
+        },
+        {
+          "name": "筠州",
+          "date": { "text": "元丰七年五月五日", "year": 1084, "month": 6, "day": 10, "precision": "day" },
+          "sourceIds": ["jinianlu", "nianpu"],
+          "note": "端午在筠州同弟弟游真如寺（纪年录列的诗题）；住了十天上下"
+        },
+        {
+          "name": "湖口石钟山",
+          "at": [116.22, 29.75],
+          "date": { "text": "元丰七年六月九日", "year": 1084, "month": 7, "day": 14, "precision": "day" },
+          "sourceIds": ["own-1084", "jinianlu"],
+          "note": "《石钟山记》“元丰七年六月丁丑”；纪年录写六月九日"
+        },
+        {
+          "name": "芜湖",
+          "date": { "text": "元丰七年六月二十三日", "year": 1084, "month": 7, "day": 28, "precision": "day" },
+          "sourceIds": ["jinianlu"],
+          "note": "纪年录：“二十三日舟过芜湖”"
+        },
+        {
+          "name": "金陵",
+          "at": [118.79, 32.04],
+          "date": { "text": "元丰七年七月二十八日", "year": 1084, "month": 8, "day": 31, "precision": "day" },
+          "sourceIds": ["own-1084"],
+          "note": "诗题：小儿子遯这一天病死在金陵（纪年录作七月十八日，以诗题为准）"
+        },
+        { "name": "真州、润州、扬州、淮水", "sourceIds": ["zha"], "note": "查注卷二十四：“八月自金陵历真、润、扬、淮，在泗州度岁”；日子没有核到" }
+      ],
+      "label": "离开黄州以后的路上",
+      "says": "这一趟没有画，沙盘上没有他。五月五日在筠州，七月二十八日在金陵",
+      "saysDates": [{ "of": "wp:筠州", "text": "五月五日" }, { "of": "wp:金陵", "text": "七月二十八日" }],
+      "longRoad": "四月离开黄州，上庐山，到筠州看弟弟，一路停留，冬天才到泗州"
+    },
+    {
+      "id": "t33",
+      "kind": "elsewhere",
+      "where": "泗州（在这里过年）",
+      "moving": false,
+      "tablePoint": { "type": "way-vertex", "way": "w-huai-low", "at": [118.48, 33.03] },
+      "stopYearsOf": null,
+      "start": {
+        "text": "元丰七年冬，十一月晦日以前",
+        "year": 1084,
+        "precision": "before",
+        "latest": "1084-12-29",
+        "earliest": "1084-11-01",
+        "earliestIs": "元丰七年十月初一：史料说的是冬天"
+      },
+      "end": { "text": "元丰八年正月四日", "year": 1085, "month": 2, "day": 1, "precision": "day" },
+      "sourceIds": ["own-1084", "own-1085", "nianpu", "jinianlu"],
+      "class": "text",
+      "unsure": "到泗州的日子",
+      "note": "十二月十八日在雍熙塔下洗澡（王宗稷；纪年录作二十八日）；除夜、元日都在泗州。",
+      "label": "在泗州过年",
+      "says": "沙盘上没有立泗州的名字。元丰七年冬到，元丰八年正月四日离开",
+      "saysDates": [{ "of": "start", "text": "元丰七年冬" }, { "of": "end", "text": "元丰八年正月四日" }]
+    },
+    {
+      "id": "t34",
+      "kind": "elsewhere",
+      "where": "从泗州到南都（今商丘），住到春天，得到准许以后往南回常州",
+      "moving": true,
+      "tablePoint": {
+        "type": "on-ways",
+        "ways": ["-w-bian-c", "w-bian-c", "w-huai-low", "w-canal-n1", "w-canal-n2", "w-cross", "w-canal-s1"],
+        "note": "泗州、南都、扬州、常州都在画出来的线上；中间怎么走没有查到，这些线是推的"
+      },
+      "stopYearsOf": null,
+      "start": { "text": "元丰八年正月四日", "year": 1085, "month": 2, "day": 1, "precision": "day" },
+      "end": { "text": "元丰八年五月二十二日", "year": 1085, "month": 6, "day": 16, "precision": "day" },
+      "sourceIds": ["own-1085", "own-zhazi", "nianpu", "jinianlu", "zha"],
+      "class": "text",
+      "unsure": "到南都的日子；离南都的日子（三月六日还在南都）；南都到扬州途中的日子",
+      "waypoints": [
+        {
+          "name": "南都",
+          "at": [115.61, 34.38],
+          "date": { "text": "元丰八年二月", "year": 1085, "precision": "month", "earliest": "1085-02-27", "latest": "1085-03-27" },
+          "sourceIds": ["jinianlu", "nianpu"],
+          "note": "纪年录：二月在南都安葬保母；王宗稷：“及到南京，有放归阳羡之命”"
+        },
+        {
+          "name": "南都（听到神宗去世）",
+          "at": [115.61, 34.38],
+          "date": { "text": "元丰八年三月六日", "year": 1085, "month": 4, "day": 2, "precision": "day" },
+          "sourceIds": ["own-zhazi"],
+          "note": "《辨题诗札子》：“臣于是岁三月六日在南京闻先帝遗诏，举哀挂服了当，迤逦往常州”"
+        },
+        {
+          "name": "扬州竹西寺",
+          "at": [119.43, 32.4],
+          "date": { "text": "元丰八年五月初", "year": 1085, "precision": "month", "earliest": "1085-05-26", "latest": "1085-06-16" },
+          "sourceIds": ["own-zhazi", "zha"],
+          "note": "他自己说“至五月初间，因往扬州竹西寺”；告他的人说是五月一日（公元 5 月 26 日）题的诗"
+        }
+      ],
+      "label": "去南都、回常州的路上",
+      "says": "这一趟没有画，沙盘上没有他。三月六日在南都，五月二十二日到常州",
+      "saysDates": [{ "of": "wp:南都（听到神宗去世）", "text": "三月六日" }, { "of": "end", "text": "五月二十二日" }]
+    },
+    {
+      "id": "t35",
+      "kind": "elsewhere",
+      "where": "常州（准许在这里住下）",
+      "moving": false,
+      "tablePoint": { "type": "way-vertex", "way": "w-canal-s1", "at": [119.97, 31.81] },
+      "stopYearsOf": null,
+      "start": { "text": "元丰八年五月二十二日", "year": 1085, "month": 6, "day": 16, "precision": "day" },
+      "end": { "text": "元丰八年七月二十五日以前", "year": 1085, "precision": "before", "earliest": "1085-06-16", "latest": "1085-08-18" },
+      "sourceIds": ["own-1085", "zha", "jinianlu", "nianpu"],
+      "class": "text",
+      "unsure": "到常州的月份表里只写“今月二十二日”，五月是周必大、查慎行考的；接到去登州的命令和离开常州的日子（年谱写五月得命，纪年录写八月十七日得旨，对不上）",
+      "label": "在常州住下",
+      "says": "沙盘上没有立常州的名字。五月二十二日到，七月二十五日以前离开",
+      "saysDates": [{ "of": "start", "text": "五月二十二日" }, { "of": "end", "text": "七月二十五日以前" }]
+    },
+    {
+      "id": "t36",
+      "kind": "elsewhere",
+      "where": "从常州去登州的路上",
+      "moving": true,
+      "tablePoint": {
+        "type": "on-ways",
+        "ways": ["-w-canal-s1", "-w-cross", "-w-canal-n2", "-w-canal-n1", "w-chuzhou-haizhou", "w-haizhou-mizhou"],
+        "note": "润州、扬州、怀仁、密州都在 1074 年去密州的那条线上；密州到登州沙盘没有画路"
+      },
+      "stopYearsOf": null,
+      "start": { "text": "元丰八年七月二十五日以前", "year": 1085, "precision": "before", "earliest": "1085-06-16", "latest": "1085-08-18" },
+      "end": { "text": "元丰八年十月十五日", "year": 1085, "month": 11, "day": 5, "precision": "day" },
+      "sourceIds": ["own-dengzhou", "jinianlu", "zha", "own-1085"],
+      "class": "text",
+      "unsure": "金山以后各处的日子；到登州他的表只写“今月十五日”，十月是纪年录写的",
+      "waypoints": [
+        {
+          "name": "润州金山",
+          "at": [119.43, 32.21],
+          "date": { "text": "元丰八年七月二十五日", "year": 1085, "month": 8, "day": 18, "precision": "day" },
+          "sourceIds": ["jinianlu"],
+          "note": "纪年录：“七月二十五日金山赠杜介诗”"
+        },
+        { "name": "扬州、怀仁、密州", "sourceIds": ["zha", "jinianlu"], "note": "诗题照先后；纪年录记过密州在九月以后；日子没有核到" }
+      ],
+      "label": "去登州的路上",
+      "says": "这一趟没有画，沙盘上没有他。七月二十五日在润州，十月十五日到登州",
+      "saysDates": [{ "of": "wp:润州金山", "text": "七月二十五日" }, { "of": "end", "text": "十月十五日" }]
+    },
+    {
+      "id": "t37",
+      "kind": "elsewhere",
+      "where": "登州（今山东蓬莱，做知州，到任五天就被召回）",
+      "moving": false,
+      "tablePoint": { "type": "none" },
+      "stopYearsOf": null,
+      "start": { "text": "元丰八年十月十五日", "year": 1085, "month": 11, "day": 5, "precision": "day" },
+      "end": {
+        "text": "元丰八年十月二十日以后",
+        "year": 1085,
+        "precision": "after",
+        "earliest": "1085-11-10",
+        "latest": "1086-01-17",
+        "latestIs": "这一头是日历和前后有日子的记载卡出来的最宽的范围，不是估的；真正的日子没有查到。最晚不会晚过他到汴京的最晚一天"
+      },
+      "sourceIds": ["own-dengzhou", "jinianlu", "own-1085"],
+      "class": "text",
+      "unsure": "离开登州的日子（十月二十日接到召命；他自己说“到官五日而去”；纪年录又记十月晦日作海市诗）",
+      "label": "在登州做官",
+      "says": "登州没有标出，沙盘上没有他。十月十五日到，二十日以后被召回汴京",
+      "saysDates": [{ "of": "start", "text": "十月十五日" }, { "of": "end", "text": "二十日以后" }]
+    },
+    {
+      "id": "t38",
+      "kind": "elsewhere",
+      "where": "从登州回汴京的路上",
+      "moving": true,
+      "tablePoint": { "type": "none" },
+      "stopYearsOf": null,
+      "start": {
+        "text": "元丰八年十月二十日以后",
+        "year": 1085,
+        "precision": "after",
+        "earliest": "1085-11-10",
+        "latest": "1086-01-17",
+        "latestIs": "这一头是日历和前后有日子的记载卡出来的最宽的范围，不是估的；真正的日子没有查到。最晚不会晚过他到汴京的最晚一天"
+      },
+      "end": {
+        "text": "元丰八年十一月或十二月",
+        "year": 1085,
+        "precision": "month",
+        "earliest": "1085-11-20",
+        "latest": "1086-01-17",
+        "latestIs": "元丰八年十二月的最后一天"
+      },
+      "sourceIds": ["jinianlu", "nianpu", "zha"],
+      "class": "schematic",
+      "unsure": "路线（只知道过莱州）；到京的月份（纪年录先写十一月到京，又写十二月入侍）",
+      "label": "回汴京的路上",
+      "says": "这一趟没有画，沙盘上没有他。元丰八年十一月或十二月到汴京",
+      "saysDates": [{ "of": "end", "text": "元丰八年十一月或十二月" }]
+    },
+    {
+      "id": "t39",
+      "kind": "elsewhere",
+      "where": "汴京（起居舍人、中书舍人、翰林学士）",
+      "moving": false,
+      "tablePoint": { "type": "stop-point", "place": "bianjing" },
+      "stopYearsOf": null,
+      "start": {
+        "text": "元丰八年十一月或十二月",
+        "year": 1085,
+        "precision": "month",
+        "earliest": "1085-11-20",
+        "latest": "1086-01-17",
+        "latestIs": "元丰八年十二月的最后一天"
+      },
+      "end": {
+        "text": "元祐四年四月以后",
+        "year": 1089,
+        "precision": "after",
+        "earliest": "1089-05-13",
+        "latest": "1089-08-11",
+        "latestIs": "这一头是日历和前后有日子的记载卡出来的最宽的范围，不是估的；真正的日子没有查到。这一天（七月三日）他已经到了杭州，实际动身一定早得多"
+      },
+      "sourceIds": ["nianpu", "jinianlu", "zha"],
+      "class": "text",
+      "unsure": "出京的日子（三月得旨知杭州；查注只说“四月以后”）",
+      "label": "在汴京",
+      "says": "元丰八年十一月或十二月到；元祐四年四月以后离开，去杭州做官",
+      "saysDates": [{ "of": "start", "text": "元丰八年十一月或十二月" }, { "of": "end", "text": "元祐四年四月以后" }]
+    },
+    {
+      "id": "t40",
+      "kind": "road",
+      "journey": "j-1089",
+      "from": "汴京",
+      "to": "杭州",
+      "stopYearsOf": "hangzhou-2",
+      "parts": [
+        {
+          "name": "1089 年汴京到杭州的路",
+          "ways": ["w-bian-a", "w-bian-b", "w-bian-c", "w-huai-low", "w-canal-n1", "w-canal-n2", "w-cross", "w-canal-s1", "w-canal-s2"],
+          "class": "schematic"
+        }
+      ],
+      "start": {
+        "text": "元祐四年四月以后",
+        "year": 1089,
+        "precision": "after",
+        "earliest": "1089-05-13",
+        "latest": "1089-08-11",
+        "latestIs": "这一头是日历和前后有日子的记载卡出来的最宽的范围，不是估的；真正的日子没有查到。这一天（七月三日）他已经到了杭州，实际动身一定早得多"
+      },
+      "end": { "text": "元祐四年七月三日", "year": 1089, "month": 8, "day": 11, "precision": "day" },
+      "sourceIds": ["nianpu", "site"],
+      "class": "schematic",
+      "unsure": "途中的地方和日子，一处也没有查到",
+      "label": "去杭州的路上",
+      "says": "匀着走的：元祐四年四月以后出汴京，七月三日到杭州；途中没有日子",
+      "saysDates": [{ "of": "start", "text": "元祐四年四月以后" }, { "of": "end", "text": "七月三日" }]
+    },
+    {
+      "id": "t41",
+      "kind": "stop",
+      "stop": "hangzhou-2",
+      "place": "hangzhou",
+      "stopYearsOf": "hangzhou-2",
+      "start": { "text": "元祐四年七月三日", "year": 1089, "month": 8, "day": 11, "precision": "day" },
+      "end": { "text": "元祐六年三月，九日到十九日之间", "year": 1091, "precision": "month", "earliest": "1091-03-31", "latest": "1091-04-10" },
+      "sourceIds": ["nianpu", "jinianlu"],
+      "class": "text",
+      "unsure": "离开杭州的日子（三月九日辞别天竺，十九日已到吴江）",
+      "label": "在杭州",
+      "says": "元祐四年七月三日到；元祐六年三月九日到十九日之间离开",
+      "saysDates": [{ "of": "start", "text": "元祐四年七月三日" }, { "of": "end", "text": "元祐六年三月九日到十九日之间" }]
+    },
+    {
+      "id": "t42",
+      "kind": "elsewhere",
+      "where": "从杭州被召回汴京的路上",
+      "moving": true,
+      "tablePoint": { "type": "on-ways", "ways": ["-w-canal-s2", "-w-canal-s1"], "note": "吴江、常州在运河线上；常州以后怎么走没有查到" },
+      "stopYearsOf": null,
+      "start": { "text": "元祐六年三月，九日到十九日之间", "year": 1091, "precision": "month", "earliest": "1091-03-31", "latest": "1091-04-10" },
+      "end": { "text": "元祐六年四月或五月", "year": 1091, "precision": "month", "earliest": "1091-04-22", "latest": "1091-06-19" },
+      "sourceIds": ["jinianlu"],
+      "class": "text",
+      "unsure": "常州以后的路线；到京的月份（纪年录先写四月到阙，又写五月入院）",
+      "waypoints": [
+        {
+          "name": "吴江",
+          "at": [120.645, 31.158],
+          "date": { "text": "元祐六年三月十九日", "year": 1091, "month": 4, "day": 10, "precision": "day" },
+          "sourceIds": ["jinianlu"],
+          "note": "纪年录：“十九日宿吴江”"
+        },
+        { "name": "常州太平寺", "at": [119.97, 31.81], "sourceIds": ["jinianlu"], "note": "看牡丹；日子没有记载" }
+      ],
+      "label": "被召回汴京的路上",
+      "says": "这一趟没有画，沙盘上没有他。三月十九日在吴江，四月或五月到汴京",
+      "saysDates": [{ "of": "wp:吴江", "text": "三月十九日" }, { "of": "end", "text": "四月或五月" }]
+    },
+    {
+      "id": "t43",
+      "kind": "elsewhere",
+      "where": "汴京（翰林学士承旨，住在弟弟的官舍里）",
+      "moving": false,
+      "tablePoint": { "type": "stop-point", "place": "bianjing" },
+      "stopYearsOf": null,
+      "start": { "text": "元祐六年四月或五月", "year": 1091, "precision": "month", "earliest": "1091-04-22", "latest": "1091-06-19" },
+      "end": { "text": "元祐六年八月八日以后，八月或闰八月", "year": 1091, "precision": "after", "earliest": "1091-08-25", "latest": "1091-10-07" },
+      "sourceIds": ["own-1091", "own-zhazi", "jinianlu", "nianpu"],
+      "class": "text",
+      "unsure": "出京的日子（八月改知颍州；八月初八日还在京城上札子；这一年有闰八月）",
+      "label": "在汴京",
+      "says": "元祐六年四月或五月到；八月八日以后离开，去颍州做官",
+      "saysDates": [{ "of": "start", "text": "元祐六年四月或五月" }, { "of": "end", "text": "八月八日以后" }]
+    },
+    {
+      "id": "t44",
+      "kind": "elsewhere",
+      "where": "从汴京去颍州的路上",
+      "moving": true,
+      "tablePoint": { "type": "on-ways", "ways": ["w-bianjing-chenzhou", "w-ying"], "note": "只知道路过陈州；陈州、颍州都在 1071 年去杭州的那条线上" },
+      "stopYearsOf": null,
+      "start": { "text": "元祐六年八月八日以后，八月或闰八月", "year": 1091, "precision": "after", "earliest": "1091-08-25", "latest": "1091-10-07" },
+      "end": { "text": "元祐六年八月或闰八月的二十二日", "year": 1091, "precision": "month", "earliest": "1091-09-08", "latest": "1091-10-07" },
+      "sourceIds": ["own-yingzhou", "nianpu", "jinianlu"],
+      "class": "schematic",
+      "unsure": "到颍州是哪个月的二十二日（他的表只写“今月二十二日到任”；八月初八日还在京城，纪年录记九月十五日已在颍州，所以不是八月就是闰八月；通行的说法是闰八月）",
+      "label": "去颍州的路上",
+      "says": "这一趟没有画，沙盘上没有他。八月或闰八月的二十二日到颍州",
+      "saysDates": [{ "of": "end", "text": "八月或闰八月的二十二日" }]
+    },
+    {
+      "id": "t45",
+      "kind": "elsewhere",
+      "where": "颍州（今安徽阜阳，做知州）",
+      "moving": false,
+      "tablePoint": {
+        "type": "way-vertex",
+        "way": "w-ying",
+        "at": [115.81, 32.89],
+        "note": "颍州在这条水路的旁边，离画出来的线约十公里；小像站在线上离它最近的地方"
+      },
+      "stopYearsOf": null,
+      "start": { "text": "元祐六年八月或闰八月的二十二日", "year": 1091, "precision": "month", "earliest": "1091-09-08", "latest": "1091-10-07" },
+      "end": { "text": "元祐七年二月", "year": 1092, "precision": "month", "earliest": "1092-03-11", "latest": "1092-04-09" },
+      "sourceIds": ["own-yingzhou", "nianpu", "jinianlu"],
+      "class": "text",
+      "unsure": "到任是八月还是闰八月；离开颍州的日子（纪年录：二月移知扬州；三月初三已过濠州）",
+      "label": "在颍州做官",
+      "says": "沙盘上没有立颍州的名字。元祐六年八月或闰八月到，七年二月离开",
+      "saysDates": [{ "of": "start", "text": "元祐六年八月或闰八月" }, { "of": "end", "text": "七年二月" }]
+    },
+    {
+      "id": "t46",
+      "kind": "elsewhere",
+      "where": "从颍州去扬州的路上（坐船下颍水、淮水）",
+      "moving": true,
+      "tablePoint": {
+        "type": "on-ways",
+        "ways": ["w-ying", "w-huai-mid", "w-huai-low", "w-canal-n1", "w-canal-n2"],
+        "note": "同 1071 年去杭州走的是一条水路；他自己注：“昔自南河赴杭州过此，盖二十二年矣”"
+      },
+      "stopYearsOf": null,
+      "start": { "text": "元祐七年二月", "year": 1092, "precision": "month", "earliest": "1092-03-11", "latest": "1092-04-09" },
+      "end": { "text": "元祐七年三月二十六日", "year": 1092, "month": 5, "day": 5, "precision": "day" },
+      "sourceIds": ["own-1092", "own-yangzhou", "jinianlu"],
+      "class": "text",
+      "unsure": "濠州以外各处的日子；到扬州的日子有两说（他的表写“今月二十六日到任”，纪年录写三月十六日，以他自己的表为准；月份是纪年录的）",
+      "waypoints": [
+        {
+          "name": "濠州涂山",
+          "at": [117.61, 32.9],
+          "date": { "text": "元祐七年三月三日", "year": 1092, "month": 4, "day": 12, "precision": "day" },
+          "sourceIds": ["own-1092", "jinianlu"],
+          "note": "诗题《上巳日与二子迨、过游涂山、荆山，记所见》；上巳是三月初三"
+        }
+      ],
+      "label": "去扬州的路上",
+      "says": "这一趟没有画，沙盘上没有他。三月三日在濠州，三月二十六日到扬州",
+      "saysDates": [{ "of": "wp:濠州涂山", "text": "三月三日" }, { "of": "end", "text": "三月二十六日" }]
+    },
+    {
+      "id": "t47",
+      "kind": "elsewhere",
+      "where": "扬州（做知州）",
+      "moving": false,
+      "tablePoint": { "type": "way-vertex", "way": "w-canal-n2", "at": [119.43, 32.4] },
+      "stopYearsOf": null,
+      "start": { "text": "元祐七年三月二十六日", "year": 1092, "month": 5, "day": 5, "precision": "day" },
+      "end": { "text": "元祐七年秋，九月九日以前", "year": 1092, "precision": "before", "earliest": "1092-08-06", "latest": "1092-10-12" },
+      "sourceIds": ["own-yangzhou", "jinianlu", "nianpu", "own-1092"],
+      "class": "text",
+      "unsure": "到任是二十六日还是十六日；离开扬州的日子（纪年录：九月以兵部尚书召还；重九已到南都）",
+      "label": "在扬州做官",
+      "says": "沙盘上没有立扬州的名字。三月二十六日到，九月九日以前离开",
+      "saysDates": [{ "of": "start", "text": "三月二十六日" }, { "of": "end", "text": "九月九日以前" }]
+    },
+    {
+      "id": "t48",
+      "kind": "elsewhere",
+      "where": "从扬州被召回汴京的路上",
+      "moving": true,
+      "tablePoint": {
+        "type": "on-ways",
+        "ways": ["-w-canal-n2", "-w-canal-n1", "-w-huai-low", "-w-bian-c", "-w-bian-b", "-w-bian-a"],
+        "note": "纪年录记他“行宿泗间”、重九在南都，都在汴河线上"
+      },
+      "stopYearsOf": null,
+      "start": { "text": "元祐七年秋，九月九日以前", "year": 1092, "precision": "before", "earliest": "1092-08-06", "latest": "1092-10-12" },
+      "end": { "text": "元祐七年九月，九日以后", "year": 1092, "precision": "month", "earliest": "1092-10-12", "latest": "1092-11-01" },
+      "sourceIds": ["jinianlu", "own-1092"],
+      "class": "text",
+      "unsure": "到京的日子",
+      "waypoints": [
+        {
+          "name": "南都",
+          "at": [115.61, 34.38],
+          "date": { "text": "元祐七年九月九日", "year": 1092, "month": 10, "day": 12, "precision": "day" },
+          "sourceIds": ["jinianlu"],
+          "note": "纪年录：“重九与定国相遇于宋”"
+        }
+      ],
+      "label": "被召回汴京的路上",
+      "says": "这一趟没有画，沙盘上没有他。九月九日在南都，九日以后到汴京",
+      "saysDates": [{ "of": "wp:南都", "text": "九月九日" }, { "of": "end", "text": "九日以后" }]
+    },
+    {
+      "id": "t49",
+      "kind": "elsewhere",
+      "where": "汴京（兵部尚书、礼部尚书）",
+      "moving": false,
+      "tablePoint": { "type": "stop-point", "place": "bianjing" },
+      "stopYearsOf": null,
+      "start": { "text": "元祐七年九月，九日以后", "year": 1092, "precision": "month", "earliest": "1092-10-12", "latest": "1092-11-01" },
+      "end": {
+        "text": "元祐八年九月十四日以后",
+        "year": 1093,
+        "precision": "after",
+        "earliest": "1093-10-07",
+        "latest": "1094-01-12",
+        "latestIs": "这一头是日历和前后有日子的记载卡出来的最宽的范围，不是估的；真正的日子没有查到。最晚不会晚过他到定州的最晚一天"
+      },
+      "sourceIds": ["nianpu", "jinianlu", "own-1092"],
+      "class": "text",
+      "unsure": "出京的日子（九月十四日还在东府同弟弟告别）",
+      "label": "在汴京",
+      "says": "元祐七年九月到；元祐八年九月十四日以后离开，去定州做官",
+      "saysDates": [{ "of": "start", "text": "元祐七年九月" }, { "of": "end", "text": "元祐八年九月十四日以后" }]
+    },
+    {
+      "id": "t50",
+      "kind": "elsewhere",
+      "where": "从汴京去定州的路上",
+      "moving": true,
+      "tablePoint": { "type": "none" },
+      "stopYearsOf": null,
+      "start": {
+        "text": "元祐八年九月十四日以后",
+        "year": 1093,
+        "precision": "after",
+        "earliest": "1093-10-07",
+        "latest": "1094-01-12",
+        "latestIs": "这一头是日历和前后有日子的记载卡出来的最宽的范围，不是估的；真正的日子没有查到。最晚不会晚过他到定州的最晚一天"
+      },
+      "end": { "text": "元祐八年冬，二十三日", "year": 1093, "precision": "season", "earliest": "1093-11-14", "latest": "1094-01-12" },
+      "sourceIds": ["jinianlu", "nianpu"],
+      "class": "schematic",
+      "unsure": "路线没有查到；到定州的月份（纪年录写十二月二十三日，可它又把在定州写的祭文记在十一月，对不上；今人多说十月二十三日，没有核到原文）",
+      "label": "去定州的路上",
+      "says": "这一趟没有画，沙盘上没有他。元祐八年冬到定州，哪个月没有定",
+      "saysDates": [{ "of": "end", "text": "元祐八年冬" }]
+    },
+    {
+      "id": "t51",
+      "kind": "elsewhere",
+      "where": "定州（今河北定州，做知州）",
+      "moving": false,
+      "tablePoint": { "type": "edge-strip", "strip": "s-dingzhou", "at": [114.946, 38.395] },
+      "stopYearsOf": null,
+      "start": { "text": "元祐八年冬，二十三日", "year": 1093, "precision": "season", "earliest": "1093-11-14", "latest": "1094-01-12" },
+      "end": { "text": "绍圣元年四月二十四日以后", "year": 1094, "precision": "after", "earliest": "1094-05-11", "latest": "1094-06-15" },
+      "sourceIds": ["jinianlu", "nianpu", "zha"],
+      "class": "text",
+      "unsure": "离开定州的日子（纪年录记四月二十四日还在定州写字，“是月”接到贬英州的命令；这一年有闰四月）",
+      "label": "在定州做官",
+      "says": "定州在沙盘北边的框外，沙盘上没有他；框上立着它的名字",
+      "saysDates": [],
+      "note": "定州在这座沙盘北边的框外，框上只立了一个带箭头的名字；去惠州的那条路是从框边这个名字底下画起的。"
+    },
+    {
+      "id": "t52",
+      "kind": "road",
+      "journey": "j-1094",
+      "from": "定州",
+      "to": "惠州",
+      "stopYearsOf": "danzhou",
+      "parts": [
+        { "name": "1094 年定州到汤阴的路", "ways": ["w-north-tangyin"], "class": "text" },
+        { "name": "1094 年汤阴到高邮的路", "ways": ["w-tangyin-yongqiu", "w-bian-b", "w-bian-c", "w-huai-low", "w-canal-n1"], "class": "schematic" },
+        {
+          "name": "1094 年高邮到惠州的路",
+          "ways": ["w-canal-n2", "w-yangzhou-zhenzhou", "w-jiang-lower", "w-pengli", "w-gan", "w-dayu", "w-zhen", "w-bei", "w-dong"],
+          "class": "text"
+        }
+      ],
+      "start": { "text": "绍圣元年四月二十四日以后", "year": 1094, "precision": "after", "earliest": "1094-05-11", "latest": "1094-06-15" },
+      "end": { "text": "绍圣元年十月二日", "year": 1094, "month": 11, "day": 12, "precision": "day" },
+      "sourceIds": ["own-1094", "jinianlu", "nianpu", "zha"],
+      "class": "text",
+      "unsure": "金陵以前各处的日子；到没到汝州见弟弟（没有核到原文）；再贬惠州的命令是在当涂（纪年录）还是在南康军（王宗稷）接到的",
+      "waypoints": [
+        { "name": "临城、内丘、汤阴", "sourceIds": ["own-1094"], "note": "诗引、诗题；日子没有记载" },
+        { "name": "杞（雍丘）、高邮、长芦", "sourceIds": ["jinianlu", "zha"], "note": "纪年录、诗题照先后；日子没有记载" },
+        {
+          "name": "金陵",
+          "at": [118.79, 32.04],
+          "date": { "text": "绍圣元年六月七日", "year": 1094, "month": 7, "day": 21, "precision": "day" },
+          "sourceIds": ["own-1094"],
+          "note": "诗题《六月七日泊金陵阻风……》；六月九日还在金陵清凉寺（纪年录）"
+        },
+        { "name": "当涂慈湖夹、庐山下、湖口、南康、庐陵", "sourceIds": ["own-1094", "jinianlu"], "note": "诗题和纪年录照先后；日子没有记载" },
+        {
+          "name": "惶恐滩（万安）",
+          "at": [114.78, 26.46],
+          "date": { "text": "绍圣元年八月七日", "year": 1094, "month": 9, "day": 19, "precision": "day" },
+          "sourceIds": ["own-1094"],
+          "note": "诗题《八月七日初入赣过惶恐滩》"
+        },
+        {
+          "name": "虔州",
+          "at": [114.93, 25.85],
+          "date": { "text": "绍圣元年八月十七日", "year": 1094, "month": 9, "day": 29, "precision": "day" },
+          "sourceIds": ["jinianlu", "nianpu"],
+          "note": "纪年录：“十七日过虔州”；王宗稷引他的文字：“八月二十一日过虔州……同谒祥符宫”。照这两条，十七日到二十一日（公元 10 月 3 日）在虔州。"
+        },
+        { "name": "大庾岭、韶州南华寺、英州", "sourceIds": ["own-1094"], "note": "诗题照先后；日子没有记载" },
+        {
+          "name": "清远峡山寺",
+          "at": [113.05, 23.69],
+          "date": { "text": "绍圣元年九月十三日", "year": 1094, "month": 10, "day": 24, "precision": "day" },
+          "sourceIds": ["jinianlu"],
+          "note": "纪年录：“九月十三日游广州清远峡山寺”"
+        },
+        { "name": "广州", "at": [113.26, 23.13], "sourceIds": ["own-1094"], "note": "诗题；日子没有记载" },
+        {
+          "name": "泊头镇，上罗浮山",
+          "date": { "text": "绍圣元年九月二十六日", "year": 1094, "month": 11, "day": 6, "precision": "day" },
+          "sourceIds": ["jinianlu"],
+          "note": "纪年录：“二十六日舣舟泊头，肩舆于罗浮山”。罗浮山在东江北岸，不在画出来的线上。"
+        }
+      ],
+      "label": "去惠州的路上",
+      "says": "匀着走的：六月七日在金陵，八月十七日在虔州，十月二日到惠州",
+      "saysDates": [{ "of": "wp:金陵", "text": "六月七日" }, { "of": "wp:虔州", "text": "八月十七日" }, { "of": "end", "text": "十月二日" }]
+    },
+    {
+      "id": "t53",
+      "kind": "stop",
+      "stop": "danzhou",
+      "place": "huizhou",
+      "stopYearsOf": "danzhou",
+      "start": { "text": "绍圣元年十月二日", "year": 1094, "month": 11, "day": 12, "precision": "day" },
+      "end": { "text": "绍圣四年四月十九日", "year": 1097, "month": 6, "day": 1, "precision": "day" },
+      "sourceIds": ["own-1094", "own-1097", "nianpu", "jinianlu"],
+      "class": "text",
+      "unsure": "到惠州的日子王宗稷年谱写十月三日，差一天，以他自己的表和诗题为准",
+      "note": "这一站有两个地方：这一段在惠州，后一段在昌化军。",
+      "label": "在惠州",
+      "says": "绍圣元年十月二日到，绍圣四年四月十九日离开",
+      "saysDates": [{ "of": "start", "text": "绍圣元年十月二日" }, { "of": "end", "text": "绍圣四年四月十九日" }]
+    },
+    {
+      "id": "t54",
+      "kind": "road",
+      "journey": "j-1097",
+      "from": "惠州",
+      "to": "昌化军",
+      "stopYearsOf": "danzhou",
+      "parts": [
+        { "name": "1097 年惠州到梧州的路", "ways": ["-w-dong", "w-xi"], "class": "schematic" },
+        { "name": "1097 年梧州到藤州的路", "ways": ["w-wuzhou-tengzhou"], "class": "text" },
+        { "name": "1097 年藤州到雷州的路", "ways": ["w-teng-lei"], "class": "schematic" },
+        { "name": "1097 年雷州到昌化军的路", "ways": ["w-lei-xuwen", "w-sea", "w-qiong-dan"], "class": "text" }
+      ],
+      "start": { "text": "绍圣四年四月十九日", "year": 1097, "month": 6, "day": 1, "precision": "day" },
+      "end": { "text": "绍圣四年七月二日", "year": 1097, "month": 8, "day": 11, "precision": "day" },
+      "sourceIds": ["own-1097", "jinianlu", "nianpu"],
+      "class": "text",
+      "unsure": "到梧州、到雷州的日子；上船和上岸的地点；琼州到昌化军中间的路线和日子",
+      "waypoints": [
+        { "name": "梧州", "at": [111.3, 23.48], "sourceIds": ["own-1097"], "note": "诗题：到梧州才听说弟弟还在藤州；日子没有记载" },
+        {
+          "name": "藤州",
+          "at": [110.92, 23.4],
+          "date": { "text": "绍圣四年五月十一日", "year": 1097, "month": 6, "day": 23, "precision": "day" },
+          "sourceIds": ["own-1097"],
+          "note": "《和陶止酒》引：“五月十一日，相遇于藤，同行至雷”"
+        },
+        { "name": "雷州", "at": [110.09, 20.91], "sourceIds": ["own-1097"], "note": "同弟弟一路走到雷州；哪一天到的没有记载" },
+        {
+          "name": "海边（徐闻）",
+          "at": [110.16, 20.34],
+          "date": { "text": "绍圣四年六月十一日", "year": 1097, "month": 7, "day": 22, "precision": "day" },
+          "sourceIds": ["own-1097"],
+          "note": "“六月十一日，相别渡海”"
+        },
+        { "name": "琼州", "at": [110.35, 20.01], "sourceIds": ["own-1097"], "note": "《行琼儋间，肩舆坐睡》；日子没有记载" }
+      ],
+      "label": "去昌化军的路上",
+      "says": "匀着走的：五月十一日在藤州，六月十一日到海边，七月二日到昌化军",
+      "saysDates": [{ "of": "wp:藤州", "text": "五月十一日" }, { "of": "wp:海边（徐闻）", "text": "六月十一日" }, { "of": "end", "text": "七月二日" }]
+    },
+    {
+      "id": "t55",
+      "kind": "stop",
+      "stop": "danzhou",
+      "place": "changhua",
+      "stopYearsOf": "danzhou",
+      "start": { "text": "绍圣四年七月二日", "year": 1097, "month": 8, "day": 11, "precision": "day" },
+      "end": { "text": "元符三年六月，十七日以前", "year": 1100, "precision": "before", "earliest": "1100-06-10", "latest": "1100-07-25" },
+      "sourceIds": ["own-1097", "nianpu", "jinianlu"],
+      "class": "text",
+      "unsure": "离开昌化军的日子（五月得到移廉州的命令；六月十七日已到琼州）",
+      "label": "在昌化军",
+      "says": "绍圣四年七月二日到昌化军（儋州）；元符三年六月十七日以前离开",
+      "saysDates": [{ "of": "start", "text": "绍圣四年七月二日" }, { "of": "end", "text": "元符三年六月十七日以前" }]
+    },
+    {
+      "id": "t56",
+      "kind": "elsewhere",
+      "where": "北归的路上：从昌化军到琼州，过海到雷州，再到廉州（今广西合浦）",
+      "moving": true,
+      "tablePoint": {
+        "type": "on-ways",
+        "ways": ["-w-qiong-dan", "-w-sea", "-w-lei-xuwen"],
+        "note": "昌化军到雷州是 1097 年来路反着走；雷州到廉州沙盘没有画路"
+      },
+      "stopYearsOf": null,
+      "start": { "text": "元符三年六月，十七日以前", "year": 1100, "precision": "before", "earliest": "1100-06-10", "latest": "1100-07-25" },
+      "end": { "text": "元符三年七月初，四日以前", "year": 1100, "precision": "before", "earliest": "1100-08-07", "latest": "1100-08-11" },
+      "sourceIds": ["own-1100", "jinianlu", "nianpu"],
+      "class": "text",
+      "unsure": "到廉州是哪一天（六月三十日还在海上，七月四日已在合浦写文章）",
+      "waypoints": [
+        {
+          "name": "琼州",
+          "at": [110.35, 20.01],
+          "date": { "text": "元符三年六月十七日", "year": 1100, "month": 7, "day": 25, "precision": "day" },
+          "sourceIds": ["jinianlu"],
+          "note": "纪年录：“六月十七日过琼州作惠通井记”"
+        },
+        {
+          "name": "过海",
+          "date": { "text": "元符三年六月二十日", "year": 1100, "month": 7, "day": 28, "precision": "day" },
+          "sourceIds": ["own-1100"],
+          "note": "诗题《六月二十日夜渡海》"
+        },
+        {
+          "name": "雷州（海康）",
+          "at": [110.09, 20.91],
+          "date": { "text": "元符三年六月二十五日", "year": 1100, "month": 8, "day": 2, "precision": "day" },
+          "sourceIds": ["jinianlu"],
+          "note": "纪年录：“二十五日与秦少游相别于海康”"
+        },
+        {
+          "name": "去廉州的海上",
+          "date": { "text": "元符三年六月三十日", "year": 1100, "month": 8, "day": 7, "precision": "day" },
+          "sourceIds": ["own-1100"],
+          "note": "《书合浦舟行》：“是日，六月晦”，夜里停在海上"
+        }
+      ],
+      "label": "往北回去的路上",
+      "says": "这一趟没有画，沙盘上没有他。六月二十日过海，七月初到廉州",
+      "saysDates": [{ "of": "wp:过海", "text": "六月二十日" }, { "of": "end", "text": "七月初" }]
+    },
+    {
+      "id": "t57",
+      "kind": "elsewhere",
+      "where": "廉州（今广西合浦）",
+      "moving": false,
+      "tablePoint": { "type": "none" },
+      "stopYearsOf": null,
+      "start": { "text": "元符三年七月初，四日以前", "year": 1100, "precision": "before", "earliest": "1100-08-07", "latest": "1100-08-11" },
+      "end": {
+        "text": "元符三年八月二十八日以后",
+        "year": 1100,
+        "precision": "after",
+        "earliest": "1100-10-03",
+        "latest": "1100-12-17",
+        "latestIs": "这一头是日历和前后有日子的记载卡出来的最宽的范围，不是估的；真正的日子没有查到。这一天（十一月十五日）他已经过了清远峡，实际动身一定早得多"
+      },
+      "sourceIds": ["own-1100", "zha", "nianpu"],
+      "class": "text",
+      "unsure": "离开廉州是哪一天（八月二十八日朋友饯行；查慎行说八月底离开，卷四十四又写九月）",
+      "label": "在廉州",
+      "says": "廉州没有标出，沙盘上没有他。七月初到，八月二十八日以后离开",
+      "saysDates": [{ "of": "start", "text": "七月初" }, { "of": "end", "text": "八月二十八日以后" }]
+    },
+    {
+      "id": "t58",
+      "kind": "elsewhere",
+      "where": "北归的路上：从廉州经郁林、藤州、梧州到广州，再经清远、英州、韶州，翻大庾岭到虔州",
+      "moving": true,
+      "tablePoint": {
+        "type": "on-ways",
+        "ways": ["-w-wuzhou-tengzhou", "-w-xi", "-w-bei", "-w-zhen", "-w-dayu"],
+        "note": "藤州以后都在 1094、1097 年来路的线上，反着走；廉州到藤州沙盘没有画路"
+      },
+      "stopYearsOf": null,
+      "start": {
+        "text": "元符三年八月二十八日以后",
+        "year": 1100,
+        "precision": "after",
+        "earliest": "1100-10-03",
+        "latest": "1100-12-17",
+        "latestIs": "这一头是日历和前后有日子的记载卡出来的最宽的范围，不是估的；真正的日子没有查到。这一天（十一月十五日）他已经过了清远峡，实际动身一定早得多"
+      },
+      "end": { "text": "建中靖国元年正月", "year": 1101, "precision": "month", "earliest": "1101-02-04", "latest": "1101-03-01" },
+      "sourceIds": ["own-1100", "own-1101", "zha", "nianpu", "jinianlu"],
+      "class": "text",
+      "unsure": "在广州、韶州各住了多久；过岭的日子（王宗稷说除夕过岭，查慎行据《九成台铭》说在韶州过的年；正月初一在韶州、初五到南安军，四天翻过岭，两条有一条不准）；到虔州是正月的哪一天",
+      "waypoints": [
+        { "name": "郁林、藤州、梧州、广州", "sourceIds": ["zha", "jinianlu", "nianpu"], "note": "诗题和年谱照先后；日子没有核到" },
+        {
+          "name": "清远峡",
+          "at": [113.05, 23.69],
+          "date": { "text": "元符三年十一月十五日", "year": 1100, "month": 12, "day": 17, "precision": "day" },
+          "sourceIds": ["own-1100", "nianpu"],
+          "note": "广庆寺题名：朋友从广州追来送行，“元符三年十一月十五日记”（纪年录另记十月十四日过清远，先后对不上）"
+        },
+        { "name": "英州", "sourceIds": ["nianpu"], "note": "在这里接到新的任命；日子没有记载" },
+        {
+          "name": "韶州",
+          "at": [113.59, 24.81],
+          "date": { "text": "建中靖国元年正月一日", "year": 1101, "month": 1, "day": 31, "precision": "day" },
+          "sourceIds": ["own-1101", "zha"],
+          "note": "《九成台铭》《南华长老题名记》写在这一天（照查慎行的按语，没有读原文）"
+        },
+        {
+          "name": "南安军",
+          "at": [114.36, 25.4],
+          "date": { "text": "建中靖国元年正月五日", "year": 1101, "month": 2, "day": 4, "precision": "day" },
+          "sourceIds": ["own-1101", "nianpu", "jinianlu"],
+          "note": "题《石钟山记》后：“正月五日……过南安军”（照王宗稷的引文）"
+        }
+      ],
+      "label": "往北回去的路上",
+      "says": "这一趟没有画，沙盘上没有他。正月五日在南安军，正月到虔州",
+      "saysDates": [{ "of": "wp:南安军", "text": "正月五日" }, { "of": "end", "text": "正月" }],
+      "longRoad": "八月二十八日以后离开廉州，十一月十五日才过清远峡，第二年正月到虔州"
+    },
+    {
+      "id": "t59",
+      "kind": "elsewhere",
+      "where": "虔州（今江西赣州，等水涨了好开船）",
+      "moving": false,
+      "tablePoint": { "type": "way-vertex", "way": "w-gan", "at": [114.93, 25.85] },
+      "stopYearsOf": null,
+      "start": { "text": "建中靖国元年正月", "year": 1101, "precision": "month", "earliest": "1101-02-04", "latest": "1101-03-01" },
+      "end": { "text": "建中靖国元年三月四日以后", "year": 1101, "precision": "after", "earliest": "1101-04-04", "latest": "1101-05-03" },
+      "sourceIds": ["own-1101", "nianpu", "jinianlu"],
+      "class": "text",
+      "unsure": "离开虔州的日子（纪年录记三月四日还在虔州写文章，四月四日已到吴城山）；为什么住这么久是今人的说法，没有核到原文",
+      "label": "在虔州",
+      "says": "沙盘上没有立虔州的名字。正月到，三月四日以后坐船离开",
+      "saysDates": [{ "of": "start", "text": "正月" }, { "of": "end", "text": "三月四日以后" }]
+    },
+    {
+      "id": "t60",
+      "kind": "elsewhere",
+      "where": "北归的路上：从虔州坐船下赣水，过彭蠡，下大江，经金陵、真州、润州到常州",
+      "moving": true,
+      "tablePoint": {
+        "type": "on-ways",
+        "ways": ["-w-gan", "-w-pengli", "w-jiang-lower", "-w-yangzhou-zhenzhou", "w-cross", "w-canal-s1"],
+        "note": "都在画出来的线上：赣水、彭蠡是 1094 年来路反着走，大江顺水，再沿运河到常州"
+      },
+      "stopYearsOf": null,
+      "start": { "text": "建中靖国元年三月四日以后", "year": 1101, "precision": "after", "earliest": "1101-04-04", "latest": "1101-05-03" },
+      "end": { "text": "建中靖国元年五月或六月", "year": 1101, "precision": "month", "earliest": "1101-05-30", "latest": "1101-07-27" },
+      "sourceIds": ["own-1101", "nianpu", "jinianlu", "zha"],
+      "class": "text",
+      "unsure": "在真州住了多久；到常州的日子（纪年录写五月至常州；王宗稷写五月到真州发病、六月上表请老；通行的说法是六月十五日，没有核到原文）",
+      "waypoints": [
+        { "name": "吉州永和镇", "sourceIds": ["nianpu"], "note": "日子没有记载" },
+        {
+          "name": "吴城山顺济王祠",
+          "date": { "text": "建中靖国元年四月四日", "year": 1101, "month": 5, "day": 3, "precision": "day" },
+          "sourceIds": ["jinianlu"],
+          "note": "纪年录：“四月四日舣舟吴城山顺济王祠下”。吴城在赣水进彭蠡的口上。"
+        },
+        {
+          "name": "豫章、彭蠡之间",
+          "date": { "text": "建中靖国元年四月八日", "year": 1101, "month": 5, "day": 7, "precision": "day" },
+          "sourceIds": ["jinianlu", "nianpu"],
+          "note": "纪年录：“八日舣舟豫章彭蠡之间”，这一天是母亲的忌日"
+        },
+        {
+          "name": "金陵",
+          "at": [118.79, 32.04],
+          "date": { "text": "建中靖国元年五月一日", "year": 1101, "month": 5, "day": 30, "precision": "day" },
+          "sourceIds": ["jinianlu"],
+          "note": "纪年录：“五月一日舟至金陵”"
+        },
+        {
+          "name": "真州",
+          "at": [119.18, 32.27],
+          "date": { "text": "建中靖国元年五月", "year": 1101, "precision": "month", "earliest": "1101-05-30", "latest": "1101-06-27" },
+          "sourceIds": ["nianpu"],
+          "note": "王宗稷：“五月行至真州，瘴毒大作”"
+        }
+      ],
+      "label": "往北回去的路上",
+      "says": "这一趟没有画，沙盘上没有他。五月一日在金陵，五月或六月到常州",
+      "saysDates": [{ "of": "wp:金陵", "text": "五月一日" }, { "of": "end", "text": "五月或六月" }]
+    },
+    {
+      "id": "t61",
+      "kind": "elsewhere",
+      "where": "常州（病重，在这里去世）",
+      "moving": false,
+      "tablePoint": { "type": "way-vertex", "way": "w-canal-s1", "at": [119.97, 31.81] },
+      "stopYearsOf": null,
+      "start": { "text": "建中靖国元年五月或六月", "year": 1101, "precision": "month", "earliest": "1101-05-30", "latest": "1101-07-27" },
+      "end": { "text": "建中靖国元年七月二十八日", "year": 1101, "month": 8, "day": 24, "precision": "day" },
+      "sourceIds": ["nianpu", "jinianlu", "muzhi"],
+      "class": "text",
+      "unsure": "去世是七月的哪一天，苏辙作的墓志只说“秋七月”；二十八日（丁亥）是王宗稷年谱和纪年录写的",
+      "note": "虚岁六十六。",
+      "label": "在常州，病重",
+      "says": "沙盘上没有立常州的名字。七月二十八日，他在常州去世",
+      "saysDates": [{ "of": "end", "text": "七月二十八日" }]
+    }
+  ],
+  "first": { "label": "生在眉州", "says": "拖动时间轴，看他这一生哪一年在哪里", "saysDates": [] },
+  "last": { "label": "在常州去世", "says": "时间轴到这里就完了：七月二十八日，他在常州去世，虚岁六十六", "saysDates": [{ "of": "end", "text": "七月二十八日" }] }
+}

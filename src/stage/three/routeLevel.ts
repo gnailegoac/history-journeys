@@ -12,9 +12,10 @@ import { contentKey } from '../../domain/contentKey';
 import type { RouteScene } from '../../domain/scene';
 import { routeGroundKey, routeNormals, routePictureSize } from '../ground/route';
 import type { RouteGround } from '../ground/route';
-import type { RouteTable } from '../types';
+import { pieceWhere } from '../pieceWhere';
+import type { PiecePlace, RouteTable } from '../types';
 import type { FrameCoords } from '../../domain/sceneGeo';
-import type { GroundSamplers } from '../ground/types';
+import type { GroundSamplers, Vec3 } from '../ground/types';
 import { loadPicture, pictureSize } from './groundPaint';
 import type { GroundPaintSource } from './groundPaint';
 import type { Mist } from './mist';
@@ -28,6 +29,18 @@ import './engine';
 
 export { buildRouteGround, readRouteDem, routeSamplers } from '../ground/route';
 export { buildRouteModels } from './routeKit';
+export { buildPiece } from './piece';
+
+// ---------------------------------------------------------------- 小像站在哪
+
+/**
+ * 小像脚下那一点（沙盘里的米）。平面上的位置照 ../pieceWhere.ts；高度和路的线一样：地面（海上是海面）再抬 liftM，
+ * 所以他站在画出来的线上。沙盘上没有这个地方（认不得的 id）是 null。
+ */
+export function pieceFoot(scene: RouteScene, coords: FrameCoords, ground: GroundSamplers, liftM: number, where: PiecePlace): Vec3 | null {
+  const at = pieceWhere(scene, coords, where);
+  return at && [at[0], coords.y(Math.max(ground.height(at[0], at[1]), scene.water.levels.values.normal ?? -Infinity)) + liftM, at[1]];
+}
 
 // ---------------------------------------------------------------- 先画好的地面
 

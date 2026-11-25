@@ -290,4 +290,6 @@ export const songQinglv: StageStyle = {
   fogFor,
   mistFor,
   route: ROUTE,
+  // 小像：赭石的底座、印泥红的边（和“刚走的路”一个红）、胡粉白的袍子、墨色的高帽。长袍、高帽是示意的，没有照哪一幅画像。
+  piece: { base: '#a8643c', rim: '#b03a2a', robe: '#f2ead6', head: '#e9dcc0', cap: '#28231f' },
 };

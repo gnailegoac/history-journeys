@@ -14,6 +14,7 @@
 import { Buffer } from 'node:buffer';
 import { createHash } from 'node:crypto';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import type { ItineraryBar } from '../../src/domain/itinerary';
 import type { RouteScene, StopScene, TableScene } from '../../src/domain/scene';
 import { ROUTE_SCENE_ID, SCENE_CLASS_LABEL } from '../../src/domain/scene';
 import { loadFigure, loadFigureCards, loadStop } from '../../src/domain/content';
@@ -242,6 +243,8 @@ export interface SiteFigure {
   stops: SiteStop[];
   /** 这位人物的全程沙盘的场景（scenes/route.json）；没有是 null。 */
   route: RouteScene | null;
+  /** 这位人物时间轴用的那一份行迹（itinerary.bar.json，页面带的就是它）；没有是 null。 */
+  bar: ItineraryBar | null;
 }
 
 export interface SiteStop {
@@ -441,7 +444,7 @@ export function planFonts(
 
   // ---- 每位人物
   const stopIds: string[] = [];
-  for (const { figure, stops, route } of site.figures) {
+  for (const { figure, stops, route, bar } of site.figures) {
     const page = `${figure.name}的人物页`;
     for (const text of [figure.name, figure.era, figure.years, figure.tagline, ...figure.intro]) first('common', page, text);
     sans('common', page, figure.name);
@@ -503,6 +506,20 @@ export function planFonts(
 
     // ---- 全程沙盘：摆在人物页上（首页也用它），所以它的字归大家共用的那一拨，不归哪一站。出处是场景文件自己的 sources
     if (route) table('common', (what) => `${page}（全程沙盘的${what}）`, route, route.sources);
+
+    // ---- 行迹：全程沙盘下面那一条时间轴上跟着日子变的字（时间轴摆在人物页和首页上，所以也归大家共用的那一拨）。
+    // 第一行是黑体：每一个农历年的年名、每一段的“在哪”、首页上排在最前面的名字（括号和数字是固定的字，在 SANS_LABELS 里）；
+    // 第二行的句子是宋体，拖到哪一段就印哪一句，不用点开就看得见；每一段里说不准的，点开时间轴的“说明”才看得见
+    if (bar) {
+      const where = `${page}（时间轴）`;
+      sans('common', where, bar.name);
+      for (const [, name] of bar.years) sans('common', where, name);
+      for (const item of [bar.first, bar.last, ...bar.stretches]) {
+        sans('common', where, item.label);
+        first('common', where, item.says);
+      }
+      for (const stretch of bar.stretches) more('common', where, stretch.unsure);
+    }
   }
 
   /**
@@ -650,7 +667,10 @@ export async function readSite(): Promise<SiteText> {
     // 全程沙盘的场景文件：这里直接读文件（页面是经 loadRouteTable 读的，读到的是同一份）
     const routePath = `content/figures/${folder}/scenes/${ROUTE_SCENE_ID}.json`;
     const route = existsSync(new URL(routePath, ROOT)) ? (JSON.parse(readText(routePath).replace(/^﻿/, '')) as RouteScene) : null;
-    figures.push({ figure, stops, route });
+    // 时间轴用的那一份行迹：也直接读文件（时间轴的那一段程序带的是同一份）
+    const barPath = `content/figures/${folder}/itinerary.bar.json`;
+    const bar = existsSync(new URL(barPath, ROOT)) ? (JSON.parse(readText(barPath).replace(/^﻿/, '')) as ItineraryBar) : null;
+    figures.push({ figure, stops, route, bar });
   }
   return { sources, sansLabels: SANS_LABELS, cards: await loadFigureCards(), figures };
 }

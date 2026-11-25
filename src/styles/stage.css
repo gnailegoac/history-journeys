@@ -4,7 +4,7 @@
        底下一点影子）；按钮下面的那一行话和题记那一条是页面颜色的带子，边上一道细线。沙盘栏的底是深是浅，它们都一样看得清。
        成句的话是宋体（从 body 传下来的）；按钮、小节的名字、日期、比例尺上的数和“北”是黑体。黑体只带了 500 这一种粗细：
        哪一条用了 --font-sans，同一条里就写上 font-weight: var(--weight-sans)。
-       墨蓝只用在这几样上：两个小按钮的字，选中的古名今名，展开着的“说明”，小节名上面的短线，指北针朝北的一头，和手指按下去那一下的字。
+       墨蓝只用在这几样上：四个小按钮的字，选中的古名今名，展开着的“说明”，小节名上面的短线，指北针朝北的一头，和手指按下去那一下的字。
        这一层只读 tokens.css 里框架的那一套（:root 上的）。
    二、人物自己的一层（文件末尾的“题签”）：沙盘程序摆在沙盘上的题签、印、引线。只读人物的那一套（--figure-…，写在 .stage-pane 上）。
    沙盘栏本身的位置、大小和底色在 layout.css。
@@ -198,12 +198,14 @@
   line-height: 1.25rem;
 }
 
-/* 两个小按钮：那一行话后面的“换回图片”，题记里的“说明”。和上面那一排按钮一样是白底的板——一圈细边
+/* 四个小按钮：那一行话后面的“换回图片”，题记里的“说明”，时间轴上的“说明”和“进第几站”。和上面那一排按钮一样是白底的板——一圈细边
    （就是原来那 1px 的边，算在按钮的大小里），底下一点影子——只是小，圆角也小一号，字是墨蓝的黑体：
    看得出是能按的东西，不是一枚小标签（小标签只有一圈线，没有底，没有影子）。
    看着小（22px、20px 高），能点的地方有 44px 高，由各自的 ::after 撑出来。 */
 .stage-notice-button,
-.stage-note-button {
+.stage-note-button,
+.bar-note,
+.bar-enter {
   position: relative;
   flex: none;
   border: 1px solid var(--color-plate-edge);
@@ -273,7 +275,8 @@
 
 .stage-pane :focus-visible,
 .stage-button[aria-disabled='true']:focus-visible,
-.stage-note-button[aria-expanded='true']:focus-visible {
+.stage-note-button[aria-expanded='true']:focus-visible,
+.bar-note[aria-expanded='true']:focus-visible {
   box-shadow: 0 0 0 2px var(--color-focus-pane-inner);
 }
 
@@ -397,7 +400,9 @@
 .names-switch button:active,
 .stage-button:not([aria-disabled='true']):active,
 .stage-notice-button:active,
-.stage-note-button:active {
+.stage-note-button:active,
+.bar-note:active,
+.bar-enter:active {
   color: var(--color-accent);
   background-color: var(--color-paper-note);
 }
@@ -430,6 +435,38 @@
   .names-switch button::before {
     margin-right: 0.25em;
   }
+}
+
+/* ---------------------------------------------------------------- 时间轴的那一条 */
+
+/* 全程沙盘下面、题记上面的一条，是题记那一条带子的上半截：同一种页面颜色的底（题记那一条垫着的），和题记之间隔一道细线。
+   这一条是页面一摆上全程沙盘就留出来的，高度定死（--stage-bar-h）：里面的东西是另一段程序画的，它到没到，
+   沙盘四边留的空都一样（下边留的是这一条加上题记）。里面的样子在 timebar.css。
+   手指和鼠标不穿过这一条：按在字上、按偏了，都不会转动沙盘。
+   这一条自己定了位：点“说明”展开的那一块照它的上边摆。 */
+.stage-bar {
+  position: relative;
+  height: var(--stage-bar-h);
+  box-shadow: inset 0 -1px 0 var(--color-line-pane);
+  pointer-events: auto;
+}
+
+/* 镜头正往一站潜的那一小会儿（栏上有 data-stage-dive），这一条不接手指和鼠标：读者已经点了要去那一站。 */
+.stage-pane[data-stage-dive] .stage-bar {
+  pointer-events: none;
+}
+
+/* 时间轴的那一段程序没取到时的一句话（base.css 的 .quiet）：在这一条里用沙盘栏里的小字。 */
+.stage-bar > .quiet {
+  padding: var(--gap-2) var(--gap-3);
+  font-size: var(--size-small);
+  line-height: 1.7;
+}
+
+/* 这一条还没有摆出来（tokens.css 的 --stage-bar-h 先是 0）：先不显，沙盘四边留的空和没有它的时候一个数不差。
+   摆出来的那一步，这一条换成两条：沙盘在上的排法里窗口很矮的时候不摆，左右排的版面上照常摆。 */
+.stage-bar {
+  display: none;
 }
 
 /* ---------------------------------------------------------------- 题记、说明、指北和比例尺 */
@@ -617,7 +654,8 @@
 }
 
 /* 说明展开着：按钮像按下去了——底下铺一层淡蓝，边变成墨蓝，影子收起来。 */
-.stage-note-button[aria-expanded='true'] {
+.stage-note-button[aria-expanded='true'],
+.bar-note[aria-expanded='true'] {
   border-color: var(--color-accent);
   background: var(--color-accent-wash);
   box-shadow: none;
@@ -731,12 +769,17 @@
   line-height: 1.7;
 }
 
+/* 摆着全程沙盘的栏，题记上面那一条时间轴有多高（没有时间轴的栏不写，下面照 0 算）。 */
+.stage-pane[data-stage-level='route'] .stage-foot {
+  --foot-bar: var(--stage-bar-h);
+}
+
 .stage-pane.is-pinned .stage-note-panel {
   position: absolute;
   left: var(--gap-2);
   right: var(--gap-2);
-  /* 题记上面能给它的地方：沙盘栏的高，减去按钮那一排、题记和上下的空。 */
-  --note-room: calc(var(--stage-pane-h) - var(--stage-controls-room) - var(--caption-h) - var(--gap-3));
+  /* 题记上面能给它的地方：沙盘栏的高，减去按钮那一排、题记和上下的空。摆着全程沙盘时题记上面还有一条时间轴（--foot-bar），也减掉。 */
+  --note-room: calc(var(--stage-pane-h) - var(--stage-controls-room) - var(--caption-h) - var(--foot-bar, 0px) - var(--gap-3));
   --note-lack: min(var(--caption-h), max(0px, 10rem - var(--note-room)));
   bottom: calc(100% + var(--gap-1) - var(--note-lack));
   max-width: 44rem;
@@ -762,12 +805,12 @@
 /* 按钮下面有一行话的时候（.under-notice 由页面挂在题记这一条上），展开的这一块再矮一行，不盖住那一行话。
    减去的就是那一行话的高（见 .stage-notice）。 */
 .stage-pane.is-pinned .stage-foot.under-notice .stage-note-panel {
-  --note-room: calc(var(--stage-pane-h) - var(--stage-controls-room) - var(--caption-h) - var(--gap-3) - 1.875rem);
+  --note-room: calc(var(--stage-pane-h) - var(--stage-controls-room) - var(--caption-h) - var(--foot-bar, 0px) - var(--gap-3) - 1.875rem);
 }
 
 @media (min-width: 960px) and (orientation: landscape) {
   .stage-pane.is-pinned .stage-foot.under-notice .stage-note-panel {
-    --note-room: calc(var(--stage-pane-h) - var(--stage-controls-room) - var(--caption-h) - var(--gap-3) - 2.125rem);
+    --note-room: calc(var(--stage-pane-h) - var(--stage-controls-room) - var(--caption-h) - var(--foot-bar, 0px) - var(--gap-3) - 2.125rem);
   }
 }
 

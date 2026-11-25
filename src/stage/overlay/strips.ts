@@ -107,7 +107,7 @@ export function mountStrips(container: HTMLElement): StripLayer {
 
   let items: Item[] = [];
   // 上一次 place 给的位置。换一批题签、重新量大小以后，先照它摆。
-  let last: { anchors: StripInput['anchors']; size: StripInput['size']; insets: StageInsets; moving: boolean } | null = null;
+  let last: { anchors: StripInput['anchors']; size: StripInput['size']; insets: StageInsets; moving: boolean; avoid?: StripInput['avoid'] } | null = null;
   let placements: StripPlacement[] | undefined;
   // hide() 之后、下一次 place 之前。
   let concealed = false;
@@ -260,7 +260,7 @@ export function mountStrips(container: HTMLElement): StripLayer {
     if (!last) return;
     // 传进来的先后就是要紧的先后。
     const strips = items.map((item, rank) => ({ id: item.spec.id, w: item.w, h: item.h, rank, side: item.spec.side, lean: item.spec.lean }));
-    const placed = placeStrips({ strips, anchors: last.anchors, size: last.size, insets: last.insets }, placements, { moving: last.moving });
+    const placed = placeStrips({ strips, anchors: last.anchors, size: last.size, insets: last.insets, avoid: last.avoid }, placements, { moving: last.moving });
     placements = placed;
     items.forEach((item, i) => show(item, placed[i]));
   }
@@ -300,7 +300,8 @@ export function mountStrips(container: HTMLElement): StripLayer {
     place(anchors, size, insets, opts) {
       // 画面大小变了，题签的字号可能跟着变，重新量一遍。
       if (last && (last.size.width !== size.width || last.size.height !== size.height)) measure();
-      last = { anchors: anchors.map(copyAnchor), size: { ...size }, insets: { ...insets }, moving: opts?.moving === true };
+      // 不许压的那几块（小像）也抄一份：换古今名字、重新量大小以后照它再摆
+      last = { anchors: anchors.map(copyAnchor), size: { ...size }, insets: { ...insets }, moving: opts?.moving === true, avoid: opts?.avoid?.map((box) => ({ ...box })) };
       concealed = false;
       arrange();
     },

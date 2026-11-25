@@ -183,6 +183,8 @@ describe.each(tables)('$figureId/$stopId：照磁盘上现在的文件算“照�
     grounded!.basis += '（补一句）';
     scene.sections[0].line += '！';
     scene.strips[0].text = '改';
+    // 最外面添上（或者改了）凭据里印的小像的那几句话：小像不在定格图里
+    (scene as { piece?: { name: string; basis: string; note: string } }).piece = { name: '小像', basis: '只标出他在哪', note: '示意的' };
     expect(pictureKey(scene)).toBe(now.madeFrom.scene);
   });
 });

@@ -4,7 +4,9 @@
 // 每个位置有一个代价，取摆得下的里面代价最小的。摆得下是说：
 //   不出留出来的那一块；不压别的题签（还要隔开一点）；不压任何一条题签指的那一点（后摆的那一点也不能被先摆的盖住）；
 //   不压自己指的那一点，也不压从那一点到它脚下的那一段（不盖住它指的那样东西）；
-//   不压别人的引线，自己的引线也不从别的题签上穿过去。
+//   不压别人的引线，自己的引线也不从别的题签上穿过去；
+//   沙盘上另有东西占着画面的一块时（input.avoid：全程沙盘上停在一处的小像）不压那一块，引线也不从它上面穿过去——
+//   只有指着那一块里面的一点的题签，引线可以从里面出来（小像站在这个地名点上）。没有给 avoid 的时候，摆出来的和原来一个数不差。
 // 一条实在摆不下时，回头挪一条已经摆好的试试（只挪一条，不连着挪）；还摆不下，这一条这次不摆，
 // 由题签层在那一点上画一个空心的圈。
 // 候选的位置是“相对那一点偏多少”，各有一个号（slot）。上一次摆在几号，这一次还摆几号就便宜一截，
@@ -115,6 +117,7 @@ function arrange(input: StripInput, prev: StripPlacement[] | undefined, moving: 
   const gap = GAP * clamp(size.width / GAP_FULL_WIDTH, 0.5, 1);
   const anchors = new Map(input.anchors.map((anchor) => [anchor.id, anchor]));
   const before = new Map((prev ?? []).map((p) => [p.id, p]));
+  const avoid = input.avoid ?? [];
 
   // 要紧的先摆；一样要紧的，按写的先后。
   const order = input.strips.map((strip, index) => ({ strip, index })).sort((a, b) => a.strip.rank - b.strip.rank || a.index - b.index);
@@ -167,7 +170,7 @@ function arrange(input: StripInput, prev: StripPlacement[] | undefined, moving: 
       result[index] = { id: strip.id, x: anchor?.x ?? 0, y: anchor?.y ?? 0, hidden: true, leader: null, why: 'unseen', ...kept };
       continue;
     }
-    const all = candidates(strip, anchor, free, gap, was?.slot);
+    const all = candidates(strip, anchor, free, gap, was?.slot, avoid);
 
     let pick: Candidate | undefined;
     if (moving && was?.slot !== undefined) {
@@ -216,8 +219,8 @@ function seen(anchor: Anchor, free: Rect): boolean {
   );
 }
 
-/** 这一条题签的候选位置，从便宜到贵。stay 是上一次的号。 */
-function candidates(strip: Strip, anchor: Anchor, free: Rect, gap: number, stay: number | undefined): Candidate[] {
+/** 这一条题签的候选位置，从便宜到贵。stay 是上一次的号；avoid 是不许压、引线也不许穿过去的那几块（没有就是空的）。 */
+function candidates(strip: Strip, anchor: Anchor, free: Rect, gap: number, stay: number | undefined, avoid: readonly Rect[]): Candidate[] {
   const halfW = strip.w / 2;
   const halfH = strip.h / 2;
   // 题签的中心能到哪：取整以后也不出留出来的那一块。留出来的地方比题签还小，就没有位置。
@@ -239,6 +242,12 @@ function candidates(strip: Strip, anchor: Anchor, free: Rect, gap: number, stay:
     // 引线连到题签上离那一点最近的地方
     const nearX = clamp(anchor.x, rect.x0, rect.x1);
     const nearY = clamp(anchor.y, rect.y0, rect.y1);
+    // 沙盘上另有东西占着的那几块（小像）：压住了不要；引线从上面穿过去也不要——这一点自己就在那一块里面的除外
+    for (const box of avoid) {
+      if (overlaps(rect, box)) return;
+      const inside = anchor.x > box.x0 && anchor.x < box.x1 && anchor.y > box.y0 && anchor.y < box.y1;
+      if (!inside && crosses([anchor.x, anchor.y, nearX, nearY], box)) return;
+    }
     const total = cost + Math.hypot(nearX - anchor.x, nearY - anchor.y) * COST_LEADER - (slot === stay ? STAY_BONUS : 0);
     found.push({ slot, cost: total, x, y, rect, leader: [anchor.x, anchor.y, nearX, nearY] });
   };

@@ -75,6 +75,11 @@ export const ROUTE_ENTRY = 'src/stage/three/routeLevel.ts';
 export const familyEntry = (name: string): string => `src/stage/three/families/${name}.ts`;
 /** 沙盘用到的文件（地形文件、先画好的地面、定格图）的网址那一块在清单里叫什么。它要用到时才下载，不能进页面那一块。 */
 export const FILE_URLS_ENTRY = 'src/domain/sceneFileUrls.ts';
+/**
+ * 时间轴的那一段程序（src/timebar/）在清单里叫什么。栏里摆上全程沙盘才用动态 import 取它（src/ui/StagePane.tsx），不能进页面那一块。
+ * 它多大由 check:size 印出来，没有单独的上限。
+ */
+export const BAR_ENTRY = 'src/timebar/TimeBar.tsx';
 
 // ---------------------------------------------------------------- 一个数查下来怎么样
 

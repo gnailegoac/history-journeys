@@ -8,9 +8,14 @@
 //   路画出来了（头一节每一趟都画）；题签摆的是这一节的那几条，是站的地名带着站号的印（页面交了每一站的印才有）；
 //   没有先画好的地面：ready 拒绝，说得出缘故（全程沙盘不现画）；
 //   潜到一站上空（dive）：镜头真的照钟点挪过去，读者的手打不断它，不算一趟滑动；还没摆好、要少动的时候不潜。
+//   小像（placePiece）：还没摆好就说的记着、头一帧里就有他；认不得的地方当作没有；不叫就一帧不多画，叫一次多画一帧；
+//     潜的时候收起来（他正站在那一站的除外），回来再摆出来；他站着不动的时候题签层每一次摆都收到让开他的方块，在路上走的时候不给。
+//     站点沙盘上叫它什么也不摆，在 view.test.ts。
 
+import type { Mesh, Scene } from 'three';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { BakedGroundManifest } from '../../src/domain/bakedGround';
+import type { ItineraryBar } from '../../src/domain/itinerary';
 import type { StripLayer } from '../../src/stage/overlay/types';
 import { sectionStripSpecs } from '../../src/stage/overlay/strips';
 import { roadRuns, segmentCount } from '../../src/stage/roadLines';
@@ -101,10 +106,10 @@ afterAll(async () => {
 /** 一台假的设备和一个 width × height 的容器。 */
 function stage(width: number, height: number) {
   const fake = fakeRenderer();
-  const { canvas, el } = fakeCanvas(width, height);
+  const { canvas, el, doc } = fakeCanvas(width, height);
   const host: BrowserHost = createHost(fakeHostParts(canvas, fake.renderer).parts);
   const env: ViewEnv = { now: () => performance.now(), pageVisible: () => true };
-  return { fake, host, env, el, pane: { clientWidth: width, clientHeight: height } as HTMLElement };
+  return { fake, host, env, el, doc, pane: { clientWidth: width, clientHeight: height } as HTMLElement };
 }
 
 async function openView(s: ReturnType<typeof stage>, ground: RouteTable['ground'] | undefined, options: Partial<StageOptions> = {}): Promise<StopStageView> {
@@ -311,5 +316,289 @@ describe(`${KEY} 在沙盘程序里`, () => {
     const calm = await openView(stage(940, 900), baked, { reducedMotion: true });
     await until(calm.ready);
     expect(await calm.dive?.(stop, MS)).toBe(false);
+  });
+});
+
+describe(`${KEY} 上的小像（placePiece）`, () => {
+  const route = styleFor(R.scene.style).route;
+  if (!route) throw new Error('样式里没有全程沙盘的那一份');
+  const bar = JSON.parse(new TextDecoder().decode(readBytes(`content/figures/${FIGURE}/itinerary.bar.json`))) as ItineraryBar;
+  /** 沙盘上有站的地名点，照场景里写的先后。 */
+  const towns = R.scene.places.filter((place) => place.stops?.length).map((place) => place.id);
+
+  /** 这一帧的场景里的小像（排在路后面画的那个网格，renderOrder 14）；还没造是 undefined。 */
+  function pieceMesh(world: Scene | null): Mesh | undefined {
+    let found: Mesh | undefined;
+    world?.traverse((o) => {
+      const mesh = o as Mesh;
+      if (mesh.isMesh && mesh.renderOrder === 14) found = mesh;
+    });
+    return found;
+  }
+  /** 小像站在一个地名点上的时候脚下那一点：地面（海上是海面）再抬起路的线抬的那么高。 */
+  function footOf(placeId: string): [number, number, number] {
+    const place = R.scene.places.find((item) => item.id === placeId);
+    if (!place) throw new Error(`沙盘上没有这个地名点：${placeId}`);
+    const [x, z] = R.coords.toLocal(place.at);
+    const sea = R.scene.water.levels.values.normal ?? -Infinity;
+    return [x, R.coords.y(Math.max(R.samplers.height(x, z), sea)) + route!.roads.liftM, z];
+  }
+  const near = (got: readonly number[] | undefined, want: readonly number[], what: string): void => {
+    expect(got, what).toBeDefined();
+    want.forEach((value, i) => expect(got![i], `${what}（第 ${i + 1} 个数）`).toBeCloseTo(value, 3));
+  };
+  /** 让钟走几帧。 */
+  const frames = async (n: number): Promise<void> => {
+    await vi.advanceTimersByTimeAsync(FRAME_MS * n);
+  };
+  const place = (view: StopStageView, where: Parameters<NonNullable<StopStageView['placePiece']>>[0]): void => {
+    if (!view.placePiece) throw new Error('这座沙盘没有 placePiece');
+    view.placePiece(where);
+  };
+
+  it('placePiece：还没摆好就说的，记着最后一次，头一帧里就有他', { timeout: 120_000 }, async () => {
+    const s = stage(940, 900);
+    // 每画完一帧记一笔：这一帧的场景里有没有显着的小像
+    const had: boolean[] = [];
+    s.fake.afterEveryRender(() => had.push(pieceMesh(s.fake.lastWorld())?.visible === true));
+    const view = await openView(s, baked);
+    place(view, { on: 'place', place: towns[0] });
+    place(view, { on: 'place', place: towns[1] });
+    expect(s.fake.frames.length).toBe(0);
+    expect(view.readout().piece).toBeUndefined();
+    await until(view.ready);
+    expect(had.length).toBeGreaterThan(0);
+    expect(had[0]).toBe(true);
+    expect(had.every(Boolean)).toBe(true);
+    // 站的是最后一次说的那个地方，不是头一次说的
+    const piece = view.readout().piece;
+    near(piece?.at, footOf(towns[1]), '读数里他脚下那一点');
+    near(pieceMesh(s.fake.lastWorld())?.position.toArray(), footOf(towns[1]), '网格摆在哪');
+    // 在画面里面，全程那一节上 32 像素上下高
+    expect(piece!.px.x).toBeGreaterThan(0);
+    expect(piece!.px.x).toBeLessThan(940);
+    expect(piece!.px.y).toBeGreaterThan(62);
+    expect(piece!.px.y).toBeLessThan(900 - 130);
+    expect(piece!.px.h).toBeGreaterThan(29);
+    expect(piece!.px.h).toBeLessThan(36);
+    // 摆好以后不为他再画：站着不动，一帧不多
+    const drawn = s.fake.frames.length;
+    await vi.advanceTimersByTimeAsync(3000);
+    expect(s.fake.frames.length).toBe(drawn);
+  });
+
+  it('认不得的地名点当作没有，控制台说一句，不抛出', { timeout: 120_000 }, async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const s = stage(940, 900);
+    const view = await openView(s, baked);
+    await until(view.ready);
+    place(view, { on: 'place', place: towns[0] });
+    await frames(2);
+    expect(view.readout().piece).not.toBeNull();
+    expect(warn).not.toHaveBeenCalled();
+    for (const where of [
+      { on: 'place', place: 'no-such-place' },
+      { on: 'road', ways: ['no-such-way'], from: 'start', to: 'end', k: 0.5 },
+      { on: 'spot', way: 'no-such-way', at: [110, 30] },
+    ] as const) {
+      warn.mockClear();
+      expect(() => place(view, { ...where } as Parameters<typeof place>[1])).not.toThrow();
+      await frames(2);
+      expect(view.readout().piece, where.on).toBeNull();
+      expect(pieceMesh(s.fake.lastWorld())?.visible, where.on).toBe(false);
+      expect(warn.mock.calls.map((call) => String(call[0])), where.on).toEqual(['[沙盘] 小像要站的地方，沙盘上没有：']);
+      // 再说一个认得的地方：又摆出来
+      place(view, { on: 'place', place: towns[0] });
+      await frames(2);
+      expect(view.readout().piece, where.on).not.toBeNull();
+    }
+  });
+
+  it('不叫 placePiece，一帧也不多画；叫一次，多画一帧', { timeout: 120_000 }, async () => {
+    // 没叫过的一座：摆好以后画了几帧，场景里没有小像这个网格
+    const plain = stage(940, 900);
+    const untouched = await openView(plain, baked);
+    await until(untouched.ready);
+    await vi.advanceTimersByTimeAsync(3000);
+    const base = plain.fake.frames.length;
+    expect(pieceMesh(plain.fake.lastWorld())).toBeUndefined();
+    expect(untouched.readout().piece).toBeNull();
+
+    // 摆好以前说过的一座：帧数和没叫过的一样
+    const early = stage(940, 900);
+    const told = await openView(early, baked);
+    place(told, { on: 'place', place: towns[0] });
+    await until(told.ready);
+    await vi.advanceTimersByTimeAsync(3000);
+    expect(early.fake.frames.length).toBe(base);
+
+    // 摆好以后叫一次：正好多一帧；再站着不动，不再画
+    place(untouched, { on: 'place', place: towns[0] });
+    await vi.advanceTimersByTimeAsync(3000);
+    expect(plain.fake.frames.length).toBe(base + 1);
+    // 同一帧里叫好几次：还是一帧
+    place(untouched, { on: 'place', place: towns[1] });
+    place(untouched, { on: 'place', place: towns[2] });
+    place(untouched, null);
+    await vi.advanceTimersByTimeAsync(3000);
+    expect(plain.fake.frames.length).toBe(base + 2);
+    expect(untouched.readout().piece).toBeNull();
+    // 三角形：小像一批画完，不超过 300 个
+    place(untouched, { on: 'place', place: towns[0] });
+    await frames(2);
+    const mesh = pieceMesh(plain.fake.lastWorld());
+    expect(mesh?.geometry.index?.count).toBeGreaterThan(0);
+    expect((mesh?.geometry.index?.count ?? Infinity) / 3).toBeLessThanOrEqual(300);
+  });
+
+  it('潜到一站上空：他不在那一站就收起来，在那一站就留着；回来再摆出来', { timeout: 120_000 }, async () => {
+    const stop = R.scene.sections.find((section) => section.stop && hasStopTable(FIGURE, section.stop))?.stop;
+    if (!stop) throw new Error('这位人物没有哪一站有自己的沙盘');
+    const home = R.scene.places.find((p) => p.stops?.includes(stop));
+    if (!home) throw new Error('沙盘上没有这一站的地名点');
+    const elsewhere = towns.find((id) => id !== home.id) as string;
+    const MS = 900;
+    const s = stage(940, 900);
+    const view = await openView(s, baked, { reducedMotion: false });
+    if (!view.dive) throw new Error('这座沙盘不会潜');
+    await until(view.ready);
+
+    // 他在别处：一起步就收起来，一路上、到了以后都没有他；潜着的时候页面又说了一次，记着，还是不摆
+    place(view, { on: 'place', place: elsewhere });
+    await frames(2);
+    expect(view.readout().piece).not.toBeNull();
+    const down = view.dive(stop, MS);
+    expect(view.readout().piece).toBeNull();
+    await frames(3);
+    expect(pieceMesh(s.fake.lastWorld())?.visible).toBe(false);
+    place(view, { on: 'place', place: elsewhere });
+    expect(view.readout().piece).toBeNull();
+    expect(await until(down)).toBe(true);
+    expect(view.readout().piece).toBeNull();
+    // 回到小节：照最后一次说的摆出来
+    await until(view.showSection(R.headings[0], { animate: false }));
+    near(view.readout().piece?.at, footOf(elsewhere), '回来以后');
+    expect(pieceMesh(s.fake.lastWorld())?.visible).toBe(true);
+
+    // 他就站在那一站：留着，镜头落在他头顶上
+    place(view, { on: 'place', place: home.id });
+    await frames(2);
+    const again = view.dive(stop, MS);
+    expect(view.readout().piece).not.toBeNull();
+    expect(await until(again)).toBe(true);
+    near(view.readout().piece?.at, footOf(home.id), '潜到他站的那一站');
+    expect(pieceMesh(s.fake.lastWorld())?.visible).toBe(true);
+    // “回到这一节”那一种回来（滑回去）：他还在
+    await until(view.showSection(R.headings[0], { animate: true }));
+    near(view.readout().piece?.at, footOf(home.id), '滑回来以后');
+
+    // 他在路上的时候潜：也收起来；滑回小节的一路上就摆出来了
+    const road = bar.stretches.find((stretch) => stretch.ways);
+    if (!road?.ways) throw new Error('行迹里没有路上的一段');
+    place(view, { on: 'road', ways: road.ways, from: 'start', to: 'end', k: 0.5 });
+    await frames(2);
+    expect(view.readout().piece).not.toBeNull();
+    const third = view.dive(stop, MS);
+    expect(view.readout().piece).toBeNull();
+    expect(await until(third)).toBe(true);
+    const back = view.showSection(R.headings[0], { animate: true });
+    await frames(3);
+    expect(view.readout().piece).not.toBeNull();
+    await until(back);
+  });
+
+  it('小像站在一个地方不动：题签那一层每一次摆都收到让开他的方块；他在路上走、收起来了、没有他的时候不给', { timeout: 120_000 }, async () => {
+    const s = stage(940, 900);
+    const view = await openView(s, baked, { reducedMotion: false });
+    await until(view.ready);
+    /** 从第 from 次起题签层每一次摆收到的 avoid。 */
+    const avoids = (from: number) => strips.places.slice(from).map((p) => p.avoid);
+    /** 照读数里他在画面上的位置算的那一块：左右各 10 像素，从帽顶到脚下再多 8 像素。 */
+    const boxNow = () => {
+      const px = view.readout().piece?.px;
+      if (!px) throw new Error('读数里没有小像');
+      return [{ x0: px.x - 10, y0: px.y - px.h, x1: px.x + 10, y1: px.y + 8 }];
+    };
+    const sameBox = (got: (typeof strips.places)[number]['avoid'], what: string): void => {
+      const want = boxNow()[0];
+      expect(got, what).toHaveLength(1);
+      for (const key of ['x0', 'y0', 'x1', 'y1'] as const) expect(got![0][key], `${what} ${key}`).toBeCloseTo(want[key], 6);
+    };
+
+    // 没有他：不给
+    expect(strips.places.length).toBeGreaterThan(0);
+    expect(avoids(0).every((a) => a === undefined)).toBe(true);
+
+    // 站在一个地名点上：给一块
+    let from = strips.places.length;
+    place(view, { on: 'place', place: towns[0] });
+    await frames(2);
+    expect(strips.places.length).toBeGreaterThan(from);
+    for (const a of avoids(from)) sameBox(a, '站在地名点上');
+
+    // 站在线上没有立名字的一处：也给
+    const spot = bar.stretches.find((stretch) => stretch.spot)?.spot;
+    if (!spot) throw new Error('行迹里没有站在线上的一段');
+    from = strips.places.length;
+    place(view, { on: 'spot', way: spot[0], at: spot[1] });
+    await frames(2);
+    expect(strips.places.length).toBeGreaterThan(from);
+    for (const a of avoids(from)) sameBox(a, '站在线上的一处');
+
+    // 换一节（直接摆到位）：新的一节照样每一次都给
+    from = strips.places.length;
+    place(view, { on: 'place', place: towns[0] });
+    await until(view.showSection(R.headings[1], { animate: false }));
+    await frames(2);
+    expect(strips.places.length).toBeGreaterThan(from);
+    for (const a of avoids(from).slice(-1)) sameBox(a, '换了一节以后');
+    expect(avoids(from).every((a) => a?.length === 1)).toBe(true);
+
+    // 读者的手按着转沙盘：每一帧都给，跟着他在画面上的位置走
+    from = strips.places.length;
+    const mouse = (x: number, y: number): Record<string, unknown> => ({ pointerId: 1, pointerType: 'mouse', button: 0, clientX: x, clientY: y, pageX: x, pageY: y });
+    s.el.fire('pointerdown', mouse(400, 400));
+    s.doc.fire('pointermove', mouse(440, 405));
+    await frames(2);
+    s.doc.fire('pointermove', mouse(480, 410));
+    await frames(2);
+    expect(strips.places.slice(from).map((p) => p.moving)).toEqual([true, true]);
+    expect(avoids(from).every((a) => a?.length === 1)).toBe(true);
+    sameBox(avoids(from).at(-1), '读者的手按着');
+    s.doc.fire('pointerup', mouse(480, 410));
+    await frames(2);
+    expect(strips.places.slice(from).map((p) => p.moving)).toEqual([true, true, false]);
+    sameBox(avoids(from).at(-1), '手放开以后重摆的那一次');
+    await until(view.showSection(R.headings[0], { animate: false }));
+
+    // 在路上走：不给
+    const road = bar.stretches.find((stretch) => stretch.ways);
+    if (!road?.ways) throw new Error('行迹里没有路上的一段');
+    from = strips.places.length;
+    place(view, { on: 'road', ways: road.ways, from: 'start', to: 'end', k: 0.3 });
+    await frames(2);
+    expect(view.readout().piece).not.toBeNull();
+    expect(strips.places.length).toBeGreaterThan(from);
+    expect(avoids(from).every((a) => a === undefined)).toBe(true);
+
+    // 拿走了：不给
+    place(view, { on: 'place', place: towns[0] });
+    await frames(2);
+    from = strips.places.length;
+    place(view, null);
+    await frames(2);
+    expect(strips.places.length).toBeGreaterThan(from);
+    expect(avoids(from).every((a) => a === undefined)).toBe(true);
+
+    // 潜的时候收起来了：不给
+    const stop = R.scene.sections.find((section) => section.stop && hasStopTable(FIGURE, section.stop))?.stop;
+    const home = R.scene.places.find((p) => stop && p.stops?.includes(stop));
+    if (!stop || !home || !view.dive) throw new Error('这位人物没有哪一站有自己的沙盘');
+    place(view, { on: 'place', place: towns.find((id) => id !== home.id) as string });
+    await frames(2);
+    from = strips.places.length;
+    expect(await until(view.dive(stop, 600))).toBe(true);
+    expect(strips.places.length).toBeGreaterThan(from);
+    expect(avoids(from).every((a) => a === undefined)).toBe(true);
   });
 });

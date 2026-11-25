@@ -4,6 +4,7 @@
 
 import type { NoteKind, Place } from '../domain';
 import type { StageReadout } from '../stage/types';
+import { BAR_SANS } from '../timebar/barText';
 import { BASIS_LABEL, REGISTER_TEXT } from './foldText';
 import { SOURCES_TEXT } from './sourcesText';
 
@@ -180,6 +181,8 @@ function sansLabels(): string[] {
     STAGE_TEXT.note,
     ' 米 公里',
     '0123456789',
+    // 全程沙盘下面的时间轴：按钮、入口、岁数、括号、轴上的年份（字写在 src/timebar/barText.ts 里，跟着时间轴的那一段程序走）
+    ...BAR_SANS,
   ];
 }
 

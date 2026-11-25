@@ -17,7 +17,7 @@
 // 按家分块的零件（src/stage/families.ts）：每一家是单独的一块，场景里写到了才下载。对 content/ 里的每一座沙盘查
 // “沙盘程序加上这座沙盘要下载的那几块”不超过同一个上限；徐州和全程沙盘一家也不下载；沙盘程序还是一个文件
 //（分块分得不对，打包的工具会把两边共用的东西另拆一块，哪座沙盘都要多下载一个文件）。
-// 还有一件：点开才下载的三段界面程序（凭据里面的东西、讲解员面板里面的东西、“来源”页里面的东西）各是单独的一块，
+// 还有一件：点开才下载的三段界面程序（凭据里面的东西、讲解员面板里面的东西、“来源”页里面的东西）和摆上全程沙盘才下载的时间轴（src/timebar/）各是单独的一块，
 // 页面一打开就下载的程序只有入口那一个文件——React 的核心没有被打包的工具单拆出去（拆出去的话页面的程序凭空多出约 600 字节）。
 // “压缩以后”用的是 gzip 平常的力度，和构建时印在屏幕上的那一列是同一个算法。
 //
@@ -30,12 +30,13 @@ import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { gzipSync } from 'node:zlib';
 import { describe, expect, it } from 'vitest';
 import { createHash } from 'node:crypto';
-import { ENGINE_ENTRY, ENGINE_GZIP_MAX, FILE_URLS_ENTRY, PAGE_ENTRY, ROUTE_ENTRY, familyEntry, fontReport, programReport, programSizes, staticClosure, withCommas } from '../content/budgetRules';
+import { BAR_ENTRY, ENGINE_ENTRY, ENGINE_GZIP_MAX, FILE_URLS_ENTRY, PAGE_ENTRY, ROUTE_ENTRY, familyEntry, fontReport, programReport, programSizes, staticClosure, withCommas } from '../content/budgetRules';
 import type { BuildManifest, SizeReport } from '../content/budgetRules';
 import { CONTAINER_MAX, CQW_MAX, builtFonts, builtStyleProblems } from '../support/builtFonts';
 import { oldIpadSheet } from '../support/oldIpadSheet';
 import { SHIPPED_FONTS } from '../../src/fonts/shipped';
 import { SOURCES_TEXT } from '../../src/ui/sourcesText';
+import { BAR_TEXT } from '../../src/timebar/barText';
 import { FAMILIES } from '../../src/stage/families';
 import { familyNamesFor } from '../stage/support/kitFamilies';
 import { realRouteScene, realSceneFile, realSceneKeys } from '../stage/support/realScenes';
@@ -188,9 +189,49 @@ describe('沙盘用到的文件的网址', () => {
   });
 });
 
+describe('时间轴的那一块', () => {
+  it('单独一块，栏里摆上全程沙盘才下载；它另外要下载的只有它自己那一个文件；多大印出来（没有单独的上限）', () => {
+    expect(existsSync(MANIFEST), '没有 dist/.vite/manifest.json：先运行 npm run build').toBe(true);
+    const manifest = readManifest(new TextDecoder().decode(readFileSync(MANIFEST)));
+    const bar = manifest[BAR_ENTRY];
+    expect(bar, `清单里没有 ${BAR_ENTRY} 这一项：它被打进了别的块（多半是页面那一块），或者挪了地方（挪了就改 tests/content/budgetRules.ts 的 BAR_ENTRY）`).toBeDefined();
+    expect(bar.isDynamicEntry, '时间轴的那一块在清单里没有标成“用到时才下载”').toBe(true);
+    // 沙盘程序、全程沙盘那一块、页面的程序都不带着它
+    for (const entry of [PAGE_ENTRY, ENGINE_ENTRY, ROUTE_ENTRY]) expect(staticClosure(manifest, entry), `时间轴的那一块成了 ${entry} 一来就带着的东西`).not.toContain(BAR_ENTRY);
+    // 它另外要下载的只有它自己那一个文件：和页面共用的东西（React）留在页面的程序里，没有另拆一块；它自己也没有样式表
+    const have = new Set(staticClosure(manifest, PAGE_ENTRY).map((key) => manifest[key].file));
+    const files = staticClosure(manifest, BAR_ENTRY).map((key) => manifest[key].file);
+    expect(files.filter((file, i) => !have.has(file) && files.indexOf(file) === i)).toEqual([bar.file]);
+    expect(bar.css ?? [], '时间轴的那一块自己带了样式表：它的样式写在页面的样式表里（src/styles/timebar.css，由 StagePane.tsx 引）').toEqual([]);
+    console.log(`  时间轴的那一块（压缩以后）：${withCommas(gzipOnDisk(bar.file))} 字节（没有单独的上限），栏里摆上全程沙盘才下载　${bar.file}`);
+  });
+
+  it('时间轴上固定的字在时间轴的那一块里，不在页面的程序里；每位人物时间轴用的那一份行迹也只在那一块里', () => {
+    expect(existsSync(MANIFEST), '没有 dist/.vite/manifest.json：先运行 npm run build').toBe(true);
+    const manifest = readManifest(new TextDecoder().decode(readFileSync(MANIFEST)));
+    const read = (file: string): string => new TextDecoder().decode(readFileSync(new URL(file, DIST)));
+    const page = staticClosure(manifest, PAGE_ENTRY).map((key) => read(manifest[key].file)).join(' ');
+    const chunk = read(manifest[BAR_ENTRY].file);
+    // 固定的字（“说明”不查：题记里也有一个“说明”，页面的程序里本来就有这两个字）
+    for (const word of [BAR_TEXT.play, BAR_TEXT.pause, BAR_TEXT.prev, BAR_TEXT.next, BAR_TEXT.noteName, BAR_TEXT.here, BAR_TEXT.coming, BAR_TEXT.enterName, BAR_TEXT.age]) {
+      expect(page.includes(word), `“${word}”出现在页面一打开就下载的程序里：src/timebar/barText.ts 的字只许经 SANS_LABELS 那张表进页面的文件，那张表打包的时候是去掉的`).toBe(false);
+      expect(chunk.includes(word), `“${word}”不在时间轴的那一块里`).toBe(true);
+    }
+    // 每位人物的行迹：最前一个位置的那一句、每一段的第二行，都在那一块里，页面的程序里一句也没有
+    const bars = Object.entries(import.meta.glob<{ first: { says: string }; stretches: { id: string; says: string }[] }>('/content/figures/*/itinerary.bar.json', { import: 'default', eager: true }));
+    expect(bars.length).toBeGreaterThan(0);
+    for (const [path, made] of bars) {
+      for (const says of [made.first.says, ...made.stretches.map((stretch) => stretch.says)]) {
+        expect(page.includes(says), `${path} 里的“${says}”出现在页面一打开就下载的程序里：src/timebar/barData.ts 被页面的文件引了`).toBe(false);
+        expect(chunk.includes(says), `${path} 里的“${says}”不在时间轴的那一块里`).toBe(true);
+      }
+    }
+  });
+});
+
 describe('点开才下载的几块', () => {
-  /** 点开才下载的几段界面程序：凭据里面的东西，讲解员面板里面的东西，“来源”页里面的东西。 */
-  const ON_DEMAND = ['src/ui/ProvenanceBody.tsx', 'src/ui/GuideBody.tsx', 'src/ui/SourcesBody.tsx'];
+  /** 用到才下载的几段界面程序：凭据里面的东西，讲解员面板里面的东西，“来源”页里面的东西（这三段点开才下载），和全程沙盘下面的时间轴（栏里摆上全程沙盘才下载）。 */
+  const ON_DEMAND = ['src/ui/ProvenanceBody.tsx', 'src/ui/GuideBody.tsx', 'src/ui/SourcesBody.tsx', BAR_ENTRY];
 
   it('各是单独一块，页面一打开就下载的东西里没有它们；三套字体的那张表跟着“来源”页的那一块走；页面的程序只有一个文件（React 没有被单拆出去）', () => {
     expect(existsSync(MANIFEST), '没有 dist/.vite/manifest.json：先运行 npm run build').toBe(true);

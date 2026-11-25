@@ -22,16 +22,17 @@ import { stripTexts } from '../../domain/sceneText';
 import { buildFields, readDem, samplers as groundSamplers } from '../ground';
 import type { GroundSamplers, Vec2, Vec3 } from '../ground/types';
 import { mountStrips, sectionStripSpecs } from '../overlay';
-import type { StripLayer } from '../overlay/types';
-import type { NamesMode, RouteTable, StageInsets, StageOptions, StageReadout, StageShot, StageTable, StageTier, StageViewInfo, StopStageView, StopTable } from '../types';
+import type { StripInput, StripLayer } from '../overlay/types';
+import type { NamesMode, PiecePlace, RouteTable, StageInsets, StageOptions, StageReadout, StageShot, StageTable, StageTier, StageViewInfo, StopStageView, StopTable } from '../types';
 import { beginGroundPaint, type GroundPaintJob } from './groundPaint';
 import { nextFrame, nextPaint, type Lease, type StageHost } from './host';
 import type { LightSpec, ModelSet, StageStyle } from './internal';
 import { buildModels } from './kit';
 import { familiesOf, loadFamilies } from './kit/families';
 import { buildMist, type Mist } from './mist';
+import type { Piece } from './piece';
 import { pixelRatioFor, qualityFor } from './quality';
-import { centreShift, chooseScale, equivalentDistance, lightDim, northDeg, pixelsPerMetre, placeCamera, projectSpots, shadowBox, shadowTuning, stripSpots, type StripSpot } from './rig';
+import { centreShift, chooseScale, equivalentDistance, lightDim, northDeg, pixelsPerMetre, placeCamera, project, projectSpots, shadowBox, shadowTuning, stripSpots, type StripSpot } from './rig';
 import { Sequencer, mixState, type Glide, type TableState } from './sequencer';
 import { styleFor } from './style';
 import { buildTable, type Stand } from './table';
@@ -81,6 +82,9 @@ const MAX_TILT = 80;
  * 看到的是一格一格的；12000 时是一个半像素。
  */
 const ROUTE_MIN_DISTANCE = 12000;
+/** 小像在画面上占的那一块（题签让开它）：脚下那一点左右各多少像素（底座的半宽），往下多少像素（底座朝着镜头的那半圈）。 */
+const PIECE_HALF_PX = 10;
+const PIECE_UNDER_PX = 8;
 
 /** 全程沙盘那一块程序（用到时才下载）。 */
 export type RouteLevel = typeof import('./routeLevel');
@@ -186,6 +190,14 @@ class ThreeStopView implements StopStageView {
   private routeLevel: RouteLevel | null = null;
   /** 正在潜到一站上空。 */
   private diving = false;
+  /** 小像该站在哪（页面最近一次说的）；null 是不摆。沙盘还没造好的时候先记着，造好了照它摆。 */
+  private pieceAt: PiecePlace | null = null;
+  /** 小像的模型：头一回真的要摆的时候才造；全程沙盘以外没有。 */
+  private piece: Piece | null = null;
+  /** 小像脚下那一点（沙盘里的米）；现在没有摆出来是 null。 */
+  private pieceFoot: Vec3 | null = null;
+  /** 潜到一站上空的时候把小像收起来了（下一次换小节再摆出来）。 */
+  private pieceTucked = false;
   private lease: Lease<HTMLCanvasElement, WebGLRenderer> | null = null;
   /** 造出来的东西怎么放掉，按造的先后记着。 */
   private readonly disposers: (() => void)[] = [];
@@ -372,6 +384,9 @@ class ThreeStopView implements StopStageView {
       b.strips.hide();
     }
     this.stripsHidden = !spec;
+    // 小像也收起来——除非他正站在这一站的地名点上（镜头就落在他头顶上）
+    this.pieceTucked = !(this.pieceAt?.on === 'place' && this.pieceAt.place === place?.id);
+    this.setPiece();
     this.setMoved(false);
     this.cancelSettle?.();
     this.cancelSettle = null;
@@ -394,6 +409,49 @@ class ThreeStopView implements StopStageView {
       if (this.built && !this.slow) this.built.controls.enabled = true;
     });
     return done;
+  }
+
+  /** 小像摆到这里（规矩见 src/stage/types.ts）。还没造好就先记着；站点沙盘上只是记着，什么也不摆。 */
+  placePiece(where: PiecePlace | null): void {
+    this.pieceAt = where;
+    // 镜头正在滑（或者正在潜）的时候每一帧本来就画，不另约一帧
+    if (this.setPiece() && !this.sequencer.gliding) this.requestRender();
+  }
+
+  /**
+   * 照 pieceAt 把小像摆好（不画）。模型头一回要用才造；脚下那一点问全程沙盘那一块程序（routeLevel.ts 的 pieceFoot）。
+   * 返回这座沙盘现在摆不摆得了小像（没造好、嫌慢了、不是全程沙盘、这种样式没有小像，都是摆不了）。
+   */
+  private setPiece(): boolean {
+    const b = this.built;
+    const level = this.routeLevel;
+    const colours = this.style.piece;
+    const liftM = this.style.route?.roads.liftM;
+    if (!b || !level || !colours || liftM === undefined || this.slow || this.scene.level !== 'route') return false;
+    const where = this.pieceTucked ? null : this.pieceAt;
+    const foot = where && level.pieceFoot(this.scene, this.coords, b.samplers, liftM, where);
+    if (where && !foot) console.warn('[沙盘] 小像要站的地方，沙盘上没有：', where);
+    if (foot && !this.piece) {
+      const piece = level.buildPiece(colours, this.style.light('day').dir);
+      this.piece = piece;
+      b.world.add(piece.mesh);
+      this.keep(() => piece.dispose());
+    }
+    if (this.piece) {
+      this.piece.mesh.visible = !!foot;
+      if (foot) this.piece.mesh.position.set(...foot);
+    }
+    this.pieceFoot = foot;
+    return true;
+  }
+
+  /** 小像在画面上的哪里：脚下那一点（x、y）和多高（h，像素）。没有摆出来是 null。调用之前镜头的矩阵要是新的。 */
+  private pieceOnScreen(b: Built): { x: number; y: number; h: number } | null {
+    const foot = this.pieceFoot;
+    if (!foot || !this.piece) return null;
+    const size = this.size();
+    const at = project(foot, b.camera, size);
+    return { x: at.x, y: at.y, h: at.y - project([foot[0], foot[1] + this.piece.mesh.scale.y, foot[2]], b.camera, size).y };
   }
 
   setNamesMode(mode: NamesMode): void {
@@ -470,6 +528,11 @@ class ThreeStopView implements StopStageView {
     };
     const shot = this.shot(b);
     if (shot) readout.shot = shot;
+    // 全程沙盘才说小像在哪（没有摆出来是 null）；站点沙盘不写这一项
+    if (this.scene.level === 'route') {
+      const px = this.pieceOnScreen(b);
+      readout.piece = px && this.pieceFoot ? { at: [...this.pieceFoot], px } : null;
+    }
     return readout;
   }
 
@@ -594,6 +657,8 @@ class ThreeStopView implements StopStageView {
       const built: Built = { renderer, world, camera, controls, sun, hemi, fog, samplers, water, mist, stand, models, strips };
       this.built = built;
       this.applySize(renderer, camera);
+      // 造好以前页面说过小像站在哪的，现在摆上：第一个画面里就有他
+      this.setPiece();
 
       // 摆第一个画面。第一帧要编译着色器、上传贴图、画影子；再画一帧保证是完整的。
       // 第一个画面摆出来以后紧接着试画（见 place 和 runTrial）：量出来太慢的，页面已经得了通知，
@@ -986,6 +1051,7 @@ class ThreeStopView implements StopStageView {
     const look = this.lookFor(heading, b);
     this.look = look;
     this.shownSection = heading;
+    this.untuckPiece();
     this.applyLight(look, b);
     // 水纹朝哪边、平常多密照这一节的镜头定；写了 calmUnderPx 的沙盘上“留几成”每一帧另算（drawFrame）
     this.rippleOf = look;
@@ -1073,6 +1139,13 @@ class ThreeStopView implements StopStageView {
     b.controls.maxPolarAngle = Math.max(b.controls.maxPolarAngle, MathUtils.degToRad(look.section.camera.pitch));
   }
 
+  /** 潜的时候收起来的小像，换小节（或者“回到这一节”）时再摆出来。 */
+  private untuckPiece(): void {
+    if (!this.pieceTucked) return;
+    this.pieceTucked = false;
+    this.setPiece();
+  }
+
   /** 准备滑到这一小节。 */
   private planGlide(heading: string, why: 'section' | 'reset'): Glide | null {
     const b = this.built;
@@ -1093,6 +1166,7 @@ class ThreeStopView implements StopStageView {
     // 题签在滑的时候藏起来，到了再摆
     b.strips.hide();
     this.stripsHidden = true;
+    this.untuckPiece();
     this.setMoved(false);
     // 影子罩的那一块一起步就换
     this.applyLight(to, b);
@@ -1290,6 +1364,8 @@ class ThreeStopView implements StopStageView {
     // 滑动的一路上——只照远近挑，所以同一个摆好的画面不管是从哪一节滑过来的、还是直接摆的，都是同一套
     const D = equivalentDistance(distance, camera.fov, size.height);
     if (models.apply(this.shownSection, this.levelM, D, this.moved)) sun.shadow.needsUpdate = true;
+    // 小像在画面上总是那么高：和模型一样，照这一帧真的远近定大小（只改一个数，不重造）
+    this.piece?.size(D);
     // 显出来的东西没变、只是大小变了：镜头还在动就先不重画影子（一路上每一帧都重画太慢），
     // 直接摆到位的这一帧当场补，别的等镜头停下来一小会儿以后补一次
     if (!sun.shadow.needsUpdate && this.shadowStale(D)) {
@@ -1304,13 +1380,17 @@ class ThreeStopView implements StopStageView {
 
     if (!this.stripsHidden) {
       const anchors = projectSpots(this.spots(D, b), this.coords, camera, size);
+      // 小像停在一处（地名点上，或者线上没有立名字的一处）的时候，题签让开他：从帽顶到脚下再多 8 像素，左右各 10 像素（底座那么宽）。
+      // 他在路上走的时候不让：题签不跟着一个走动的东西来回换位置
+      const on = this.pieceAt?.on === 'road' ? null : this.pieceOnScreen(b);
+      const avoid: StripInput['avoid'] = on ? [{ x0: on.x - PIECE_HALF_PX, y0: on.y - on.h, x1: on.x + PIECE_HALF_PX, y1: on.y + PIECE_UNDER_PX }] : undefined;
       // 读者的手还按着：题签留在原来的位置上，不重新挑（转一下换十几次位置，看上去是在闪）。刚换的一批还没摆过，照常摆
       // 潜到一站上空的路上也一样：留着的那一条不换位置
       if ((this.handDown || this.diving) && !this.stripsFresh) {
-        b.strips.place(anchors, size, this.insets, { moving: true });
+        b.strips.place(anchors, size, this.insets, { moving: true, avoid });
         if (this.handDown) this.heldStrips = true;
       } else {
-        b.strips.place(anchors, size, this.insets);
+        b.strips.place(anchors, size, this.insets, { avoid });
       }
       this.stripsFresh = false;
     }

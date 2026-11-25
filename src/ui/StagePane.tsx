@@ -27,20 +27,27 @@
 // 有画面的时候，上面那一张画面最新的一次 showSection() 完成时才换；没有画面的时候，跟着读到的小节换。
 // 这一块字的高度是定死的（stage.css），所以换小节时沙盘四边留的空不变；完整的说明点“说明”才展开，盖在沙盘上，不挤它。
 // 指北和比例尺跟着镜头变，沙盘每一帧都可能通知，所以直接改页面元素，不放进会让整栏重画的状态里。
+//
+// 摆着全程沙盘的栏，底下那一条里题记上面还有一条：时间轴（.stage-bar）。它里面的东西是另一段程序（src/timebar/），
+// 栏里摆上全程沙盘才去取（见 BarBand）；这里只留出地方。这一条的高是样式表定死的（--stage-bar-h），那一段程序到没到，
+// 沙盘四边留的空都一样。站点沙盘的栏没有这一条。
 
 import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { MutableRefObject, ReactNode, Ref } from 'react';
+import { useOnDemand } from '../app/useLoaded';
 import type { Loaded } from '../app/useLoaded';
 import { sectionHeadings, sectionInfo } from '../domain';
 import type { SectionInfo, TableScene } from '../domain';
 import { KAI_FAMILY } from '../fonts/probe';
-import type { NamesMode, RouteTable, StageInsets, StageOptions, StageReadout, StageTable, StageTier, StageViewInfo, StopStageView, StopTable } from '../stage/types';
+import type { BarProps, NamesMode, RouteTable, StageInsets, StageOptions, StageReadout, StageTable, StageTier, StageViewInfo, StopStageView, StopTable } from '../stage/types';
 import { NotePanel, SectionCaption } from './SectionCaption';
+import { Waiting } from './Waiting';
 import { cameByDive, preloadStop, watchDives } from './dive';
 import { fitScale } from './scale';
 import { canDrawStage, divesHere, pickStageEngine, pickStillEngine, pickTier, wantsReadout } from './stageEngineSource';
 import { STAGE_TEXT, stageDebugLine } from './text';
 import '../styles/stage.css';
+import '../styles/timebar.css';
 
 type PaneState = 'still' | 'loading' | 'ready' | 'failed' | 'unsupported' | 'slow' | 'lost';
 
@@ -1099,6 +1106,8 @@ function TableStage({ table, section, resetLabel, bare, marks, standing, namesMo
 
       {/* under-notice：按钮下面有一行话。展开的说明照它再矮一行（stage.css）。 */}
       <div className={area && line !== null ? 'stage-foot under-notice' : 'stage-foot'} ref={foot}>
+        {/* 时间轴：只有全程沙盘有，在题记上面。这一条的高是定死的（stage.css），它里面的东西到没到，沙盘四边留的空都一样。 */}
+        {table.kind === 'route' && <BarBand table={table} marks={marks} slot={tableSlot} />}
         {info ? (
           <SectionCaption info={info} legend={legend} noteOpen={noteOpen} onToggleNote={toggleNote} noteId={noteId} noteButton={noteButton} />
         ) : (
@@ -1109,6 +1118,22 @@ function TableStage({ table, section, resetLabel, bare, marks, standing, namesMo
       </div>
     </Pane>
   );
+}
+
+// ---------------------------------------------------------------- 时间轴的那一条
+
+/** 时间轴里面的东西是另一段程序（src/timebar/），栏里摆上全程沙盘才去取。这一句动态 import 要写在页面自己的文件里（缘故见 src/stage/index.ts）。 */
+const loadBar = () => import('../timebar/TimeBar');
+
+/**
+ * 全程沙盘下面、题记上面的一条：时间轴。这里只管留出地方、去取那一段程序；没取到说一句话。
+ * 要不要摆（地址里的 ?bar=）由那一段程序自己看：不摆的时候它什么也不画，这一条空着，地方照样留着。
+ */
+function BarBand(props: BarProps) {
+  const [bar, ask] = useOnDemand(loadBar);
+  // 摆上了才取，只取一次（没取到的，这一栏下一回摆上时再取）
+  useEffect(ask, []);
+  return <div className="stage-bar">{bar && (bar.state === 'ready' ? <bar.value.TimeBar {...props} /> : bar.state === 'error' && <Waiting failed />)}</div>;
 }
 
 // ---------------------------------------------------------------- 小工具

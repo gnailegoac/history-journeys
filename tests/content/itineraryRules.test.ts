@@ -58,12 +58,11 @@ function boundary(copy: Itinerary, id: string, change: (moment: ItineraryMoment)
 }
 /** 校验一个抄本。工具做的那一份照这个抄本重做（不然每一处改动都只会报“那一份旧了”）；keepBar 是留着原来的那一份；route 是换一份全程沙盘的场景。 */
 function check(copy: Itinerary, options: { keepBar?: boolean; route?: RouteScene } = {}): Violation[] {
-  const route = options.route ?? ROUTE;
   const files: ContentFiles = {
     [`${DIR}/figure.json`]: read('figure.json'),
     [`${DIR}/scenes/route.json`]: options.route ? JSON.stringify(options.route) : read('scenes/route.json'),
     [FILE]: JSON.stringify(copy),
-    [BAR]: options.keepBar ? read('itinerary.bar.json') : barText(projectItinerary(copy, route, FIGURE)),
+    [BAR]: options.keepBar ? read('itinerary.bar.json') : barText(projectItinerary(copy, FIGURE)),
   };
   return validateItinerary(files, DIR, FIGURE);
 }
@@ -382,6 +381,48 @@ describe('如实三：第二行的日子只许照史料的写法删字', () => {
     }
   });
 
+  it('日子后面接“因……”（说他为什么）：通不过——“因”不在单子上，句子只说他做了什么', () => {
+    // 原来的那一句：“治平三年四月二十五日以后因父亲去世离开”。史料写的是一件事（奉柩归蜀），不是缘由
+    expect(problems(reword('t11', '以后离开，送父亲的灵柩回眉州', '以后因父亲去世离开'))).toEqual([expect.stringContaining('“治平三年四月二十五日以后”后面紧挨着“因”')]);
+    expect(stretch(copyOf(), 't11').says).toBe('治平二年到；治平三年四月二十五日以后离开，送父亲的灵柩回眉州');
+  });
+
+  it('真的那一份里，读者看得见的两行字不说他为什么做一件事：没有“因”“为了”“以便”，也没有“等……”（等改派、等水涨）；“所以没有他”说的是沙盘，不算', () => {
+    const WHY = /因|为了|以便|等/u;
+    for (const item of [...REAL.stretches, REAL.first, REAL.last]) {
+      for (const text of [item.label, item.says]) expect(WHY.test(text), text).toBe(false);
+    }
+    // 原来的那一句（“在城外等改派”：照他自己的信，改派是到京以前的事）查得出来
+    expect(WHY.test('熙宁十年二月到，在城外等改派；四月动身去徐州，日子没有查到')).toBe(true);
+  });
+
+  it('真的那一份里，月日没有查到的日子只写到年：“照史料的写法”里年份后面不带“初”“末”这样的字，史料没有的字不添', () => {
+    const moments = REAL.stretches.flatMap((item) => [item.start, item.end]).filter((moment) => moment.text.includes('月日没有查到'));
+    expect(moments.length).toBeGreaterThan(0);
+    for (const moment of moments) {
+      expect(moment.text).toMatch(/^[^，初末中春夏秋冬]+年，月日没有查到$/u);
+      expect(moment.earliestIs ?? '', moment.text).not.toMatch(/年[初末中]/u);
+      expect(moment.latestIs ?? '', moment.text).not.toMatch(/年[初末中]/u);
+    }
+    // 句子里用到这几个日子的地方也只说到年
+    for (const item of REAL.stretches) {
+      for (const [n, moment] of [item.start, item.end].entries()) {
+        if (!moment.text.includes('月日没有查到')) continue;
+        for (const entry of item.saysDates.filter((one) => one.of === (n === 0 ? 'start' : 'end'))) expect(entry.text, `${item.id} ${entry.text}`).toMatch(/年$/u);
+      }
+    }
+  });
+
+  it('真的那一份里，出处的两行字是印给读者看的：不写文件的名字、别处的 id，不说“评审”；拉丁字母只在网址里', () => {
+    expect(REAL.sources.length).toBeGreaterThan(0);
+    for (const source of REAL.sources) {
+      for (const text of [source.cite, source.read]) {
+        expect(text, source.id).not.toMatch(/\.json|评审/u);
+        expect(text.replace(/https?:\/\/[\w./-]+/g, ''), `${source.id}：${text}`).not.toMatch(/[A-Za-z]/);
+      }
+    }
+  });
+
   it('句子里多出一个 saysDates 没有列的日子：通不过（写成“八日”“初八”“8”“上旬”“寒食”都一样）', () => {
     expect(problems(reword('t31', '元丰七年四月离开', '元丰七年四月八日离开'))).toContainEqual(expect.stringContaining('有 saysDates 没有列的日子：八日'));
     expect(problems(reword('t40', '；途中没有日子', '；六月初十过扬州'))).toEqual([expect.stringContaining('有 saysDates 没有列的日子：六月、初十')]);
@@ -415,7 +456,7 @@ describe('如实三：第二行的日子只许照史料的写法删字', () => {
   });
 
   it('程序不拼句子：工具做的那一份里，两行字和手写的一字不差', () => {
-    const bar = projectItinerary(REAL, ROUTE, FIGURE);
+    const bar = projectItinerary(REAL, FIGURE);
     expect(bar.stretches.map((item) => [item.id, item.label, item.says])).toEqual(REAL.stretches.map((item) => [item.id, item.label, item.says]));
     expect(bar.first).toEqual({ label: REAL.first.label, says: REAL.first.says });
     expect(bar.last).toEqual({ label: REAL.last.label, says: REAL.last.says });
@@ -428,7 +469,7 @@ describe('如实四：两个有日子的地方之间匀着走，第二行说了'
   });
 
   it('只有精确到日、又有位置的地方把路切开（哪几段、各几处照手写的那一份数，印出来）', () => {
-    const legs = projectItinerary(REAL, ROUTE, FIGURE).stretches.filter((item) => item.legs).map((item) => `${item.id}:${item.legs?.length}`);
+    const legs = projectItinerary(REAL, FIGURE).stretches.filter((item) => item.legs).map((item) => `${item.id}:${item.legs?.length}`);
     const written = REAL.stretches.flatMap((item) => {
       const cuts = item.kind === 'road' ? (item.waypoints ?? []).filter((point) => point.at !== undefined && point.date?.precision === 'day').length : 0;
       return cuts > 0 ? [`${item.id}:${cuts}`] : [];
@@ -500,7 +541,7 @@ describe('如实五：沙盘上没有线的地方，没有他；有他的地方�
   });
 
   it('工具做的那一份里：没有他的各段不带位置；有他的各段正好带一样（地名点、线上的一处，或者走的路）', () => {
-    for (const item of projectItinerary(REAL, ROUTE, FIGURE).stretches) {
+    for (const item of projectItinerary(REAL, FIGURE).stretches) {
       const where = [item.place, item.spot, item.ways].filter((value) => value !== undefined).length;
       expect(where, item.id).toBe(item.look === 'off' ? 0 : 1);
     }
@@ -530,11 +571,11 @@ describe('链、出处、站', () => {
 
 describe('时间轴用的那一份（工具做的）', () => {
   it('仓库里的那一份就是工具现在做出来的', () => {
-    expect(read('itinerary.bar.json')).toBe(barText(projectItinerary(REAL, ROUTE, FIGURE)));
+    expect(read('itinerary.bar.json')).toBe(barText(projectItinerary(REAL, FIGURE)));
   });
 
   it('工具做的那一份带着人物的名字，就是 figure.json 的 name', () => {
-    expect(projectItinerary(REAL, ROUTE, FIGURE).name).toBe(FIGURE.name);
+    expect(projectItinerary(REAL, FIGURE).name).toBe(FIGURE.name);
     expect(Object.keys(JSON.parse(read('itinerary.bar.json')) as Record<string, unknown>)).toEqual(['day0', 'name', 'years', 'first', 'last', 'stretches']);
   });
 
@@ -574,7 +615,7 @@ describe('时间轴用的那一份（工具做的）', () => {
     for (const written of ['1037-01-08', '1080-01-25', '1084-02-29', '1100-12-31']) expect(isoOfDay(dayOfIso(written) ?? NaN)).toBe(written);
     expect(dayOfIso('1083-02-29')).toBeNull();
     expect(dayOfIso('1084-5-8')).toBeNull();
-    const bar = projectItinerary(REAL, ROUTE, FIGURE);
+    const bar = projectItinerary(REAL, FIGURE);
     expect(bar.day0).toBe('1037-01-08');
     expect(bar.stretches[bar.stretches.length - 1].until).toBe(23604);
     expect(bar.years[0]).toEqual([1036, '景祐三年', null, 1]);
@@ -591,12 +632,6 @@ describe('时间轴用的那一份（工具做的）', () => {
     expect(end('t04')).toBeCloseTo(lo + ((hi - lo) * 2) / 3, 6);
     // t31.end：1084-05-08 到 05-31 的正中间
     expect(end('t31')).toBe(((dayOfIso('1084-05-08') ?? 0) + (dayOfIso('1084-05-31') ?? 0)) / 2);
-  });
-
-  it('目录里的两种字只在是真话的地方有：住在一站的各段是“他在这儿”，到这一站去的路是“正往这儿走”，别的不写', () => {
-    const bar = projectItinerary(REAL, ROUTE, FIGURE);
-    expect(bar.stretches.filter((item) => item.mark === 'here').map((item) => item.id)).toEqual(['t05', 't17', 't19', 't21', 't25', 't29', 't31', 't41', 't53', 't55']);
-    expect(bar.stretches.filter((item) => item.mark === 'coming').map((item) => item.id)).toEqual(['t16', 't20', 't24', 't28', 't30', 't40', 't52']);
   });
 });
 
@@ -619,7 +654,7 @@ describe('如实三（续）：删掉了年份、月份的日子，读的人拿�
   });
 
   it('删掉了年号、留着第几年的，前一个日子要是同一个年号：真的那一份里都是；头一个日子就不带年号、同第一行印的不是一个年号的通不过', () => {
-    // 真的：“嘉祐四年十月出眉州……五年春到汴京”“治平元年十二月过华阴，二年初到汴京”
+    // 真的：“嘉祐四年十月出眉州……五年春到汴京”“治平元年十二月过华阴，二年到汴京”
     for (const id of ['t06', 't10', 't22', 't45']) expect(stretch(copyOf(), id).saysDates.some((entry) => /^[二三四五六七八九十]+年/u.test(entry.text)), id).toBe(true);
     // t59 从建中靖国元年正月起，句子开头写成“元年正月到”还是同一个年号；t33 从元丰七年起，把“元丰八年正月四日”写成“八年正月四日”也是
     expect(problems((copy) => { redate('t59', 0, '正月', '元年正月')(copy); })).toEqual([]);
@@ -695,11 +730,13 @@ describe('如实一（续）：只说到季节的写法；日子和农历年的�
    * 每一个日子的写法、公元年、月、日、范围的两头，和农历年表的每一行，算成一个数记在这里。
    * 这些东西校验只查得到“差得远的”（月日差十天以上、年名接不上）；差一天、一个没有日子落进去的年份改了名，规则看不出来，要对着历表看。
    * 上一回对历表：2026-11-24（表里 65 个正月初一、54 个精确到日的日子，同抓下来留着的历表页一个不差；范围的两头没有对过）。
+   * 2026-11-25 改了一个日子的写法：到汴京的那一个（t10 的结束、t11 的开始）年份后面原来多一个“初”字，去掉了——史料里没有这个字；
+   * 数字一个没动，它的范围两头（治平二年正月初一是 1065-02-08，五月二十八日是 1065-07-04）另对着留着的历表核过。
    * 从那以后这些东西一个字、一个数都没有动过，这个数才不变。
    * 这个数里没有的：路上各处的位置、哪里算说得准，不在这个数里，靠读（把一处有日子的地方挪到线上别的位置、把一个精度从“季”改成“以前”，
    * 规则 22 放得过去，这个数也不变）。
    */
-  const COMPARED = { on: '2026-11-24', sum: 'c5db403dba7e3b6b' };
+  const COMPARED = { on: '2026-11-25', sum: '1a2ae0bf2619df8d' };
 
   it('日子和农历年的表：从上一回对历表以后一个字、一个数都没有动过（动了：先对着历表核一遍，再把这里记的数换掉）', () => {
     expect(datesSum(REAL), `行迹里的日子或者农历年的表改过了。先对着历表核一遍，再把这里记的数和对的日子换掉（上一回是 ${COMPARED.on}）`).toBe(COMPARED.sum);
@@ -835,7 +872,7 @@ describe('说不准的要说出来', () => {
   });
 
   it('工具把这几处的 unsure 接在这一段的 unsure 后面、各带着那一处的名字，读者点开“图例”看得见；句子里没说到、又不切路的各处不接', () => {
-    const made = projectItinerary(REAL, ROUTE, FIGURE);
+    const made = projectItinerary(REAL, FIGURE);
     let carried = 0;
     for (const item of REAL.stretches) {
       const points = (item.waypoints ?? []).filter((point) => point.unsure?.trim() && doubtCarrier(item, point));
@@ -863,7 +900,7 @@ describe('说不准的要说出来', () => {
   });
 
   it('各站的年份：时间轴用的那一份里不带（轴上圆点旁边不写年份——八站的哪一种栏上也放不全；目录里每一站已经有它的年份）', () => {
-    const made = projectItinerary(REAL, ROUTE, FIGURE) as unknown as Record<string, unknown>;
+    const made = projectItinerary(REAL, FIGURE) as unknown as Record<string, unknown>;
     expect(made).not.toHaveProperty('stopYears');
     // 做出来的文件里也没有哪一站已发布的年份（“1080–1084”这样的字）
     const written = FIGURE.stops.map((stop) => stop.years).filter((years) => /\d{4}–\d{4}/.test(years));
@@ -975,7 +1012,7 @@ describe('如实五（续）：句子说沙盘上有什么，要是时间轴停�
 
 describe('如实二（续）：第一行括号里的公历月份', () => {
   it('每一段碰到的每一个“公历已经是下一年”的月份：史料担保得了的写年和月；担保不了的列在工具做的那一份里（plainMonths），那些天只写年份；别的日子都只写年份', () => {
-    const made = projectItinerary(REAL, ROUTE, FIGURE);
+    const made = projectItinerary(REAL, FIGURE);
     const zero = dayOfIso(made.day0) as number;
     const years = lunarYears(REAL);
     const lastDay = made.stretches[made.stretches.length - 1].until;
@@ -1071,7 +1108,7 @@ describe('小像站到线上的一处，旁边立出那一处的名字：名字�
   });
 
   it('真的那一份里的每一处：名字就是 where 开头的地名；where 里有“今……”的才有今名（各处印出来）；工具把它们带进时间轴用的那一份', () => {
-    const made = projectItinerary(REAL, ROUTE, FIGURE);
+    const made = projectItinerary(REAL, FIGURE);
     const lines: string[] = [];
     let withModern = 0;
     for (const item of REAL.stretches) {

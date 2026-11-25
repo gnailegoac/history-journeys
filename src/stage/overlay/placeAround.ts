@@ -101,7 +101,9 @@ export function aroundPiece(): StripPlacer {
       return from > 0 ? { ...p, from } : p;
     };
     // 他自己的名字（有的话是最后一条）先放在一边：别的照下面两步摆，同没有它的时候一个数不差
-    const self = input.strips.at(-1)?.id === PIECE_NAME ? input.strips.at(-1) : undefined;
+    // 不用数组的 at()：iOS 15 起头的几版 Safari 还没有它，摆题签的这一步在那里会整个出错
+    const last = input.strips.slice(-1)[0];
+    const self = last?.id === PIECE_NAME ? last : undefined;
     const strips = self ? input.strips.slice(0, -1) : input.strips;
     // 题签层说“没有上一回”（刚换了一批、镜头刚滑到）：这里也从头摆
     const base = placeStrips({ ...input, strips, avoid: undefined }, prev && (without ?? prev), opts);

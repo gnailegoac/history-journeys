@@ -66,7 +66,7 @@ export const KEPT_WORDS = ['以前', '以后', '或', '之间', '初'] as const;
  * 这两张单子是照真的句子定的，要添字先看添了以后句子说的还是不是那个日子。
  */
 export const BEFORE_DATE = '：，；。在';
-export const AFTER_DATE = '到离出在过回被坐因快动，；';
+export const AFTER_DATE = '到离出在过回被坐快动，；';
 /** 路上的一句话的开头；沙盘上没有他的一句话，头一个半句里要有的。 */
 export const ROAD_OPENING = '匀着走的：';
 export const ABSENT = /沙盘上没有他|所以没有他/;
@@ -1044,12 +1044,12 @@ export function checkItineraryYears(itinerary: Itinerary, file: string): Violati
 // ---------------------------------------------------------------- 十 时间轴用的那一份
 
 /**
- * 规则 22 十 时间轴用的那一份（itinerary.bar.json）：在，而且和工具现在照手写的那一份、全程沙盘的场景和人物的名字做出来的一字不差。
+ * 规则 22 十 时间轴用的那一份（itinerary.bar.json）：在，而且和工具现在照手写的那一份和人物的名字做出来的一字不差。
  * 它是工具做的，不手改；手写的那一份改了，要运行 npm run itinerary 重做，再一起提交。
  */
-export function checkItineraryBar(itinerary: Itinerary, route: RouteScene, figure: Pick<Figure, 'name'>, files: ContentFiles, barFile: string): Violation[] {
+export function checkItineraryBar(itinerary: Itinerary, figure: Pick<Figure, 'name'>, files: ContentFiles, barFile: string): Violation[] {
   if (!has(files, barFile)) return [bad(barFile, '', '没有这个文件：运行 npm run itinerary，把做出来的文件一起提交')];
-  const want = barText(projectItinerary(itinerary, route, figure));
+  const want = barText(projectItinerary(itinerary, figure));
   return files[barFile].replace(/^﻿/, '').replace(/\r\n?/g, '\n') === want ? [] : [bad(barFile, '', '和手写的那一份（itinerary.json）现在做出来的不一样：它是工具做的，不要手改；运行 npm run itinerary 重做，再提交')];
 }
 
@@ -1094,5 +1094,5 @@ export function validateItinerary(files: ContentFiles, dir: string, figure: Figu
   const itinerary = read.data as Itinerary;
   const route = routeRead.data as RouteScene;
   const found = checkItinerary(itinerary, file, figure, route);
-  return found.length > 0 ? found : checkItineraryBar(itinerary, route, figure, files, barFile);
+  return found.length > 0 ? found : checkItineraryBar(itinerary, figure, files, barFile);
 }

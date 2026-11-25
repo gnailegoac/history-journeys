@@ -93,6 +93,18 @@ describe('构建出来的文件', () => {
     for (const warn of report.warns) console.warn(`[check:size] 快到上限了：${warn}`);
     expect(report.fails).toEqual([]);
   });
+
+  it('构建出来的程序里不叫最老的那一版浏览器还没有的函数：at()、findLast()、Object.hasOwn()、structuredClone()（构建只改写法，不补函数）', () => {
+    // 最老要能打开的是 iOS 15 上的 Safari 15（vite.config.ts）；这四样是 15.4 才有的。叫到了，那一块程序在老平板上当场出错
+    // at() 只认带一个参数的叫法（数组、字符串的那一个）：three 的射线和线段自己有一个 at(t, 放结果的向量)，带两个参数，不是它
+    const NEWER = /\.at\(-?[\w$.]+\)|\.findLast(?:Index)?\(|Object\.hasOwn\(|structuredClone\(/g;
+    const scripts = (readdirSync(DIST, { recursive: true }) as string[]).map((name) => name.replace(/\\/g, '/')).filter((name) => name.endsWith('.js'));
+    expect(scripts.length).toBeGreaterThan(5);
+    for (const name of scripts) {
+      const text = new TextDecoder().decode(readFileSync(new URL(name.split('/').map(encodeURIComponent).join('/'), DIST)));
+      expect([...new Set(text.match(NEWER) ?? [])], `dist/${name}`).toEqual([]);
+    }
+  });
 });
 
 describe('全程沙盘另外的那一块程序', () => {
@@ -213,7 +225,7 @@ describe('时间轴的那一块', () => {
     const page = staticClosure(manifest, PAGE_ENTRY).map((key) => read(manifest[key].file)).join(' ');
     const chunk = read(manifest[BAR_ENTRY].file);
     // 固定的字
-    for (const word of [BAR_TEXT.play, BAR_TEXT.pause, BAR_TEXT.prev, BAR_TEXT.next, BAR_TEXT.note, BAR_TEXT.noteName, BAR_TEXT.here, BAR_TEXT.coming, BAR_TEXT.enterName, BAR_TEXT.age]) {
+    for (const word of [BAR_TEXT.play, BAR_TEXT.pause, BAR_TEXT.prev, BAR_TEXT.next, BAR_TEXT.note, BAR_TEXT.noteName, BAR_TEXT.enterName, BAR_TEXT.age]) {
       expect(page.includes(word), `“${word}”出现在页面一打开就下载的程序里：src/timebar/barText.ts 的字只许经 SANS_LABELS 那张表进页面的文件，那张表打包的时候是去掉的`).toBe(false);
       expect(chunk.includes(word), `“${word}”不在时间轴的那一块里`).toBe(true);
     }

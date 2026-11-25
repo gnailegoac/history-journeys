@@ -17,7 +17,6 @@ import type {
   ItineraryStretch,
   ItineraryWaypoint,
 } from '../../src/domain/itinerary';
-import type { RouteScene } from '../../src/domain/scene';
 import type { Figure } from '../../src/domain/types';
 
 // ================================================================ 一、日子
@@ -152,19 +151,6 @@ export function lookOf(stretch: ItineraryStretch): ItineraryLook {
   return type === 'stop-point' || type === 'place' || type === 'way-vertex' ? 'quiet' : 'off';
 }
 
-/**
- * 目录里那一站旁边写什么。只在是真话的地方写：
- *   here    住在这一站讲的地方（kind 是 stop）：“他在这儿”；
- *   coming  在一趟画出来的路上，这趟路到的是这一站的地名点、出发的地方不是：“正往这儿走”；
- * 别的不写字。地名照全程沙盘的地名点的名字认。
- */
-export function markOf(stretch: ItineraryStretch, route: Pick<RouteScene, 'places'>): 'here' | 'coming' | undefined {
-  if (stretch.kind === 'stop') return 'here';
-  if (stretch.kind !== 'road' || stretch.stopYearsOf === null) return undefined;
-  const ofGroup = (name: string): boolean => route.places.some((place) => place.name === name && (place.stops ?? []).includes(stretch.stopYearsOf as string));
-  return ofGroup(stretch.to) && !ofGroup(stretch.from) ? 'coming' : undefined;
-}
-
 /** 一段路上切开“一程一程”的各处：精确到日、又有位置的。月份、季节的不切（他照匀着走的步子经过那里）。 */
 export function legPoints(stretch: ItineraryStretch): (ItineraryWaypoint & { at: [number, number]; date: ItineraryMoment })[] {
   if (stretch.kind !== 'road') return [];
@@ -251,7 +237,7 @@ const twoPlaces = (n: number): number => Math.round(n * 100) / 100;
  * 一条一条接起来（unsureOf）。人物的名字照 figure.json 的 name 抄（时间轴给读屏念的名字、首页第一行开头的名字用它）。
  * 第一行括号里担保不了的公历月份（westernMonths 里 held 是 false 的）一段一段记在 plainMonths 里：时间轴在那些天只写年份。
  */
-export function projectItinerary(itinerary: Itinerary, route: Pick<RouteScene, 'places'>, figure: Pick<Figure, 'name'>): ItineraryBar {
+export function projectItinerary(itinerary: Itinerary, figure: Pick<Figure, 'name'>): ItineraryBar {
   const zero = dayZero(itinerary) ?? 0;
   const { numbers } = boundaryNumbers(itinerary);
   const unheld = westernMonths(itinerary).filter((pair) => !pair.held);
@@ -263,8 +249,6 @@ export function projectItinerary(itinerary: Itinerary, route: Pick<RouteScene, '
     const plain = unheld.filter((pair) => pair.stretch === i).map((pair): [number, number] => [pair.year, pair.month]);
     if (plain.length > 0) out.plainMonths = plain;
     if (stretch.stopYearsOf !== null) out.group = stretch.stopYearsOf;
-    const mark = markOf(stretch, route);
-    if (mark) out.mark = mark;
     if (stretch.kind === 'stop') out.place = stretch.place;
     if (stretch.kind === 'elsewhere') {
       const point = stretch.tablePoint;

@@ -150,8 +150,6 @@ export interface ItineraryBarStretch {
   plainMonths?: [number, number][];
   /** 落在哪一站讲的年月里。 */
   group?: string;
-  /** 目录里那一站旁边写什么：here 是“他在这儿”，coming 是“正往这儿走”；不写字的不写。 */
-  mark?: 'here' | 'coming';
   /** 小像站在全程沙盘的哪个地名点上（stop，和站在有名字的地方的 quiet）。 */
   place?: string;
   /** 小像站在一条线上、沙盘平时没有立名字的一处（另一种 quiet）：那条线的 id，这个地方的经纬度，它的名字，有今名的再加今名。 */

@@ -17,9 +17,6 @@ export const BAR_TEXT = {
   unsure: '说不准的：',
   /** 放着图片的时候，最前一个位置的第二行后面多的半句：图片上不画小像，要说出来（不然读的人会在图片上找他）。 */
   noFigure: '；图片上没有他的小像',
-  /** 目录里那一站旁边的几个字。 */
-  here: '他在这儿',
-  coming: '正往这儿走',
   /** 第一行的岁数：虚岁一岁……虚岁十岁，虚岁十一……。 */
   age: '虚岁',
   ageUnit: '岁',
@@ -52,8 +49,6 @@ function barSans(): string[] {
     BAR_TEXT.note,
     BAR_TEXT.noteName,
     BAR_TEXT.close,
-    BAR_TEXT.here,
-    BAR_TEXT.coming,
     BAR_TEXT.age,
     BAR_TEXT.ageUnit,
     BAR_TEXT.west(0, 0),

@@ -195,7 +195,8 @@ function Bar({ bar, table, start, marks, slot, onGoal }: Props) {
     const hidden = (): void => {
       if (document.hidden) control.stop();
     };
-    for (const type of STOPPERS) pane?.addEventListener(type, stop, true);
+    // passive：这几样只是听，从不拦；不这样写的话，在栏上滚轮翻页要先等页面的程序腾出手来
+    for (const type of STOPPERS) pane?.addEventListener(type, stop, { capture: true, passive: true });
     document.addEventListener('visibilitychange', hidden);
     return () => {
       for (const type of STOPPERS) pane?.removeEventListener(type, stop, true);

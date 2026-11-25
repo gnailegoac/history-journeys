@@ -55,7 +55,7 @@ describe.skipIf(!MAKING)('做行迹里时间轴用的那一份（npm run itinera
       if (found.length > 0) {
         throw new Error(`[行迹] ${dir}/${ITINERARY_FILE} 还有 ${found.length} 处不合规格，先不做。头一处：${found[0].field}：${found[0].problem}（全部的见 npm run validate）`);
       }
-      const text = barText(projectItinerary(data as Itinerary, route, figure));
+      const text = barText(projectItinerary(data as Itinerary, figure));
       const out = `${outRoot}/${folder}/${ITINERARY_BAR_FILE}`;
       if (!trial && existsSync(at(out)) && readText(out).replace(/\r\n?/g, '\n') === text) {
         say(`[行迹] ${out} 已经是新的，什么也没写。`);

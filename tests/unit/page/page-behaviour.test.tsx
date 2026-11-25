@@ -23,6 +23,7 @@ import type { Figure, RouteScene, StopScene } from '../../../src/domain';
 import type { Itinerary, ItinerarySource } from '../../../src/domain/itinerary';
 import { SCENE_CLASSES, SCENE_CLASS_LABEL } from '../../../src/domain/scene';
 import { itinerarySources, onceEach } from '../../../src/ui/SceneRegister';
+import { REGISTER_TEXT } from '../../../src/ui/foldText';
 import { SITE_TITLE } from '../../../src/ui/text';
 import { pickSection, readingLine, remainingScroll } from '../../../src/ui/useReadingSection';
 import { readBytes } from '../../support/readBytes';
@@ -241,7 +242,9 @@ describe('整个版面 + 真的内容 + 沙盘的替身', () => {
     // 最后：行迹的出处。上面一句话；下面一条出处印一次，连着读了它的什么，先后照手写的那一份
     const once = itinerary.sources.filter((source, i) => itinerary.sources.findIndex((other) => other.cite === source.cite) === i);
     expect(once.length).toBeGreaterThan(10);
-    expect(page.all('.itinerary-sources .provenance-line').map((p) => p.textContent)).toEqual(['他哪一年在哪里，是照下面这些书和文章排的。每一段各依据哪一条，写在这位人物的行迹文件里。']);
+    expect(page.all('.itinerary-sources .provenance-line').map((p) => p.textContent)).toEqual(['他哪一年在哪里，是照下面这些书和文章排的。']);
+    // 这一句不把读者支到网站上打不开的地方去（仓库里的文件）
+    expect(REGISTER_TEXT.itinerary).not.toMatch(/文件|仓库/u);
     expect(page.all('.itinerary-sources .scene-register-name').map((p) => p.textContent)).toEqual(once.map((source) => source.cite));
     expect(page.all('.itinerary-sources .scene-register-basis').map((p) => p.textContent)).toEqual(once.map((source) => source.read));
     // 它在“沙盘上的东西”那一栏的后面，不在里面：那一栏里的出处还都是全程沙盘自己的

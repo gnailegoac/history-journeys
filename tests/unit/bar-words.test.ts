@@ -3,6 +3,7 @@
 
 import { describe, expect, it } from 'vitest';
 import type { ItineraryBar } from '../../src/domain/itinerary';
+import { BAR_NOTE_TEXT } from '../../src/timebar/barNoteText';
 import { BAR_SANS, BAR_TEXT } from '../../src/timebar/barText';
 import { stretchIndexAt } from '../../src/timebar/barWhere';
 import { AGE_PX, FAKE_STAGES, ROOMY_PX, ageWords, barFit, barSwitch, numeral, westernAt, wordsAt, yearRowAt } from '../../src/timebar/barWords';
@@ -193,10 +194,25 @@ describe('时间轴上的字', () => {
     }
   });
 
+  it('图例里讲括号的那一句同第一行印出来的对得上：括号里写了月份的那些天只有公历的一月、二月，那一句两个月都说到，不说是农历的哪一个月', () => {
+    // 一天一天数过去：括号里写成“某年某月”的，是哪几个月
+    const months = new Set<number>();
+    for (let day = 0; day <= lastDay; day += 1) {
+      const found = /（\d+年(\d+)月）$/u.exec(wordsAt(bar, day).year);
+      if (found) months.add(Number(found[1]));
+    }
+    expect([...months].sort()).toEqual([1, 2]);
+    expect(BAR_NOTE_TEXT.west).toContain('农历年底有时已经是公历下一年的一月、二月');
+    // 不只是腊月：嘉祐六年十一月十八日已经是 1062 年 1 月 1 日，那一天括号里也是年和月；所以那一句不点哪一个农历月
+    expect(wordsAt(bar, (dayOfIso('1062-01-01') as number) - day0).year).toBe('嘉祐六年（1062年1月）');
+    expect(wordsAt(bar, (dayOfIso('1060-02-01') as number) - day0).year).toBe('嘉祐四年（1060年2月）');
+    expect(BAR_NOTE_TEXT.west).not.toMatch(/腊月|冬月|十一月|十二月/u);
+  });
+
   it('时间轴上用黑体排的固定的字都列进了黑体的那张表（src/ui/text.ts 的 SANS_LABELS）', () => {
     for (const label of BAR_SANS) expect(SANS_LABELS, label).toContain(label);
     const listed = BAR_SANS.join('');
-    for (const word of [BAR_TEXT.play, BAR_TEXT.pause, BAR_TEXT.prev, BAR_TEXT.next, BAR_TEXT.note, BAR_TEXT.noteName, BAR_TEXT.close, BAR_TEXT.here, BAR_TEXT.coming, BAR_TEXT.enter('十'), ageWords(66), ageWords(7), '（1082）']) {
+    for (const word of [BAR_TEXT.play, BAR_TEXT.pause, BAR_TEXT.prev, BAR_TEXT.next, BAR_TEXT.note, BAR_TEXT.noteName, BAR_TEXT.close, BAR_TEXT.enter('十'), ageWords(66), ageWords(7), '（1082）']) {
       for (const char of word) expect(listed, `“${word}”里的“${char}”`).toContain(char);
     }
   });

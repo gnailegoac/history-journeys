@@ -758,22 +758,41 @@ test('播到另一站讲的年月里：给读屏报一次是哪一年、在哪�
   const says = page.locator('.bar-says');
   await expect(says).toHaveAttribute('role', 'status');
   await expect(says).toHaveText('');
+  // 报出来的每一句都在页面里记下来，最后对先后。不靠“看的那一刻它正好还在”：开始的那一句一秒多以后就被下一句换掉，
+  // 跑测试的机器在那一下卡住一会儿，回头去看就已经不是它了
+  await says.evaluate((el) => {
+    const said: string[] = [];
+    (window as unknown as { __said: string[] }).__said = said;
+    new MutationObserver(() => {
+      const text = el.textContent ?? '';
+      if (text !== '' && said[said.length - 1] !== text) said.push(text);
+    }).observe(el, { childList: true, characterData: true, subtree: true });
+  });
+  const said = (): Promise<string[]> => page.evaluate(() => (window as unknown as { __said: string[] }).__said);
   await page.locator('.bar-play').click();
   // 开始：这一天是哪一年、在哪
   const here = wordsAt(bar, from);
-  await expect(says).toHaveText(`${here.year}，${here.label}`);
+  const started = `${here.year}，${here.label}`;
+  await expect.poll(said).toContain(started);
   // 走进了下一站讲的年月：报那一段的
   const next = wordsAt(bar, until + 0.01);
+  const entered = `${next.year}，${next.label}`;
   expect(bar.stretches[STAY_THEN_OTHER + 1].group).not.toBe(bar.stretches[STAY_THEN_OTHER].group);
-  await expect(says).toHaveText(`${next.year}，${next.label}`);
+  expect(entered).not.toBe(started);
+  await expect.poll(said).toContain(entered);
   // 沙盘跟着换到了那一节，小像还在走
   await expect(stagePane(page)).toHaveAttribute('data-stage-section', sectionAt(bar, SECTIONS, until + 0.01));
   await expect(page.locator('.bar-play')).toHaveText('暂停');
-  // 停下：报停在哪（还是这一站讲的年月里，句子是停下那一刻第一行印着的）
+  // 停下：报停在哪（句子是停下那一刻第一行印着的）
   await page.locator('.bar-play').click();
   await expect(page.locator('.bar-play')).toHaveText('播放');
   const end = await page.locator('.bar-when').evaluate((el) => [...el.querySelectorAll('span')].map((span) => span.textContent ?? ''));
-  await expect(says).toHaveText(`${end[0]}，${end[end.length - 1]}`);
+  const stopped = `${end[0]}，${end[end.length - 1]}`;
+  await expect(says).toHaveText(stopped);
+  // 先后：头一句是开始的那一句，第二句是走进下一站讲的年月的那一句，最后一句是停下的那一句
+  const all = await said();
+  expect(all.slice(0, 2)).toEqual([started, entered]);
+  expect(all[all.length - 1]).toBe(stopped);
 });
 
 // ================================================================ 别的读者
@@ -1030,7 +1049,7 @@ test('点时间轴的“图例”：先是这一段的哪一年、在哪和整�
   await expect(lines.nth(2)).toHaveText('两个有日子的地方之间，小像在路上是匀着走的；哪一天到了哪里没有记载。');
   await expect(lines.nth(3)).toHaveText(`有几处沙盘上平时没有立名字（${spots.join('、')}），他站到那里的时候，旁边才立出那一处的名字。`);
   await expect(lines.nth(4)).toHaveText('空着的虚线格子，是这座沙盘上没有的地方、没有画的路，那时候沙盘上没有他。');
-  await expect(lines.nth(5)).toHaveText('括号里的公历年份，是这个农历年大半落在的那一年。腊月有时已经是公历下一年的一月，那些天括号里写的是公历的年和月；日子说不准的地方仍只写年份。');
+  await expect(lines.nth(5)).toHaveText('括号里的公历年份，是这个农历年大半落在的那一年。农历年底有时已经是公历下一年的一月、二月，那些天括号里写的是公历的年和月；日子说不准的地方仍只写年份。');
   await expect(lines.nth(6)).toHaveText('拖着圆点的时候，一出眼前这一站讲的年份，沙盘就退回全程；松开以后，沙盘转到讲这几年的那一站，哪一站都不讲的年份就留在全程。');
   const stops = new Set(bar.stretches.flatMap((stretch) => (stretch.group ? [stretch.group] : []))).size;
   await expect(lines.nth(7)).toHaveText(`轴上圆圈里的数字是他走过的${'一二三四五六七八九十'[stops - 1]}站，和题签上的印是同一个数。古名、今名只换题签上的名字，时间轴上写的是当时的名字。`);

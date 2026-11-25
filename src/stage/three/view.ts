@@ -200,6 +200,8 @@ class ThreeStopView implements StopStageView {
   private pieceFoot: Vec3 | null = null;
   /** 潜到一站上空的时候把小像收起来了（下一次换小节再摆出来）。 */
   private pieceTucked = false;
+  /** 现在摆着的题签里，最后多出来的那一条写的是什么：小像站在线上、沙盘平时没有立名字的一处的时候，是那一处的名字；别的时候是空的。 */
+  private pieceName = '';
   private lease: Lease<HTMLCanvasElement, WebGLRenderer> | null = null;
   /** 造出来的东西怎么放掉，按造的先后记着。 */
   private readonly disposers: (() => void)[] = [];
@@ -386,6 +388,8 @@ class ThreeStopView implements StopStageView {
       b.strips.hide();
     }
     this.stripsHidden = !spec;
+    // 他旁边的那一条名字（站在线上没有立名字的一处时才有）随别的题签一起拿掉了
+    this.pieceName = '';
     // 小像也收起来——除非他正站在这一站的地名点上（镜头就落在他头顶上）
     this.pieceTucked = !(this.pieceAt?.on === 'place' && this.pieceAt.place === place?.id);
     this.setPiece();
@@ -417,8 +421,22 @@ class ThreeStopView implements StopStageView {
   placePiece(where: PiecePlace | null, atRest?: boolean): void {
     this.pieceAt = where;
     this.pieceRest = atRest === true;
+    if (!this.setPiece()) return;
+    const b = this.built;
+    // 他走到了线上没有立名字的一处（或者离开了、换到了另一处）：题签多一条、少一条他旁边的名字，当场重摆、当场画，别的名字不闪一下。
+    // 题签藏着的时候（镜头在滑、在潜）不动：滑到了自然照那时候的摆
+    if (b && !this.stripsHidden && !this.diving && this.spotName() !== this.pieceName) {
+      this.showStrips(this.stripsFor, b);
+      this.draw();
+    }
     // 镜头正在滑（或者正在潜）的时候每一帧本来就画，不另约一帧
-    if (this.setPiece() && !this.sequencer.gliding) this.requestRender();
+    else if (!this.sequencer.gliding) this.requestRender();
+  }
+
+  /** 小像现在站在线上、沙盘平时没有立名字的一处，而且摆出来了：那一处的名字（读者选了今名、这一处又有今名的，是今名）；不然是空的。 */
+  private spotName(): string {
+    const at = this.pieceAt;
+    return at?.on === 'spot' && this.pieceFoot && !this.pieceTucked ? (this.namesMode === 'modern' && at.modern) || at.name : '';
   }
 
   /**
@@ -995,6 +1013,10 @@ class ThreeStopView implements StopStageView {
   private showStrips(heading: string, b: Built): void {
     // 全程沙盘上是站的地名带着站号的印（options.marks 里有的那几站）
     const specs = sectionStripSpecs(this.scene, heading, stripTexts(this.scene, heading, this.namesMode), this.options.marks);
+    // 小像站在线上没有立名字的一处：最后多一条那一处的名字（同别的地名一样的题签，没有印，不是链接），指着他脚下（见 draw）。
+    // 怎么摆在全程沙盘那一块程序里（overlay/placeAround.ts）：它最后才摆，别的题签不为它动
+    this.pieceName = this.spotName();
+    if (this.pieceName && this.routeLevel) specs.push({ id: this.routeLevel.PIECE_NAME, text: this.pieceName, tone: 'place' });
     this.stripsFor = heading;
     this.shownStrips = this.stripsOf(specs.map((s) => s.id));
     this.spotCache = null;
@@ -1388,6 +1410,8 @@ class ThreeStopView implements StopStageView {
       // 总算停着；在路上的，页面说时间轴停在这一天才算。他在路上走着的时候不让：题签不跟着一个走动的东西来回换位置
       const on = this.pieceAt?.on === 'road' && !this.pieceRest ? null : this.pieceOnScreen(b);
       const avoid: StripInput['avoid'] = on ? [{ x0: on.x - PIECE_HALF_PX, y0: on.y - on.h, x1: on.x + PIECE_HALF_PX, y1: on.y + PIECE_UNDER_PX }] : undefined;
+      // 他旁边的那一条名字指着他脚下
+      if (on && this.pieceName && this.routeLevel) anchors.push({ id: this.routeLevel.PIECE_NAME, x: on.x, y: on.y, visible: true });
       // 读者的手还按着：题签留在原来的位置上，不重新挑（转一下换十几次位置，看上去是在闪）。刚换的一批还没摆过，照常摆
       // 潜到一站上空的路上也一样：留着的那一条不换位置
       if ((this.handDown || this.diving) && !this.stripsFresh) {

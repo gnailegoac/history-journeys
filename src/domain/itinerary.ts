@@ -65,14 +65,15 @@ export interface ItineraryPart {
  * “别的”一段里，这个地方在全程沙盘上有没有：
  *   stop-point  是某一站的那个地名点，只是年份不在这一站里：小像站在那里；
  *   place       沙盘上立了名字、不是站的地名点：小像站在那里；
- *   way-vertex  在画出来的一条线上，沙盘上没有立它的名字：小像站在线上的这个位置；
+ *   way-vertex  在画出来的一条线上，沙盘上平时没有立它的名字：小像站在线上的这个位置，他站到那里的时候旁边立出这一处的名字
+ *               （name：当时的名字，就是 where 开头的地名；modern：今名，where 里写了“今某地”的才有）；
  *   edge-strip  在沙盘的框外，框上立着它的题签：小像不出现；
  *   on-ways     路上的一趟，经过的地方大半在画出来的线上，这一趟本身没有画：小像不出现；
  *   none        沙盘上没有：小像不出现。
  */
 export type ItineraryTablePoint =
   | { type: 'stop-point' | 'place'; place: string }
-  | { type: 'way-vertex'; way: string; at: LngLat; note?: string }
+  | { type: 'way-vertex'; way: string; at: LngLat; name: string; modern?: string; note?: string }
   | { type: 'edge-strip'; strip: string; at: LngLat }
   | { type: 'on-ways'; ways: string[]; note: string }
   | { type: 'none' };
@@ -140,16 +141,21 @@ export interface ItineraryBarStretch {
   look: ItineraryLook;
   label: string;
   says: string;
-  /** 这一段里说不准的（点开“说明”才看得见）；没有就不写。 */
+  /** 这一段里说不准的（点开“图例”才看得见）；没有就不写。路上各处的说不准接在后面，各带着那一处的名字。 */
   unsure?: string;
+  /**
+   * 第一行括号里只写年份的公历月份：[年, 月]。一个农历年的最后几十天落在公历的下一年里，那些天括号里平常写那一天公历的年和月；
+   * 这一段在那个月里是不是已经开始、是不是还没结束，史料担保不了的，列在这里，那些天照平常只写这个农历年的那个公元年。没有就不写。
+   */
+  plainMonths?: [number, number][];
   /** 落在哪一站讲的年月里。 */
   group?: string;
   /** 目录里那一站旁边写什么：here 是“他在这儿”，coming 是“正往这儿走”；不写字的不写。 */
   mark?: 'here' | 'coming';
   /** 小像站在全程沙盘的哪个地名点上（stop，和站在有名字的地方的 quiet）。 */
   place?: string;
-  /** 小像站在一条线上没有立名字的一处：那条线的 id，和这个地方的经纬度（另一种 quiet）。 */
-  spot?: [string, LngLat];
+  /** 小像站在一条线上、沙盘平时没有立名字的一处（另一种 quiet）：那条线的 id，这个地方的经纬度，它的名字，有今名的再加今名。 */
+  spot?: [string, LngLat, string, string?];
   /** 这一段走的路，照走的先后，倒着走的前面一个减号（road）。 */
   ways?: string[];
   /** 这一段的各截是不是示意的（画虚线），照先后（road）。 */
@@ -167,8 +173,6 @@ export interface ItineraryBar {
   name: string;
   /** 农历年：公元年、年名、正月初一是第几天、虚岁；头一行是出生的那一年，第三个数是 null。 */
   years: [number, string, number | null, number][];
-  /** 各站已发布的年份（figure.json 里那一站的 years，如“1080–1084”），照站的 id：轴上那一站的圆点旁边放得下的时候写它。 */
-  stopYears: Record<string, string>;
   first: { label: string; says: string };
   last: { label: string; says: string };
   stretches: ItineraryBarStretch[];

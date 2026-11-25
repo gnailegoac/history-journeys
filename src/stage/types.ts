@@ -142,12 +142,14 @@ export interface StageReadout {
  *   road   一趟路上：ways 是走的那几截路，照走的先后，倒着走的前面一个减号（和场景文件里的写法一样）；
  *          从 from 到 to 沿着画出来的线匀着走，走到 k 成（0 到 1）。from、to 是这几截路接起来的两头（'start'、'end'），
  *          或者路上一处的经纬度（落在线上离它最近的一点）；
- *   spot   画出来的一截路上、沙盘没有立名字的一处：way 是那一截路，at 是那一处的经纬度（落在线上离它最近的一点）。
+ *   spot   画出来的一截路上、沙盘平时没有立名字的一处：way 是那一截路，at 是那一处的经纬度（落在线上离它最近的一点）；
+ *          name 是那一处当时的名字，modern 是今名（有的才写）。小像站在那里的时候，沙盘在他旁边立出这个名字——同别的地名一样的题签，
+ *          没有印，不是链接；读者选了“今名”、这一处又有今名的写今名。他走了，名字跟着拿走。
  */
 export type PiecePlace =
   | { on: 'place'; place: string }
   | { on: 'road'; ways: string[]; from: PieceEnd; to: PieceEnd; k: number }
-  | { on: 'spot'; way: string; at: [number, number] };
+  | { on: 'spot'; way: string; at: [number, number]; name: string; modern?: string };
 
 /** 一趟路上的一头。 */
 export type PieceEnd = 'start' | 'end' | [number, number];
@@ -265,6 +267,7 @@ export interface StopStageView extends StageView {
    * 全程沙盘才有：把小像摆到这里；null 是拿走。马上摆到，不滑，不动镜头；之后画一帧（读正文的时候多出来的画法只有这一种）。
    * 还没摆好就调用的，记着最后一次，摆好了照它摆。认不得的 id（地名点、路）当作 null，并在控制台说一句。
    * 小像停着的时候，题签让开它（只挪碰着它的那几条，见 src/stage/overlay/placeAround.ts）：站在一处（地名点上，或者 spot）总算停着；
+   * 站在 spot 的时候旁边另立出那一处的名字（最后才摆，别的题签不为它动；镜头在滑、在潜的时候不立）；
    * 在路上的，atRest 是 true 才算（时间轴停在这一天：读者放了手、按了暂停）。在路上走着的时候（拖着、按着键、播放着）不让：
    * 题签不跟着一个走动的东西来回换位置。
    * 潜到一站上空的那一趟（dive）一起步，小像收起来——除非他正站在那一站的地名点上；下一次 showSection 再摆出来。

@@ -4,6 +4,7 @@
 import { describe, expect, it } from 'vitest';
 import type { ItineraryBar } from '../../src/domain/itinerary';
 import { BAR_SANS, BAR_TEXT } from '../../src/timebar/barText';
+import { stretchIndexAt } from '../../src/timebar/barWhere';
 import { AGE_PX, FAKE_STAGES, ROOMY_PX, ageWords, barFit, barSwitch, numeral, westernAt, wordsAt, yearRowAt } from '../../src/timebar/barWords';
 import { SANS_LABELS } from '../../src/ui/text';
 import { dayOfIso, isoOfDay } from '../support/itineraryTool';
@@ -59,14 +60,17 @@ describe('时间轴上的字', () => {
     }
   });
 
-  it('腊月里已经是公历下一年的一月、二月：年名还是那个农历年的，括号里写那一天公历的年和月；别的日子括号里只有年份', () => {
+  it('腊月里已经是公历下一年的一月、二月：年名还是那个农历年的，括号里写那一天公历的年和月（这一段在那个月里史料担保不了的除外：行迹里列着，只写年份）；别的日子括号里只有年份', () => {
     // 他生的那一天：公历已经是 1037 年 1 月，农历还是景祐三年的腊月。括号里写“1036”的话，就同轴上的头一个年份、同正文里的“生于 1037 年”对不上
     expect(bar.day0.startsWith('1037-01-')).toBe(true);
     expect(wordsAt(bar, 0).year).toBe('景祐三年（1037年1月）');
     expect(wordsAt(bar, 0).spoken.startsWith('景祐三年，1037 年 1 月，虚岁一岁，')).toBe(true);
     // 一生的每一天：公历的年份就是表里那一行的，括号里只写年份；公历已经到了下一年的（都在一月、二月，正月初一以前），写年和月
     let later = 0;
+    let plainDays = 0;
     const months = new Set<number>();
+    /** 这一天落在的那一段，行迹里有没有把这个月列成“只写年份”。 */
+    const plain = (day: number, y: number, m: number): boolean => bar.stretches[stretchIndexAt(bar, day)].plainMonths?.some(([py, pm]) => py === y && pm === m) ?? false;
     for (let day = 0; day <= lastDay; day++) {
       const [year, name, , age] = yearRowAt(bar, day);
       const [y, m] = dateOf(day).split('-').map(Number);
@@ -79,12 +83,23 @@ describe('时间轴上的字', () => {
       later++;
       months.add(m);
       expect(y, dateOf(day)).toBe(year + 1);
+      if (plain(day + 0.25, y, m)) {
+        // 这一段在这个月里也许还没开始、也许已经结束：不写月份，照平常只写这个农历年的那个公元年
+        plainDays++;
+        expect(words.year, dateOf(day)).toBe(`${name}（${year}）`);
+        expect(words.spoken.startsWith(`${name}，${year} 年，${ageWords(age)}，`), dateOf(day)).toBe(true);
+        continue;
+      }
       expect(words.year, dateOf(day)).toBe(`${name}（${y}年${m}月）`);
       expect(words.spoken.startsWith(`${name}，${y} 年 ${m} 月，${ageWords(age)}，`), dateOf(day)).toBe(true);
     }
     expect(later).toBeGreaterThan(0);
     expect([...months].sort()).toEqual([1, 2]);
-    console.log(`一生 ${lastDay + 1} 天里，农历年末、公历已经是下一年的有 ${later} 天：括号里写公历的年和月`);
+    // 行迹里列着的月份确实碰到了，也只是少数
+    expect(bar.stretches.some((stretch) => (stretch.plainMonths ?? []).length > 0)).toBe(true);
+    expect(plainDays).toBeGreaterThan(0);
+    expect(plainDays).toBeLessThan(later / 2);
+    console.log(`一生 ${lastDay + 1} 天里，农历年末、公历已经是下一年的有 ${later} 天：括号里写公历的年和月；其中 ${plainDays} 天史料担保不了那个月，只写年份`);
     // 每一个正月初一落在公历一月、二月的年份：前一天公历已经是这一年了，年名和括号里的年份还是上一年的
     let checked = 0;
     bar.years.forEach((row, i) => {
@@ -96,10 +111,33 @@ describe('时间轴上的字', () => {
       if (Number(before.slice(0, 4)) !== row[0]) return;
       checked++;
       const words = wordsAt(bar, newYear - 1);
-      expect(words.year, `${before}（${row[1]}正月初一的前一天）`).toBe(`${bar.years[i - 1][1]}（${row[0]}年${Number(before.slice(5, 7))}月）`);
+      const month = Number(before.slice(5, 7));
+      expect(words.year, `${before}（${row[1]}正月初一的前一天）`).toBe(plain(newYear - 1, row[0], month) ? `${bar.years[i - 1][1]}（${bar.years[i - 1][0]}）` : `${bar.years[i - 1][1]}（${row[0]}年${month}月）`);
       expect(bar.years[i - 1][0], row[1]).toBe(row[0] - 1);
     });
     expect(checked).toBeGreaterThan(60);
+  });
+
+  it('这一栏放着图片的时候（图片上不画小像）：最前一个位置的第二行后面多半句“；图片上没有他的小像”，给读屏念的那一句里也有；别的位置、摆着沙盘的时候都没有', () => {
+    expect(BAR_TEXT.noFigure).toBe('；图片上没有他的小像');
+    const plain = wordsAt(bar, 0);
+    const pictures = wordsAt(bar, 0, true);
+    expect(plain.says).toBe(bar.first.says);
+    expect(pictures.says).toBe(`${bar.first.says}；图片上没有他的小像`);
+    expect(pictures.spoken.endsWith(`${bar.first.label}。${bar.first.says}；图片上没有他的小像。`)).toBe(true);
+    expect(plain.spoken).not.toContain('图片');
+    // 第一行不变
+    expect([pictures.year, pictures.age, pictures.label]).toEqual([plain.year, plain.age, plain.label]);
+    // 行迹里的那一句一个字没动
+    expect(bar.first.says).not.toContain('图片');
+    // 别的位置（连最后一个位置）：放着图片也还是行迹里的那一句
+    let from = 0;
+    for (const stretch of bar.stretches) {
+      const day = (Math.max(from, 0.5) + stretch.until) / 2;
+      expect(wordsAt(bar, day, true), stretch.id).toEqual(wordsAt(bar, day));
+      from = stretch.until;
+    }
+    expect(wordsAt(bar, lastDay, true)).toEqual(wordsAt(bar, lastDay));
   });
 
   it('栏多宽摆哪几样：640 像素起有岁数、首页带名字、“进第几站”写全；540 到 639 没有名字，“进第几站”只是圆点；不到 540 连岁数也不写', () => {
@@ -121,7 +159,8 @@ describe('时间轴上的字', () => {
       const day = (Math.max(from, 0.5) + stretch.until) / 2;
       const [year, name, , age] = yearRowAt(bar, day);
       const [y, m] = dateOf(day).split('-').map(Number);
-      expect(wordsAt(bar, day).spoken, stretch.id).toBe(`${name}，${y === year ? `${year} 年` : `${y} 年 ${m} 月`}，${ageWords(age)}，${stretch.label}。${stretch.says}。`);
+      const yearOnly = y === year || (stretch.plainMonths ?? []).some(([py, pm]) => py === y && pm === m);
+      expect(wordsAt(bar, day).spoken, stretch.id).toBe(`${name}，${yearOnly ? `${year} 年` : `${y} 年 ${m} 月`}，${ageWords(age)}，${stretch.label}。${stretch.says}。`);
       from = stretch.until;
     }
     expect(wordsAt(bar, 0).spoken).toBe(`景祐三年，1037 年 1 月，虚岁一岁，${bar.first.label}。${bar.first.says}。`);

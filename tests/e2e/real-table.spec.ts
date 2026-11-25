@@ -20,10 +20,13 @@
 
 import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
+import type { ItineraryBar } from '../../src/domain/itinerary';
 import type { RouteScene } from '../../src/domain/scene';
 import { routeCoords } from '../../src/domain/sceneGeoRoute';
 import { stripTexts } from '../../src/domain/sceneText';
+import { NAME_LEADER_MAX_PX, PIECE_NAME } from '../../src/stage/overlay/placeAround';
 import type { StageTier } from '../../src/stage/types';
+import { namesIn, readBytes } from '../support/readBytes';
 import { DRAW_CALLS_MAX, STANDING_STILL_MS, TRIANGLES_MAX, checkReduced } from '../stage/support/budgets';
 import { stripSize, stripSizeKind } from '../stage/support/stripSizes';
 import { expectRealTable, headingsOf, openFigureWithTable, realUrl, roadOf, routeOnDisk, sceneOnDisk, scrollToSection, stagePane, stageReadout, stopsWithScenes, stripsOf } from './helpers';
@@ -540,6 +543,80 @@ test('人物页不带时间轴的开关（地址里没有 ?bar=）：全程沙�
   await expect(pane).toHaveAttribute('data-stage-section', roadOf(route, target)!, { timeout: SECTION_MS });
   await expect(page.locator('.stage-bar')).toHaveCount(0);
   await expect.poll(async () => (await stageReadout(page))?.piece ?? null, { message: '一站的页面上沙盘里没有小像' }).toBeNull();
+  expect(problems).toEqual([]);
+});
+
+test('真的全程沙盘上，时间轴停在他站在线上、沙盘平时没有立名字的一处：他旁边立出那一处的名字——同别的地名一样的题签，没有印，不压着他，离他不到四十像素；选了今名、这一处有今名的换成今名；时间轴走到别处，那一条就拿走了', async ({ page }) => {
+  test.setTimeout(300_000);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  const problems = watchProblems(page);
+  // 头一位有行迹的人物；行迹里头一处有今名的
+  const figureId = namesIn('content/figures').find((name) => !name.includes('.') && namesIn(`content/figures/${name}`).includes('itinerary.bar.json'));
+  if (env.CI) expect(figureId, '发布流程里没有找到行迹').toBeDefined();
+  else test.skip(!figureId, '还没有哪一位人物有行迹');
+  if (!figureId) return;
+  const bar = JSON.parse(new TextDecoder().decode(readBytes(`content/figures/${figureId}/itinerary.bar.json`))) as ItineraryBar;
+  const index = bar.stretches.findIndex((stretch) => stretch.spot?.[3] !== undefined);
+  expect(index, '行迹里要有一处线上的地方带着今名').toBeGreaterThan(0);
+  const spot = bar.stretches[index].spot as [string, [number, number], string, string];
+  const day = Math.round((bar.stretches[index - 1].until + bar.stretches[index].until) / 2);
+  await page.goto(realUrl(`#/${figureId}`, 'full', `&debug=1&bar=${day}`));
+  await needWebGL2(page);
+  await expectRealTable(page, 'full', READY_MS);
+  await expect(page.locator('.bar-when .bar-label')).toHaveText(bar.stretches[index].label);
+  await expect.poll(async () => (await stageReadout(page))?.piece ?? null, { message: '沙盘的读数里要有小像', timeout: SECTION_MS }).not.toBeNull();
+
+  // 他旁边的那一条：写的是那一处当时的名字，摆出来了
+  const mine = page.locator(`.strip[data-strip-id="${PIECE_NAME}"]`);
+  await expect(mine).toHaveCount(1, { timeout: SECTION_MS });
+  await expect(mine).toHaveText(spot[2]);
+  await expect.poll(() => mine.evaluate((el) => getComputedStyle(el).visibility)).toBe('visible');
+  // 同别的地名一样的题签（一样的字体、字号、纸条），没有印，不是链接
+  await expect(mine).toHaveAttribute('data-tone', 'place');
+  await expect(mine.locator('.strip-seal')).toHaveCount(0);
+  await expect(mine.locator('a')).toHaveCount(0);
+  await expect(mine).not.toHaveClass(/has-seals/);
+  const look = (selector: string): Promise<string> =>
+    page.locator(selector).first().evaluate((el) => {
+      const style = getComputedStyle(el);
+      return [style.fontFamily, style.fontSize, style.backgroundColor, style.color, style.writingMode].join(' | ');
+    });
+  expect(await look(`.strip[data-strip-id="${PIECE_NAME}"]`)).toBe(await look('.strip.has-seals'));
+  // 不压着他，离他占的那一块不到四十像素（电脑上最远的一处是三十四像素，tests/stage/piece.test.ts 算的）
+  const near = async (): Promise<{ gap: number; over: boolean }> => {
+    const piece = (await stageReadout(page))!.piece!;
+    const pane = (await stagePane(page).boundingBox())!;
+    const box = (await mine.boundingBox())!;
+    const his = { x0: pane.x + piece.px.x - 10, x1: pane.x + piece.px.x + 10, y0: pane.y + piece.px.y - piece.px.h, y1: pane.y + piece.px.y + 8 };
+    const dx = Math.max(his.x0 - (box.x + box.width), 0, box.x - his.x1);
+    const dy = Math.max(his.y0 - (box.y + box.height), 0, box.y - his.y1);
+    return { gap: Math.hypot(dx, dy), over: dx === 0 && dy === 0 };
+  };
+  let got = await near();
+  console.log(`真的全程沙盘上，他站在${spot[2]}：旁边的名字离他占的那一块 ${got.gap.toFixed(1)} 像素`);
+  expect(got.over).toBe(false);
+  expect(got.gap).toBeLessThanOrEqual(NAME_LEADER_MAX_PX);
+  // 别的题签一条不少：全程那一节的每一条都还在
+  const route = routeOnDisk(figureId) as RouteScene;
+  await expect(page.locator('.strip')).toHaveCount(route.sections[0].strips.length + 1);
+
+  // 选了今名：换成今名
+  await page.locator('.names-switch button', { hasText: '今名' }).click();
+  await expect(mine).toHaveText(spot[3], { timeout: SECTION_MS });
+  await expect.poll(() => mine.evaluate((el) => getComputedStyle(el).visibility)).toBe('visible');
+  got = await near();
+  expect(got.over).toBe(false);
+  expect(got.gap).toBeLessThanOrEqual(NAME_LEADER_MAX_PX);
+  await page.locator('.names-switch button', { hasText: '古名' }).click();
+  await expect(mine).toHaveText(spot[2], { timeout: SECTION_MS });
+
+  // 时间轴走到出生的那一天（他站在一个有名字的地方）：那一条拿走了，别的题签还是那几条
+  await page.locator('.bar-track').focus();
+  await page.keyboard.press('Home');
+  await expect(page.locator('.bar-when .bar-label')).toHaveText(bar.first.label);
+  await expect(mine).toHaveCount(0, { timeout: SECTION_MS });
+  await expect(page.locator('.strip')).toHaveCount(route.sections[0].strips.length);
   expect(problems).toEqual([]);
 });
 

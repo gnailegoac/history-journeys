@@ -73,13 +73,14 @@ export const SPLIT_SONG_BY_STOP = false;
 export const FALLBACK_OK: Readonly<Record<string, string>> = {};
 
 /**
- * 界面的程序里，字要点了才看得见的那几个文件：“来源”页上的话（读者从链接点进那一页才看得见）。
+ * 界面的程序里，字要点了才看得见的那几个文件：“来源”页上的话（读者从链接点进那一页才看得见），
+ * 时间轴的“图例”点开的那一块里的几句话。
  * 这几个文件里的字算作“点开才看得见的”：别处不点就看得见的字里没有它的话，它归点开才要的那个宋体文件（yanlu-song-more），
  * 不进每位读者一打开网站就要下载的那一个（yanlu-song）。那一页打开的时候，浏览器照 unicode-range 自己去取那个文件。
  * 列在这里的文件里只许写点了才看得见的字。有一个字其实不点也看得见、别处又没有，它就会让那个页面提前去取那个文件：
  * tests/e2e/fonts.spec.ts（首页、人物页上那个文件不许被取）会发现。
  */
-export const PRESSED_SOURCES: readonly string[] = ['src/ui/sourcesText.ts'];
+export const PRESSED_SOURCES: readonly string[] = ['src/ui/sourcesText.ts', 'src/timebar/barNoteText.ts'];
 
 /** 用楷体排的字里不能有的：弯引号在这套楷体里只有三分之一个字宽。 */
 export const KAI_FORBIDDEN = '“”‘’';
@@ -509,18 +510,19 @@ export function planFonts(
 
     // ---- 行迹：全程沙盘下面那一条时间轴上跟着日子变的字（时间轴摆在人物页和首页上，所以也归大家共用的那一拨）。
     // 第一行是黑体：每一个农历年的年名、每一段的“在哪”、首页上排在最前面的名字（括号和数字是固定的字，在 SANS_LABELS 里）；
-    // 第二行的句子是宋体，拖到哪一段就印哪一句，不用点开就看得见；每一段里说不准的，点开时间轴的“说明”才看得见
+    // 第二行的句子是宋体，拖到哪一段就印哪一句，不用点开就看得见；每一段里说不准的，点开时间轴的“图例”才看得见。
+    // 他站在线上、沙盘平时没有立名字的一处的时候，旁边立出那一处的名字（有今名的，读者选了“今名”就立今名）：是题签，楷体，
+    // 名字照行迹里写的数，不在这里另列
     if (bar) {
       const where = `${page}（时间轴）`;
       sans('common', where, bar.name);
       for (const [, name] of bar.years) sans('common', where, name);
-      // 轴上各站圆点旁边的年份（放得下才写）
-      for (const years of Object.values(bar.stopYears)) sans('common', where, years);
       for (const item of [bar.first, bar.last, ...bar.stretches]) {
         sans('common', where, item.label);
         first('common', where, item.says);
       }
       for (const stretch of bar.stretches) more('common', where, stretch.unsure);
+      for (const stretch of bar.stretches) for (const name of stretch.spot?.slice(2) ?? []) kai('common', `${page}（小像旁边立出的名字）`, name as string);
     }
   }
 

@@ -1,15 +1,33 @@
 // 时间轴的刻度（src/timebar/barScale.ts）：哪一天落在轴的哪里。在 Node 里跑，照 content/ 里真的行迹（时间轴用的那一份）查。
-// 栏多宽、轴多宽是 tests/stage/support/standardPanes.ts 里量出来的那几种沙盘栏：轴 = 栏里面的宽 − 左右垫的空
-//（栏够 584 像素宽的左右各 12，不到的各 10；见 src/styles/timebar.css 的 .bar）。
+// 栏多宽、轴多宽是 tests/stage/support/standardPanes.ts 里量出来的那几种沙盘栏。轴画出来的那一截 = 栏里面的宽 − 左右垫的空
+//（栏够 584 像素宽的左右各 12，不到的各 10；见 src/styles/timebar.css 的 .bar）+ 能按的那一条往两边探出去的 − 两头各半个圆钮
+//（.bar-track 的 margin、.bar-axis 的 left 和 right：数从样式表里读）。
 
 import { describe, expect, it } from 'vitest';
 import type { ItineraryBar } from '../../src/domain/itinerary';
-import { DISC_PX, OTHER_MIN_UNITS, ROAD_UNITS, SQUEEZE_MIN_PX, STAY_MIN_UNITS, YEARS_EDGE_PX, YEARS_GAP_PX, YEARS_GLYPH_PX, YEAR_GAP_PX, barScale, barTicks, blockUnits, dayAt, discAt, groupSpans, labelledTicks, squeezed, unitsAt, yearsShort } from '../../src/timebar/barScale';
+import { DISC_PX, OTHER_MIN_UNITS, ROAD_UNITS, SQUEEZE_MIN_PX, STAY_MIN_UNITS, YEAR_GAP_PX, barScale, barTicks, blockUnits, dayAt, discAt, groupSpans, labelledTicks, squeezed, unitsAt } from '../../src/timebar/barScale';
 import { HOME_PANES, STANDARD_PANES } from '../stage/support/standardPanes';
 import { STRIP_NARROW_BELOW_PX } from '../stage/support/stripSizes';
 import { readBytes } from '../support/readBytes';
 
 const bar = JSON.parse(new TextDecoder().decode(readBytes('content/figures/su-shi/itinerary.bar.json'))) as ItineraryBar;
+/** 时间轴的样式表，去掉注释。 */
+const SHEET = new TextDecoder().decode(readBytes('src/styles/timebar.css')).replace(/\/\*[\s\S]*?\*\//g, '');
+/** 样式表里一条规则的那几行（选择器要一字不差）。 */
+const ruleOf = (selector: string): string => {
+  const at = SHEET.split('}').find((rule) => rule.split('{')[0].trim() === selector);
+  if (at === undefined) throw new Error(`timebar.css 里没有 ${selector} 这一条`);
+  return at.split('{')[1];
+};
+/** 一条规则里一样东西写的是几像素（rem 照 16 像素算）。 */
+const pxOf = (selector: string, property: string): number[] => {
+  const written = new RegExp(`(?:^|;|\\s)${property}:\\s*([^;]+);`).exec(ruleOf(selector))?.[1];
+  if (written === undefined) throw new Error(`${selector} 里没有写 ${property}`);
+  return written.trim().split(/\s+/).map((part) => (part.endsWith('rem') ? parseFloat(part) * 16 : parseFloat(part)));
+};
+/** 能按的那一条往左右各探出去多少（样式表里是负的 margin）；画出来的那一截两头各往里收多少。 */
+const TRACK_OUT_PX = -pxOf('.bar-track', 'margin')[1];
+const AXIS_IN_PX = pxOf('.bar-axis', 'left')[0];
 const scale = barScale(bar);
 
 /**
@@ -17,7 +35,7 @@ const scale = barScale(bar);
  * 左右垫的空宽的栏各 12、窄的栏各 10。
  */
 const trackOf = (pane: { window: { width: number; height: number }; size: { width: number } }): number =>
-  pane.size.width - (pane.window.width >= 960 && pane.window.width > pane.window.height ? 1 : 0) - 2 * (pane.size.width >= STRIP_NARROW_BELOW_PX ? 12 : 10);
+  pane.size.width - (pane.window.width >= 960 && pane.window.width > pane.window.height ? 1 : 0) - 2 * (pane.size.width >= STRIP_NARROW_BELOW_PX ? 12 : 10) + 2 * TRACK_OUT_PX - 2 * AXIS_IN_PX;
 /** 量过的每一种摆全程沙盘的栏（人物页的四种，首页另外的两种），和它们的轴宽。 */
 const PANES = [...STANDARD_PANES, ...HOME_PANES.filter((pane) => !STANDARD_PANES.includes(pane))].map((pane) => ({ name: pane.name, window: pane.window, track: trackOf(pane) }));
 const NARROWEST = Math.min(...PANES.map((pane) => pane.track));
@@ -95,8 +113,10 @@ describe('时间轴的刻度', () => {
   it('真的那一份：最窄的栏上一趟路不少于 18 像素、一站住下来的年月不少于 10 像素（一共多少单位、各种栏上的数印出来）', () => {
     // 一共多少单位是数据定的：每一格的单位加起来
     expect(scale.total).toBeCloseTo(scale.blocks.reduce((sum, block) => sum + (block.u1 - block.u0), 0), 9);
-    // 最窄的是横着拿的平板上首页的那一栏
-    expect(NARROWEST).toBe(532);
+    // 最窄的是横着拿的平板上首页的那一栏：栏里面 552，减左右垫的空各 10 是 532，轴画出来的那一截再短 6（两头各让出半个圆钮，
+    // 其中各 7 像素是往垫的空里探出去的）
+    expect(NARROWEST).toBe(532 - 2 * AXIS_IN_PX + 2 * TRACK_OUT_PX);
+    expect(NARROWEST).toBe(526);
     const px = NARROWEST / scale.total;
     const road = Math.min(...scale.blocks.filter((b) => b.look === 'road').map((b) => (b.u1 - b.u0) * px));
     const stay = Math.min(...scale.blocks.filter((b) => b.look === 'stop').map((b) => (b.u1 - b.u0) * px));
@@ -107,46 +127,22 @@ describe('时间轴的刻度', () => {
     );
   });
 
-  it('一站的年份写在圆点旁边：照这一站已发布的年份写（同一个世纪的后一个只写两位），那一站的那一段放得下圆点和它才写；写了的，两样合起来对着那一段的中间（各种栏上写了哪几站印出来）', () => {
-    expect(yearsShort('1080–1084')).toBe('1080–84');
-    expect(yearsShort('1079')).toBe('1079');
-    expect(yearsShort('1094–1100')).toBe('1094–1100');
-    expect(yearsShort('1099–1101')).toBe('1099–1101');
+  it('一站的圆点正对着这一站那一段的中间；圆点旁边不写这一站的年份，时间轴用的那一份里也不带各站的年份（各种栏上各站的那一段多宽印出来）', () => {
     const spans = groupSpans(scale);
-    // 行迹里记着的就是各站已发布的年份，时间轴上有哪几站就有哪几站
-    expect(Object.keys(bar.stopYears)).toEqual(spans.map((span) => span.stop));
+    expect(spans.length).toBeGreaterThan(0);
+    expect(DISC_PX).toBe(20);
+    // 行迹里不带各站的年份：八站的哪一种栏上也放不全，只写得下的几个像是散落的数字；目录里每一站已经有它的年份
+    expect(bar).not.toHaveProperty('stopYears');
     const lines: string[] = [];
     for (const pane of PANES) {
       const px = pane.track / scale.total;
-      const written: string[] = [];
-      spans.forEach((span) => {
-        const text = yearsShort(bar.stopYears[span.stop]);
-        const wide = (span.u1 - span.u0) * px;
-        const mid = ((span.u0 + span.u1) / 2) * px;
-        const at = discAt(span, px, text);
-        const pair = DISC_PX + YEARS_GAP_PX + [...text].length * YEARS_GLYPH_PX;
-        if (wide >= pair + 2 * YEARS_EDGE_PX) {
-          // 放得下：圆点在左、年份在右，合起来对着中间，两头都不出这一段
-          expect(at.years, `${pane.name} ${span.stop}`).not.toBeNull();
-          expect(at.disc - DISC_PX / 2, `${pane.name} ${span.stop}`).toBeCloseTo(mid - pair / 2, 6);
-          expect(at.years as number, `${pane.name} ${span.stop}`).toBeCloseTo(at.disc + DISC_PX / 2 + YEARS_GAP_PX, 6);
-          expect(at.disc - DISC_PX / 2).toBeGreaterThanOrEqual(span.u0 * px + YEARS_EDGE_PX - 1e-6);
-          expect((at.years as number) + [...text].length * YEARS_GLYPH_PX).toBeLessThanOrEqual(span.u1 * px - YEARS_EDGE_PX + 1e-6);
-          written.push(`${span.stop} ${text}`);
-        } else {
-          // 放不下：不写，圆点正对着中间
-          expect(at, `${pane.name} ${span.stop}`).toEqual({ disc: mid, years: null });
-        }
-        // 没有年份可写的（这位人物的资料里没有）：圆点正对着中间
-        expect(discAt(span, px, undefined)).toEqual({ disc: mid, years: null });
-      });
-      lines.push(`  ${pane.name}（轴 ${pane.track} 像素）：${written.length ? written.join('，') : '一站也不写'}`);
+      for (const span of spans) expect(discAt(span, px), `${pane.name} ${span.stop}`).toBeCloseTo(((span.u0 + span.u1) / 2) * px, 9);
+      lines.push(`  ${pane.name}（轴 ${pane.track} 像素）：${spans.map((span) => `${span.stop} ${((span.u1 - span.u0) * px).toFixed(0)}`).join('，')}`);
     }
-    console.log(['各种栏上圆点旁边写了年份的站：', ...lines].join('\n'));
-    // 编的一段：正好放得下的写，差一个像素的不写
-    const need = DISC_PX + YEARS_GAP_PX + 7 * YEARS_GLYPH_PX + 2 * YEARS_EDGE_PX;
-    expect(discAt({ u0: 0, u1: need }, 1, '1080–84').years).not.toBeNull();
-    expect(discAt({ u0: 0, u1: need - 1 }, 1, '1080–84').years).toBeNull();
+    console.log(['各种栏上各站讲的那几年在轴上多宽（像素）：', ...lines].join('\n'));
+    // 这个函数只交回一个数（圆点的中心），没有“年份摆在哪”
+    expect(typeof discAt({ u0: 0, u1: 10 }, 3)).toBe('number');
+    expect(discAt({ u0: 0, u1: 10 }, 3)).toBe(15);
   });
 
   it('每十年一道的刻度一个比一个靠右；年份两个之间不到 40 像素的不写', () => {
@@ -198,5 +194,49 @@ describe('时间轴的刻度', () => {
       const inGroup = scale.blocks.filter((b) => b.group === span.stop);
       expect([span.u0, span.u1], span.stop).toEqual([inGroup[0].u0, inGroup[inGroup.length - 1].u1]);
     }
+  });
+
+  it('样式表里的那几个数对得上：圆钮到了两头整个在这一条里面，不压着年份的数字；焦点框围着整条轴，年份在它里面', () => {
+    const [knob] = pxOf('.bar-thumb', 'width');
+    const [knobTop] = pxOf('.bar-thumb', 'top');
+    const [yearTop] = pxOf('.bar-year', 'top');
+    // 圆钮 20 像素；画出来的那一截两头各往里收半个圆钮：圆钮的正中到了头，整个圆钮还在能按的那一条里面
+    expect(knob).toBe(20);
+    expect(pxOf('.bar-thumb', 'margin-left')[0]).toBe(-knob / 2);
+    expect(AXIS_IN_PX).toBe(knob / 2);
+    expect(pxOf('.bar-axis', 'right')[0]).toBe(AXIS_IN_PX);
+    // 能按的那一条往这一条左右垫的空里探出去的，比垫的空少（宽的栏垫 12、窄的垫 10）：圆钮连外面那一圈细线（1.5 像素）都在这一条里面
+    const halo = 1.5;
+    expect(ruleOf('.bar-thumb')).toContain(`box-shadow: 0 0 0 ${halo}px`);
+    expect(TRACK_OUT_PX).toBeGreaterThan(0);
+    expect(pxOf('.stage-pane:not(.is-wide) .bar', 'padding-left')[0] - TRACK_OUT_PX).toBeGreaterThanOrEqual(halo);
+    expect(pxOf('.stage-pane:not(.is-wide) .bar', 'padding-right')[0] - TRACK_OUT_PX).toBeGreaterThanOrEqual(halo);
+    // 两头有“上一段”“下一段”的时候不往外探
+    expect(pxOf('.bar.is-calm .bar-track', 'margin')).toEqual([0]);
+    // 所以画出来的那一截比“栏里面的宽减左右垫的空”只短 6 像素：最窄的栏上一趟路还够 18 像素（上面那一项查的就是这个宽）
+    expect(2 * AXIS_IN_PX - 2 * TRACK_OUT_PX).toBe(6);
+    // 圆钮的下边不到年份那一行的上边以下 1 像素（年份的数字在它那一行里还要低两像素）；原来是 3.5 像素，压着数字
+    expect(knobTop + knob - yearTop).toBeLessThanOrEqual(1);
+    // 年份那一行 14 像素高（字号 14、行高 1）：它的下边不出焦点框里边的下边半个像素以外
+    const track = pxOf('.bar-track', 'height')[0];
+    expect(track).toBe(48);
+    expect(ruleOf('.bar-year')).toMatch(/line-height:\s*1;/);
+    const ring = pxOf('.bar-track:focus-visible::after', 'inset');
+    const [ringTop, ringSide, ringBottom] = ring;
+    const [border] = pxOf('.bar-track:focus-visible::after', 'border');
+    expect(border).toBe(2);
+    expect(ringTop).toBeLessThan(0);
+    expect(ringSide).toBeLessThan(0);
+    // 那一圈里边的下边：轴的下边再往下（−inset）减去边线的宽
+    const innerBottom = track - ringBottom - border;
+    expect(innerBottom).toBeGreaterThanOrEqual(track);
+    expect(yearTop + 14 - innerBottom).toBeLessThanOrEqual(0.5);
+    // 这一圈的下边探出这一条的下边不到题记上边垫的空（这一条下边垫 2 像素）
+    expect(-ringBottom).toBeLessThanOrEqual(4);
+    // 轴自己身上没有往里贴的一圈、往里收的外框线（它们原来从年份的数字上穿过去）；沙盘栏里别处贴的那一圈白也去掉
+    expect(ruleOf('.bar-track:focus-visible')).not.toMatch(/inset|outline-offset/);
+    expect(ruleOf('.bar-track:focus-visible')).toMatch(/box-shadow:\s*none;/);
+    // 圆点旁边不写各站的年份：没有那一条样式了
+    expect(SHEET).not.toContain('.bar-years');
   });
 });

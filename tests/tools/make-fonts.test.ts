@@ -381,6 +381,9 @@ describe('数字：哪些字归哪一组（编出来的一位人物）', () => {
     expect(plain.onlyFromSrc).toContain('晚');
     // 真的名单：“来源”页上的话在里面；列着的都是 src/ 里真有的界面文件（挪了地方、改了名字，这里通不过）
     expect(PRESSED_SOURCES).toContain('src/ui/sourcesText.ts');
+    // 时间轴的“图例”点开的那一块里的几句话也在里面：一共两个文件
+    expect(PRESSED_SOURCES).toContain('src/timebar/barNoteText.ts');
+    expect(PRESSED_SOURCES).toHaveLength(2);
     for (const path of PRESSED_SOURCES) {
       expect(isInterfaceSource(path), path).toBe(true);
       expect(sourceFiles(), `${path} 不在 src/ 里了`).toContain(path);
@@ -683,7 +686,7 @@ describe('数字：哪些字归哪一组（编出来的一位人物）', () => {
     expect(has(split, 'song', moved)).toBe(true);
   });
 
-  it('行迹：年名和“在哪”进黑体，第二行的句子进不用点开就看得见的宋体，说不准的进点开才看得见的', () => {
+  it('行迹：年名和“在哪”进黑体，第二行的句子进不用点开就看得见的宋体，说不准的进点开才看得见的；小像旁边立出的名字（连今名）进楷体', () => {
     // 编出来的一份时间轴用的行迹：每一样用的字都是这座编出来的网站别处没有的
     const bar: ItineraryBar = {
       day0: '1000-01-01',
@@ -692,15 +695,16 @@ describe('数字：哪些字归哪一组（编出来的一位人物）', () => {
         [1000, '熙宁', null, 1],
         [1001, '丰祐', 30, 2],
       ],
-      stopYears: {},
       first: { label: '诞', says: '曩' },
       last: { label: '殁', says: '迄' },
       stretches: [
         { id: 't1', look: 'quiet', label: '徙', says: '匀', unsure: '疑', until: 100, place: 'a' },
         { id: 't2', look: 'off', label: '谪', says: '迹', until: 200 },
+        { id: 't3', look: 'quiet', label: '徙', says: '匀', until: 300, spot: ['w', [110, 30], '郓'] },
+        { id: 't4', look: 'quiet', label: '徙', says: '匀', until: 400, spot: ['w', [111, 30], '颍', '阜'] },
       ],
     };
-    const all = '轼熙宁丰祐诞殁徙谪曩迄匀迹疑';
+    const all = '轼熙宁丰祐诞殁徙谪曩迄匀迹疑郓颍阜';
     const without = planFonts(madeUpSite());
     for (const group of ['sans', 'song', 'kai', 'song-more']) expect(hasNone(without, group, all), group).toBe(true);
     const plan = planFonts(madeUpSite((site) => (site.figures[0].bar = bar)));
@@ -713,9 +717,15 @@ describe('数字：哪些字归哪一组（编出来的一位人物）', () => {
     expect(has(plan, 'song-more', '疑')).toBe(true);
     expect(hasNone(plan, 'song', '疑')).toBe(true);
     expect(hasNone(plan, 'song-more', '曩迄匀迹轼熙宁丰祐诞殁徙谪')).toBe(true);
-    // 黑体的字头一个宋体文件里也有一份；楷体里一个也没有
+    // 黑体的字头一个宋体文件里也有一份；楷体里只有小像旁边立出的名字（当时的名字，和今名），别的一个也没有
     expect(has(plan, 'song', '轼熙宁丰祐诞殁徙谪')).toBe(true);
-    expect(hasNone(plan, 'kai', all)).toBe(true);
+    expect(has(plan, 'kai', '郓颍阜')).toBe(true);
+    expect(hasNone(plan, 'kai', '轼熙宁丰祐诞殁徙谪曩迄匀迹疑')).toBe(true);
+    // 楷体的文件还在路上的时候这几个字先用宋体显示：头一个宋体文件里也有；不用为它们去取点开才要的那个文件
+    expect(has(plan, 'song', '郓颍阜')).toBe(true);
+    expect(hasNone(plan, 'song-more', '郓颍阜')).toBe(true);
+    expect(hasNone(plan, 'sans', '郓颍阜')).toBe(true);
+    expect(fileOf(plan, 'kai').where.get('郓')).toEqual(['某人的人物页（小像旁边立出的名字）']);
     // 时间轴摆在人物页和首页上：按站拆开的时候这些字也归大家共用的文件，不归哪一站
     const split = planFonts(madeUpSite((site) => (site.figures[0].bar = bar)), { splitByStop: true });
     expect(has(split, 'song', '曩迄匀迹轼熙宁丰祐诞殁徙谪')).toBe(true);

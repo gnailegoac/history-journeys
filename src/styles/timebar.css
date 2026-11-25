@@ -186,27 +186,59 @@
   box-shadow: var(--shadow-small);
 }
 
-/* 轴：整行 48px 高都是能按、能拖的地方。手指在它上面拖的时候页面不跟着滚。 */
+/* 轴：整行 48px 高都是能按、能拖的地方。手指在它上面拖的时候页面不跟着滚。
+   能按的这一条比画出来的那一截（.bar-axis）两头各长半个圆钮（10px）：圆钮到了最前、最后一个位置，整个还在这一条里面。
+   这 10px 里有 7px 是往这一条左右垫的空里探出去的（垫的空是 12px，窄的栏 10px：圆钮到头的时候离栏边还有 5px、3px），
+   所以画出来的那一截只比原来短 6px，最窄的栏上一趟路还够 18px 宽。 */
 .bar-track {
   position: relative;
   flex: 1 1 auto;
   min-width: 0;
   height: 3rem;
+  margin: 0 -0.4375rem;
   cursor: pointer;
   touch-action: none;
   -webkit-user-select: none;
   user-select: none;
 }
 
-/* 焦点框画在轴里面（它下边紧挨着题记，画在外面会被盖住）：外面一圈深灰，里面贴着一圈白。 */
+/* 两头有“上一段”“下一段”的时候不往外探（外面就是那两个按钮）。 */
+.bar.is-calm .bar-track {
+  margin: 0;
+}
+
+/* 焦点框围着整条轴，年份在它里面：不从年份的数字上穿过去。它是另画的一圈（::after），不用 outline——
+   四边离这一条各不一样远：上边贴着这一条外面 1px（再往上是“播放”），左右各让开 3px（圆钮到了头，不贴着这一圈），
+   下边在年份的下面（年份的字比这一条的下边还低一点）。
+   这一圈的下边压着时间轴和题记之间的那道细线、探进题记上边垫的空里 4px：键盘走到轴上的时候把轴抬到题记上面（z-index），不然被题记盖住。
+   只有一圈深灰：这一条的底是页面的颜色，不用再贴一圈白（沙盘栏里别处焦点框贴在里面的那一圈白，这里去掉）。 */
 .bar-track:focus-visible {
-  outline-offset: -2px;
-  box-shadow: inset 0 0 0 4px var(--color-focus-pane-inner);
+  z-index: 1;
+  outline: 2px solid transparent;
+  box-shadow: none;
+}
+
+.bar-track:focus-visible::after {
+  content: '';
+  position: absolute;
+  inset: -1px -3px -4px;
+  border: 2px solid var(--color-focus-pane);
+  border-radius: var(--radius);
+  pointer-events: none;
+}
+
+/* 轴画出来的那一截：圆点、格子、刻度、年份、圆钮的位置都从它的左头量。 */
+.bar-axis {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0.625rem;
+  right: 0.625rem;
 }
 
 /* 轴上画出来的东西（一张 SVG，读屏不念）。从上往下：0 到 20 是各站的圆点，21.5 是一站讲的那几年的一道线，23 到 34 是格子和路，
-   34 到 36 是刻度，再往下是年份。 */
-.bar-track svg {
+   34 到 37 是刻度，再往下是年份。 */
+.bar-axis svg {
   position: absolute;
   left: 0;
   top: 0;
@@ -215,11 +247,12 @@
   overflow: visible;
 }
 
-/* 轴的记号，一种墨蓝、一种灰：
+/* 轴的记号，一种墨蓝、两种灰：
      各站住下来的年月            实心的墨蓝格子
      沙盘上有、不在各站年份里的地方  白底的格子，一圈灰线（就是轴上年份的那种灰：墨蓝只留给各站住下来的格子、写好了的站的圆点和圆钮）
      画出来的路                 深灰的线：他写过这一路的是实线，只知道两头的是虚线
-     沙盘上没有他的年月          灰色虚线的空格子 */
+     沙盘上没有他的年月          空格子，一圈虚线，用的是更淡的一种灰（--color-ink-faint）——是有意比上面那一种淡：越淡，沙盘上越没有人。
+                               “图例”里有一句说它（空着的虚线格子……那时候沙盘上没有他）。 */
 .bar-rail {
   stroke: var(--color-line);
   stroke-width: 1;
@@ -305,20 +338,18 @@
   margin-left: -0.625rem;
 }
 
-/* 刻度下面的年份，和（放得下的地方）圆点旁边这一站的年份：黑体的小字，灰字。 */
-.bar-year,
-.bar-years {
+/* 刻度下面的年份：黑体的小字，灰字。（圆点旁边不写各站的年份：哪一种栏上也放不全，目录里每一站已经有它的年份。） */
+/* 年份排在圆钮的下面：圆钮（连外面那一圈细线）到 39px 为止，年份那一行从 36.5px 起、数字的笔画从 39px 多一点往下才有，
+   圆钮走到哪里都不压着年份的数字。 */
+.bar-year {
   position: absolute;
+  top: 36.5px;
   color: var(--color-ink-soft);
   font-family: var(--font-sans);
   font-size: var(--size-small);
   font-weight: var(--weight-sans);
   line-height: 1;
   white-space: nowrap;
-}
-
-.bar-year {
-  top: 35px;
   transform: translateX(-50%);
 }
 
@@ -327,16 +358,12 @@
   transform: none;
 }
 
-/* 一站的年份排在圆点的右边，隔 4px；圆点和它合起来对着这一站那一段的中间（位置是那一段程序算的）。 */
-.bar-years {
-  top: 3px;
-}
-
 /* 圆钮：现在拖到的地方。20px，白底、一圈 3px 的墨蓝（比写好了的站那两个实心圆点还醒目），立在格子那一排上，在圆点的下面，
-   不挡圆点里的数字；最外面一圈页面颜色的细线，落在实心格子上也分得清（是画出来的线，不是影子）。它自己不接手指：能拖的是整条轴。 */
+   不挡圆点里的数字，也不压着下面年份的数字（所以比格子那一排的正中高 1px）；最外面一圈页面颜色的细线，落在实心格子上也分得清
+   （是画出来的线，不是影子）。它自己不接手指：能拖的是整条轴。 */
 .bar-thumb {
   position: absolute;
-  top: 18.5px;
+  top: 17.5px;
   width: 20px;
   height: 20px;
   margin-left: -10px;
@@ -360,9 +387,17 @@
   overflow-y: auto;
   overscroll-behavior: contain;
   box-shadow: var(--shadow-plate);
+  pointer-events: auto;
 }
 
-/* 开头的几行说的是时间轴停着的这一段（哪一年几岁在哪，那一句话的全文，拿不准的地方）；下面一道细线，再往下是固定的六句。 */
+/* 摆着沙盘的时候（栏钉着）：它从不盖时间轴——下边总在时间轴上面一点，不像题记的那一块地方不够时往下多盖（--note-lack）；
+   最高到按钮那一排的下边（--note-room：沙盘栏的高减去按钮那一排、题记、时间轴和上下的空，stage.css 里算的），放不下就在自己里面滚。 */
+.stage-pane.is-pinned .stage-note-panel.bar-panel {
+  bottom: calc(100% + var(--gap-1));
+  max-height: max(0px, var(--note-room));
+}
+
+/* 开头的几行说的是时间轴停着的这一段（哪一年几岁在哪，那一句话的全文，拿不准的地方）；下面一道细线，再往下是固定的几句。 */
 .bar-now {
   margin-bottom: var(--gap-2);
   padding-bottom: var(--gap-2);
@@ -374,4 +409,8 @@
   font-size: var(--size-label);
   font-weight: var(--weight-sans);
   letter-spacing: 0.02em;
+}
+
+.bar-now-when span + span {
+  margin-left: 0.75em;
 }

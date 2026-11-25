@@ -168,15 +168,16 @@ describe('小像站在哪：线上没有立名字的地方，认不得的地方�
       if (!chain) throw new Error(`${stretch.id}：沙盘上没有 ${way} 这一截路`);
       const near = chainNearest(chain, coords.toLocal(lngLat));
       // 他站的就是线上离那里最近的那一点
-      const p = pieceWhere(scene, coords, { on: 'spot', way, at: lngLat });
+      const p = pieceWhere(scene, coords, { on: 'spot', way, at: lngLat, name: stretch.spot![2] });
       expect(far(p!, chainPoint(chain, near.s)), stretch.id).toBeLessThan(1e-6);
       expect(far(p!, coords.toLocal(lngLat)) * KM, stretch.id).toBeCloseTo(near.offM * KM, 6);
-      // 第二行说的是哪个地方（“沙盘上没有立某地的名字。”）
-      const town = /^沙盘上没有立(.+?)的名字。/.exec(stretch.says)?.[1];
-      expect(town, `${stretch.id} 的第二行`).toBeDefined();
+      // 这一处叫什么（工具照手写的那一份带过来的名字：小像站到那里的时候旁边立出它）
+      const town = stretch.spot?.[2];
+      expect(town, `${stretch.id} 的名字`).toBeTruthy();
+      expect(stretch.label, stretch.id).toContain(town);
       off.set(town!, [...(off.get(town!) ?? []), near.offM * KM]);
     }
-    // 第二行说的地方，就是手写的那一份里这几段的 where 开头的地名
+    // 带过来的名字，就是手写的那一份里这几段的 where 开头的地名
     expect([...off.keys()].sort()).toEqual([...new Set(written.map((stretch) => (stretch.kind === 'elsewhere' ? stretch.where.split(/[（(]/)[0].trim() : '')))].sort());
     for (const [town, list] of off) {
       // 离画出来的线不到 15 公里（校验的规则 22 也是这个数）；同一个地方的几段（常州两回）离线一样远，是同一个位置
@@ -192,7 +193,7 @@ describe('小像站在哪：线上没有立名字的地方，认不得的地方�
     expect(pieceWhere(scene, coords, { on: 'road', ways: ['no-such-way'], from: 'start', to: 'end', k: 0.5 })).toBeNull();
     expect(pieceWhere(scene, coords, { on: 'road', ways: [...known, 'no-such-way'], from: 'start', to: 'end', k: 0.5 })).toBeNull();
     expect(pieceWhere(scene, coords, { on: 'road', ways: [], from: 'start', to: 'end', k: 0.5 })).toBeNull();
-    expect(pieceWhere(scene, coords, { on: 'spot', way: 'no-such-way', at: [110, 30] })).toBeNull();
+    expect(pieceWhere(scene, coords, { on: 'spot', way: 'no-such-way', at: [110, 30], name: '某地' })).toBeNull();
     expect(pieceChain(scene, coords, ['-no-such-way'])).toBeNull();
     // 认得的照常给
     expect(pieceWhere(scene, coords, { on: 'road', ways: known, from: 'start', to: 'end', k: 0.5 })).not.toBeNull();

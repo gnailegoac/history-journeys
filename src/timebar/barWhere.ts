@@ -24,7 +24,10 @@ export function stretchStart(bar: ItineraryBar, index: number): number {
  */
 export function whereInStretch(stretch: ItineraryBarStretch, from: number, day: number): PiecePlace | null {
   if (stretch.place !== undefined) return { on: 'place', place: stretch.place };
-  if (stretch.spot) return { on: 'spot', way: stretch.spot[0], at: [stretch.spot[1][0], stretch.spot[1][1]] };
+  if (stretch.spot) {
+    const [way, at, name, modern] = stretch.spot;
+    return modern ? { on: 'spot', way, at: [at[0], at[1]], name, modern } : { on: 'spot', way, at: [at[0], at[1]], name };
+  }
   if (!stretch.ways) return null;
   const cuts: { day: number; end: PieceEnd }[] = [{ day: from, end: 'start' }];
   for (const [at, when] of stretch.legs ?? []) cuts.push({ day: when, end: [at[0], at[1]] });

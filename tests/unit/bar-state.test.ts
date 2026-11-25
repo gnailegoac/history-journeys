@@ -187,6 +187,37 @@ describe('时间轴怎么动', () => {
     expect(other.store.get()).toMatchObject({ day: edge, playing: false });
   });
 
+  it('等沙盘栏换好一节以后接着走：圆钮从等的地方起，不退回上一段（真的钟是带小数的毫秒，照它算回来会差一丁点）——不再报上一节，也不来回换', () => {
+    // 钟的读数带着零头：一百回，每一回的零头都不一样
+    let back = 0;
+    for (let n = 1; n <= 100; n++) {
+      const t = rig({ pane: { section: sectionOfStretch(STAY) } });
+      const start = startOf(STAY) + (bar.stretches[STAY].until - startOf(STAY)) * (0.9 + n / 1300);
+      t.store.set({ day: start });
+      // 从一个带零头的时刻播起
+      t.advance(1000 / 7 + n * 0.37);
+      t.control.play();
+      // 一小步一小步走到要换一节的地方：钟停下来等
+      for (let i = 0; i < 4000 && t.goals.length === 0; i++) t.advance(16.7 + n / 97);
+      expect(t.goals, `第 ${n} 回`).toEqual([sectionOfStretch(STAY + 1)]);
+      const held = t.store.get().day;
+      expect(held, `第 ${n} 回`).toBe(bar.stretches[STAY].until);
+      // 等上一阵（也带零头），沙盘栏换好了
+      t.advance(300 + n * 1.13, 7);
+      t.pane.section = sectionOfStretch(STAY + 1);
+      t.control.paneChanged();
+      t.advance(16.7 + n / 89);
+      t.advance(33.3, 2);
+      // 接着走：日子不比等的地方靠前，还在下一段里；没有再报上一节
+      if (t.store.get().day < held) back++;
+      expect(t.store.get().day, `第 ${n} 回：退回到了等的地方以前`).toBeGreaterThanOrEqual(held);
+      expect(t.goals, `第 ${n} 回`).toEqual([sectionOfStretch(STAY + 1)]);
+      expect(t.store.get().playing).toBe(true);
+      t.control.stop();
+    }
+    expect(back).toBe(0);
+  });
+
   it('读者一碰就停：按在轴上、轴上按键、上一段下一段，别处的一碰（按在沙盘上、在沙盘上滚轮、点“图例”、点进一站、点题签上的圆点、点古名今名的开关、点“回到这一节”、网页转到后台、栏收起来、沙盘画面断了）都叫 stop；停了以后不自己再播', () => {
     const playing = () => {
       const t = rig({ pane: { section: sectionOfStretch(STAY) } });
@@ -333,7 +364,7 @@ describe('时间轴怎么动', () => {
     expect([moved.goals, moved.counts.resets]).toEqual([[WHOLE], 1]);
   });
 
-  it('左右键走这一段的八分之一；翻页键到下一段、上一段的起头；Home、End 到头尾', () => {
+  it('左右键走这一段的八分之一；翻页键往后到下一段的起头，往前先到这一段的起头、已经在起头上的才到上一段的起头；Home、End 到头尾', () => {
     expect(KEY_STEPS).toBe(8);
     expect([...BAR_KEYS].sort()).toEqual(['ArrowDown', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'End', 'Home', 'PageDown', 'PageUp']);
     // 每一段：从起头按八下右键，正好到下一段的起头；每一下是这一段的八分之一
@@ -354,9 +385,13 @@ describe('时间轴怎么动', () => {
       // 不在格上的地方：往后到下一格，往前到上一格
       expect(keyStep(bar, from + 2.5 * eighth, 1), stretch.id).toBeCloseTo(from + 3 * eighth, 6);
       expect(keyStep(bar, from + 2.5 * eighth, -1), stretch.id).toBeCloseTo(from + 2 * eighth, 6);
-      // 翻页键：下一段的起头；上一段的起头
+      // 翻页键往后：下一段的起头
       expect(stretchStep(bar, from + 3 * eighth, 1), stretch.id).toBe(stretch.until);
-      expect(stretchStep(bar, from + 3 * eighth, -1), stretch.id).toBe(i === 0 ? 0 : startOf(i - 1));
+      expect(stretchStep(bar, from, 1), stretch.id).toBe(stretch.until);
+      // 翻页键往前：在这一段的半中间，先到这一段的起头（不越过它）；已经停在起头上的，到上一段的起头
+      expect(stretchStep(bar, from + 3 * eighth, -1), stretch.id).toBe(from);
+      expect(stretchStep(bar, from + eighth / 100, -1), stretch.id).toBe(from);
+      expect(stretchStep(bar, from, -1), stretch.id).toBe(i === 0 ? 0 : startOf(i - 1));
     });
     // 两头：不出去
     expect(keyStep(bar, 0, -1)).toBe(0);
@@ -377,6 +412,13 @@ describe('时间轴怎么动', () => {
     expect(t.store.get().day).toBe(bar.stretches[STAY].until);
     t.control.key('PageDown');
     expect(t.store.get().day).toBe(from);
+    // 从这一段的半中间按往前的翻页键：头一下到这一段的起头，第二下到上一段的起头
+    t.control.key('ArrowRight');
+    t.control.key('ArrowRight');
+    t.control.key('PageDown');
+    expect(t.store.get().day).toBe(from);
+    t.control.key('PageDown');
+    expect(t.store.get().day).toBe(startOf(STAY - 1));
     t.control.key('End');
     expect(t.store.get().day).toBe(lastDay);
     t.control.key('ArrowRight');
@@ -396,6 +438,44 @@ describe('时间轴怎么动', () => {
     s.control.step(-1);
     expect(s.store.get().day).toBe(from);
     expect(s.goals).toEqual([sectionOfStretch(STAY + 1), sectionOfStretch(STAY)]);
+    // “上一段”从半中间按：先到这一段的起头，再按才是上一段的起头
+    s.store.set({ day: (from + bar.stretches[STAY].until) / 2 });
+    s.control.step(-1);
+    expect(s.store.get().day).toBe(from);
+    s.control.step(-1);
+    expect(s.store.get().day).toBe(startOf(STAY - 1));
+  });
+
+  it('按了一下键、还没到 350 毫秒这一条就拿走了（读者点了一个链接）：算停着；再摆上的时候是停着的——他在路上，题签让开他', () => {
+    const key = `测试/${++made}`;
+    const road = bar.stretches.findIndex((stretch) => stretch.look === 'road');
+    const first = rig({ key });
+    first.store.set({ day: (startOf(road) + bar.stretches[road].until) / 2, rest: true });
+    first.control.key('ArrowRight');
+    expect(first.store.get().rest).toBe(false);
+    first.advance(100);
+    first.control.dispose();
+    // 拿走的那一下就算停着了；定时器取消了，过多久都不再有别的动静
+    expect(first.store.get().rest).toBe(true);
+    first.advance(1000);
+    expect(first.pending()).toBe(0);
+    expect(first.store.get().rest).toBe(true);
+    // 同一位人物的那一份上再摆一条：一摆上就是停着的
+    const second = rig({ key });
+    expect(second.store.get().rest).toBe(true);
+    expect(second.store.get().day).toBe(first.store.get().day);
+    // 手还按着就拿走的也一样
+    const held = rig();
+    held.control.press(10);
+    held.control.drag(12);
+    expect(held.store.get().rest).toBe(false);
+    held.control.dispose();
+    expect(held.store.get().rest).toBe(true);
+    // 本来就停着的，拿走的时候什么也不改
+    const still = rig();
+    const before = still.store.get();
+    still.control.dispose();
+    expect(still.store.get()).toBe(before);
   });
 
   it('设了“减少动态效果”：从来不订下一帧', () => {

@@ -26,7 +26,7 @@ Object.defineProperty(MiniElement.prototype, 'clientWidth', {
   configurable: true,
   get(this: MiniElement) {
     const names = this.className.split(' ');
-    return g.__bandWidth !== null && (names.includes('stage-bar') || names.includes('bar-track')) ? g.__bandWidth : plainWidth.call(this);
+    return g.__bandWidth !== null && (names.includes('stage-bar') || names.includes('bar-track') || names.includes('bar-axis')) ? g.__bandWidth : plainWidth.call(this);
   },
 });
 

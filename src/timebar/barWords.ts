@@ -1,7 +1,8 @@
 // 时间轴上跟着日子变的字：第一行（哪一年、虚岁多少、在哪）、第二行（这一段知道些什么）、给读屏念的那一句；
 // 栏多宽摆哪几样；地址里的开关。只算数、只拼字，不碰页面。
 // 程序算出来的只有“哪一个农历年”：行迹的 years 表里，正月初一不晚于这一天的最后一行，年名、括号里的公元年、虚岁都是那一行的；
-// 这一天公历已经是下一年的（农历年末的那几十天），括号里换成那一天公历的年和月。
+// 这一天公历已经是下一年的（农历年末的那几十天），括号里换成那一天公历的年和月——这一段在那个月里史料担保不了的除外
+//（行迹里这一段的 plainMonths 列着），那些天照平常只写这个农历年的那个公元年。
 // “在哪”和第二行的句子是行迹里手写的，原样印，这里不改一个字。日子从不印出来（它是第几天，可以带小数）。
 
 import type { ItineraryBar } from '../domain/itinerary';
@@ -56,6 +57,8 @@ export interface BarWords {
   /**
    * 年名和括号里的公元年：元丰五年（1082）。一个农历年的最后几十天落在公历的下一年里（腊月常常已经是下一年的一月）：
    * 那些天括号里写那一天公历的年和月——景祐三年（1037年1月）——不然读的人看到的是“1036”，而他生在 1037 年 1 月。
+   * 写了月份，“某年某月、在某地”就也要是史料担保得了的：这一段在那个月里也许还没开始、也许已经结束的（行迹里列在 plainMonths），
+   * 那些天不写月份，照平常写——熙宁九年（1076）。
    */
   year: string;
   /** 虚岁四十七。 */
@@ -68,22 +71,27 @@ export interface BarWords {
   spoken: string;
 }
 
-/** 第 day 天印什么字。第 0 天（和以前）是最前一个位置，最后一天（和以后）是最后一个位置：各有自己的两行字。 */
-export function wordsAt(bar: ItineraryBar, day: number): BarWords {
+/**
+ * 第 day 天印什么字。第 0 天（和以前）是最前一个位置，最后一天（和以后）是最后一个位置：各有自己的两行字。
+ * pictures 是这一栏现在放着的是图片（图片上不画小像）：最前一个位置的第二行后面多半句“；图片上没有他的小像”。
+ */
+export function wordsAt(bar: ItineraryBar, day: number, pictures = false): BarWords {
   const lastDay = bar.stretches[bar.stretches.length - 1].until;
   const at = Math.min(Math.max(day, 0), lastDay);
   const [year, name, , age] = yearRowAt(bar, at);
-  const stretch = at <= 0 ? bar.first : at >= lastDay ? bar.last : bar.stretches[stretchIndexAt(bar, at)];
+  const here = bar.stretches[stretchIndexAt(bar, at)];
+  const stretch = at <= 0 ? bar.first : at >= lastDay ? bar.last : here;
   const ageSays = ageWords(age);
-  // 这一天公历是不是已经到了下一年（括号里平常写的是这个农历年大半落在的那一年）
+  // 这一天公历是不是已经到了下一年（括号里平常写的是这个农历年大半落在的那一年）；到了，这一段在那个月里又是史料担保得了的，才写年和月
   const west = westernAt(bar.day0, at);
-  const later = west.year !== year;
+  const later = west.year !== year && !here.plainMonths?.some(([y, m]) => y === west.year && m === west.month);
+  const says = at <= 0 && pictures ? `${stretch.says}${BAR_TEXT.noFigure}` : stretch.says;
   return {
     year: `${name}（${later ? BAR_TEXT.west(west.year, west.month) : year}）`,
     age: ageSays,
     label: stretch.label,
-    says: stretch.says,
-    spoken: `${name}，${later ? `${west.year} 年 ${west.month} 月` : `${year} 年`}，${ageSays}，${stretch.label}。${stretch.says}。`,
+    says,
+    spoken: `${name}，${later ? `${west.year} 年 ${west.month} 月` : `${year} 年`}，${ageSays}，${stretch.label}。${says}。`,
   };
 }
 

@@ -399,7 +399,7 @@ describe(`${KEY} 上的小像（placePiece）`, () => {
     for (const where of [
       { on: 'place', place: 'no-such-place' },
       { on: 'road', ways: ['no-such-way'], from: 'start', to: 'end', k: 0.5 },
-      { on: 'spot', way: 'no-such-way', at: [110, 30] },
+      { on: 'spot', way: 'no-such-way', at: [110, 30], name: '某地' },
     ] as const) {
       warn.mockClear();
       expect(() => place(view, { ...where } as Parameters<typeof place>[1])).not.toThrow();
@@ -540,7 +540,7 @@ describe(`${KEY} 上的小像（placePiece）`, () => {
     const spot = bar.stretches.find((stretch) => stretch.spot)?.spot;
     if (!spot) throw new Error('行迹里没有站在线上的一段');
     from = strips.places.length;
-    place(view, { on: 'spot', way: spot[0], at: spot[1] });
+    place(view, { on: 'spot', way: spot[0], at: spot[1], name: spot[2] });
     await frames(2);
     expect(strips.places.length).toBeGreaterThan(from);
     for (const a of avoids(from)) sameBox(a, '站在线上的一处');
@@ -619,5 +619,102 @@ describe(`${KEY} 上的小像（placePiece）`, () => {
     expect(await until(view.dive(stop, 600))).toBe(true);
     expect(strips.places.length).toBeGreaterThan(from);
     expect(avoids(from).every((a) => a === undefined)).toBe(true);
+  });
+
+  it('小像站在线上、沙盘平时没有立名字的一处：这一节的题签最后多一条那一处的名字（没有印），指着他脚下，当场就摆；选了今名、这一处有今名的写今名；他换到另一处换成另一处的；上了路、站到有名字的地方、拿走了、潜下去，这一条就没有了；别的题签一条不少、先后不变', { timeout: 120_000 }, async () => {
+    const { PIECE_NAME } = await import('../../src/stage/three/routeLevel');
+    const s = stage(940, 900);
+    const view = await openView(s, baked, { reducedMotion: false });
+    await until(view.ready);
+    const ids = (): string[] => strips.specs().map((spec) => spec.id);
+    const plain = ids();
+    expect(plain.length).toBeGreaterThan(0);
+    expect(plain).not.toContain(PIECE_NAME);
+    const spots = bar.stretches.flatMap((stretch) => (stretch.spot ? [stretch.spot] : []));
+    const old = spots.find((spot) => spot[3] === undefined);
+    const renamed = spots.find((spot) => spot[3] !== undefined);
+    if (!old || !renamed) throw new Error('行迹里要有一处没有今名的、一处有今名的');
+    const at = (spot: (typeof spots)[number]) => ({ on: 'spot' as const, way: spot[0], at: spot[1], name: spot[2], ...(spot[3] ? { modern: spot[3] } : {}) });
+
+    // 站到一处：不等下一帧，题签那一层当场换了一批（最后多一条）、当场摆了一次
+    let sets = strips.log.filter((line) => line.startsWith('set ')).length;
+    let placed = strips.places.length;
+    view.placePiece?.(at(old));
+    expect(strips.log.filter((line) => line.startsWith('set ')).length).toBe(sets + 1);
+    expect(strips.places.length).toBe(placed + 1);
+    expect(ids()).toEqual([...plain, PIECE_NAME]);
+    // 那一条：写的是那一处的名字，同别的地名一样的题签；没有印，没有写想摆在哪一边
+    expect(strips.specs().at(-1)).toEqual({ id: PIECE_NAME, text: old[2], tone: 'place' });
+    // 它指着他脚下
+    const foot = view.readout().piece?.px;
+    if (!foot) throw new Error('读数里没有小像');
+    const mine = strips.places.at(-1)?.anchors.find((anchor) => anchor.id === PIECE_NAME);
+    expect(mine?.visible).toBe(true);
+    expect(mine?.x).toBeCloseTo(foot.x, 6);
+    expect(mine?.y).toBeCloseTo(foot.y, 6);
+    // 别的题签指的点一个不少
+    expect(strips.places.at(-1)?.anchors.filter((anchor) => anchor.id !== PIECE_NAME).map((anchor) => anchor.id)).toEqual(strips.places[placed - 1].anchors.map((anchor) => anchor.id));
+    // 再说一遍同一处（时间轴在这一段里挪了一天）：不再换一批
+    sets = strips.log.filter((line) => line.startsWith('set ')).length;
+    view.placePiece?.(at(old));
+    await frames(2);
+    expect(strips.log.filter((line) => line.startsWith('set ')).length).toBe(sets);
+
+    // 换到另一处：换成另一处的名字（读者选的是古名：有今名的也写当时的名字）
+    view.placePiece?.(at(renamed));
+    expect(strips.specs().at(-1)).toEqual({ id: PIECE_NAME, text: renamed[2], tone: 'place' });
+    // 选了今名：这一处有今名，写今名；没有今名的那一处还写当时的名字
+    view.setNamesMode('modern');
+    await frames(2);
+    expect(strips.specs().at(-1)).toEqual({ id: PIECE_NAME, text: renamed[3], tone: 'place' });
+    view.placePiece?.(at(old));
+    expect(strips.specs().at(-1)).toEqual({ id: PIECE_NAME, text: old[2], tone: 'place' });
+    view.setNamesMode('ancient');
+    await frames(2);
+    expect(ids()).toEqual([...plain, PIECE_NAME]);
+
+    // 上了路：没有了；别的题签还是原来的那几条
+    const road = bar.stretches.find((stretch) => stretch.ways);
+    if (!road?.ways) throw new Error('行迹里没有路上的一段');
+    view.placePiece?.({ on: 'road', ways: road.ways, from: 'start', to: 'end', k: 0.3 });
+    expect(ids()).toEqual(plain);
+    await frames(2);
+    expect(strips.places.at(-1)?.anchors.some((anchor) => anchor.id === PIECE_NAME)).toBe(false);
+    // 站到有名字的地方：没有；拿走：没有
+    view.placePiece?.(at(old));
+    expect(ids()).toEqual([...plain, PIECE_NAME]);
+    view.placePiece?.({ on: 'place', place: towns[0] });
+    expect(ids()).toEqual(plain);
+    view.placePiece?.(at(old));
+    view.placePiece?.(null);
+    expect(ids()).toEqual(plain);
+
+    // 镜头滑到别的一节的路上题签藏着：这时候他走到一处，不换一批；滑到了，那一节的题签里有它
+    view.placePiece?.({ on: 'place', place: towns[0] });
+    const glide = view.showSection(R.headings[1], { animate: true });
+    await frames(2);
+    sets = strips.log.filter((line) => line.startsWith('set ')).length;
+    view.placePiece?.(at(old));
+    expect(strips.log.filter((line) => line.startsWith('set ')).length).toBe(sets);
+    await until(glide);
+    await frames(2);
+    expect(ids().at(-1)).toBe(PIECE_NAME);
+    expect(ids().slice(0, -1)).not.toContain(PIECE_NAME);
+
+    // 潜到一站上空：小像收起来，只留那一站自己的名字，没有他旁边的那一条
+    await until(view.showSection(R.headings[0], { animate: false }));
+    await frames(2);
+    expect(ids()).toEqual([...plain, PIECE_NAME]);
+    const stop = R.scene.sections.find((section) => section.stop && hasStopTable(FIGURE, section.stop))?.stop;
+    if (!stop || !view.dive) throw new Error('这位人物没有哪一站有自己的沙盘');
+    expect(await until(view.dive(stop, 600))).toBe(true);
+    expect(ids()).not.toContain(PIECE_NAME);
+    expect(ids()).toHaveLength(1);
+    // 潜完了，页面叫沙盘把小像拿走（时间轴的那一条随人物页一起拿走了）：留着的那一条不动，这一节的题签不再整批摆出来
+    sets = strips.log.filter((line) => line.startsWith('set ')).length;
+    view.placePiece?.(null);
+    await frames(2);
+    expect(strips.log.filter((line) => line.startsWith('set ')).length).toBe(sets);
+    expect(ids()).toHaveLength(1);
   });
 });

@@ -181,11 +181,61 @@ export function doubtCarrier(stretch: ItineraryStretch, point: ItineraryWaypoint
 
 /**
  * 时间轴用的那一份里，一段的“说不准的”：这一段自己的 unsure，后面接上那几处（doubtCarrier）的 unsure，一条一条用分号隔开。
- * 每一条都是手写的，原样抄；都没有写的是空的。
+ * 每一条都是手写的，原样抄；接上去的每一条前面带着那一处的名字和一个冒号（“江陵：查注引作十八日”），不然读的人不知道说的是哪一处的日子。
+ * 都没有写的是空的。
  */
 export function unsureOf(stretch: ItineraryStretch): string {
-  const fromPoints = (stretch.waypoints ?? []).filter((point) => doubtCarrier(stretch, point)).map((point) => point.unsure ?? '');
+  const fromPoints = (stretch.waypoints ?? []).filter((point) => doubtCarrier(stretch, point) && (point.unsure ?? '').trim() !== '').map((point) => `${point.name}：${point.unsure}`);
   return [stretch.unsure, ...fromPoints].filter((written) => written.trim() !== '').join('；');
+}
+
+/** 第一行括号里也许要写的一个公历月份，史料担保不担保得了。 */
+export interface WesternMonth {
+  /** 第几段（从 0 数）。 */
+  stretch: number;
+  /** 公历的年、月（儒略历）。 */
+  year: number;
+  month: number;
+  /** 担保得了：这一段在这个月落在农历年尾巴里的那一截结束以前一定已经开始，到那一截开始的时候一定还没有结束。 */
+  held: boolean;
+}
+
+/**
+ * 时间轴第一行的括号：一个农历年的最后几十天落在公历的下一年里（腊月常常已经是下一年的一月），那些天括号里写的是那一天公历的年和月
+ *（“景祐三年（1037年1月）”）。写了月份，“某年某月、在某地”也要是史料担保得了的。这里把每一段在时间轴上碰到的每一个这样的月份列出来，
+ * 各做农历年的那两样比较：这一段最晚的开始不晚于这个月落在这个农历年里的那一截的最后一天，最早的结束不早于那一截的头一天。
+ * 两样都成立的（held）括号里写年和月；有一样不成立的，时间轴在那些天照平常只写这个农历年的那个公元年（见 projectItinerary 的 plainMonths）。
+ * “这一段在时间轴上碰到哪些天”照做出来的那一份算（头尾取到小数点后两位，同 projectItinerary 一样）。
+ */
+export function westernMonths(itinerary: Pick<Itinerary, 'stretches' | 'years'>): WesternMonth[] {
+  const zero = dayZero(itinerary);
+  const { numbers } = boundaryNumbers(itinerary);
+  const years = lunarYears(itinerary);
+  const out: WesternMonth[] = [];
+  if (zero === null) return out;
+  itinerary.stretches.forEach((stretch, i) => {
+    const [a, b] = [twoPlaces(numbers[i] - zero), twoPlaces(numbers[i + 1] - zero)];
+    const [latestStart, earliestEnd] = [latestOf(stretch.start), earliestOf(stretch.end)];
+    if (Number.isNaN(a) || Number.isNaN(b) || latestStart === null || earliestEnd === null) return;
+    // 圆钮停在这一段里的时候，那一天是哪几天（最后一段连最后一天也算：圆钮停得到那里）
+    const firstDay = zero + Math.floor(a);
+    const lastDay = zero + (i === itinerary.stretches.length - 1 ? Math.floor(b) : Math.ceil(b) - 1);
+    for (const year of years) {
+      // 这个农历年的尾巴：公历已经是下一年的那些天
+      const tailFirst = Math.max(year.first, julianDay(year.year + 1, 1, 1));
+      let day = Math.max(firstDay, tailFirst);
+      const until = Math.min(lastDay, year.last);
+      while (day <= until) {
+        const [y, m] = isoOfDay(day).split('-').map(Number);
+        const nextMonth = m === 12 ? julianDay(y + 1, 1, 1) : julianDay(y, m + 1, 1);
+        const partFirst = Math.max(julianDay(y, m, 1), tailFirst);
+        const partLast = Math.min(nextMonth - 1, year.last);
+        out.push({ stretch: i, year: y, month: m, held: latestStart <= partLast && earliestEnd >= partFirst });
+        day = nextMonth;
+      }
+    }
+  });
+  return out;
 }
 
 /** 第 0 天：链的头一天（他出生的那一天）。 */
@@ -198,17 +248,20 @@ const twoPlaces = (n: number): number => Math.round(n * 100) / 100;
 /**
  * 时间轴用的那一份。手写的那一份要先过了校验（规则 22 的前九句）才做得对；头尾放不了的，这里照 NaN 写出来的东西不能用。
  * 句子（label、says、unsure、first、last）原样抄，一个字不动；程序不拼句子——“说不准的”只是把这一段的和路上那几处的
- * 一条一条接起来（unsureOf）。人物的名字照 figure.json 的 name 抄（时间轴给读屏念的名字、首页第一行开头的名字用它）；
- * 各站的年份照 figure.json 里各站的 years 抄（轴上那一站的圆点旁边写的就是已发布的年份，不是这里各段自己排出来的）。
+ * 一条一条接起来（unsureOf）。人物的名字照 figure.json 的 name 抄（时间轴给读屏念的名字、首页第一行开头的名字用它）。
+ * 第一行括号里担保不了的公历月份（westernMonths 里 held 是 false 的）一段一段记在 plainMonths 里：时间轴在那些天只写年份。
  */
-export function projectItinerary(itinerary: Itinerary, route: Pick<RouteScene, 'places'>, figure: Pick<Figure, 'name' | 'stops'>): ItineraryBar {
+export function projectItinerary(itinerary: Itinerary, route: Pick<RouteScene, 'places'>, figure: Pick<Figure, 'name'>): ItineraryBar {
   const zero = dayZero(itinerary) ?? 0;
   const { numbers } = boundaryNumbers(itinerary);
+  const unheld = westernMonths(itinerary).filter((pair) => !pair.held);
   const stretches = itinerary.stretches.map((stretch, i): ItineraryBarStretch => {
     const look = lookOf(stretch);
     const out: ItineraryBarStretch = { id: stretch.id, look, label: stretch.label, says: stretch.says, until: twoPlaces(numbers[i + 1] - zero) };
     const unsure = unsureOf(stretch);
     if (unsure !== '') out.unsure = unsure;
+    const plain = unheld.filter((pair) => pair.stretch === i).map((pair): [number, number] => [pair.year, pair.month]);
+    if (plain.length > 0) out.plainMonths = plain;
     if (stretch.stopYearsOf !== null) out.group = stretch.stopYearsOf;
     const mark = markOf(stretch, route);
     if (mark) out.mark = mark;
@@ -216,7 +269,7 @@ export function projectItinerary(itinerary: Itinerary, route: Pick<RouteScene, '
     if (stretch.kind === 'elsewhere') {
       const point = stretch.tablePoint;
       if (point.type === 'stop-point' || point.type === 'place') out.place = point.place;
-      if (point.type === 'way-vertex') out.spot = [point.way, point.at];
+      if (point.type === 'way-vertex') out.spot = point.modern ? [point.way, point.at, point.name, point.modern] : [point.way, point.at, point.name];
     }
     if (stretch.kind === 'road') {
       out.ways = stretch.parts.flatMap((part) => part.ways);
@@ -230,7 +283,6 @@ export function projectItinerary(itinerary: Itinerary, route: Pick<RouteScene, '
     day0: isoOfDay(zero),
     name: figure.name,
     years: itinerary.years.map((row) => [row.year, row.name, row.newYear === null ? null : (dayOfIso(row.newYear) ?? NaN) - zero, row.age]),
-    stopYears: Object.fromEntries(figure.stops.filter((stop) => stretches.some((stretch) => stretch.group === stop.id)).map((stop) => [stop.id, stop.years])),
     first: { label: itinerary.first.label, says: itinerary.first.says },
     last: { label: itinerary.last.label, says: itinerary.last.says },
     stretches,

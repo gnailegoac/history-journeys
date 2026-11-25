@@ -1,7 +1,8 @@
 // 小像在画面上：多大，站在哪，题签怎么让开他，头探不探出沙盘的那一块。在 Node 里跑，不要浏览器。
 // 真的：全程沙盘的场景和算出来的地面、行迹（时间轴用的那一份）、镜头（src/stage/three/rig.ts 的 placeCamera，沙盘程序用的就是它）、
 // 小像站在哪（src/stage/pieceWhere.ts，页面那一边的 whereAt）、小像的模型（src/stage/three/piece.ts）、
-// 题签的摆法（src/stage/overlay/placeStrips.ts 和全程沙盘用的 placeAround.ts）。画面是 ./support/standardPanes.ts 里带着时间轴的各种栏
+// 题签的摆法（src/stage/overlay/placeStrips.ts 和全程沙盘用的 placeAround.ts）。他站在线上、沙盘平时没有立名字的一处的时候，
+// 旁边多一条写着那一处名字的题签（没有印），照沙盘程序的做法添在这一节的题签的最后、指着他脚下。画面是 ./support/standardPanes.ts 里带着时间轴的各种栏
 //（人物页的四种、首页宽屏上的两种、别的竖着拿的平板五种）：小像只在这些栏上有。题签多大照 ./support/stripSizes.ts。
 // 小像在画面上占的那一块照沙盘程序的算法（view.ts）：脚下那一点左右各 10 像素，从帽顶到脚下再多 8 像素。
 // 他站着的时候沙盘摆着哪一节：时间轴停着，沙盘栏摆的是这一段该看的那一节（落在哪一站讲的年月里就是那一站的那一节，不然是全程）；
@@ -13,7 +14,7 @@ import { describe, expect, it } from 'vitest';
 import type { ItineraryBar } from '../../src/domain/itinerary';
 import type { NamesMode, RouteSection, SceneStrip } from '../../src/domain/scene';
 import { placeStrips } from '../../src/stage/overlay';
-import { aroundPiece, touches } from '../../src/stage/overlay/placeAround';
+import { LEADER_MAX_PX, NAME_LEADER_MAX_PX, PIECE_NAME, aroundPiece, leavesAt, touches } from '../../src/stage/overlay/placeAround';
 import type { StripInput, StripPlacement } from '../../src/stage/overlay';
 import { pieceWhere } from '../../src/stage/pieceWhere';
 import { PIECE_PX, buildPiece } from '../../src/stage/three/piece';
@@ -25,7 +26,7 @@ import { whereAt } from '../../src/timebar/barWhere';
 import { readBytes } from '../support/readBytes';
 import { realRouteScene, realSceneKeys } from './support/realScenes';
 import { NOTICE_HEAD_PX, ROUTE_HOME_PANES, ROUTE_NOTICE_ROW_TOP, ROUTE_PANES, ROUTE_UPRIGHT_PANES, STANDARD_PANES } from './support/standardPanes';
-import { routeSectionStrips } from './support/stripSizes';
+import { routeSectionStrips, stripSize, stripSizeKind } from './support/stripSizes';
 
 const KEY = realSceneKeys('route')[0];
 const [FIGURE] = KEY.split('/');
@@ -37,8 +38,6 @@ const WHOLE = R.scene.sections[0];
 /** 小像在画面上占的那一块：脚下那一点左右各多少像素，往下多少像素（view.ts 里的两个数）。 */
 const HALF = 10;
 const UNDER = 8;
-/** 小像停着的时候，一条引线最长多少像素（没有他的时候是 48）。 */
-const LEADER_MAX_PX = 70;
 /** 折算过的远近是 1 米时，沙盘里的 1 米合多少像素（piece.ts 里的那个数）。 */
 const FOCAL_PX = 2428;
 
@@ -138,6 +137,16 @@ describe(`${KEY} 上的小像：多大`, () => {
     piece.dispose();
   });
 
+  it('小像的颜色是定下来的那一套：赭石的底座、印泥红的边、花青的袍子、墨色的高帽；脸是深一点的陶土色（比题签的纸、比原来的那一种都深）', () => {
+    expect(style.piece).toEqual({ base: '#a8643c', rim: '#b03a2a', robe: '#30486a', head: '#d4a373', cap: '#1f1b18' });
+    // 深浅照红绿蓝三个数加起来比：脸比原来的那一种（#e2bd95）深，比袍子、帽子浅得多（脸和袍子、帽子分得开）
+    const sum = (hex: string): number => [1, 3, 5].reduce((total, i) => total + parseInt(hex.slice(i, i + 2), 16), 0);
+    const { head, robe, cap } = style.piece as { head: string; robe: string; cap: string };
+    expect(sum(head)).toBeLessThan(sum('#e2bd95'));
+    expect(sum(head)).toBeGreaterThan(sum(robe) + 150);
+    expect(sum(head)).toBeGreaterThan(sum(cap) + 150);
+  });
+
   it('在画面上总是那么高：全程 32 像素上下，凑近的几节 36 像素上下，各种画面上差不出百分之八', () => {
     const lines: string[] = [];
     for (const section of R.scene.sections) {
@@ -167,7 +176,34 @@ describe(`${KEY} 上的小像：多大`, () => {
 });
 
 describe(`${KEY} 上的小像：题签只挪碰着他的那几条`, () => {
-  /** 一种栏、一节、一种名字、他在一处：没有他时怎么摆，有他时怎么摆，各条碰没碰着他。 */
+  type Line = readonly [number, number, number, number];
+  /**
+   * 只挪碰着他的那几条的摆法，照原样写在这里对着查（placeAround.ts 平常走的就是这两步）：先照没有他摆；碰着他的各条另找位置，
+   * 别的带着号留在原处；找不到位置的留在原处。
+   */
+  function onlyTouched(input: StripInput, boxes: { x0: number; y0: number; x1: number; y1: number }[]): { placed: StripPlacement[]; hit: boolean[] } {
+    const base = placeStrips({ ...input, avoid: undefined });
+    const hit = base.map((p, i) => !!p.leader && boxes.some((box) => touches(p.x, p.y, input.strips[i].w, input.strips[i].h, p.leader as Line, box)));
+    if (!hit.includes(true)) return { placed: base, hit };
+    const again = placeStrips({ ...input, avoid: boxes, strips: input.strips.map((strip, i) => (hit[i] ? strip : { ...strip, rank: strip.rank - 1e6 })) }, base.filter((_, i) => !hit[i]), { moving: true });
+    return { placed: again.map((p, i) => (hit[i] && p.hidden ? base[i] : p)), hit };
+  }
+  /** 引线落在他身上的那一截不画：照 placeAround.ts 的算法给一份摆法补上 from。 */
+  const trimmed = (placements: StripPlacement[], box: { x0: number; y0: number; x1: number; y1: number }): StripPlacement[] =>
+    placements.map((p) => {
+      const from = p.leader ? leavesAt(p.leader as Line, box) : 0;
+      return from > 0 ? { ...p, from } : p;
+    });
+  /** 题签占的那一块离一点多远（像素；点在那一块里面是 0）。 */
+  const gapTo = (r: { x0: number; y0: number; x1: number; y1: number }, x: number, y: number): number => Math.hypot(Math.max(r.x0 - x, 0, x - r.x1), Math.max(r.y0 - y, 0, y - r.y1));
+
+  /**
+   * 一种栏、一节、一种名字、他在一处。without 是没有他时怎么摆；touched 是只挪碰着他的那几条摆出来的；withHim 是沙盘上真的摆法
+   *（他站在线上没有立名字的一处的时候，最后多一条他旁边的名字 mine）。mode 是这一回是哪一种摆法：
+   *   plain  平常：别的题签就是 touched，他的名字最后才摆、谁也不为它动；
+   *   aside  他近处没有空位：他的名字先挑，别的只挪碰着他、碰着它的那几条（forName 是碰着它的）；
+   *   whole  整个重摆：每一条都躲着他从头挑。
+   */
   function around(pane: Pane, section: RouteSection, names: NamesMode, where: PiecePlace) {
     const { anchors, figure, written } = placed(section, pane);
     const f = figure(where);
@@ -175,22 +211,71 @@ describe(`${KEY} 上的小像：题签只挪碰着他的那几条`, () => {
     const strips = routeSectionStrips(R.scene, section.heading, pane.size.width, names);
     const input: StripInput = { strips, anchors, size: pane.size, insets: pane.insets };
     const without = placeStrips(input);
-    const withHim = aroundPiece()({ ...input, avoid: [f.box] });
+    const { placed: touched, hit } = onlyTouched(input, [f.box]);
+    // 他旁边立出的名字：选了今名、这一处又有今名的写今名；没有印；排在最后，指着他脚下
+    const nameText = where.on === 'spot' ? (names === 'modern' && where.modern ? where.modern : where.name) : null;
+    const full: StripInput =
+      nameText === null
+        ? input
+        : { ...input, strips: [...strips, { id: PIECE_NAME, ...stripSize(nameText, stripSizeKind(pane.size.width)), rank: strips.length }], anchors: [...anchors, { id: PIECE_NAME, x: f.x, y: f.y, visible: true }] };
+    const all = aroundPiece()({ ...full, avoid: [f.box] });
+    const withHim = all.slice(0, strips.length);
+    const mine = nameText === null ? null : all[strips.length];
+    let mode: 'plain' | 'aside' | 'whole' = withHim.some((p, i) => !same(p, touched[i])) ? 'whole' : 'plain';
+    let forName: boolean[] = hit.map(() => false);
+    if (mode === 'whole' && mine && !mine.hidden) {
+      // 是不是“他的名字先挑，别的只挪碰着他、碰着它的”：照那个做法另摆一遍来比
+      const first = trimmed(placeStrips({ ...full, strips: full.strips.map((strip) => (strip.id === PIECE_NAME ? { ...strip, rank: -1 } : strip)), avoid: [f.box] }), f.box)[strips.length];
+      const reference = onlyTouched(input, [f.box, rectOf(first, full.strips[strips.length])]);
+      if (same(mine, first) && withHim.every((p, i) => same(p, reference.placed[i]))) {
+        mode = 'aside';
+        forName = reference.hit.map((touchedEither, i) => touchedEither && !hit[i]);
+      }
+    }
     const text = (id: string): string => {
       const strip = written.find((s) => s.id === id);
       return strip ? (names === 'modern' && strip.modern ? strip.modern : strip.text) : id;
     };
-    return { f, input, without, withHim, text };
+    return { f, input, full, without, touched, hit, forName, withHim, all, mine, nameText, mode, anchors, text };
   }
+  type Around = NonNullable<ReturnType<typeof around>>;
+  /**
+   * 有没有两条题签对调了位置：各自离对方指的那一点，比离自己指的那一点还近。placements 是哪一种摆法（不给就是有他时真的摆法）。
+   * 没有他的时候本来就这样的不算他的事（出川那一节“眉州”和“岷江”的两点挨得很近）：beyond 只说有他以后才有的。
+   */
+  function swapped(got: Around, placements: StripPlacement[] = got.withHim): string[] {
+    const out: string[] = [];
+    const at = (id: string) => got.anchors.find((anchor) => anchor.id === id);
+    placements.forEach((p, i) => {
+      placements.forEach((q, j) => {
+        if (j <= i || p.hidden || q.hidden) return;
+        const [pa, qa] = [at(p.id), at(q.id)];
+        if (!pa || !qa) return;
+        const [pr, qr] = [rectOf(p, got.input.strips[i]), rectOf(q, got.input.strips[j])];
+        if (gapTo(pr, qa.x, qa.y) < gapTo(pr, pa.x, pa.y) && gapTo(qr, pa.x, pa.y) < gapTo(qr, qa.x, qa.y)) out.push(`“${got.text(p.id)}”和“${got.text(q.id)}”`);
+      });
+    });
+    return out;
+  }
+  const beyond = (got: Around): string[] => {
+    const already = swapped(got, got.without);
+    return swapped(got).filter((pair) => !already.includes(pair));
+  };
+  /** 他旁边那一条名字的引线，从他占的那一块的边上量多长（像素）。 */
+  const nameLeader = (got: Around): number => (got.mine?.leader ? leaderPx(got.mine) * (1 - (got.mine.from ?? 0)) : Infinity);
 
-  it('小像站在每一个站的地名点上、线上没有立名字的每一处、最后一天，停在每一趟路的各处：没有碰着他的题签，一条也不动；没有一条题签因为他摆不下（带着时间轴的每一种栏上都查，数打印出来）', { timeout: 120_000 }, () => {
-    const totals = { cases: 0, strips: 0, touched: 0, moved: 0, movedUntouched: 0, lost: 0 };
-    const stuck = new Map<string, number>();
+  it('小像站在每一个站的地名点上、线上没有立名字的每一处、最后一天，停在每一趟路的各处：没有碰着他的题签一条也不动——只有碰着他的一条让开以后引线比 70 像素还长（或者他旁边的名字摆不到 40 像素以内）的那几回整个重摆，那几回哪几条没碰着他的也动了印出来；没有一条题签因为他摆不下（带着时间轴的每一种栏上都查，数打印出来）', { timeout: 240_000 }, () => {
+    expect(LEADER_MAX_PX).toBe(70);
+    expect(NAME_LEADER_MAX_PX).toBe(40);
+    const totals = { cases: 0, strips: 0, touched: 0, moved: 0, movedUntouched: 0, movedForName: 0, lost: 0, whole: 0, aside: 0 };
+    const wholes = new Map<string, Set<string>>();
+    const asides = new Map<string, Set<string>>();
     for (const [kind, list] of [['站着', STANDING], ['停在路上', ON_ROAD]] as const) {
       for (const pane of ALL) {
         let cases = 0;
         let touched = 0;
         let moved = 0;
+        let whole = 0;
         for (const { name, day } of list) {
           const where = whereAt(bar, Math.min(day, lastDay - 1e-6));
           if (!where) continue;
@@ -199,21 +284,41 @@ describe(`${KEY} 上的小像：题签只挪碰着他的那几条`, () => {
               const got = around(pane, section, names, where);
               if (!got) continue;
               cases++;
+              const state = `${kind}，${pane.name} ${section.heading} ${name}`;
+              if (got.mode === 'whole') {
+                whole++;
+                // 整个重摆只在两种时候：只挪碰着他的那几条的话，有一条的引线比 70 像素还长；或者他旁边的名字摆不到 40 像素以内、让它先挑以后别的又有一条让得太远
+                const far = got.touched.some((p, i) => got.hit[i] && leaderPx(p) > LEADER_MAX_PX);
+                expect(far || got.nameText !== null, `${state}：没有哪一条让得太远，却整个重摆了`).toBe(true);
+                // 那一回摆出来的就是“每一条都躲着他从头摆”（有他旁边的名字的，名字排在最前头先挑）
+                expect(got.all, state).toEqual(trimmed(placeStrips({ ...got.full, strips: got.full.strips.map((strip) => (strip.id === PIECE_NAME ? { ...strip, rank: -1 } : strip)), avoid: [got.f.box] }), got.f.box));
+                if (!wholes.has(state)) wholes.set(state, new Set());
+              } else if (got.mode === 'aside') {
+                // 给他的名字让开：他的名字先挑，别的只挪碰着他、碰着它的（around 里已经照那个做法对过）
+                totals.aside++;
+                if (!asides.has(state)) asides.set(state, new Set());
+              } else {
+                // 平常：摆出来的就是“只挪碰着他的那几条”（他旁边的名字不算在里面：它最后才摆，别的都不为它动）
+                got.withHim.forEach((p, i) => expect(same(p, got.touched[i]), `${state} ${names}：“${got.text(p.id)}”`).toBe(true));
+              }
               got.without.forEach((before, i) => {
                 const after = got.withHim[i];
                 totals.strips++;
-                const hit = !before.hidden && before.leader !== null && touches(before.x, before.y, got.input.strips[i].w, got.input.strips[i].h, before.leader, got.f.box);
-                if (hit) touched++;
+                if (got.hit[i]) touched++;
                 if (!before.hidden && after.hidden) totals.lost++;
-                if (same(before, after)) {
-                  // 碰着他却没有动的：找不到别的位置，留在原处（哪几条、在哪种栏上，下面印出来）
-                  if (hit) stuck.set(`${pane.name} ${section.heading} ${name}：“${got.text(before.id)}”`, (stuck.get(`${pane.name} ${section.heading} ${name}：“${got.text(before.id)}”`) ?? 0) + 1);
+                if (same(before, after)) return;
+                moved++;
+                if (got.hit[i]) return;
+                // 没碰着他却动了的：碰着他旁边的名字（给它让开的那几回），印出来
+                if (got.forName[i]) {
+                  totals.movedForName++;
+                  asides.get(state)?.add(`“${got.text(before.id)}”`);
                   return;
                 }
-                moved++;
-                // 动了的，一定是碰着他的
-                if (!hit) totals.movedUntouched++;
-                expect(hit, `${pane.name} ${section.heading} ${names} ${name}：“${got.text(before.id)}”没有碰着他，却从 (${before.x}, ${before.y}) 挪到了 (${after.x}, ${after.y})`).toBe(true);
+                // 再就只许在整个重摆的那几回，也印出来
+                totals.movedUntouched++;
+                expect(got.mode, `${state} ${names}：“${got.text(before.id)}”没有碰着他，却从 (${before.x}, ${before.y}) 挪到了 (${after.x}, ${after.y})`).toBe('whole');
+                wholes.get(state)?.add(`“${got.text(before.id)}”`);
               });
             }
           }
@@ -221,24 +326,30 @@ describe(`${KEY} 上的小像：题签只挪碰着他的那几条`, () => {
         totals.cases += cases;
         totals.touched += touched;
         totals.moved += moved;
-        console.log(`${kind}，${pane.name}：${cases} 种摆法（哪一处 × 哪一节 × 古今名字）里，碰着他的题签 ${touched} 条，挪开了 ${moved} 条`);
+        totals.whole += whole;
+        console.log(`${kind}，${pane.name}：${cases} 种摆法（哪一处 × 哪一节 × 古今名字）里，碰着他的题签 ${touched} 条，挪开了 ${moved} 条；整个重摆的 ${whole} 种`);
       }
     }
-    console.log(`一共 ${totals.cases} 种摆法、${totals.strips} 条题签：碰着他的 ${totals.touched} 条，挪开的 ${totals.moved} 条；没碰着他却动了的 ${totals.movedUntouched} 条；因为他摆不下的 ${totals.lost} 条`);
-    console.log(stuck.size === 0 ? '碰着他又找不到别的位置、留在原处的：没有' : `碰着他又找不到别的位置、留在原处的 ${stuck.size} 处：\n  ${[...stuck.keys()].join('\n  ')}`);
+    console.log(`一共 ${totals.cases} 种摆法、${totals.strips} 条题签：碰着他的 ${totals.touched} 条，挪开的 ${totals.moved} 条；给他旁边的名字让开的 ${totals.aside} 种摆法（古今名字各算一种）里，碰着那个名字挪开的 ${totals.movedForName} 条；整个重摆的 ${totals.whole} 种摆法，那几回里没碰着他却动了的 ${totals.movedUntouched} 条；因为他摆不下的 ${totals.lost} 条`);
+    console.log(asides.size === 0 ? '给他旁边的名字让开的：没有' : `他近处没有空位、让他的名字先挑的 ${asides.size} 处，和那时候碰着它挪开的题签：\n  ${[...asides].map(([state, moved]) => `${state}：${moved.size ? [...moved].join('、') : '（没有别的动）'}`).join('\n  ')}`);
+    console.log(wholes.size === 0 ? '整个重摆的：没有' : `整个重摆的 ${wholes.size} 处，和那时候没碰着他也动了的题签：\n  ${[...wholes].map(([state, moved]) => `${state}：${moved.size ? [...moved].join('、') : '（没有别的动）'}`).join('\n  ')}`);
     expect(totals.cases).toBeGreaterThan(2000);
     expect(totals.moved).toBeGreaterThan(0);
-    expect(totals.movedUntouched).toBe(0);
     expect(totals.lost).toBe(0);
+    // 整个重摆的、给他的名字让开的都是少数
+    expect(totals.whole).toBeLessThan(totals.cases / 10);
+    expect(totals.aside).toBeLessThan(totals.cases / 10);
   });
 
-  it('小像站在每一个站的地名点上、线上没有立名字的每一处：没有一条题签压着他，没有一条题签因为他摆不下，引线最长不超过 70 像素', { timeout: 120_000 }, () => {
+  it('小像站在每一个站的地名点上、线上没有立名字的每一处、最后一天（带着时间轴的每一种栏）：没有一条题签压着他，没有一条因为他摆不下，引线最长不超过 70 像素，没有两条题签因为他对调了位置（各自离对方指的那一点比离自己的还近）', { timeout: 240_000 }, () => {
     const over: string[] = [];
     const long: string[] = [];
+    const swaps: string[] = [];
+    const already = new Set<string>();
     let lost = 0;
     let cases = 0;
-    let longest = { px: 0, where: '' };
-    for (const pane of STANDARD) {
+    const longest = new Map<string, { px: number; where: string }>();
+    for (const pane of ALL) {
       for (const { name, day } of STANDING) {
         const where = whereAt(bar, Math.min(day, lastDay - 1e-6));
         if (!where) continue;
@@ -247,72 +358,125 @@ describe(`${KEY} 上的小像：题签只挪碰着他的那几条`, () => {
             const got = around(pane, section, names, where);
             if (!got) continue;
             cases++;
+            const state = `${pane.name} ${section.heading} ${names} ${name}`;
             got.withHim.forEach((p, i) => {
               if (p.hidden) {
                 if (!got.without[i].hidden) lost++;
                 return;
               }
-              const at = `${pane.name} ${section.heading} ${names} ${name}：“${got.text(p.id)}”`;
+              const at = `${state}：“${got.text(p.id)}”`;
               if (overlap(rectOf(p, got.input.strips[i]), got.f.box)) over.push(at);
-              if (leaderPx(p) > longest.px) longest = { px: leaderPx(p), where: at };
+              if (leaderPx(p) > (longest.get(pane.name)?.px ?? 0)) longest.set(pane.name, { px: leaderPx(p), where: at });
               if (leaderPx(p) > LEADER_MAX_PX) long.push(`${at} ${leaderPx(p).toFixed(0)} 像素（没有他的时候 ${leaderPx(got.without[i]).toFixed(0)}）`);
             });
+            for (const pair of beyond(got)) swaps.push(`${state}：${pair}`);
+            for (const pair of swapped(got, got.without)) already.add(`${section.heading}：${pair}`);
           }
         }
       }
     }
-    console.log(`他站着的 ${cases} 种摆法里：压着他的题签 ${over.length} 条；最长的引线 ${longest.px.toFixed(0)} 像素（${longest.where}）；超过 ${LEADER_MAX_PX} 像素的 ${long.length} 条`);
-    expect(cases).toBeGreaterThan(300);
+    console.log(`没有他的时候本来就挨得近、算得上“对调”的：${already.size ? [...already].join("，") : "没有"}`);
+    console.log(`他站着的 ${cases} 种摆法里：压着他的题签 ${over.length} 条；超过 ${LEADER_MAX_PX} 像素的 ${long.length} 条；对调了位置的 ${swaps.length} 对。各种栏上最长的引线：\n  ${[...longest].map(([pane, worst]) => `${pane}：${worst.px.toFixed(0)} 像素（${worst.where}）`).join('\n  ')}`);
+    expect(cases).toBeGreaterThan(600);
     expect(lost).toBe(0);
     expect(over).toEqual([]);
     expect(long).toEqual([]);
+    expect(swaps).toEqual([]);
   });
 
-  it('别的竖着拿的平板上他站着、每一种栏上他停在路上：也没有一条题签压着他，没有一条因为他摆不下；引线超过 70 像素的各处印出来——都是碰着他、给他让开的那一条（别的题签不动，引线还是没有他时的那么长）', { timeout: 120_000 }, () => {
-    // 题签只挪碰着他的那几条：别的都不肯让，碰着他的那一条有时就得挪得远。四种标准的窗口和首页上他站着的时候不超过 70 像素（上一项）；
-    // 这里是剩下的：别的五种竖着拿的平板上他站着，和每一种栏上他停在路上。超过 70 像素的不判错，一处一处印出来。
+  it('他站在线上、沙盘平时没有立名字的每一处（连最后一天），带着时间轴的每一种栏，古名今名：旁边立着那一处的名字，没有东西压着他、压着它，它的引线从他占的那一块的边上量不超过 40 像素；别的题签一条也不为它动——他近处没有空位的几回除外：那几回让它先挑，只有碰着它的题签挪开（印出来）', { timeout: 240_000 }, () => {
+    const spots = [...STANDING.filter(({ day }) => whereAt(bar, Math.min(day, lastDay - 1e-6))?.on === 'spot')];
+    expect(spots.length).toBeGreaterThan(0);
+    let cases = 0;
+    let wholes = 0;
+    const lines: string[] = [];
+    const longest = new Map<string, { px: number; where: string }>();
+    const texts = new Set<string>();
+    for (const pane of ALL) {
+      for (const { name, day } of spots) {
+        const where = whereAt(bar, Math.min(day, lastDay - 1e-6));
+        if (where?.on !== 'spot') continue;
+        for (const names of NAMES) {
+          // 这些地方不在哪一站讲的年月里：时间轴停着的时候、拖着的时候，摆着的都是全程
+          expect(sectionsFor(day)).toEqual([WHOLE]);
+          const got = around(pane, WHOLE, names, where);
+          expect(got, `${pane.name} ${name}：他不在画面里`).not.toBeNull();
+          if (!got || !got.mine || got.nameText === null) continue;
+          cases++;
+          texts.add(got.nameText);
+          const state = `${pane.name} ${names} ${name}`;
+          // 写的是那一处的名字；选了今名、这一处有今名的，写今名
+          expect(got.nameText, state).toBe(names === 'modern' && where.modern ? where.modern : where.name);
+          // 摆出来了
+          expect(got.mine.hidden, `${state}：他旁边的名字没有摆出来`).toBe(false);
+          const size = got.full.strips[got.full.strips.length - 1];
+          const rect = rectOf(got.mine, size);
+          // 不压着他；别的题签不压着它（隔着摆的规矩里的那一点空），它也不压着别的题签指的那一点
+          expect(overlap(rect, got.f.box), `${state}：名字压着他`).toBe(false);
+          got.withHim.forEach((p, i) => {
+            if (p.hidden) return;
+            expect(overlap(rectOf(p, got.input.strips[i]), rect), `${state}：“${got.text(p.id)}”压着他旁边的名字`).toBe(false);
+            expect(overlap(rectOf(p, got.input.strips[i]), got.f.box), `${state}：“${got.text(p.id)}”压着他`).toBe(false);
+          });
+          for (const anchor of got.anchors) if (anchor.visible) expect(gapTo(rect, anchor.x, anchor.y), `${state}：名字压着“${got.text(anchor.id)}”指的那一点`).toBeGreaterThan(0);
+          // 引线从他占的那一块的边上画起，不超过 40 像素
+          expect(got.mine.from ?? 0, state).toBeGreaterThan(0);
+          const px = nameLeader(got);
+          expect(px, `${state}：名字的引线`).toBeLessThanOrEqual(NAME_LEADER_MAX_PX);
+          if (px > (longest.get(pane.name)?.px ?? -1)) longest.set(pane.name, { px, where: `${names} ${name}` });
+          // 别的题签：同没有这个名字的时候一个数不差——除非他近处没有空位（那几回让它先挑，只挪碰着它的那几条），或者整个重摆了
+          if (got.mode !== 'plain') {
+            wholes++;
+            lines.push(`${state}，${got.mode === 'aside' ? '让它先挑' : '整个重摆'}（${got.withHim.filter((p, i) => !same(p, got.touched[i])).map((p) => `“${got.text(p.id)}”`).join('、') || '没有别的'}换了位置）`);
+            // 让它先挑的那几回，换了位置的都是碰着它的
+            if (got.mode === 'aside') got.withHim.forEach((p, i) => expect(same(p, got.touched[i]) || got.forName[i], `${state}：“${got.text(p.id)}”没有碰着他的名字，却动了`).toBe(true));
+          } else got.withHim.forEach((p, i) => expect(same(p, got.touched[i]), `${state}：“${got.text(p.id)}”为他的名字动了`).toBe(true));
+        }
+      }
+    }
+    // 行迹里写着的每一个名字（连今名）都立出来过
+    const written = new Set(bar.stretches.flatMap((stretch) => (stretch.spot ? (stretch.spot.slice(2) as string[]) : [])));
+    expect([...texts].sort()).toEqual([...written].sort());
+    expect(cases).toBe(ALL.length * spots.length * NAMES.length);
+    console.log(`他站在线上没有立名字的各处，一共 ${cases} 种摆法（哪一处 × 哪一种栏 × 古今名字）：名字都立出来了。各种栏上名字的引线最长（从他占的那一块的边上量）：\n  ${[...longest].map(([pane, worst]) => `${pane}：${worst.px.toFixed(0)} 像素（${worst.where}）`).join('\n  ')}`);
+    console.log(wholes === 0 ? '他近处没有空位、别的题签为他的名字动了的：没有' : `他近处没有空位、别的题签为他的名字动了的 ${wholes} 种摆法：\n  ${lines.join('\n  ')}`);
+  });
+
+  it('每一种栏上他停在路上：没有一条题签压着他，没有一条因为他摆不下；引线超过 70 像素的、对调了位置的各处印出来（不判错：没有他的时候琼州海峡那一条就有九十多像素）', { timeout: 240_000 }, () => {
     const over: string[] = [];
     const long = new Map<string, number>();
+    const swaps = new Set<string>();
     let lost = 0;
     let cases = 0;
-    let untouchedLong = 0;
-    const sets: [string, Pane[], { name: string; day: number }[]][] = [
-      ['站着', ALL.filter((pane) => !STANDARD.includes(pane)), STANDING],
-      ['停在路上', ALL, ON_ROAD],
-    ];
-    for (const [kind, panes, list] of sets) {
-      for (const pane of panes) {
-        for (const { name, day } of list) {
-          const where = whereAt(bar, Math.min(day, lastDay - 1e-6));
-          if (!where) continue;
-          for (const section of sectionsFor(day)) {
-            for (const names of NAMES) {
-              const got = around(pane, section, names, where);
-              if (!got) continue;
-              cases++;
-              got.withHim.forEach((p, i) => {
-                const before = got.without[i];
-                if (p.hidden) {
-                  if (!before.hidden) lost++;
-                  return;
-                }
-                const at = `${kind}，${pane.name} ${section.heading} ${name}：“${got.text(p.id)}”`;
-                if (overlap(rectOf(p, got.input.strips[i]), got.f.box)) over.push(at);
-                if (leaderPx(p) <= LEADER_MAX_PX) return;
-                long.set(`${at} ${leaderPx(p).toFixed(0)} 像素（没有他的时候 ${leaderPx(before).toFixed(0)}）`, 1);
-                // 超过的都是给他让开的那一条；没碰着他的题签一条也没有变长
-                if (same(before, p)) untouchedLong++;
-              });
-            }
+    for (const pane of ALL) {
+      for (const { name, day } of ON_ROAD) {
+        const where = whereAt(bar, Math.min(day, lastDay - 1e-6));
+        if (!where) continue;
+        for (const section of sectionsFor(day)) {
+          for (const names of NAMES) {
+            const got = around(pane, section, names, where);
+            if (!got) continue;
+            cases++;
+            got.withHim.forEach((p, i) => {
+              const before = got.without[i];
+              if (p.hidden) {
+                if (!before.hidden) lost++;
+                return;
+              }
+              const at = `${pane.name} ${section.heading} ${name}：“${got.text(p.id)}”`;
+              if (overlap(rectOf(p, got.input.strips[i]), got.f.box)) over.push(at);
+              if (leaderPx(p) > LEADER_MAX_PX) long.set(`${at} ${leaderPx(p).toFixed(0)} 像素（没有他的时候 ${leaderPx(before).toFixed(0)}）`, 1);
+            });
+            for (const pair of beyond(got)) swaps.add(`${pane.name} ${section.heading} ${name}：${pair}`);
           }
         }
       }
     }
-    console.log(`别的竖着拿的平板上他站着、每一种栏上他停在路上，一共 ${cases} 种摆法：压着他的题签 ${over.length} 条；因为他摆不下的 ${lost} 条；引线超过 ${LEADER_MAX_PX} 像素的 ${long.size} 处（古今名字各算一处）${long.size ? `：\n  ${[...long.keys()].join('\n  ')}` : ''}`);
+    console.log(`每一种栏上他停在路上，一共 ${cases} 种摆法：压着他的题签 ${over.length} 条；因为他摆不下的 ${lost} 条；引线超过 ${LEADER_MAX_PX} 像素的 ${long.size} 处（古今名字各算一处）${long.size ? `：\n  ${[...long.keys()].join('\n  ')}` : ''}`);
+    console.log(swaps.size === 0 ? '停在路上的时候对调了位置的题签：没有' : `停在路上的时候对调了位置的 ${swaps.size} 处：\n  ${[...swaps].join('\n  ')}`);
     expect(cases).toBeGreaterThan(2000);
     expect(lost).toBe(0);
     expect(over).toEqual([]);
-    expect(untouchedLong).toBe(0);
   });
 
   it('引线不画在他身上：他站的那个地名点自己的题签，引线从他占的那一块的边上画起；一帧一帧接着摆，他不动题签也不动；他走了，题签都回到原处', () => {
@@ -448,6 +612,32 @@ describe(`${KEY} 上的小像：头探不探出沙盘的那一块`, () => {
       if (f && f.y - f.h < row - 1) covered++;
     }
     expect(covered).toBeGreaterThan(0);
+  });
+
+  it('那一行话下面的 36 像素在全程那一节也少不了：只在各站的那几节留的话，他从北边的框上往惠州走的那一截，帽顶在全程里被那一行话盖住（各种栏上差多少印出来）', { timeout: 120_000 }, () => {
+    // 全程的沙盘在那一行话下面小了一圈（多留了 36 像素）。这里量的是“全程那一节不多留”会怎样：全程那一节上面只留到那一行话为止。
+    // 量出来：十一种栏里十种，他在去惠州的那趟路的起头（路是从北边的框上画起的）帽顶探到那一行话底下去。所以哪一节都留着。
+    const lines: string[] = [];
+    let least = Infinity;
+    for (const base of ALL) {
+      const { pane, row } = underNotice(base);
+      const tight: Pane = { ...pane, insets: { ...pane.insets, top: row } };
+      let worst = { px: Infinity, where: '' };
+      for (const { name, day } of DAYS) {
+        const where = whereAt(bar, Math.min(day, lastDay - 1e-6));
+        if (!where) continue;
+        const f = placed(WHOLE, tight).figure(where);
+        if (!f || !footSeen(f, tight)) continue;
+        const clear = f.y - f.h - row;
+        if (clear < worst.px) worst = { px: clear, where: name };
+      }
+      least = Math.min(least, worst.px);
+      lines.push(`${base.name}：${worst.px.toFixed(1)} 像素（${worst.where}）`);
+    }
+    console.log(`全程那一节要是不多留 36 像素，他的帽顶离那一行话的下边最近：\n  ${lines.join('\n  ')}`);
+    expect(lines).toHaveLength(ALL.length);
+    // 不留的话有被盖住的（差的是负数）：全程那一节也要留
+    expect(least).toBeLessThan(0);
   });
 
   it('一站自己的沙盘的栏不在这些栏里：它们没有时间轴，上面留的空不因为小像多留', () => {

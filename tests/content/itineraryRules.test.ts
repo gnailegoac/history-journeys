@@ -10,7 +10,9 @@ import type { Itinerary, ItineraryMoment, ItineraryStretch } from '../../src/dom
 import type { RouteScene } from '../../src/domain/scene';
 import { routeCoords } from '../../src/domain/sceneGeoRoute';
 import type { Figure } from '../../src/domain/types';
-import { barText, boundaryNumbers, dayOfIso, doubtCarrier, isoOfDay, julianDay, lookOf, lunarYearOf, lunarYears, projectItinerary, unsureOf } from '../support/itineraryTool';
+import { stretchIndexAt } from '../../src/timebar/barWhere';
+import { wordsAt } from '../../src/timebar/barWords';
+import { barText, boundaryNumbers, dayOfIso, doubtCarrier, earliestOf, isoOfDay, julianDay, latestOf, lookOf, lunarYearOf, lunarYears, projectItinerary, unsureOf, westernMonths } from '../support/itineraryTool';
 import {
   AFTER_DATE,
   DOUBT_WORDS,
@@ -19,12 +21,12 @@ import {
   LUNAR_YEAR_DAYS,
   MONTH_MAX_DAYS,
   SAYS_MAX,
+  UNSURE_MIN_HAN,
   checkItineraryHonesty,
   checkItineraryShape,
   dateTokens,
   isDayText,
   isShortening,
-  spotOpening,
   spotTown,
   validateItinerary,
 } from './itineraryRules';
@@ -133,7 +135,13 @@ describe('真的那一份行迹', () => {
     const spots = REAL.stretches.filter((item) => item.kind === 'elsewhere' && item.tablePoint.type === 'way-vertex');
     expect(spots.length).toBeGreaterThan(0);
     console.log(`住在站里 ${many('stop')} 段，在路上 ${many('road')} 段，站在别的有的地方 ${many('quiet')} 段（线上没有立名字的 ${spots.map((item) => item.id).join('、')}），没有他 ${many('off')} 段`);
-    for (const item of spots) if (item.kind === 'elsewhere') expect(item.says.startsWith(spotOpening(spotTown(item.where))), item.id).toBe(true);
+    // 这几段各带着那一处的名字（小像站到那里的时候旁边立出来）：就是 where 开头的地名，第一行的“在哪”里也有它；句子里不再说“沙盘上没有立它的名字”
+    for (const item of spots) {
+      if (item.kind !== 'elsewhere' || item.tablePoint.type !== 'way-vertex') continue;
+      expect(item.tablePoint.name, item.id).toBe(spotTown(item.where));
+      expect(item.label, item.id).toContain(item.tablePoint.name);
+      expect(item.says, item.id).not.toMatch(/没有立/u);
+    }
   });
 
   it('没有一个范围里有正月初一：每一段的头尾都不用挪到新年上', () => {
@@ -461,7 +469,7 @@ describe('如实四：两个有日子的地方之间匀着走，第二行说了'
 
 describe('如实五：沙盘上没有线的地方，没有他；有他的地方，不说没有他', () => {
   it('不在线上的地方写成“在线上”：通不过', () => {
-    const found = problems((copy) => { const item = stretch(copy, 't37'); if (item.kind === 'elsewhere') item.tablePoint = { type: 'way-vertex', way: 'w-haizhou-mizhou', at: [120.75, 37.81] }; });
+    const found = problems((copy) => { const item = stretch(copy, 't37'); if (item.kind === 'elsewhere') item.tablePoint = { type: 'way-vertex', way: 'w-haizhou-mizhou', at: [120.75, 37.81], name: '登州', modern: '蓬莱' }; });
     expect(found).toContainEqual(expect.stringMatching(/离路“w-haizhou-mizhou”有 \d+ 公里，不能超过 15 公里/));
   });
 
@@ -469,14 +477,12 @@ describe('如实五：沙盘上没有线的地方，没有他；有他的地方�
     expect(problems((copy) => { const item = stretch(copy, 't56'); item.says = item.says.replace('这一趟没有画，沙盘上没有他。', ''); })).toEqual([expect.stringContaining('头一个半句里要说“沙盘上没有他”')]);
   });
 
-  it('站在线上没有立名字的地方的七段：还说“没有标出，沙盘上没有他”的通不过，开头不是“沙盘上没有立某地的名字。”的通不过', () => {
-    const found = problems((copy) => { const item = stretch(copy, 't09'); item.says = item.says.replace('沙盘上没有立凤翔的名字。', '凤翔没有标出，沙盘上没有他。'); });
-    expect(found).toHaveLength(2);
-    expect(found).toContainEqual(expect.stringContaining('不能说“没有他”“没有标出”'));
-    expect(found).toContainEqual(expect.stringContaining('要以“沙盘上没有立凤翔的名字。”开头'));
+  it('站在线上、沙盘平时没有立名字的地方的七段：说“没有标出，沙盘上没有他”的通不过；还写着“沙盘上没有立某地的名字。”的也通不过（他站到那里的时候，旁边立着那一处的名字）', () => {
+    expect(problems((copy) => { const item = stretch(copy, 't09'); item.says = `凤翔没有标出，沙盘上没有他。${item.says}`; })).toEqual([expect.stringContaining('不能说“没有他”“没有标出”')]);
+    expect(problems((copy) => { const item = stretch(copy, 't09'); item.says = `沙盘上没有立凤翔的名字。${item.says}`; })).toEqual([expect.stringContaining('第二行不能再说“沙盘上没有立凤翔的名字”')]);
   });
 
-  it('全程沙盘上后来立了那个地方的名字，行迹里还说“沙盘上没有立它的名字”：通不过', () => {
+  it('全程沙盘上后来立了那个地方的名字，行迹里还把它当成“线上没有立名字的地方”：通不过（不然他站到那里，同一个名字立了两回）', () => {
     // 全程沙盘添一个地名点“常州”和它的题签（往北回去的那一趟画上以后就会有）；行迹一个字不动
     const route = JSON.parse(read('scenes/route.json')) as RouteScene;
     const huzhou = route.places.find((place) => place.id === 'huzhou');
@@ -528,7 +534,7 @@ describe('时间轴用的那一份（工具做的）', () => {
 
   it('工具做的那一份带着人物的名字，就是 figure.json 的 name', () => {
     expect(projectItinerary(REAL, ROUTE, FIGURE).name).toBe(FIGURE.name);
-    expect(Object.keys(JSON.parse(read('itinerary.bar.json')) as Record<string, unknown>)).toEqual(['day0', 'name', 'years', 'stopYears', 'first', 'last', 'stretches']);
+    expect(Object.keys(JSON.parse(read('itinerary.bar.json')) as Record<string, unknown>)).toEqual(['day0', 'name', 'years', 'first', 'last', 'stretches']);
   });
 
   it('手写的那一份改了、那一份没有重做：通不过，话里说运行哪一条命令', () => {
@@ -641,7 +647,8 @@ describe('如实三（续）：句子里日子以外的“像日子的话”', (
     expect(problems(reword('t53', '绍圣元年十月二日到，', '绍圣元年十月二日到，三天后上山；'))).toEqual(stray('三天'));
     expect(problems(reword('t21', '熙宁九年十二月离开', '熙宁九年十二月离开，年底到潍州'))).toEqual(stray('年底'));
     expect(problems(reword('t25', '熙宁十年四月到；', '熙宁十年四月到，次年回京；'))).toEqual(stray('次年'));
-    expect(problems(reword('t25', '熙宁十年四月到；', '熙宁十年四月到，中元前后大水；'))).toEqual(stray('前后'));
+    expect(problems(reword('t25', '熙宁十年四月到；', '熙宁十年四月到，中元前后大水；'))).toEqual(stray('中元、前后'));
+    expect(problems(reword('t25', '熙宁十年四月到；', '熙宁十年四月到，大水前后都在；'))).toEqual(stray('前后'));
     // 干支记的日子
     expect(problems(reword('t31', '元丰三年二月一日到，', '元丰三年二月一日到，壬戌游赤壁；'))).toEqual(stray('壬戌'));
     // “在哪”里也不许有
@@ -671,6 +678,8 @@ describe('如实一（续）：只说到季节的写法；日子和农历年的�
    * 这些东西校验只查得到“差得远的”（月日差十天以上、年名接不上）；差一天、一个没有日子落进去的年份改了名，规则看不出来，要对着历表看。
    * 上一回对历表：2026-11-24（表里 65 个正月初一、54 个精确到日的日子，同抓下来留着的历表页一个不差；范围的两头没有对过）。
    * 从那以后这些东西一个字、一个数都没有动过，这个数才不变。
+   * 这个数里没有的：路上各处的位置、哪里算说得准，不在这个数里，靠读（把一处有日子的地方挪到线上别的位置、把一个精度从“季”改成“以前”，
+   * 规则 22 放得过去，这个数也不变）。
    */
   const COMPARED = { on: '2026-11-24', sum: 'c5db403dba7e3b6b' };
 
@@ -696,7 +705,7 @@ describe('如实一（续）：只说到季节的写法；日子和农历年的�
   });
 });
 
-describe('如实五（续）：“沙盘上没有立某地的名字”', () => {
+describe('如实五（续）：线上“沙盘平时没有立名字”的地方，旁边确实没有别的名字', () => {
   it('小像站的地方旁边就立着题签，只是名字不一样（一个套着另一个，或者离立了题签的地名点不到 15 公里）：通不过', () => {
     // 汴京城外：名字套着“汴京”
     const outside = (copy: Itinerary): void => {
@@ -704,8 +713,7 @@ describe('如实五（续）：“沙盘上没有立某地的名字”', () => {
       if (item.kind !== 'elsewhere') throw new Error('t23 不是“别的”一段');
       const bianjing = ROUTE.places.find((place) => place.name === '汴京');
       if (!bianjing) throw new Error('全程沙盘里没有汴京这个地名点');
-      item.tablePoint = { type: 'way-vertex', way: 'w-bian-a', at: bianjing.at };
-      item.says = '沙盘上没有立汴京城外的名字。熙宁十年二月到；四月动身去徐州';
+      item.tablePoint = { type: 'way-vertex', way: 'w-bian-a', at: bianjing.at, name: '汴京城外' };
     };
     expect(problems(outside)).toEqual([expect.stringContaining('全程沙盘上立着题签“汴京”')]);
     // 湖州城：名字套着“湖州”
@@ -715,9 +723,8 @@ describe('如实五（续）：“沙盘上没有立某地的名字”', () => {
       const huzhou = ROUTE.places.find((place) => place.name === '湖州');
       if (!huzhou) throw new Error('全程沙盘里没有湖州这个地名点');
       item.where = '湖州城（做知州）';
-      item.tablePoint = { type: 'way-vertex', way: 'w-hangzhou-huzhou', at: huzhou.at };
+      item.tablePoint = { type: 'way-vertex', way: 'w-hangzhou-huzhou', at: huzhou.at, name: '湖州城' };
       item.label = '在湖州城做官';
-      item.says = '沙盘上没有立湖州城的名字。元丰二年四月二十日到；七月二十八日被捕';
     };
     expect(problems(town)).toEqual([expect.stringContaining('全程沙盘上立着题签“湖州”')]);
     // 名字全不相干，位置就在立了题签的地名点上
@@ -727,7 +734,7 @@ describe('如实五（续）：“沙盘上没有立某地的名字”', () => {
       if (item.kind !== 'elsewhere') return;
       item.where = '吴兴（做知州）';
       item.label = '在吴兴做官';
-      item.says = '沙盘上没有立吴兴的名字。元丰二年四月二十日到；七月二十八日被捕';
+      if (item.tablePoint.type === 'way-vertex') item.tablePoint.name = '吴兴';
     };
     expect(problems(renamed)).toContainEqual(expect.stringMatching(/的位置离立了题签的地名点“湖州”只有 \d+ 公里/));
     // 真的那一份里线上没有立名字的各处：离最近的立了题签的地名点都远过 15 公里（多远印出来）
@@ -772,14 +779,52 @@ describe('说不准的要说出来', () => {
     for (const item of REAL.stretches) for (const point of item.waypoints ?? []) if (point.unsure && DOUBT_WORDS.test(point.note)) expect(point.note, `${item.id} ${point.name}`).toContain(point.unsure);
   });
 
-  it('工具把这几处的 unsure 接在这一段的 unsure 后面，读者点开“说明”看得见；句子里没说到、又不切路的各处不接', () => {
+  it('“说不准的”不是写了东西就算：一个句号、一道横线、一个看不见的字、一个“无”字，通不过（至少两个汉字）', () => {
+    expect(UNSURE_MIN_HAN).toBe(2);
+    for (const written of ['。', '——', '\u200b', '无']) {
+      expect(problems((copy) => (stretch(copy, 't25').unsure = written)), JSON.stringify(written)).toEqual([expect.stringContaining('这不是一句话')]);
+    }
+    // 路上一处的也一样
+    const point = (copy: Itinerary, id: string, name: string) => {
+      const found = stretch(copy, id).waypoints?.find((item) => item.name === name);
+      if (!found) throw new Error(`${id} 没有“${name}”`);
+      return found;
+    };
+    expect(problems((copy) => (point(copy, 't16', '涡口前五里').unsure = '。'))).toEqual([expect.stringContaining('“涡口前五里”的 unsure 写的是“。”：这不是一句话')]);
+    // 真的那一份里写了的每一条都够
+    for (const item of REAL.stretches) {
+      expect((item.unsure.match(/\p{Script=Han}/gu) ?? []).length, item.id).toBeGreaterThanOrEqual(UNSURE_MIN_HAN);
+      for (const wp of item.waypoints ?? []) if (wp.unsure) expect((wp.unsure.match(/\p{Script=Han}/gu) ?? []).length, `${item.id} ${wp.name}`).toBeGreaterThanOrEqual(UNSURE_MIN_HAN);
+    }
+  });
+
+  it('路上一处的 note 里写着另一种说法的，它的 unsure 要是 note 里连着的一截：另写一句（哪怕同 note 说的正相反）通不过；“别本”“又作”“或作”“异文”“一说”也算另一种说法', () => {
+    const point = (copy: Itinerary) => {
+      const found = stretch(copy, 't16').waypoints?.find((item) => item.name === '涡口前五里');
+      if (!found) throw new Error('t16 没有“涡口前五里”');
+      return found;
+    };
+    expect(problems((copy) => (point(copy).unsure = '没有别的说法'))).toEqual([expect.stringContaining('不是它的 note 里的话')]);
+    // 换一种说法写那个疑点，再把 unsure 删掉：照样要写
+    for (const word of ['别本写的是', '又作', '或作', '有异文：', '一说是']) {
+      const found = problems((copy) => {
+        point(copy).note = `诗题；查注说${word}“十月一日”`;
+        delete point(copy).unsure;
+      });
+      expect(found, word).toEqual([expect.stringContaining('“t16”路上的“涡口前五里”，note 里写着这个日子另有一种说法')]);
+      expect(DOUBT_WORDS.test(word), word).toBe(true);
+    }
+  });
+
+  it('工具把这几处的 unsure 接在这一段的 unsure 后面、各带着那一处的名字，读者点开“图例”看得见；句子里没说到、又不切路的各处不接', () => {
     const made = projectItinerary(REAL, ROUTE, FIGURE);
     let carried = 0;
     for (const item of REAL.stretches) {
       const points = (item.waypoints ?? []).filter((point) => point.unsure?.trim() && doubtCarrier(item, point));
       const others = (item.waypoints ?? []).filter((point) => point.unsure?.trim() && !doubtCarrier(item, point));
       const got = made.stretches.find((entry) => entry.id === item.id)?.unsure ?? '';
-      expect(got, item.id).toBe([item.unsure, ...points.map((point) => point.unsure)].join('；'));
+      // 接上去的每一条前面带着那一处的名字：“江陵：查注引作十八日”
+      expect(got, item.id).toBe([item.unsure, ...points.map((point) => `${point.name}：${point.unsure}`)].join('；'));
       expect(unsureOf(item), item.id).toBe(got);
       for (const point of others) expect(got, `${item.id} ${point.name}`).not.toContain(point.unsure);
       carried += points.length;
@@ -789,8 +834,9 @@ describe('说不准的要说出来', () => {
     const lingbi = stretch(copyOf(), 't26').waypoints?.find((point) => point.name === '灵璧')?.unsure;
     const chuzhou = stretch(copyOf(), 't16').waypoints?.find((point) => point.name.startsWith('楚州'))?.unsure;
     expect(lingbi && chuzhou).toBeTruthy();
-    expect(made.stretches.find((entry) => entry.id === 't26')?.unsure).toContain(lingbi);
-    expect(made.stretches.find((entry) => entry.id === 't16')?.unsure).toContain(chuzhou);
+    expect(made.stretches.find((entry) => entry.id === 't26')?.unsure).toContain(`；灵璧：${lingbi}`);
+    expect(made.stretches.find((entry) => entry.id === 't16')?.unsure).toContain(`：${chuzhou}`);
+    expect(made.stretches.find((entry) => entry.id === 't06')?.unsure).toContain('；江陵：');
     // 把一处从句子里拿掉、它又不切路（“别的”一段里的各处都不切）：它的 unsure 就不接了
     const copy = copyOf();
     const t18 = stretch(copy, 't18');
@@ -798,11 +844,237 @@ describe('说不准的要说出来', () => {
     expect(unsureOf(t18)).toBe(t18.unsure);
   });
 
-  it('各站的年份：工具照 figure.json 里各站已发布的年份抄，时间轴上有哪几站就抄哪几站', () => {
+  it('各站的年份：时间轴用的那一份里不带（轴上圆点旁边不写年份——八站的哪一种栏上也放不全；目录里每一站已经有它的年份）', () => {
+    const made = projectItinerary(REAL, ROUTE, FIGURE) as unknown as Record<string, unknown>;
+    expect(made).not.toHaveProperty('stopYears');
+    // 做出来的文件里也没有哪一站已发布的年份（“1080–1084”这样的字）
+    const written = FIGURE.stops.map((stop) => stop.years).filter((years) => /\d{4}–\d{4}/.test(years));
+    expect(written.length).toBeGreaterThan(0);
+    for (const years of written) expect(read('itinerary.bar.json'), years).not.toContain(years);
+  });
+});
+
+describe('如实三（续）：“以前”“以后”挂在哪一截日子上；头一个日子不带年份的一段不能跨着正月初一', () => {
+  it('isShortening：留着“以前”“以后”的，史料的写法里它前面紧挨着的那一截日子也要留着', () => {
+    // 删掉了月、日，“以前”就挂到年份上去了：他是在元符三年里离开的，句子却说成那一年以前
+    expect(isShortening('元符三年以前', '元符三年六月，十七日以前')).toBe(false);
+    expect(isShortening('治平三年以后', '治平三年四月二十五日以后')).toBe(false);
+    // 删掉了哪一天，“以前”挂到月份上：他也许就是七月里离开的
+    expect(isShortening('七月以前', '元丰八年七月二十五日以前')).toBe(false);
+    expect(isShortening('九月以后', '熙宁七年九月二十日以后')).toBe(false);
+    // 留着那一截的可以：删年份、删月份（月份另有一条管：要同句子里前一个日子的一样）
+    expect(isShortening('六月十七日以前', '元符三年六月，十七日以前')).toBe(true);
+    expect(isShortening('七月二十五日以前', '元丰八年七月二十五日以前')).toBe(true);
+    expect(isShortening('九日以后', '元祐七年九月，九日以后')).toBe(true);
+    expect(isShortening('治平四年八月以前', '治平四年八月以前')).toBe(true);
+    expect(isShortening('八月以前', '治平四年八月以前')).toBe(true);
+  });
+
+  it('句子里把“以前”“以后”前面的那一截删掉（四句说假话的行迹）：通不过', () => {
+    const refused = [expect.stringContaining('只许整截地删')];
+    expect(problems(redate('t55', 1, '元符三年六月十七日以前', '元符三年以前'))).toEqual(refused);
+    expect(problems(redate('t11', 1, '治平三年四月二十五日以后', '治平三年以后'))).toEqual(refused);
+    expect(problems(redate('t35', 1, '七月二十五日以前', '七月以前'))).toEqual(refused);
+    expect(problems(redate('t19', 1, '九月二十日以后', '九月以后'))).toEqual(refused);
+    // 留着哪一天、删掉月份的：月份要同句子里前一个日子的一样（t48 的“九日以后”前面是“九月九日”）；不一样的通不过
+    expect(stretch(copyOf(), 't48').says).toContain('九月九日在南都，九日以后到汴京');
+    expect(problems(redate('t35', 1, '七月二十五日以前', '二十五日以前'))).toEqual([expect.stringContaining('“二十五日以前”没有带月份')]);
+  });
+
+  it('头一个日子不带年份，这一段在时间轴上又跨着正月初一：通不过（第一行先后印着两个年名，读的人会拿后一年去补）', () => {
+    // 在黄州住了四年多、在惠州住了两年多：到的日子不带年份
+    expect(problems(redate('t31', 0, '元丰三年二月一日', '二月一日'))).toEqual([expect.stringContaining('头一个日子“二月一日”没有带年份，可这一段在时间轴上跨着正月初一')]);
+    expect(problems(redate('t53', 0, '绍圣元年十月二日', '十月二日'))).toEqual([expect.stringContaining('跨着正月初一')]);
+    // 出差救灾的那一段原来的句子：除夜是熙宁六年的最后一天，这一段大半摆在熙宁七年底下
+    const old = (copy: Itinerary): void => {
+      const item = stretch(copy, 't18');
+      item.says = '这一趟没有画，沙盘上没有他。除夜在常州城外，熙宁七年六月回杭州';
+      item.saysDates = [{ of: 'wp:常州城外', text: '除夜' }, { of: 'end', text: '熙宁七年六月' }];
+    };
+    expect(problems(old)).toEqual([expect.stringContaining('头一个日子“除夜”没有带年份')]);
+    // 真的那一份里：头一个日子不带年份的各段，在时间轴上都只摆在一个年名底下
+    const years = lunarYears(REAL);
+    const { numbers } = boundaryNumbers(REAL);
+    const bare = REAL.stretches.flatMap((item, i) => (item.saysDates.length > 0 && !/年/u.test(item.saysDates[0].text) ? [{ id: item.id, under: years.filter((year) => year.last >= Math.floor(numbers[i]) && year.first < numbers[i + 1]).map((year) => year.name) }] : []));
+    expect(bare.length).toBeGreaterThan(0);
+    for (const item of bare) expect(item.under, item.id).toHaveLength(1);
+    // 一段不跨年的，头一个日子不带年份照旧可以（去黄州的路：正月初一出汴京，二月一日到）
+    expect(stretch(copyOf(), 't30').saysDates[0].text).not.toMatch(/年/u);
+  });
+});
+
+describe('如实三（续）：更多“像日子的话”', () => {
+  it('接着上一个日子说的、隔开一年的、约数的多久、节令、“卅”“廿”、年号后面的“初”“末”：通不过；“三天竺”“度岁”指名放过', () => {
+    const insert = (what: string) => reword('t53', '绍圣元年十月二日到，', `绍圣元年十月二日到，${what}`);
+    const refused = [
+      '翌日上山；', '次日上山；', '是夜上山；', '当晚上山；', '同年上山；', '是年上山；', '中元上山；', '上巳上山；', '望日上山；', '月半上山；', '年末上山；', '年终上山；',
+      '小寒上山；', '谷雨上山；', '住了半年；', '住了半年多；', '住了一个半月；', '住了百日；', '住了一百天；', '住了数月；', '住了十余日；', '卅日上山；', '廿日上山；',
+      '绍圣初上山；', '元祐末上山；', '元丰中上山；', '熙宁间上山；', '隔年上山；', '来年上山；', '五更上山；', '三载后走；', '年后上山；',
+    ];
+    for (const what of refused) expect(problems(insert(what)), what).toEqual([expect.stringContaining('有 saysDates 没有列的日子')]);
+    // 他在杭州出差救灾的那一句原来说“离开杭州半年多”：那是算出来的长短，不是哪一条史料的话
+    expect(problems(reword('t17', '离开杭州', '离开杭州半年多'))).toEqual([expect.stringContaining('有 saysDates 没有列的日子：半年')]);
+    expect(REAL.stretches.filter((item) => /半年|多年|数月/u.test(item.says)).map((item) => item.id)).toEqual([]);
+    // 指名放过的两个词：杭州的地名“三天竺”，史料里说在哪里过年的“度岁”
+    expect(problems(reword('t41', '元祐四年七月三日到；', '元祐四年七月三日到，游三天竺；'))).toEqual([]);
+    expect(problems(reword('t21', '熙宁七年冬到；', '熙宁七年冬到，度岁；'))).toEqual([]);
+    // 去掉“竺”字，“三天”还是日子
+    expect(problems(reword('t41', '元祐四年七月三日到；', '元祐四年七月三日到，游三天；'))).toEqual([expect.stringContaining('有 saysDates 没有列的日子：三天')]);
+    // 这张单子是一张网，不是证明：“不久”“逾月”这样的话它不认得（靠读）
+    expect(problems(insert('不久上山；'))).toEqual([]);
+  });
+});
+
+describe('如实五（续）：句子说沙盘上有什么，要是时间轴停在那里的时候摆着的那一节上真有的', () => {
+  it('站在框外的一段（定州）：时间轴停在那里的时候摆的是全程；全程那一节没有立它的题签，句子里就不说“框上立着它的名字”', () => {
+    const outside = REAL.stretches.filter((item) => item.kind === 'elsewhere' && item.tablePoint.type === 'edge-strip');
+    expect(outside.length).toBeGreaterThan(0);
+    for (const item of outside) {
+      if (item.kind !== 'elsewhere' || item.tablePoint.type !== 'edge-strip') continue;
+      // 停在这一段的时候沙盘摆哪一节：落在哪一站讲的年月里就是那一站的那一节，不然是头一节（全程）
+      const section = ROUTE.sections.find((entry) => item.stopYearsOf !== null && entry.stop === item.stopYearsOf) ?? ROUTE.sections[0];
+      const shown = section.strips.includes(item.tablePoint.strip);
+      console.log(`${item.id}（${item.label}）停着的时候摆“${section.heading}”，这一节${shown ? '立着' : '没有立'}题签 ${item.tablePoint.strip}：${item.says}`);
+      if (!shown) expect(item.says, item.id).not.toMatch(/立着|立了/u);
+    }
+  });
+
+  it('“一个名字套着另一个”只同指着地名点的题签比：扬州那一处改叫“海陵”（题签“海”是海，不是哪个镇）通得过；套着镇名的照样通不过', () => {
+    const rename = (town: string) => (copy: Itinerary): void => {
+      const item = stretch(copy, 't47');
+      if (item.kind !== 'elsewhere') throw new Error('t47 不是“别的”');
+      const old = spotTown(item.where);
+      item.where = item.where.replace(old, town);
+      item.label = item.label.replace(old, town);
+      if (item.tablePoint.type === 'way-vertex') item.tablePoint.name = town;
+    };
+    const sea = ROUTE.strips.find((strip) => strip.text === '海');
+    expect(sea && !ROUTE.places.some((place) => place.id === sea.of)).toBe(true);
+    expect(problems(rename('海陵'))).toEqual([]);
+    expect(problems(rename('徐州城外'))).toContainEqual(expect.stringContaining('是一个名字套着另一个'));
+  });
+});
+
+describe('如实二（续）：第一行括号里的公历月份', () => {
+  it('每一段碰到的每一个“公历已经是下一年”的月份：史料担保得了的写年和月；担保不了的列在工具做的那一份里（plainMonths），那些天只写年份；别的日子都只写年份', () => {
     const made = projectItinerary(REAL, ROUTE, FIGURE);
-    const groups = [...new Set(made.stretches.flatMap((item) => (item.group ? [item.group] : [])))];
-    expect(Object.keys(made.stopYears)).toEqual(FIGURE.stops.filter((stop) => groups.includes(stop.id)).map((stop) => stop.id));
-    for (const stop of FIGURE.stops) if (groups.includes(stop.id)) expect(made.stopYears[stop.id], stop.id).toBe(stop.years);
-    expect(groups.length).toBeGreaterThan(0);
+    const zero = dayOfIso(made.day0) as number;
+    const years = lunarYears(REAL);
+    const lastDay = made.stretches[made.stretches.length - 1].until;
+    // 自己一天一天数（每一天看四回：圆钮可以停在一天的中间）
+    const pairs = new Map<string, { stretch: number; year: number; month: number; held: boolean }>();
+    let tailDays = 0;
+    for (let day = 0; day <= lastDay; day++) {
+      const lunar = lunarYearOf(years, zero + day);
+      if (!lunar) throw new Error(`第 ${day} 天不在 years 表里`);
+      const [y, m] = isoOfDay(zero + day).split('-').map(Number);
+      for (const part of [0, 0.25, 0.5, 0.75]) {
+        const at = day + part;
+        if (at > lastDay) continue;
+        const words = wordsAt(made, at);
+        if (y === lunar.year) {
+          expect(words.year, isoOfDay(zero + day)).toBe(`${lunar.name}（${lunar.year}）`);
+          continue;
+        }
+        if (part === 0) tailDays += 1;
+        const i = stretchIndexAt(made, at);
+        const item = REAL.stretches[i];
+        // 这个月落在这个农历年里的那一截：从公历这一年的元旦（这个月的头一天）到这个月的最后一天（这个农历年的最后一天）
+        const partFirst = Math.max(julianDay(y, m, 1), julianDay(lunar.year + 1, 1, 1));
+        const partLast = Math.min((m === 12 ? julianDay(y + 1, 1, 1) : julianDay(y, m + 1, 1)) - 1, lunar.last);
+        const held = (latestOf(item.start) as number) <= partLast && (earliestOf(item.end) as number) >= partFirst;
+        pairs.set(`${item.id}|${y}-${m}`, { stretch: i, year: y, month: m, held });
+        expect(words.year, `${item.id} ${isoOfDay(zero + day)}`).toBe(held ? `${lunar.name}（${y}年${m}月）` : `${lunar.name}（${lunar.year}）`);
+        expect(words.spoken.startsWith(held ? `${lunar.name}，${y} 年 ${m} 月，` : `${lunar.name}，${lunar.year} 年，`), `${item.id} ${isoOfDay(zero + day)}`).toBe(true);
+      }
+    }
+    // 工具列出来的就是这些，一对不多、一对不少，担保得了担保不了也一样
+    const listed = westernMonths(REAL);
+    expect(listed.map((pair) => `${REAL.stretches[pair.stretch].id}|${pair.year}-${pair.month}|${pair.held}`).sort()).toEqual([...pairs].map(([key, pair]) => `${key}|${pair.held}`).sort());
+    // 做出来的那一份里，每一段的 plainMonths 正好是它担保不了的那几个月；别的段没有这一样
+    const unheld = [...pairs.values()].filter((pair) => !pair.held);
+    made.stretches.forEach((entry, i) => {
+      const mine = unheld.filter((pair) => pair.stretch === i).map((pair) => [pair.year, pair.month]);
+      expect(entry.plainMonths ?? [], entry.id).toEqual(mine);
+      expect('plainMonths' in entry, entry.id).toBe(mine.length > 0);
+    });
+    expect(unheld.length).toBeGreaterThan(0);
+    expect(pairs.size).toBeGreaterThan(unheld.length);
+    console.log(`一生里农历年末、公历已经是下一年的有 ${tailDays} 天；一段碰到一个这样的月份算一对，一共 ${pairs.size} 对，担保不了的 ${unheld.length} 对：${unheld.map((pair) => `${REAL.stretches[pair.stretch].id}（${REAL.stretches[pair.stretch].label}）${pair.year} 年 ${pair.month} 月`).join('，')}`);
+  });
+
+  it('把一个离开的日子收到“一定在那个月以后”，那个月就担保得了了：plainMonths 里不再有它', () => {
+    const before = westernMonths(REAL).filter((pair) => !pair.held);
+    expect(before.length).toBeGreaterThan(0);
+    const first = before[0];
+    const id = REAL.stretches[first.stretch].id;
+    // 这一段的头尾都改成精确到日：开始在那个月以前，结束在那个月以后
+    const copy = copyOf();
+    const i = copy.stretches.findIndex((item) => item.id === id);
+    const pin = (moment: ItineraryMoment, day: number): void => {
+      const [y, m, d] = isoOfDay(day).split('-').map(Number);
+      Object.assign(moment, { precision: 'day', year: y, month: m, day: d });
+      for (const key of ['earliest', 'latest', 'earliestIs', 'latestIs', 'sharesWindow'] as const) delete moment[key];
+    };
+    const start = earliestOf(copy.stretches[i].start) as number;
+    const end = latestOf(copy.stretches[i].end) as number;
+    pin(copy.stretches[i].start, start);
+    if (i > 0) pin(copy.stretches[i - 1].end, start);
+    pin(copy.stretches[i].end, end);
+    if (i + 1 < copy.stretches.length) pin(copy.stretches[i + 1].start, end);
+    const after = westernMonths(copy).filter((pair) => pair.stretch === first.stretch);
+    expect(after.length).toBeGreaterThan(0);
+    // 头尾都是那一天了：这一段碰到的月份里，它一定已经开始、一定还没结束
+    for (const pair of after) expect(pair.held, `${id} ${pair.year}-${pair.month}`).toBe(true);
+  });
+});
+
+describe('小像站到线上的一处，旁边立出那一处的名字：名字是手写在行迹里的', () => {
+  /** 抄本里的一段的 tablePoint（要是“线上的一处”）。 */
+  const spotOf = (copy: Itinerary, id: string) => {
+    const item = stretch(copy, id);
+    if (item.kind !== 'elsewhere' || item.tablePoint.type !== 'way-vertex') throw new Error(`${id} 不是线上的一处`);
+    return item.tablePoint;
+  };
+
+  it('name 要就是 where 开头的那个地名；今名只在 where 的括号里写了“今某省某地”的时候有，是它去掉省名', () => {
+    // 名字写得同 where 不一样
+    expect(problems((copy) => (spotOf(copy, 't09').name = '凤翔府'))).toEqual([expect.stringContaining('name 写的是“凤翔府”，where 开头的地名是“凤翔”')]);
+    // where 里写着今名，却没有抄
+    expect(problems((copy) => { delete spotOf(copy, 't45').modern; })).toEqual([expect.stringContaining('where 里写着“今安徽阜阳”，tablePoint 却没有写 modern')]);
+    // 今名不是 where 里那个地名的末尾、多了字
+    expect(problems((copy) => (spotOf(copy, 't45').modern = '阜阳市'))).toEqual([expect.stringContaining('今名写的是“阜阳市”，where 里写的是“今安徽阜阳”')]);
+    expect(problems((copy) => (spotOf(copy, 't59').modern = '江西'))).toEqual([expect.stringContaining('今名写的是“江西”，where 里写的是“今江西赣州”')]);
+    expect(problems((copy) => (spotOf(copy, 't59').modern = ' '))).toEqual([expect.stringContaining('今名写的是“ ”')]);
+    // where 里没有写今名的，不另去查一个来写
+    expect(problems((copy) => (spotOf(copy, 't09').modern = '宝鸡'))).toEqual([expect.stringContaining('今名只照 where 里写的抄，没有写的不写，不另去查')]);
+    // 少了 name：格式就通不过
+    expect(problems((copy) => { delete (spotOf(copy, 't47') as { name?: string }).name; }).length).toBeGreaterThan(0);
+  });
+
+  it('真的那一份里的每一处：名字就是 where 开头的地名；where 里有“今……”的才有今名（各处印出来）；工具把它们带进时间轴用的那一份', () => {
+    const made = projectItinerary(REAL, ROUTE, FIGURE);
+    const lines: string[] = [];
+    let withModern = 0;
+    for (const item of REAL.stretches) {
+      if (item.kind !== 'elsewhere' || item.tablePoint.type !== 'way-vertex') continue;
+      const point = item.tablePoint;
+      expect(point.name, item.id).toBe(spotTown(item.where));
+      const today = /今([^，,。）)]+)/u.exec(item.where)?.[1];
+      expect(point.modern === undefined, item.id).toBe(today === undefined);
+      if (point.modern !== undefined) {
+        withModern += 1;
+        expect(today?.endsWith(point.modern), item.id).toBe(true);
+        expect(point.modern, item.id).not.toBe(point.name);
+      }
+      // 做出来的那一份：这一段的 spot 是“哪条线、经纬度、名字”，有今名的再加今名
+      const spot = made.stretches.find((entry) => entry.id === item.id)?.spot;
+      expect(spot, item.id).toEqual(point.modern === undefined ? [point.way, point.at, point.name] : [point.way, point.at, point.name, point.modern]);
+      lines.push(`${item.id} ${point.name}${point.modern ? `（今名 ${point.modern}）` : ''}`);
+    }
+    expect(lines.length).toBeGreaterThan(0);
+    expect(withModern).toBeGreaterThan(0);
+    expect(withModern).toBeLessThan(lines.length);
+    console.log(`线上平时没有立名字的各处，他站到那里的时候旁边立出的名字：${lines.join('，')}`);
   });
 });

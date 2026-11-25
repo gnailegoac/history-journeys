@@ -8,6 +8,7 @@
 //   不让小像走在一条这一节没有画的路上；停下来以后再换到停下的那一节。
 //   拖：走出去的头一下报一次全程（摆着的就是全程、读者又自己动过镜头的，另按一下“回到全程”）；手不放不再报；放手报一次停下的那一节。
 //   按键：同拖一样，头一下走出去马上报全程；连着按不再报；最后一下以后 350 毫秒报停下的那一节。
+//   翻页键：往后到下一段的起头；往前先到这一段的起头，再按才到上一段的起头（“上一段”“下一段”两个按钮也一样）。
 //   播放：走到要换一节的地方先报那一节，钟停下来等沙盘栏摆好；等了 3 秒还没好，摆着的是全程、或者沙盘上本来没有小像，接着走，
 //   不然停下。读者一碰（stop）就停，停了不自己再播。
 // 没动过时间轴的不报：页面打开的时候同原来一模一样。
@@ -114,10 +115,15 @@ export function keyStep(bar: ItineraryBar, day: number, direction: 1 | -1): numb
   return before + ((KEY_STEPS - 1) * (from - before)) / KEY_STEPS;
 }
 
-/** 下一段（direction 是 1）、上一段（-1）的起头是第几天。已经在最后一段的，往后是最后一天；在头一段的，往前是第 0 天。 */
+/**
+ * 往后（direction 是 1）：下一段的起头；已经在最后一段的是最后一天。
+ * 往前（-1）：先到这一段的起头；已经停在起头上的，到上一段的起头；在头一段的是第 0 天。
+ */
 export function stretchStep(bar: ItineraryBar, day: number, direction: 1 | -1): number {
   const i = stretchIndexAt(bar, day);
   if (direction > 0) return bar.stretches[i].until;
+  const from = stretchStart(bar, i);
+  if (day > from + 1e-9) return from;
   return i === 0 ? 0 : stretchStart(bar, i - 1);
 }
 
@@ -131,8 +137,12 @@ export function barControl(bar: ItineraryBar, sections: readonly BarSection[], s
   let backedOut = false;
   let dragging = false;
   let keyTimer: number | null = null;
-  /** 播放：从第几个单位、哪一刻播起；一路上停下来等沙盘栏一共等了多久；现在等着的那一节和从哪一刻等起（没在等是 null）；上一回报的是哪一节。 */
-  let play: { from: number; started: number; held: number; hold: { section: string; since: number } | null; told: string; frame: number | null } | null = null;
+  /**
+   * 播放：从第几个单位、哪一刻播起；一路上停下来等沙盘栏一共等了多久；现在等着的那一节和从哪一刻等起（没在等是 null）；上一回报的是哪一节；
+   * least 是圆钮至少在第几个单位——上一回等的地方。钟是带小数的毫秒，等完以后照钟算回来的位置会比等的地方少一丁点，
+   * 那就落回上一段去了（又报一次上一节，沙盘来回换）：不许比它靠前。
+   */
+  let play: { from: number; started: number; held: number; hold: { section: string; since: number } | null; told: string; frame: number | null; least: number } | null = null;
 
   /** 圆钮走出了摆着的那一节讲的年月：叫沙盘退到全程（一回只叫一次）。 */
   const backOut = (day: number): void => {
@@ -192,7 +202,7 @@ export function barControl(bar: ItineraryBar, sections: readonly BarSection[], s
       }
     }
     if (!play.hold) {
-      const units = play.from + (PLAY_UNITS_A_SECOND * (now - play.started - play.held)) / 1000;
+      const units = Math.max(play.least, play.from + (PLAY_UNITS_A_SECOND * (now - play.started - play.held)) / 1000);
       if (units >= scale.total) {
         store.set({ day: scale.lastDay });
         halt(true);
@@ -207,7 +217,8 @@ export function barControl(bar: ItineraryBar, sections: readonly BarSection[], s
         if (env.pane().section !== wanted) {
           // 等的时候圆钮停在这一段的起头（刚按“播放”就要换的，停在原处）；钟拨回到那里，摆好了从那里接着走
           const wait = Math.max(stretchStart(bar, stretchIndexAt(bar, day)), Math.min(store.get().day, day));
-          play.held += ((unitsAt(scale, day) - unitsAt(scale, wait)) * 1000) / PLAY_UNITS_A_SECOND;
+          play.least = unitsAt(scale, wait);
+          play.held += ((unitsAt(scale, day) - play.least) * 1000) / PLAY_UNITS_A_SECOND;
           day = wait;
           play.hold = { section: wanted, since: now };
         }
@@ -264,7 +275,7 @@ export function barControl(bar: ItineraryBar, sections: readonly BarSection[], s
       const day = store.get().day >= scale.lastDay ? 0 : store.get().day;
       const now = env.now();
       // 摆着的那一节算已经报过：这一段就该看它的，不再报
-      play = { from: unitsAt(scale, day), started: now, held: 0, hold: null, told: env.pane().section ?? '', frame: null };
+      play = { from: unitsAt(scale, day), started: now, held: 0, hold: null, told: env.pane().section ?? '', frame: null, least: unitsAt(scale, day) };
       store.set({ day, used: true, rest: false, playing: true });
       tick();
     },
@@ -279,8 +290,10 @@ export function barControl(bar: ItineraryBar, sections: readonly BarSection[], s
     },
     dispose() {
       halt(true);
+      // 手还按着、一串按键还没停手就拿走了（读者点了一个链接、栏换成了一站自己的沙盘）：算停着——
+      // 不然那个“停手以后才说停着”的定时器取消了，这一份里就一直记着“没停”，下一回摆上，他在路上题签也不让开他
+      if (keyTimer !== null || dragging) store.set({ rest: true });
       endKeys();
-      if (dragging) store.set({ rest: true });
       dragging = false;
     },
   };

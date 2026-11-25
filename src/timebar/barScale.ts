@@ -115,29 +115,15 @@ export function squeezed(block: BarBlock, pxPerUnit: number): boolean {
   return (block.look === 'stop' || block.look === 'quiet') && (block.u1 - block.u0) * pxPerUnit >= SQUEEZE_MIN_PX;
 }
 
-/** 圆点多宽、圆点和它旁边的年份隔多远、年份里一个数字（或者那一道）多宽、这一对离那一段的两头至少多远（像素）。 */
+/** 圆点多宽（像素）。 */
 export const DISC_PX = 20;
-export const YEARS_GAP_PX = 4;
-export const YEARS_GLYPH_PX = 8;
-export const YEARS_EDGE_PX = 2;
-
-/** 一站的年份写在圆点旁边的样子：“1080–1084”写成“1080–84”（同一个世纪的，后一个只写两位）；只有一年的、跨了世纪的照原样。 */
-export function yearsShort(years: string): string {
-  const [from, to] = years.match(/\d{4}/g) ?? [];
-  return from && to && from.slice(0, 2) === to.slice(0, 2) ? `${from}–${to.slice(2)}` : years;
-}
 
 /**
- * 一站的圆点和它旁边的年份摆在哪。圆点平常正对着这一站那一段的中间；这一段放得下“圆点、空、年份”的（两头各还剩 2 像素），
- * 两样合起来对着中间：disc 是圆点的中心，years 是年份的左边；放不下的不写年份（years 是 null）。都是像素，从轴的左头量。
+ * 一站的圆点摆在哪：正对着这一站那一段的中间（圆点的中心，像素，从轴的左头量）。圆点旁边不写这一站的年份——
+ * 八站的年份哪一种栏上也放不全，只写得下的几个像是散落的数字；每一站的年份在目录里已经有了。
  */
-export function discAt(span: { u0: number; u1: number }, pxPerUnit: number, years: string | undefined): { disc: number; years: number | null } {
-  const mid = ((span.u0 + span.u1) / 2) * pxPerUnit;
-  const wide = years ? [...years].length * YEARS_GLYPH_PX : 0;
-  const pair = DISC_PX + YEARS_GAP_PX + wide;
-  if (!years || (span.u1 - span.u0) * pxPerUnit < pair + 2 * YEARS_EDGE_PX) return { disc: mid, years: null };
-  const left = mid - pair / 2;
-  return { disc: left + DISC_PX / 2, years: left + DISC_PX + YEARS_GAP_PX };
+export function discAt(span: { u0: number; u1: number }, pxPerUnit: number): number {
+  return ((span.u0 + span.u1) / 2) * pxPerUnit;
 }
 
 /** 一站讲的那几年（来路加上住下来的年月）在轴上从哪到哪，照先后。一站的几段是连着的（校验的规则 22 守着）。 */

@@ -1156,7 +1156,7 @@ function BarBand(props: BarProps) {
   const [bar, ask] = useOnDemand(loadBar);
   // 摆上了才取，只取一次（没取到的，这一栏下一回摆上时再取）
   useEffect(ask, []);
-  return <div className="stage-bar">{bar && (bar.state === 'ready' ? <bar.value.TimeBar {...props} /> : bar.state === 'error' && <Waiting failed />)}</div>;
+  return <div className="stage-bar">{bar && (bar.state === 'ready' ? <bar.value.TimeBar {...props} /> : bar.state === 'error' && <Waiting failed bar />)}</div>;
 }
 
 // ---------------------------------------------------------------- 小工具

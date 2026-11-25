@@ -3,6 +3,8 @@
 
 import { describe, expect, it } from 'vitest';
 import type { ItineraryBar } from '../../src/domain/itinerary';
+import { stopMarks } from '../../src/domain/stopMarks';
+import type { Figure } from '../../src/domain/types';
 import { BAR_NOTE_TEXT } from '../../src/timebar/barNoteText';
 import { BAR_SANS, BAR_TEXT } from '../../src/timebar/barText';
 import { stretchIndexAt } from '../../src/timebar/barWhere';
@@ -207,6 +209,24 @@ describe('时间轴上的字', () => {
     expect(wordsAt(bar, (dayOfIso('1062-01-01') as number) - day0).year).toBe('嘉祐六年（1062年1月）');
     expect(wordsAt(bar, (dayOfIso('1060-02-01') as number) - day0).year).toBe('嘉祐四年（1060年2月）');
     expect(BAR_NOTE_TEXT.west).not.toMatch(/腊月|冬月|十一月|十二月/u);
+  });
+
+  it('图例里讲圆圈的那一句说了实心的是什么：正文已经写好的站——轴上的圆圈照 stopMarks 的 written 画，written 就是这一站的正文写好了', () => {
+    expect(BAR_NOTE_TEXT.discs('八')).toBe('轴上圆圈里的数字是他走过的八站，和题签上的印是同一个数。实心的圆圈，是正文已经写好的站。古名、今名只换题签上的名字，时间轴上写的是当时的名字。');
+    // 真的人物：每一站“实心不实心”就是它的正文写好了没有；两样都有（都是实心、都是空心的时候这一句说的东西读者看不到）
+    const figure = JSON.parse(new TextDecoder().decode(readBytes('content/figures/su-shi/figure.json'))) as Figure;
+    const marks = stopMarks(figure, (id) => `#/su-shi/${id}`);
+    const onAxis = [...new Set(bar.stretches.flatMap((stretch) => (stretch.group ? [stretch.group] : [])))];
+    expect(onAxis.length).toBeGreaterThan(0);
+    for (const id of onAxis) expect(marks[id].written, id).toBe(figure.stops.find((stop) => stop.id === id)?.status === 'complete');
+    const filled = onAxis.filter((id) => marks[id].written);
+    expect(filled.length).toBeGreaterThan(0);
+    expect(filled.length).toBeLessThan(onAxis.length);
+    // 轴上的圆圈是照这个 written 画的：TimeBar.tsx 里写着（没写好的带 is-unwritten，样式表把它画成空心）
+    const source = new TextDecoder().decode(readBytes('src/timebar/TimeBar.tsx'));
+    expect(source).toContain("stop.written ? 'bar-disc' : 'bar-disc is-unwritten'");
+    const sheet = new TextDecoder().decode(readBytes('src/styles/timebar.css'));
+    expect(/\.bar-disc\.is-unwritten\s*\{[^}]*background:\s*none/u.test(sheet)).toBe(true);
   });
 
   it('时间轴上用黑体排的固定的字都列进了黑体的那张表（src/ui/text.ts 的 SANS_LABELS）', () => {

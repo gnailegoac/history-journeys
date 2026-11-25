@@ -423,6 +423,45 @@ describe('如实三：第二行的日子只许照史料的写法删字', () => {
     }
   });
 
+  it('真的那一份里，读者在时间轴上看得见的每一段话（第二行，“图例”里说不准的）：说到“查注”以前，这一段话里先写出了它是查慎行的《苏诗补注》', () => {
+    const BOOK = '查慎行的《苏诗补注》';
+    /** 这一段话里“查注”两个字头一回出现以前，有没有先写书名（没有“查注”的不用写）。 */
+    const introduced = (text: string): boolean => !text.includes('查注') || (text.includes(BOOK) && text.indexOf(BOOK) < text.indexOf('查注'));
+    // 时间轴上印的就是做出来的那一份里的字：说不准的是这一段自己的接上路上几处的（unsureOf）
+    const made = projectItinerary(REAL, FIGURE);
+    const shown = [...made.stretches.flatMap((item) => [item.says, item.unsure ?? '']), made.first.says, made.last.says];
+    for (const text of shown) expect(introduced(text), text).toBe(true);
+    // 写了书名的确实有（熙宁十年在汴京城外的那一段是一处）；数印出来
+    const named = made.stretches.filter((item) => (item.unsure ?? '').includes(BOOK));
+    console.log(`  说不准的里写了“${BOOK}”的：${named.map((item) => `${item.id} ${item.label}`).join('、')}`);
+    expect(named.map((item) => item.id)).toContain('t23');
+    // 原来的写法查得出来；先写了书名、后面再说“查注”的可以
+    expect(introduced('住在城东范镇的园子里（查注引他的信和《乌台诗案》）')).toBe(false);
+    expect(introduced(`涡口前五里：${BOOK}说一本作“十月一日”；楚州（山阳）：查注在题下注“一作十月六日”`)).toBe(true);
+    expect(introduced(`楚州（山阳）：查注在题下注“一作十月六日”；涡口前五里：${BOOK}说一本作“十月一日”`)).toBe(false);
+  });
+
+  it('真的那一份里，回眉州的路上、在眉州守丧两段共用的那个日子照欧阳修作的墓志写（十月二十七日以前，1067-12-06），不照年谱的“八月壬辰”——那年八月没有壬辰这一天', () => {
+    const road = stretch(REAL, 't12');
+    const home = stretch(REAL, 't13');
+    expect(home.start).toEqual(road.end);
+    // 范围：治平四年正月初一到十月二十七日（留着的历表里，十月初一是 1067-11-10，壬申是那个月的二十七日）
+    expect(road.end).toMatchObject({ text: '治平四年，十月二十七日以前', year: 1067, precision: 'before', earliest: '1067-01-18', latest: '1067-12-06' });
+    expect(lunarYearOf(lunarYears(REAL), dayOfIso('1067-12-06') ?? 0)?.name).toBe('治平四年');
+    // 两句话说的是这个日子，不再说八月；两段的出处里都有墓志
+    for (const item of [road, home]) {
+      expect(item.says, item.id).toContain('治平四年十月二十七日以前');
+      expect(item.says, item.id).not.toContain('八月');
+      expect(item.sourceIds, item.id).toContain('ouyang');
+    }
+    expect(road.saysDates).toEqual([{ of: 'end', text: '治平四年十月二十七日以前' }]);
+    expect(home.saysDates[0]).toEqual({ of: 'start', text: '治平四年十月二十七日以前' });
+    // 时间轴上，这两段的交界摆在范围的正中间
+    const made = projectItinerary(REAL, FIGURE);
+    const until = made.stretches.find((item) => item.id === 't12')?.until;
+    expect(until).toBe(((dayOfIso('1067-01-18') ?? 0) + (dayOfIso('1067-12-06') ?? 0)) / 2 - (dayOfIso(made.day0) ?? 0));
+  });
+
   it('句子里多出一个 saysDates 没有列的日子：通不过（写成“八日”“初八”“8”“上旬”“寒食”都一样）', () => {
     expect(problems(reword('t31', '元丰七年四月离开', '元丰七年四月八日离开'))).toContainEqual(expect.stringContaining('有 saysDates 没有列的日子：八日'));
     expect(problems(reword('t40', '；途中没有日子', '；六月初十过扬州'))).toEqual([expect.stringContaining('有 saysDates 没有列的日子：六月、初十')]);
@@ -732,11 +771,15 @@ describe('如实一（续）：只说到季节的写法；日子和农历年的�
    * 上一回对历表：2026-11-24（表里 65 个正月初一、54 个精确到日的日子，同抓下来留着的历表页一个不差；范围的两头没有对过）。
    * 2026-11-25 改了一个日子的写法：到汴京的那一个（t10 的结束、t11 的开始）年份后面原来多一个“初”字，去掉了——史料里没有这个字；
    * 数字一个没动，它的范围两头（治平二年正月初一是 1065-02-08，五月二十八日是 1065-07-04）另对着留着的历表核过。
+   * 同一天发布以后又改了一个日子：回眉州的路上、在眉州守丧两段共用的那一个（t12 的结束、t13 的开始）。写法从“治平四年，八月以前”
+   * 改成“治平四年，十月二十七日以前”，范围的后一头从 1067-10-10 改成 1067-12-06，前一头（治平四年正月初一，1067-01-18）没有动。
+   * 依据是欧阳修作的墓志里的“十月壬申”下葬；对着留着的历表核过：治平四年十月初一是 1067-11-10，那个月二十九天，
+   * 照干支一天一天数，初一是丙午，壬申是二十七日，就是 1067-12-06（年谱写的“八月壬辰”，那年八月从丁未到乙亥，没有壬辰）。
    * 从那以后这些东西一个字、一个数都没有动过，这个数才不变。
    * 这个数里没有的：路上各处的位置、哪里算说得准，不在这个数里，靠读（把一处有日子的地方挪到线上别的位置、把一个精度从“季”改成“以前”，
    * 规则 22 放得过去，这个数也不变）。
    */
-  const COMPARED = { on: '2026-11-25', sum: '1a2ae0bf2619df8d' };
+  const COMPARED = { on: '2026-11-25', sum: '45bc701d871db5c9' };
 
   it('日子和农历年的表：从上一回对历表以后一个字、一个数都没有动过（动了：先对着历表核一遍，再把这里记的数换掉）', () => {
     expect(datesSum(REAL), `行迹里的日子或者农历年的表改过了。先对着历表核一遍，再把这里记的数和对的日子换掉（上一回是 ${COMPARED.on}）`).toBe(COMPARED.sum);

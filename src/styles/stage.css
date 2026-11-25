@@ -1080,6 +1080,13 @@
   opacity: 0.72;
 }
 
+/* 小像站到平时没有题签的一处，旁边立出的那一条地名（题签的 id 是 piece-name）：它的引线不透、粗半个像素。
+   这条线短、多半是斜的，照别的引线那样画是沙盘上最淡的一条线；它旁边又常有别的地名点，要靠它认出这个名字是他脚下那一处的。 */
+.strip-leaders line[data-strip-leader='piece-name'] {
+  stroke-width: 1.5;
+  opacity: 1;
+}
+
 .strip-leaders circle {
   fill: var(--figure-leader, #28231f);
   stroke: var(--figure-halo, #f5eedd);

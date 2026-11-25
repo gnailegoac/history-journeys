@@ -63,7 +63,11 @@ describe('时间轴的刻度', () => {
       const stretch = bar.stretches[i];
       expect([block.id, block.look, block.from, block.until, block.u0], block.id).toEqual([stretch.id, stretch.look, from, stretch.until, u]);
       expect(block.u1 - block.u0, block.id).toBeCloseTo(blockUnits(stretch.look, stretch.until - from), 10);
-      expect(block.u1 - block.u0, block.id).toBeGreaterThanOrEqual(stretch.look === 'road' ? 5 : stretch.look === 'stop' ? 3 : 1);
+      // 这一格占几个单位（算出来的那个数）不少于它这一种的下限；它的右头正好是左头加上这个数。
+      //（不拿“右头减左头”去比下限：带小数的数先加后减会差出一丁点——去徐州的路上那一格，68.1727… 减 63.1727… 是 4.999999999999993。）
+      const units = blockUnits(stretch.look, stretch.until - from);
+      expect(units, block.id).toBeGreaterThanOrEqual(stretch.look === 'road' ? 5 : stretch.look === 'stop' ? 3 : 1);
+      expect(block.u1, block.id).toBe(block.u0 + units);
       from = stretch.until;
       u = block.u1;
     });

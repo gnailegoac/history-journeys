@@ -294,12 +294,6 @@ export interface StageEngine {
 
 // ---------------------------------------------------------------- 时间轴（src/timebar/，摆上全程沙盘才下载的一段程序）
 
-/** 时间轴走到了哪一站讲的那几年（stop 是站的 id）；says 是目录里那一站上添的几个字：他正住在那里、正往那里去时才有，别的时候是空的。 */
-export interface BarHere {
-  stop: string;
-  says: string;
-}
-
 /** 沙盘栏交给时间轴的几样。 */
 export interface BarProps {
   /** 摆着的全程沙盘（场景里有哪几节、各看哪一站；它的 key 的头一段是哪位人物）。 */
@@ -310,6 +304,4 @@ export interface BarProps {
   slot: { current: { view: StopStageView | null } };
   /** 读者动了时间轴：全程沙盘该看这一节（小节标题）。时间轴只报这一句，镜头怎么过去是沙盘栏的事；读者没动过时间轴的时候不报。 */
   onGoal?: (heading: string) => void;
-  /** 时间轴走到了哪一站讲的那几年、目录上该写哪几个字；不在哪一站讲的年份里是 null。人物页的目录还没有接这一样的时候不交。 */
-  onHere?: (here: BarHere | null) => void;
 }

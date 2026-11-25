@@ -144,6 +144,8 @@ export function mountStrips(container: HTMLElement, place: typeof placeStrips = 
     under.style.cssText = LEADER_UNDER_STYLE;
     under.style.display = 'none';
     const line = doc.createElementNS(SVG_NS, 'line');
+    // 引线带着这条题签的 id：样式表照它把“他站处立出的地名”的那一条引线加深（stage.css）
+    line.setAttribute('data-strip-leader', spec.id);
     line.setAttribute('stroke', 'currentColor');
     line.setAttribute('stroke-width', '1');
     line.style.display = 'none';

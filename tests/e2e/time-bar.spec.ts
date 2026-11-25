@@ -895,6 +895,8 @@ test('只放图片的时候：时间轴照样有，两行字照样换，图片�
   await expect(lines).toHaveCount(7);
   await expect(page.locator('.bar-panel')).not.toContainText('旁边才立出那一处的名字');
   await expect(lines.nth(3)).toHaveText('空着的虚线格子，是这座沙盘上没有的地方、没有画的路，那时候沙盘上没有他。');
+  // 讲圆圈的那一句在图片上也一样说：实心的是正文写好了的站
+  await expect(lines.nth(6)).toContainText('实心的圆圈，是正文已经写好的站。');
   await page.keyboard.press('Escape');
   await expect(page.locator('.bar-panel')).toHaveCount(0);
   // 按在轴上：两行字照样换，图片换到那一节；别的位置的第二行就是行迹里的那一句
@@ -1052,8 +1054,15 @@ test('点时间轴的“图例”：先是这一段的哪一年、在哪和整�
   await expect(lines.nth(5)).toHaveText('括号里的公历年份，是这个农历年大半落在的那一年。农历年底有时已经是公历下一年的一月、二月，那些天括号里写的是公历的年和月；日子说不准的地方仍只写年份。');
   await expect(lines.nth(6)).toHaveText('拖着圆点的时候，一出眼前这一站讲的年份，沙盘就退回全程；松开以后，沙盘转到讲这几年的那一站，哪一站都不讲的年份就留在全程。');
   const stops = new Set(bar.stretches.flatMap((stretch) => (stretch.group ? [stretch.group] : []))).size;
-  await expect(lines.nth(7)).toHaveText(`轴上圆圈里的数字是他走过的${'一二三四五六七八九十'[stops - 1]}站，和题签上的印是同一个数。古名、今名只换题签上的名字，时间轴上写的是当时的名字。`);
+  await expect(lines.nth(7)).toHaveText(`轴上圆圈里的数字是他走过的${'一二三四五六七八九十'[stops - 1]}站，和题签上的印是同一个数。实心的圆圈，是正文已经写好的站。古名、今名只换题签上的名字，时间轴上写的是当时的名字。`);
   await expect(page.locator('.bar-track .bar-disc')).toHaveCount(stops);
+  // 那一句里说的“实心的圆圈”：轴上的圆圈照先后是那几站，有底色的（实心）正好是正文写好了的，实心、空心都有
+  const marks = stopMarks(figure, (stopId) => `#/${FIGURE_ID}/${stopId}`);
+  const onAxis = [...new Set(bar.stretches.flatMap((stretch) => (stretch.group ? [stretch.group] : [])))];
+  await expect
+    .poll(() => page.locator('.bar-track .bar-disc').evaluateAll((discs) => discs.map((disc) => `${disc.textContent}:${getComputedStyle(disc).backgroundColor !== 'rgba(0, 0, 0, 0)'}`)))
+    .toEqual(onAxis.map((stop) => `${marks[stop].label}:${marks[stop].written}`));
+  expect(onAxis.some((stop) => marks[stop].written) && onAxis.some((stop) => !marks[stop].written)).toBe(true);
   // 它在时间轴的上面，不盖时间轴，也不伸到按钮那一排上面去
   const boxes = await page.evaluate(() => {
     const rect = (selector: string) => document.querySelector(selector)!.getBoundingClientRect();

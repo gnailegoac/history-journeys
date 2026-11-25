@@ -8,12 +8,15 @@ import type { FrameCoords } from '../../src/domain/sceneGeo';
 import type { GroundSamplers } from '../../src/stage/ground/types';
 import { mountStrips, placeStrips, sideOfSlot } from '../../src/stage/overlay';
 import type { StripInput, StripPlacement, StripSpec } from '../../src/stage/overlay';
+import { PIECE_NAME } from '../../src/stage/overlay/placeAround';
 import { centreShift, equivalentDistance, placeCamera, screenAnchors } from '../../src/stage/three/rig';
 import { styleFor } from '../../src/stage/three/style';
 import type { StageInsets } from '../../src/stage/types';
 import { realRouteScene, realScene, realSceneKeys } from '../stage/support/realScenes';
 import { HOME_PANES, STANDARD_PANES } from '../stage/support/standardPanes';
 import { routeSectionStrips, sectionStrips } from '../stage/support/stripSizes';
+import { namesIn, readBytes } from '../support/readBytes';
+import { readCss } from '../support/sourceScan';
 
 const SIZE = { width: 800, height: 600 };
 const NO_INSETS: StageInsets = { top: 0, right: 0, bottom: 0, left: 0 };
@@ -1303,6 +1306,28 @@ describe('题签层：引线底下垫着纸色的衬边，横平竖直的引线�
     expect(leaderOf(m, 0).under.style.display).toBe('none');
     m.layer.place([at('a', 100, 200, { visible: false }), at('b', 200, 150)], PHONE, PHONE_INSETS);
     expect(leaderOf(m, 0).under.style.display).toBe('none');
+  });
+
+  it('每一条引线带着它那条题签的 id（data-strip-leader）；样式表照它只把“他站处立出的地名”的那一条加深——不透、不比别的引线细，别的引线一条也不动', () => {
+    const m = mounted();
+    m.layer.set([spec('a', '徐州'), spec('b', '汴水'), spec(PIECE_NAME, '泗州')]);
+    m.layer.place([at('a', 100, 200), at('b', 300, 200), at(PIECE_NAME, 200, 120)], PHONE, PHONE_INSETS);
+    const lines = m.root.children[0].children.filter((el) => el.tag === 'line');
+    expect(lines.map((line) => line.getAttribute('data-strip-leader'))).toEqual(['a', 'b', PIECE_NAME]);
+    // 样式表：说到 data-strip-leader 的规则只在 stage.css 里，只有一条选择器，点的就是 PIECE_NAME 那一条
+    const sheets = namesIn('src/styles').filter((name) => name.endsWith('.css'));
+    expect(sheets).toContain('stage.css');
+    const all = sheets.flatMap((name) => readCss(new TextDecoder().decode(readBytes(`src/styles/${name}`))).declarations.map((declaration) => ({ ...declaration, sheet: name })));
+    const mine = all.filter((declaration) => declaration.selector.includes('data-strip-leader'));
+    expect([...new Set(mine.map((declaration) => `${declaration.sheet} ${declaration.selector}`))]).toEqual([`stage.css .strip-leaders line[data-strip-leader='${PIECE_NAME}']`]);
+    // 它只改两样：粗细和透不透；比起所有引线共用的那一条，不透（1），不更细
+    const base = Object.fromEntries(all.filter((declaration) => declaration.sheet === 'stage.css' && declaration.selector === '.strip-leaders line').map((declaration) => [declaration.property, declaration.value]));
+    const strong = Object.fromEntries(mine.map((declaration) => [declaration.property, declaration.value]));
+    expect(Object.keys(strong).sort()).toEqual(['opacity', 'stroke-width']);
+    expect(Number(base.opacity)).toBeLessThan(1);
+    expect(Number(strong.opacity)).toBe(1);
+    expect(Number(strong['stroke-width'])).toBeGreaterThanOrEqual(Number(base['stroke-width']));
+    console.log(`  引线：共用的一条粗 ${base['stroke-width']}、透明度 ${base.opacity}；他站处立出的地名的那一条粗 ${strong['stroke-width']}、透明度 ${strong.opacity}`);
   });
 });
 

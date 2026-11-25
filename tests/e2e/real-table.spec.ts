@@ -600,6 +600,25 @@ test('真的全程沙盘上，时间轴停在他站在线上、沙盘平时没�
   console.log(`真的全程沙盘上，他站在${spot[2]}：旁边的名字离他占的那一块 ${got.gap.toFixed(1)} 像素`);
   expect(got.over).toBe(false);
   expect(got.gap).toBeLessThanOrEqual(NAME_LEADER_MAX_PX);
+  // 这一条的引线比别的引线重——不透（别的引线是透的），也不比它们细：这条线短，旁边又常有别的地名点，要靠它认出这个名字是他脚下那一处的
+  const leaders = (): Promise<{ mine: { opacity: number; width: number }[]; others: { opacity: number; width: number }[] }> =>
+    page.evaluate((id) => {
+      const read = (line: Element): { opacity: number; width: number } => {
+        const style = getComputedStyle(line);
+        return { opacity: Number(style.opacity), width: parseFloat(style.strokeWidth) };
+      };
+      const drawn = [...document.querySelectorAll<SVGLineElement>('.strip-leaders line')].filter((line) => line.style.display !== 'none');
+      return { mine: drawn.filter((line) => line.getAttribute('data-strip-leader') === id).map(read), others: drawn.filter((line) => line.getAttribute('data-strip-leader') !== id).map(read) };
+    }, PIECE_NAME);
+  await expect.poll(async () => (await leaders()).mine.length, { message: '他旁边的名字要有一条画出来的引线', timeout: SECTION_MS }).toBe(1);
+  await expect
+    .poll(async () => {
+      const now = await leaders();
+      return now.others.length > 0 && now.mine.every((line) => line.opacity === 1) && now.others.every((line) => line.opacity < 1 && line.width <= now.mine[0].width);
+    })
+    .toBe(true);
+  const drawn = await leaders();
+  console.log(`真的全程沙盘上，他站在${spot[2]}：名字的引线粗 ${drawn.mine[0].width} 像素、透明度 ${drawn.mine[0].opacity}；别的 ${drawn.others.length} 条引线粗 ${[...new Set(drawn.others.map((line) => line.width))].join('、')} 像素、透明度 ${[...new Set(drawn.others.map((line) => line.opacity))].join('、')}`);
   // 别的题签一条不少：全程那一节的每一条都还在
   const route = routeOnDisk(figureId) as RouteScene;
   await expect(page.locator('.strip')).toHaveCount(route.sections[0].strips.length + 1);

@@ -11,6 +11,7 @@
 //   翻页键：往后到下一段的起头；往前先到这一段的起头，再按才到上一段的起头（“上一段”“下一段”两个按钮也一样）。
 //   播放：走到要换一节的地方先报那一节，钟停下来等沙盘栏摆好；等了 3 秒还没好，摆着的是全程、或者沙盘上本来没有小像，接着走，
 //   不然停下。读者一碰（stop）就停，停了不自己再播。
+//   播放照钟走，不照画了几帧；只有两帧之间隔得比 PLAY_GAP_MAX_MS 还久的，那一帧只算这么久——圆钮一帧跨不过一整段，每一段都显示得出来。
 // 没动过时间轴的不报：页面打开的时候同原来一模一样。
 
 import type { ItineraryBar } from '../domain/itinerary';
@@ -21,6 +22,14 @@ import { stretchIndexAt, stretchStart } from './barWhere';
 
 /** 播放的时候圆钮每秒走几个单位。 */
 export const PLAY_UNITS_A_SECOND = 1.25;
+/**
+ * 播放的时候，两帧之间隔得再久也只算这么久（毫秒）。设备画得慢、画面停住了一阵，下一帧要是照钟把这一阵全补上，圆钮一步就跨过一整段，
+ * 那一段的两行字一帧也没有显示。轴上最窄的一段是 1 个单位（barScale.ts 的 OTHER_MIN_UNITS），照每秒 1.25 个单位正好走 800 毫秒：
+ * 所以是 800 差一毫秒——隔得最久的一帧圆钮走 0.99875 个单位，比最窄的一段短，哪一段都跨不过去。
+ * 正好 800 不行：那样的一帧圆钮落在两段的交界上，落在哪一边由小数的零头定，连着几帧都迟到的时候照样会跨过一段。
+ * 两帧之间隔不到 0.8 秒的设备上，播放仍然照钟走，这个数用不上。
+ */
+export const PLAY_GAP_MAX_MS = 799;
 /** 最后一下按键以后过这么久（毫秒），算停了手。 */
 export const KEYS_REST_MS = 350;
 /** 播放到要换一节的地方，最多等沙盘栏这么久（毫秒）。 */
@@ -141,8 +150,9 @@ export function barControl(bar: ItineraryBar, sections: readonly BarSection[], s
    * 播放：从第几个单位、哪一刻播起；一路上停下来等沙盘栏一共等了多久；现在等着的那一节和从哪一刻等起（没在等是 null）；上一回报的是哪一节；
    * least 是圆钮至少在第几个单位——上一回等的地方。钟是带小数的毫秒，等完以后照钟算回来的位置会比等的地方少一丁点，
    * 那就落回上一段去了（又报一次上一节，沙盘来回换）：不许比它靠前。
+   * last 是上一帧的那一刻：这一帧同它隔得比 PLAY_GAP_MAX_MS 久的，多出来的那一截记进 held（不算走过的）。
    */
-  let play: { from: number; started: number; held: number; hold: { section: string; since: number } | null; told: string; frame: number | null; least: number } | null = null;
+  let play: { from: number; started: number; held: number; hold: { section: string; since: number } | null; told: string; frame: number | null; least: number; last: number } | null = null;
 
   /** 圆钮走出了摆着的那一节讲的年月：叫沙盘退到全程（一回只叫一次）。 */
   const backOut = (day: number): void => {
@@ -185,6 +195,9 @@ export function barControl(bar: ItineraryBar, sections: readonly BarSection[], s
     if (!play) return;
     play.frame = null;
     const now = env.now();
+    // 这一帧来得太迟：只算 PLAY_GAP_MAX_MS，多出来的不算走过的（等沙盘栏的那一阵另有 hold 记着，不在这里算）
+    if (!play.hold && now - play.last > PLAY_GAP_MAX_MS) play.held += now - play.last - PLAY_GAP_MAX_MS;
+    play.last = now;
     if (play.hold) {
       const { section, figure } = env.pane();
       if (section === play.hold.section) {
@@ -275,7 +288,7 @@ export function barControl(bar: ItineraryBar, sections: readonly BarSection[], s
       const day = store.get().day >= scale.lastDay ? 0 : store.get().day;
       const now = env.now();
       // 摆着的那一节算已经报过：这一段就该看它的，不再报
-      play = { from: unitsAt(scale, day), started: now, held: 0, hold: null, told: env.pane().section ?? '', frame: null, least: unitsAt(scale, day) };
+      play = { from: unitsAt(scale, day), started: now, held: 0, hold: null, told: env.pane().section ?? '', frame: null, least: unitsAt(scale, day), last: now };
       store.set({ day, used: true, rest: false, playing: true });
       tick();
     },

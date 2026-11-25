@@ -6,10 +6,11 @@
 import { describe, expect, it } from 'vitest';
 import type { ItineraryBar } from '../../src/domain/itinerary';
 import type { RouteScene } from '../../src/domain/scene';
-import { dayAt, unitsAt } from '../../src/timebar/barScale';
-import { BAR_KEYS, HOLD_MAX_MS, KEYS_REST_MS, KEY_STEPS, PLAY_UNITS_A_SECOND, barControl, keyStep, sectionAt, stretchStep } from '../../src/timebar/barState';
+import { OTHER_MIN_UNITS, ROAD_UNITS, STAY_MIN_UNITS, blockUnits, dayAt, unitsAt } from '../../src/timebar/barScale';
+import { BAR_KEYS, HOLD_MAX_MS, KEYS_REST_MS, KEY_STEPS, PLAY_GAP_MAX_MS, PLAY_UNITS_A_SECOND, barControl, keyStep, sectionAt, stretchStep } from '../../src/timebar/barState';
 import type { BarEnv, PaneReport } from '../../src/timebar/barState';
 import { barStore } from '../../src/timebar/barStore';
+import { stretchIndexAt } from '../../src/timebar/barWhere';
 import { readBytes } from '../support/readBytes';
 
 const readJson = <T>(path: string): T => JSON.parse(new TextDecoder().decode(readBytes(path))) as T;
@@ -76,7 +77,16 @@ function rig(options: { calm?: boolean; pane?: Partial<PaneReport>; key?: string
       }
     }
   };
-  return { store, control, pane, goals, counts, advance, pending: () => frames.size + timers.size, env };
+  /** 钟走 ms 毫秒，这一阵一帧也不画（设备画得慢、画面停住了）：只响到点的定时器。 */
+  const wait = (ms: number): void => {
+    clock += ms;
+    for (const [id, timer] of [...timers]) {
+      if (timer.at > clock + 1e-9) continue;
+      timers.delete(id);
+      timer.run();
+    }
+  };
+  return { store, control, pane, goals, counts, advance, wait, pending: () => frames.size + timers.size, env };
 }
 const units = (day: number): number => unitsAt(barControl(bar, sections, barStore(`量/${++made}`), rig().env).scale, day);
 
@@ -87,21 +97,35 @@ describe('时间轴怎么动', () => {
     expect(sectionOfStretch(0)).toBe(WHOLE);
   });
 
-  it('播放是钟的函数：每秒 1.25 个单位；设备慢只是画得少，不是走得久', () => {
+  it('播放是钟的函数：每秒 1.25 个单位，设备慢只是画得少，不是走得久；只有一样例外——两帧之间隔得比 PLAY_GAP_MAX_MS 还久的，这一帧只算 PLAY_GAP_MAX_MS，多出来的不补', () => {
     expect(PLAY_UNITS_A_SECOND).toBe(1.25);
-    const run = (frames: number): number => {
+    /** 从 STAY 这一段的起头播起，钟走 ms 毫秒、分 frames 帧画（每两帧隔得一样久）；再照 more 接着走；圆钮到了第几个单位。 */
+    const run = (ms: number, frames: number, more: [number, number][] = []): number => {
       const t = rig({ pane: { section: sectionOfStretch(STAY) } });
       t.store.set({ day: startOf(STAY) });
       t.control.play();
       expect(t.store.get().playing).toBe(true);
-      t.advance(2000, frames);
+      t.advance(ms, frames);
+      for (const [ms2, frames2] of more) t.advance(ms2, frames2);
+      expect(t.store.get().playing).toBe(true);
       return unitsAt(t.control.scale, t.store.get().day);
     };
     const from = units(startOf(STAY));
-    // 两秒：画一帧、画四十帧、画一百二十帧，圆钮都到同一个地方
-    expect(run(1)).toBeCloseTo(from + 2.5, 9);
-    expect(run(40)).toBeCloseTo(from + 2.5, 9);
-    expect(run(120)).toBeCloseTo(from + 2.5, 9);
+    /** 隔得最久的一帧，圆钮走这么多个单位。 */
+    const step = (PLAY_UNITS_A_SECOND * PLAY_GAP_MAX_MS) / 1000;
+    // 两秒：画四帧（每两帧隔半秒）、画四十帧、画一百二十帧，圆钮都到同一个地方
+    expect(run(2000, 4)).toBeCloseTo(from + 2.5, 9);
+    expect(run(2000, 40)).toBeCloseTo(from + 2.5, 9);
+    expect(run(2000, 120)).toBeCloseTo(from + 2.5, 9);
+    // 每两帧正好隔 PLAY_GAP_MAX_MS：还是照钟走
+    expect(run(2 * PLAY_GAP_MAX_MS, 2)).toBeCloseTo(from + 2 * step, 9);
+    // 两秒只画了一帧、五秒只画了一帧（画面停住了）：这一帧只算 PLAY_GAP_MAX_MS，圆钮只走了 step，不是 2.5 个、6.25 个单位
+    expect(run(2000, 1)).toBeCloseTo(from + step, 9);
+    expect(run(5000, 1)).toBeCloseTo(from + step, 9);
+    // 停住的那一帧以后接着照常画：从那里起照钟走，停住的那一阵多出来的不补回来
+    expect(run(5000, 1, [[400, 8]])).toBeCloseTo(from + step + 0.5, 9);
+    // 连着两帧都迟到：一帧算一回
+    expect(run(2000, 1, [[3000, 1]])).toBeCloseTo(from + 2 * step, 9);
   });
 
   it('从圆钮停着的地方播起；到头停下，再按从头播', () => {
@@ -578,5 +602,144 @@ describe('时间轴怎么动', () => {
     t.control.press(units(startOf(STAY)) + 0.5);
     t.control.dispose();
     expect(t.store.get().rest).toBe(true);
+  });
+});
+
+// 设备画得慢（开发的机器没有显卡，沙盘刚转回全程的那两三秒画面不动；一台被别的窗口盖住的平板也一样），两帧之间会隔上好几秒。
+// 播放要是只照钟走，这样的一帧里圆钮一步跨过一整段，那一段的两行字一帧也没有显示（“在廉州”就这样丢过）。
+// 所以两帧之间隔得再久也只算 PLAY_GAP_MAX_MS。这里拿真的行迹从出生播到去世，两帧之间隔 16 毫秒到 5 秒，沙盘栏跟得快、跟得慢、
+// 不跟，证明六十一段每一段都至少有一帧显示出来。
+describe('播放的时候，画得再慢，每一段都显示得出来', () => {
+  const scale = barControl(bar, sections, barStore(`量/${++made}`), rig().env).scale;
+  /** 真的行迹里最窄的一段在轴上占几个单位。 */
+  const narrowest = Math.min(...scale.blocks.map((block) => block.u1 - block.u0));
+  /** 沙盘栏怎么跟着换节：马上换好；过这么多毫秒换好（told：换好的时候叫不叫 paneChanged——真的页面上沙盘栏重画就叫）；一直摆着全程不换。 */
+  type Follow = { after: number; told: boolean } | 'never';
+  /** 每一帧同上一帧隔多少毫秒：n 是第几帧（从 0 数），asked 是上一帧刚向沙盘栏报了要换一节。 */
+  type Gap = (n: number, asked: boolean) => number;
+
+  /**
+   * 从出生那一天按“播放”，一直到它自己停下。返回：哪几段至少有一帧显示出来（圆钮停在那一段里）、一共画了多少帧、
+   * 圆钮一帧最多走了几个单位、停下的时候是不是在最后一天。
+   */
+  function life(gap: Gap, follow: Follow, figure = true) {
+    const t = rig({ pane: { figure } });
+    const shown = new Set<number>();
+    let before = 0;
+    let widest = 0;
+    /** 这一帧画出来了：圆钮在哪一段，就是哪一段的两行字显示出来了。 */
+    const see = (): void => {
+      const at = unitsAt(t.control.scale, t.store.get().day);
+      shown.add(stretchIndexAt(bar, t.store.get().day));
+      widest = Math.max(widest, at - before);
+      before = at;
+    };
+    let heard = 0;
+    let due: { left: number; section: string } | null = null;
+    let frames = 0;
+    t.control.play();
+    see();
+    while (t.store.get().playing && frames < 400_000) {
+      const asked = t.goals.length > heard;
+      if (asked) {
+        heard = t.goals.length;
+        if (follow !== 'never') due = { left: follow.after, section: t.goals[heard - 1] };
+      }
+      let ms = gap(frames, asked);
+      // 沙盘栏在这两帧之间换好了那一节：钟先走到那一刻（这一阵不画），栏换好，叫一下 paneChanged（或者不叫，等下一帧自己看）
+      if (due && due.left <= ms) {
+        t.wait(due.left);
+        ms -= due.left;
+        t.pane.section = due.section;
+        if (follow !== 'never' && follow.told) {
+          t.control.paneChanged();
+          see();
+        }
+        due = null;
+      } else if (due) due.left -= ms;
+      t.advance(ms);
+      frames += 1;
+      see();
+    }
+    return { shown, frames, widest, ended: !t.store.get().playing && t.store.get().day === lastDay };
+  }
+  /** 哪几段一帧也没有显示。 */
+  const missed = (shown: Set<number>): string[] => bar.stretches.filter((_, i) => !shown.has(i)).map((stretch) => `${stretch.id} ${stretch.label}`);
+  /** 一样的种子出一样的一串数（0 到 1）。 */
+  const dice = (seed: number): (() => number) => {
+    let x = seed >>> 0;
+    return () => {
+      x = (Math.imul(x, 1664525) + 1013904223) >>> 0;
+      return x / 4294967296;
+    };
+  };
+
+  it('PLAY_GAP_MAX_MS 是这样定的：隔得最久的一帧，圆钮走的比最窄的一段还短一点；再多一毫秒就不是了。一秒不行：一秒走 1.25 个单位，真的行迹里有二十来段只有 1 个单位', () => {
+    const step = (PLAY_UNITS_A_SECOND * PLAY_GAP_MAX_MS) / 1000;
+    // 真的行迹里最窄的一段就是刻度许的最窄的（1 个单位；在轴上量出来差不出小数点后九位），这样的有二十来段：
+    // 哪一位人物的行迹里也没有比它再窄的一段
+    expect(narrowest).toBeCloseTo(OTHER_MIN_UNITS, 9);
+    expect(Math.min(blockUnits('off', 0), blockUnits('quiet', 0), blockUnits('stop', 0), blockUnits('road', 0))).toBe(Math.min(OTHER_MIN_UNITS, STAY_MIN_UNITS, ROAD_UNITS));
+    expect(scale.blocks.filter((block) => block.u1 - block.u0 < OTHER_MIN_UNITS + 1e-9).length).toBeGreaterThan(20);
+    // 隔得最久的一帧走的比它短（短出来的那一点比小数的零头大得多）；多算一毫秒就同它一样长了
+    expect(step).toBeLessThan(OTHER_MIN_UNITS);
+    expect(step).toBeLessThan(narrowest - 1e-6);
+    expect((PLAY_UNITS_A_SECOND * (PLAY_GAP_MAX_MS + 1)) / 1000).toBeGreaterThanOrEqual(OTHER_MIN_UNITS);
+    // 一秒：走 1.25 个单位，比最窄的一段长
+    expect((PLAY_UNITS_A_SECOND * 1000) / 1000).toBeGreaterThan(narrowest + 1e-6);
+  });
+
+  it('真的行迹从头播到尾，两帧之间隔 16 毫秒到 5 秒（一样久的、忽长忽短的、每回换节以后停住一阵的），沙盘栏跟得快、跟得慢、不跟：六十一段每一段至少有一帧显示出来，圆钮一帧走的不超过最窄的一段', { timeout: 120_000 }, () => {
+    expect(bar.stretches.length).toBe(scale.blocks.length);
+    const follows: [string, Follow, boolean][] = [
+      ['沙盘栏马上换好', { after: 0, told: true }, true],
+      ['沙盘栏过 2.2 秒换好，换好就说', { after: 2200, told: true }, true],
+      ['沙盘栏过 2.2 秒换好，不说', { after: 2200, told: false }, true],
+      ['沙盘栏过 2.9 秒换好，换好就说', { after: 2900, told: true }, true],
+      ['沙盘栏一直摆着全程', 'never', true],
+      ['放着图片，栏马上换好', { after: 0, told: true }, false],
+      ['放着图片，栏不换', 'never', false],
+    ];
+    const gaps: [string, Gap][] = [
+      // 每两帧隔得一样久
+      ...[16, 16.7, 33.3, 50, 100, 250, 400, 640, PLAY_GAP_MAX_MS - 1, PLAY_GAP_MAX_MS, PLAY_GAP_MAX_MS + 1, 800, 801, 833.3, 1000, 1250, 1600, 2000, 2600, 3718, 5000].map((ms): [string, Gap] => [`每两帧隔 ${ms} 毫秒`, () => ms]),
+      // 平常每秒六十帧，每回向沙盘栏报了换节以后画面停住一阵（开发的机器上量到过的几个数，和 5 秒）
+      ...[2008, 2628, 2776, 3039, 3212, 3718, 5000].map((ms): [string, Gap] => [`每回换节以后停住 ${ms} 毫秒`, (_, asked) => (asked ? ms : 16.7)]),
+      // 每回换节以后连着三帧都迟到
+      ['每回换节以后连着三帧各隔 3 秒', (() => {
+        let late = 0;
+        return (_: number, asked: boolean) => {
+          if (asked) late = 3;
+          return late-- > 0 ? 3000 : 16.7;
+        };
+      })()],
+      // 忽长忽短：16 毫秒到 5 秒之间随便哪个数；多数很短、偶尔很长
+      ...[1, 2, 3, 4, 5, 6].map((seed): [string, Gap] => {
+        const roll = dice(seed);
+        return [`忽长忽短（种子 ${seed}）`, () => 16 + roll() * 4984];
+      }),
+      ...[7, 8, 9, 10, 11, 12].map((seed): [string, Gap] => {
+        const roll = dice(seed);
+        return [`多数很短、偶尔很长（种子 ${seed}）`, () => 16 + roll() ** 6 * 4984];
+      }),
+    ];
+    const bad: string[] = [];
+    let lives = 0;
+    let widest = 0;
+    for (const [how, follow, figure] of follows) {
+      for (const [name, gap] of gaps) {
+        const got = life(gap, follow, figure);
+        lives += 1;
+        widest = Math.max(widest, got.widest);
+        const lost = missed(got.shown);
+        if (lost.length > 0) bad.push(`${how}，${name}：没有显示 ${lost.join('、')}`);
+        if (!got.ended) bad.push(`${how}，${name}：没有播到最后一天（画了 ${got.frames} 帧）`);
+        if (got.widest > narrowest) bad.push(`${how}，${name}：有一帧圆钮走了 ${got.widest} 个单位，比最窄的一段（${narrowest}）还宽`);
+      }
+    }
+    expect(bad).toEqual([]);
+    expect(lives).toBe(follows.length * gaps.length);
+    // 确实有迟到的帧走满了那一步
+    expect(widest).toBeGreaterThan(((PLAY_UNITS_A_SECOND * PLAY_GAP_MAX_MS) / 1000) * 0.999);
   });
 });

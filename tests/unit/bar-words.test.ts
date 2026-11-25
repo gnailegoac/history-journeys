@@ -1,5 +1,6 @@
 // 时间轴上跟着日子变的字（src/timebar/barWords.ts）：第一行、给读屏念的那一句、栏多宽摆哪几样、地址里的开关。
 // 在 Node 里跑，照 content/ 里真的行迹（时间轴用的那一份）查；公历的日子用做行迹的工具里的那个函数换（tests/support/itineraryTool.ts）。
+// 样本是苏轼的行迹（content/figures/su-shi/itinerary.bar.json）：下面的年号、虚岁、地名都是他的，所以这一组的名字里写着他。
 
 import { describe, expect, it } from 'vitest';
 import type { ItineraryBar } from '../../src/domain/itinerary';
@@ -19,7 +20,7 @@ const day0 = dayOfIso(bar.day0) as number;
 /** 第 day 天是公历（儒略历）的哪一天，写成“年-月-日”。 */
 const dateOf = (day: number): string => isoOfDay(day0 + Math.floor(day));
 
-describe('时间轴上的字', () => {
+describe('时间轴上的字（照苏轼的行迹 su-shi/itinerary.bar.json）', () => {
   it('第一行：农历年的年名、括号里的公元年、虚岁；一岁到十岁带“岁”字，十一岁起不带', () => {
     // 数字
     expect([1, 2, 9, 10, 11, 19, 20, 21, 47, 60, 66].map(numeral)).toEqual(['一', '二', '九', '十', '十一', '十九', '二十', '二十一', '四十七', '六十', '六十六']);

@@ -44,13 +44,15 @@ npm start
 | `npm run itinerary` | 照手写的行迹（`content/figures/<人物>/itinerary.json`）做出时间轴用的那一份（`itinerary.bar.json`）。不开浏览器，一两秒。手写的那一份改了就重做，两份一起提交。 |
 | `npm run bake` | 给每座沙盘的地面上色，存成两张图和一份清单，放在 `content/figures/<人物>/baked/`。有了它，沙盘打开时不用现画地面（开发机上徐州摆好快一秒上下）。一座沙盘十几秒；地面没有变时什么也不写 |
 | `node tools/fetch-dem.mjs <输出文件，不带后缀> <西> <东> <南> <北> [每格多少米]`（在 `spikes/art-direction/` 里跑） | 取一站沙盘的地形文件：一块地方今天的高程，存成一张网格。要连外面的高程瓦片服务，所以只在添一座新沙盘时跑一次，取下来的 `.bin` 改名放进 `content/figures/<人物>/scenes/<站>.terrain.bin`，范围和行列数写进场景文件的 `terrain`。不带参数取的是徐州那一张。黄州的是：`node tools/fetch-dem.mjs out/huangzhou 114.80 114.92 30.385 30.49 60`（193 列 × 195 行，每格约 60 米） |
-| `npm run route:terrain`、`npm run route:today` | 做全程沙盘的地形文件和“今天的海岸、湖、河”（`content/figures/su-shi/scenes/route.terrain.bin`、`route.today.geojson`）。只照 `spikes/art-direction/route/data/` 里的文件做，不连外面的服务；文件没有变时什么也不写。平常用不着跑 |
-| `npm run route:map` | 画全程沙盘的检查图：从正上方看，场景文件里的每一条线、每一圈、每一条路，放在 `tests/shots/route-check/`（不进仓库）。改了 `scenes/route.json` 里的线以后跑一遍，看一眼 |
-| `npm run route:bank` | 做全程沙盘上走水路的路贴着河岸走的线：路画在河的一边，离河心几公里，河才露得出来。只把线印出来，不改文件；看过以后贴进 `scenes/route.json` 里那条路的 `line`，再跑 `npm run route:map` 看一眼。`WAY=w-min npm run route:bank` 只做一条路；每条路离河多远、在哪一边，写在 `tests/tools/route/bankTool.ts` 的 `BANKS` 里。改了河的线或者这几条路的两头以后才用得着 |
+| `npm run route:terrain`、`npm run route:today` | 做一位人物的全程沙盘的地形文件和“今天的海岸、湖、河”（`content/figures/<人物>/scenes/route.terrain.bin`、`route.today.geojson`）。只照 `tests/tools/route/figures.ts` 那张表里这位人物写的源数据做（苏轼的是 `spikes/art-direction/route/data/` 里的文件），不连外面的服务；文件没有变时什么也不写。平常用不着跑 |
+| `npm run route:map` | 画一位人物的全程沙盘的检查图：从正上方看，场景文件里的每一条线、每一圈、每一条路，放在 `tests/shots/route-check/`（不进仓库）。改了 `scenes/route.json` 里的线以后跑一遍，看一眼 |
+| `npm run route:bank` | 做全程沙盘上走水路的路贴着河岸走的线：路画在河的一边，离河心几公里，河才露得出来。只把线印出来，不改文件；看过以后贴进 `scenes/route.json` 里那条路的 `line`，再跑 `npm run route:map` 看一眼。`WAY=w-min npm run route:bank` 只做一条路；每条路离河多远、在哪一边，写在 `tests/tools/route/figures.ts` 里这位人物那一行的 `banks` 里。改了河的线或者这几条路的两头以后才用得着 |
 | `STILLS_OUT=content/figures npm run stills` | 把每座沙盘的每一小节拍成定格图，宽、窄各一张，连同一份清单，放进 `content/figures/<人物>/stills/`。一座沙盘半分钟上下；画面没有变的图片不重写 |
 | `npm run stills` | 同上一条，只是试拍：存到 `tests/shots/stills-trial/`（不进仓库），不动 `content/` |
 
-`STILLS_OUT=… npm run stills` 是 bash 的写法；PowerShell 里写 `$env:STILLS_OUT = 'content/figures'; npm run stills; Remove-Item Env:STILLS_OUT`。每次拍完，`tests/shots/stills/<人物>-<站>.html` 是给人看的一页（不进仓库，直接用浏览器打开）：每张图上用红点标着各条题签指的位置，画面变了的那几张有标记。
+四条 `route:` 的命令给哪一位人物做，用环境变量 `ROUTE_FIGURE` 说（人物的文件夹名）：`ROUTE_FIGURE=su-shi npm run route:terrain`。`tests/tools/route/figures.ts` 那张表一位人物一行，写着他的源数据在哪、岸线裁到哪个方框、源数据里哪个湖要放回原来的大小、沿河的路离河多远；地形文件的格子（多少列、多少行、四边在哪）和两个文件叫什么，工具从他的场景文件 `scenes/route.json` 里读，不另存一份。表里只有一位人物的时候（现在只有苏轼）不写 `ROUTE_FIGURE` 做的就是他；有两位以上不写，工具停下来说表里有谁。添一位人物：先有他的场景文件和源数据，再在表里添一行。一行里的方框和湖是跟着源数据走的，不是随意定的：工具不裁陆地，方框得是源数据的陆地已经裁到的那一个；源数据里写着改过的湖，每一个都要列出来——不然工具停下来说，什么也不写。一行要写全了才提交（`npm test` 对每一行都查）；来做文件的时候只查正在做的那一位，别人的一行没写全不碍事，他自己的沿河的路还没配全，工具照做、照印，末了说他那一行和场景里沿河的路对不上，以失败收场。
+
+`STILLS_OUT=… npm run stills` 是 bash 的写法（`ROUTE_FIGURE=…` 也是）；PowerShell 里写 `$env:STILLS_OUT = 'content/figures'; npm run stills; Remove-Item Env:STILLS_OUT`。每次拍完，`tests/shots/stills/<人物>-<站>.html` 是给人看的一页（不进仓库，直接用浏览器打开）：每张图上用红点标着各条题签指的位置，画面变了的那几张有标记。
 
 这两条命令都会打开一个浏览器。同一时刻只能开一个，所以不要和 `npm run test:e2e`、上面拍照的命令同时跑。先后不能反：先 `npm run bake`，再拍定格图（定格图是在先画好的地面上拍的，清单里记着用的是哪一份地面）。
 

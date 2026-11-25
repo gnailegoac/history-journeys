@@ -1,13 +1,15 @@
 // 做全程沙盘的地形文件要用的几样。用它们的是 tests/tools/route-tools.test.ts（npm run route:terrain）；只在 Node 里跑。
 //
 // 地形文件 content/figures/<人物>/scenes/route.terrain.bin 是一张经纬度的格子：
-//   570 列 × 520 行，西 100.86、东 123.62、北 38.46、南 17.70，每格 0.04 度，两头都正好落在格点上；
+//   多少列、多少行、四边在哪，照这位人物的场景文件里 terrain 那一块写的做（gridOf）；两头都正好落在格点上。
+//   苏轼的那一座是 570 列 × 520 行，西 100.86、东 123.62、北 38.46、南 17.70，每格 0.04 度；
 //   每格一个 16 位整数（低位在前），单位是米（站点沙盘的地形文件是分米，不一样）；逐行存，第 0 行最北，第 0 列最西。
 //   它同时带着“今天哪里是陆地”：不在今天陆地上的格子存 0，陆地上的格子存它的高，但最小是 1。
 //   页面不带今天的海岸线，整理地面的程序就是靠“是不是 0”分出陆地和海的。
 //
-// 高程是从样张的文件里重新取样来的（spikes/art-direction/route/data/dem.bin：圆锥投影上每格 3 公里的格子，
-// 668 × 755，整米，海面按 0）。取样要用样张的投影，所以这里有一份（lambertConic），照样张的 scene/proj.js 抄的，
+// 高程是从源数据里重新取样来的：哪一位人物的源数据在哪，写在 ./figures.ts 的那张表里。苏轼的是样张的文件
+//（spikes/art-direction/route/data/dem.bin：圆锥投影上每格 3 公里的格子，668 × 755，整米，海面按 0）。
+// 取样要用源数据的投影，所以这里有一份（lambertConic），照样张的 scene/proj.js 抄的，
 // 算式的先后一样，算出来的数也一样。不连任何外面的服务。
 
 export type LngLat = [number, number];
@@ -131,8 +133,18 @@ export interface LatLngGrid {
   south: number;
 }
 
-/** 全程沙盘的地形文件的格子。 */
-export const ROUTE_GRID: LatLngGrid = { cols: 570, rows: 520, west: 100.86, east: 123.62, north: 38.46, south: 17.7 };
+/**
+ * 一座全程沙盘的地形文件的格子：就是它的场景文件里 terrain 那一块写的六个数（cols、rows、west、east、north、south）。
+ * 格子只写在场景里一处：工具照它做，页面照它读，不在这里另存一份。
+ */
+export function gridOf(terrain: LatLngGrid): LatLngGrid {
+  const { cols, rows, west, east, north, south } = terrain;
+  const numbers = [cols, rows, west, east, north, south];
+  if (numbers.some((n) => typeof n !== 'number' || !Number.isFinite(n)) || !Number.isInteger(cols) || !Number.isInteger(rows) || cols < 2 || rows < 2 || !(east > west) || !(north > south)) {
+    throw new Error(`场景的 terrain 里写的格子不成样子：cols ${cols}、rows ${rows}、west ${west}、east ${east}、north ${north}、south ${south}`);
+  }
+  return { cols, rows, west, east, north, south };
+}
 
 /** 第 i 列的经度。两头正好是 west 和 east（不让小数的进位差出一点）。 */
 export const lngOf = (grid: LatLngGrid, i: number): number => (i === 0 ? grid.west : i === grid.cols - 1 ? grid.east : grid.west + ((grid.east - grid.west) * i) / (grid.cols - 1));

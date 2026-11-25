@@ -354,8 +354,9 @@ describe.runIf(realSceneKeys().includes(KEY))('眉州的沙盘在 view 里：摆
       return { dense: dense + (1 - share) * (1 - dense), turnDeg: b >= 45 && b <= 135 ? 90 : 0 };
     };
     const distances = [500, 2999, 3000, 6353, 12000, 20000, 25000, 30000, 36000, 90000];
+    // 只要场景文件里的河表，不算地面（添了别的人物的沙盘，每一座都算一遍地面，这一项就要好几秒）
     for (const key of realSceneKeys()) {
-      const water = realScene(key).scene.water;
+      const water = realSceneFile(key).scene.water;
       const widest = widestRiverM(water);
       expect(widest, key).toBe(Math.max(0, ...water.rivers.map((r) => r.drawWidthM)));
       // 没写门槛的沙盘抄一份写上，也比一遍

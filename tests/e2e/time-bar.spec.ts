@@ -14,13 +14,16 @@ import { keyStep, sectionAt, stretchStep } from '../../src/timebar/barState';
 import { stretchIndexAt, whereAt } from '../../src/timebar/barWhere';
 import { wordsAt, westernAt, yearRowAt } from '../../src/timebar/barWords';
 import { stopMarks } from '../../src/domain/stopMarks';
-import { namesIn, readBytes } from '../support/readBytes';
+import { readBytes } from '../support/readBytes';
 import { BAR_BAND_PX, ROUTE_HOME_PANES, ROUTE_PANES } from '../stage/support/standardPanes';
 import { fakeRequests, fakeStage, fontsReady, realUrl, routeOnDisk, sceneOnDisk, stagePane } from './helpers';
 
 const readJson = <T>(path: string): T => JSON.parse(new TextDecoder().decode(readBytes(path))) as T;
-/** 头一位有行迹的人物。 */
-const FIGURE_ID = namesIn('content/figures').find((name) => !name.includes('.') && namesIn(`content/figures/${name}`).includes('itinerary.bar.json')) as string;
+/**
+ * 这个文件查的是苏轼的时间轴：下面的年号、地名、哪一段在哪一站，都是他的行迹里的。
+ * 写着名字取，不取“文件夹排在最前面的、有行迹的那一位”（添了别的人物，排在最前面的就不一定是他）。
+ */
+const FIGURE_ID = 'su-shi';
 const bar = readJson<ItineraryBar>(`content/figures/${FIGURE_ID}/itinerary.bar.json`);
 const figure = readJson<Figure>(`content/figures/${FIGURE_ID}/figure.json`);
 const route = routeOnDisk(FIGURE_ID);

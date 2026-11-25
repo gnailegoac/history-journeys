@@ -1,4 +1,5 @@
 // 时间轴的刻度（src/timebar/barScale.ts）：哪一天落在轴的哪里。在 Node 里跑，照 content/ 里真的行迹（时间轴用的那一份）查。
+// 样本是苏轼的行迹（content/figures/su-shi/itinerary.bar.json）：下面的段数、年数、几站都是他的，所以这一组的名字里写着他。
 // 栏多宽、轴多宽是 tests/stage/support/standardPanes.ts 里量出来的那几种沙盘栏。轴画出来的那一截 = 栏里面的宽 − 左右垫的空
 //（栏够 584 像素宽的左右各 12，不到的各 10；见 src/styles/timebar.css 的 .bar）+ 能按的那一条往两边探出去的 − 两头各半个圆钮
 //（.bar-track 的 margin、.bar-axis 的 left 和 right：数从样式表里读）。
@@ -40,7 +41,7 @@ const trackOf = (pane: { window: { width: number; height: number }; size: { widt
 const PANES = [...STANDARD_PANES, ...HOME_PANES.filter((pane) => !STANDARD_PANES.includes(pane))].map((pane) => ({ name: pane.name, window: pane.window, track: trackOf(pane) }));
 const NARROWEST = Math.min(...PANES.map((pane) => pane.track));
 
-describe('时间轴的刻度', () => {
+describe('时间轴的刻度（照苏轼的行迹 su-shi/itinerary.bar.json）', () => {
   it('一趟路 5 个单位；一站住下来的年月至少 3 个；别的至少 1 个', () => {
     expect(ROAD_UNITS).toBe(5);
     expect(STAY_MIN_UNITS).toBe(3);

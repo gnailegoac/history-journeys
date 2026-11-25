@@ -2,6 +2,7 @@
 // 真的：content/ 里的全程沙盘（scenes/route.json）、手写的行迹（itinerary.json）和照它做出来的时间轴用的那一份（itinerary.bar.json）。
 // 这里只查平面上的位置（沙盘里的米）；他站多高、在画面上多大，在 tests/stage/route-view.test.ts。
 // 页面那一边“哪一天 → 哪一段 → 站在哪”的说法（src/timebar/barWhere.ts 的 whereAt）也是真的：这里拿它把每一段从头走到尾。
+// 样本是苏轼的全程沙盘和他的行迹（content/figures/su-shi/），所以两组的名字里写着他。
 
 import { describe, expect, it } from 'vitest';
 import type { Itinerary, ItineraryBar, ItineraryBarStretch } from '../../src/domain/itinerary';
@@ -34,7 +35,7 @@ function at(i: number, day: number): [number, number] | null {
   return where && pieceWhere(scene, coords, where);
 }
 
-describe('小像站在哪：路', () => {
+describe('小像站在哪：路（照苏轼的全程沙盘 su-shi/route 和他的行迹）', () => {
   it('每一段路（有几段照手写的那一份数）：各截接起来没有缺口，从头走到尾，位置一步不往回', () => {
     expect(roads.map((road) => road.stretch.id)).toEqual(itinerary.stretches.filter((stretch) => stretch.kind === 'road').map((stretch) => stretch.id));
     expect(roads.length).toBeGreaterThan(0);
@@ -156,7 +157,7 @@ describe('小像站在哪：路', () => {
   });
 });
 
-describe('小像站在哪：线上没有立名字的地方，认不得的地方，一生的每一段', () => {
+describe('小像站在哪：线上没有立名字的地方，认不得的地方，一生的每一段（照苏轼的全程沙盘 su-shi/route 和他的行迹）', () => {
   it('站在线上没有立名字的地方（哪几段照手写的那一份数）：他站的就是线上离那里最近的一点，离那个地方不到 15 公里（各处多远印出来）；同一个地方的几段是同一个位置', () => {
     const spots = bar.stretches.flatMap((stretch) => (stretch.spot ? [{ stretch, way: stretch.spot[0], lngLat: stretch.spot[1] }] : []));
     const written = itinerary.stretches.filter((stretch) => stretch.kind === 'elsewhere' && stretch.tablePoint.type === 'way-vertex');

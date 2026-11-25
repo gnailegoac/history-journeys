@@ -186,33 +186,41 @@ describe('一小节里的路排成一笔一笔（编出来的小场景）', () =
 const sceneFiles = import.meta.glob<{ level?: string }>('/content/figures/*/scenes/route.json', { import: 'default', eager: true });
 const real = Object.entries(sceneFiles).map(([path, scene]) => ({ key: path.replace('/content/figures/', '').replace('/scenes/route.json', '/route'), scene: scene as unknown as RouteScene }));
 
+/** 一座全程沙盘的路抹圆以后：抹圆了几个拐角，抹圆以后的线离写的线最远多少公里、是哪一截，写的拐点离抹圆以后的线最远多少公里、是哪一截。两头动没动在里面就查了。 */
+function roundedOff(scene: RouteScene): { corners: number; worst: { way: string; km: number }; worstCorner: { way: string; km: number } } {
+  const coords = coordsOf(scene);
+  const km = (m: number): number => (m * scene.frame.scale) / 1000;
+  let worst = { way: '', km: 0 };
+  let worstCorner = { way: '', km: 0 };
+  let corners = 0;
+  for (const way of scene.roads.ways) {
+    const written = way.line.map((p): Vec2 => coords.toLocal(p));
+    const rounded = roundedWay(scene, coords, way);
+    expect(rounded[0]).toEqual(written[0]);
+    expect(rounded[rounded.length - 1]).toEqual(written[written.length - 1]);
+    // 抹圆了的拐角：写的拐点不在抹圆以后的线上了
+    corners += written.filter((p) => !rounded.some((q) => q[0] === p[0] && q[1] === p[1])).length;
+    // 抹圆以后的线每公里取一点，量它离写的线多远
+    for (const p of densify(rounded, 1000 / scene.frame.scale)) {
+      const off = km(toLine(p, written));
+      if (off > worst.km) worst = { way: way.id, km: off };
+    }
+    for (const p of written) {
+      const off = km(toLine(p, rounded));
+      if (off > worstCorner.km) worstCorner = { way: way.id, km: off };
+    }
+  }
+  return { corners, worst, worstCorner };
+}
+
+// content/ 里有几座全程沙盘，下面这一组就查几座；一座沙盘自己的数和路名（抹圆了多少个拐角、哪一趟路在哪一节是刚走的）在后面写着它名字的那一组里。
 describe.each(real)('$key 的路画成的线', ({ key, scene }) => {
   const coords = coordsOf(scene);
   const km = (m: number): number => (m * scene.frame.scale) / 1000;
 
   it('每一截路：抹圆以后的线离写的线不超过 3 公里，两头一点不动；写的拐点离抹圆以后的线不超过切掉的一半（打印最大的）', () => {
-    let worst = { way: '', km: 0 };
-    let worstCorner = { way: '', km: 0 };
-    let corners = 0;
-    for (const way of scene.roads.ways) {
-      const written = way.line.map((p): Vec2 => coords.toLocal(p));
-      const rounded = roundedWay(scene, coords, way);
-      expect(rounded[0]).toEqual(written[0]);
-      expect(rounded[rounded.length - 1]).toEqual(written[written.length - 1]);
-      // 抹圆了的拐角：写的拐点不在抹圆以后的线上了
-      corners += written.filter((p) => !rounded.some((q) => q[0] === p[0] && q[1] === p[1])).length;
-      // 抹圆以后的线每公里取一点，量它离写的线多远
-      for (const p of densify(rounded, 1000 / scene.frame.scale)) {
-        const off = km(toLine(p, written));
-        if (off > worst.km) worst = { way: way.id, km: off };
-      }
-      for (const p of written) {
-        const off = km(toLine(p, rounded));
-        if (off > worstCorner.km) worstCorner = { way: way.id, km: off };
-      }
-    }
+    const { corners, worst, worstCorner } = roundedOff(scene);
     console.log(`${key}：${scene.roads.ways.length} 截路，抹圆了 ${corners} 个拐角；抹圆以后的线离写的线最远 ${worst.km.toFixed(2)} 公里（${worst.way}）；写的拐点离抹圆以后的线最远 ${worstCorner.km.toFixed(2)} 公里（${worstCorner.way}）`);
-    expect(corners).toBeGreaterThan(20);
     expect(worst.km).toBeLessThanOrEqual(ROUNDED_OFF_MAX_KM);
     expect(worstCorner.km).toBeLessThanOrEqual(ROAD_CORNER_KM / 2 + 1e-6);
   });
@@ -251,9 +259,21 @@ describe.each(real)('$key 的路画成的线', ({ key, scene }) => {
     for (const run of whole) for (const written of run.ways) expect(run.dotted, `全程里的 ${written}`).toBe(!waySolid(scene, written.replace(/^-/, '')));
   });
 
-  it('到徐州那一节（要是有）：到徐州的一趟是刚走的，前面四站的四趟是走过的，后面的不画', () => {
+});
+
+// ---------------------------------------------------------------- 苏轼的这一座自己的数和路名
+
+describe('su-shi/route 的路画成的线：苏轼这一座自己的数和路名', () => {
+  const found = real.find((item) => item.key === 'su-shi/route');
+  if (!found) throw new Error('content/ 里没有 su-shi/route');
+  const { scene } = found;
+
+  it('抹圆了的拐角有二十个以上', () => {
+    expect(roundedOff(scene).corners).toBeGreaterThan(20);
+  });
+
+  it('到徐州那一节：到徐州的一趟是刚走的，前面四站的四趟是走过的，后面的不画', () => {
     const index = scene.sections.findIndex((section) => section.stop === 'xuzhou');
-    if (key !== 'su-shi/route') return;
     expect(index).toBeGreaterThan(0);
     expect([...journeyStates(scene, index)]).toEqual([['j-1056', 'past'], ['j-1059', 'past'], ['j-1071', 'past'], ['j-1074', 'past'], ['j-1077', 'now']]);
     // 最后一节：两趟刚走的，别的都是走过的，一趟不少

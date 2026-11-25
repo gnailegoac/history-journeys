@@ -181,6 +181,16 @@ export async function firstStopWithScene(page: Page, figureId: string): Promise<
 }
 
 /**
+ * 首页上头一张打得开的卡片是哪一位人物，照 content/ 里的 index.json 算：打得开的里面 sortYear 最小的那一位
+ *（首页就是这样排的，见 src/domain/content.ts；openFigureWithTable、openFirstFigure 点的就是这一张）。没有打得开的是 null。
+ * 不用打开页面。要和“页面点开的是谁”说的是同一位人物的地方用它，不用“文件夹排在最前面的那一位”：两样不是一回事。
+ */
+export function firstOpenFigureOnDisk(): string | null {
+  const cards = JSON.parse(new TextDecoder().decode(readBytes('content/figures/index.json'))) as { id: string; sortYear: number; available: boolean }[];
+  return [...cards].sort((a, b) => a.sortYear - b.sortYear).find((card) => card.available)?.id ?? null;
+}
+
+/**
  * content/ 里每一座站点沙盘：哪位人物、哪一站、它的场景。照人物的文件夹名、再照 figure.json 里各站的先后。
  * 不用打开页面（测试的名字要在打开页面以前定下来）：给“每一座沙盘各在浏览器里起一遍”的测试用。
  */
@@ -200,6 +210,16 @@ export function stopsWithScenes(): { figureId: string; stopId: string; scene: St
     }
   }
   return out;
+}
+
+/**
+ * 有自己的沙盘、正文还没写的一站，给“这样的站在浏览器里是什么样”的测试用（那些测试对的都是这一站自己的场景，不是谁的数）。
+ * 眉州（su-shi/meishan）还是这样的站，就是它，写着名字取；它的正文写好以后，取别的这样的站里排在最前面的一个；一个也没有是 null。
+ * 不取“文件夹排在最前面的那一位人物的”：文件夹照名字排，添了一位人物，这些测试打开的还得是眉州。不用打开页面。
+ */
+export function leafStopWithScene(): { figureId: string; stopId: string; scene: StopScene; written: boolean } | null {
+  const leaves = stopsWithScenes().filter((one) => !one.written);
+  return leaves.find((one) => one.figureId === 'su-shi' && one.stopId === 'meishan') ?? leaves[0] ?? null;
 }
 
 /**

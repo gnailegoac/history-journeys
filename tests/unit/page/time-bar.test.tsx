@@ -4,6 +4,7 @@
 // bar-band.test.tsx 把那一段程序换成了小替身，看不到这些；这个文件不换，自己一个进程。
 //
 // 假的页面不排版：时间轴的那一条多宽由这里说（g.__bandWidth；null 是照假页面平常的 800）。
+// 页面、行迹、全程沙盘都是苏轼的（content/figures/su-shi/），所以这一组的名字里写着他。
 import { describe, expect, it, vi } from 'vitest';
 import type { Figure, RouteScene } from '../../../src/domain';
 import type { ItineraryBar } from '../../../src/domain/itinerary';
@@ -96,7 +97,7 @@ async function mount(stopId: string | null, day: number = DAY) {
   };
 }
 
-describe('时间轴真的那一段程序接在沙盘栏上', () => {
+describe('时间轴真的那一段程序接在沙盘栏上（苏轼的人物页，照他的行迹）', () => {
   it('地址里写了 ?bar=16000：时间轴的那一条有了宽，沙盘的替身才被叫去把小像摆到那一天他在的地方；那一条没有宽的时候不叫；那一条没了地方、栏拿走了，都叫它拿走', { timeout: 60_000 }, async () => {
     const where = whereAt(bar, DAY);
     // 这一天沙盘上有他（不然下面比的就是两个空的）

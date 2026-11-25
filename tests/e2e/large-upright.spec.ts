@@ -16,7 +16,7 @@ import type { Page } from '@playwright/test';
 import { bigEnoughToTry } from '../../src/stage/three/tier';
 import { STANDARD_PANES } from '../stage/support/standardPanes';
 import { fileSize } from '../support/readBytes';
-import { expectStageAt, fakeRequests, fakeStage, fakeUrl, firstStopWithScene, headingsOf, openFirstFigure, sceneOnDisk, scrollToSection, stagePane, stopsWithScenes, stripText, stripsOf } from './helpers';
+import { expectStageAt, fakeRequests, fakeStage, fakeUrl, firstStopWithScene, headingsOf, leafStopWithScene, openFirstFigure, sceneOnDisk, scrollToSection, stagePane, stripText, stripsOf } from './helpers';
 
 const env = (globalThis as { process?: { env: Record<string, string | undefined> } }).process?.env ?? {};
 
@@ -568,7 +568,7 @@ test.describe('把平板转个方向（768×1024 ⇄ 1024×768）：正文按另
     await expect(pane).toHaveAttribute('data-stage-section', headings[0]);
 
     // ---- 没有小节的页面：有沙盘、没有正文的一站，和人物页。转过去、转回来，页面什么也不带
-    const leaf = stopsWithScenes().find((stop) => !stop.written);
+    const leaf = leafStopWithScene();
     for (const [what, hash] of [
       ['有沙盘、没有正文的一站', leaf ? `#/${leaf.figureId}/${leaf.stopId}` : null],
       ['人物页', '#/su-shi'],

@@ -7,6 +7,8 @@
 //   宽度是样式里写的页面像素，减配的一档加粗一点；虚线的一划一空跟着镜头的远近，在页面上总是那么长；
 //   triangles() 报的和显出来的网格数出来的一样（一段线六个三角形）；一个画面里路最多画 14 批；
 //   换了小节才重造，同一节再叫只改虚线的长短；dispose 以后什么也不剩。
+// 分两组：content/ 里有几座全程沙盘，“每一座”那一组就查几座；一座沙盘自己的数（线上抽得到多少个点、头一节里有没有虚线）
+// 在写着它名字的那一组里（现在只有 su-shi/route）。
 
 import { describe, expect, it } from 'vitest';
 import type { Mesh } from 'three';
@@ -25,15 +27,19 @@ import { realRouteScene, realSceneKeys } from './support/realScenes';
 /** 一个画面里路最多画几批（设计上是“十四批上下”）。 */
 const ROAD_CALLS_MAX = 14;
 
-describe.each(realSceneKeys('route'))('%s 的路', (key) => {
+type Kit = ReturnType<typeof buildRouteModels>;
+const material = (line: Mesh): LineMaterial => line.material as LineMaterial;
+const hex = (colour: string): number => Number.parseInt(colour.slice(1), 16);
+const segmentsIn = (line: Mesh): number => (line.geometry as unknown as { instanceCount: number }).instanceCount;
+const lines = (kit: Kit): (Line2 | LineSegments2)[] => kit.group.children as (Line2 | LineSegments2)[];
+
+/** 一座全程沙盘的场景、样式里路的那一份，和照它造路的函数。“每一座”那一组和写着名字的那一组都从这里拿。 */
+function roadsOf(key: string) {
   const R = realRouteScene(key);
   const route = styleFor(R.scene.style).route;
   if (!route) throw new Error('样式里没有全程沙盘的那一份');
   const look = route.roads;
-  const build = (tier: StageTier = 'full') => buildRouteModels({ scene: R.scene, coords: R.coords, samplers: R.samplers, style: route, tier });
-  const lines = (kit: ReturnType<typeof build>): (Line2 | LineSegments2)[] => kit.group.children as (Line2 | LineSegments2)[];
-  const material = (line: Mesh): LineMaterial => line.material as LineMaterial;
-  const hex = (colour: string): number => Number.parseInt(colour.slice(1), 16);
+  const build = (tier: StageTier = 'full'): Kit => buildRouteModels({ scene: R.scene, coords: R.coords, samplers: R.samplers, style: route, tier });
   /** 这条线是哪一种：照颜色认（样式里四种线四个颜色）。 */
   const kindOf = (line: Mesh): RoadState | 'halo' => {
     const colour = material(line).color.getHex();
@@ -42,7 +48,35 @@ describe.each(realSceneKeys('route'))('%s 的路', (key) => {
     if (!state) throw new Error(`线的颜色 #${colour.toString(16)} 不是样式里写的哪一种`);
     return state;
   };
-  const segmentsIn = (line: Mesh): number => (line.geometry as unknown as { instanceCount: number }).instanceCount;
+  return { R, look, build, kindOf };
+}
+
+/**
+ * 头一节（全程）的线上每七个点抽一个：它比地面（海上是海面）高出样式里写的那么多。返回抽着查了几个点
+ *（查了多少个是一座沙盘自己的数：路有多长就有多少点）。
+ */
+function liftedPointsChecked(key: string): number {
+  const { R, look, build } = roadsOf(key);
+  const kit = build();
+  kit.apply(R.headings[0], 0, 60_000);
+  const sea = R.scene.water.levels.values.normal;
+  let checked = 0;
+  for (const line of lines(kit)) {
+    for (const name of ['instanceStart', 'instanceEnd']) {
+      const at = line.geometry.getAttribute(name);
+      for (let i = 0; i < at.count; i += 7) {
+        const h = R.samplers.height(at.getX(i), at.getZ(i));
+        expect(at.getY(i)).toBeCloseTo(R.coords.y(Math.max(h, sea)) + look.liftM, 2);
+        checked += 1;
+      }
+    }
+  }
+  kit.dispose();
+  return checked;
+}
+
+describe.each(realSceneKeys('route'))('%s 的路', (key) => {
+  const { R, look, build, kindOf } = roadsOf(key);
 
   it('样式里四种线的颜色各不相同（这里照颜色认线）', () => {
     const colours = [look.halo.colour, ...ROAD_STATES.map((state) => look.lines[state].colour)];
@@ -127,22 +161,8 @@ describe.each(realSceneKeys('route'))('%s 的路', (key) => {
   });
 
   it(`线上的每一点比地面（海上是海面）高出样式里写的 ${look.liftM} 米`, () => {
-    const kit = build();
-    kit.apply(R.headings[0], 0, 60_000);
-    const sea = R.scene.water.levels.values.normal;
-    let checked = 0;
-    for (const line of lines(kit)) {
-      for (const name of ['instanceStart', 'instanceEnd']) {
-        const at = line.geometry.getAttribute(name);
-        for (let i = 0; i < at.count; i += 7) {
-          const h = R.samplers.height(at.getX(i), at.getZ(i));
-          expect(at.getY(i)).toBeCloseTo(R.coords.y(Math.max(h, sea)) + look.liftM, 2);
-          checked += 1;
-        }
-      }
-    }
-    expect(checked).toBeGreaterThan(500);
-    kit.dispose();
+    // 抽着查的点一个也没有，这一项就什么也没查到；一座沙盘上抽得到多少个是它自己的数，写着名字的那一组查
+    expect(liftedPointsChecked(key)).toBeGreaterThan(0);
   });
 
   it(`宽度是样式里写的页面像素；减配的一档每一种加粗 ${look.reducedExtraPx} 像素`, () => {
@@ -166,7 +186,9 @@ describe.each(realSceneKeys('route'))('%s 的路', (key) => {
     const kit = build();
     kit.apply(R.headings[0], 0, 62_800);
     const dotted = lines(kit).filter((line) => line instanceof Line2);
-    expect(dotted.length).toBeGreaterThan(0);
+    // 头一节画出来几条虚线，就是 roadRuns 在头一节排出来几笔虚线。一笔虚线也没有的沙盘（每一截路都有出处）下面没有线可查；
+    // 这一座有没有虚线是它自己的事，写着名字的那一组查
+    expect(dotted.length).toBe(roadRuns(R.scene, R.coords, 0).filter((run) => run.dotted).length);
     for (const D of [15_000, 30_000, 62_800, 120_000]) {
       kit.apply(R.headings[0], 0, D);
       // 折算过的远近是 D 时，沙盘里的一米合多少像素：900 像素高、视角 21 度的画面上离 D 米
@@ -205,5 +227,23 @@ describe.each(realSceneKeys('route'))('%s 的路', (key) => {
     kit.dispose();
     expect(kit.group.children).toHaveLength(0);
     expect(kit.triangles()).toBe(0);
+  });
+});
+
+// ---------------------------------------------------------------- 苏轼的这一座自己的数
+
+describe('su-shi/route 的路：苏轼这一座自己的数', () => {
+  const key = 'su-shi/route';
+
+  it('头一节（全程）的线上，抽着查高度的点有五百个以上（“每一座”那一组里查的是抽到的每一个点都抬高了那么多）', () => {
+    expect(liftedPointsChecked(key)).toBeGreaterThan(500);
+  });
+
+  it('头一节（全程）里有虚线：“每一座”那一组里“虚线在页面上总是那么长”的那一项，在这一座上有线可查', () => {
+    const { R, build } = roadsOf(key);
+    const kit = build();
+    kit.apply(R.headings[0], 0, 62_800);
+    expect(lines(kit).filter((line) => line instanceof Line2).length).toBeGreaterThan(0);
+    kit.dispose();
   });
 });

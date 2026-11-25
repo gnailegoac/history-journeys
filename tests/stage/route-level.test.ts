@@ -2,12 +2,14 @@
 // 在 Node 里跑，不要浏览器。数都从真的函数、真的场景文件读，不在这里另写一份。
 //   先画好的地面怎么取：记号对得上就用；对不上照样用，在控制台里说一句；没有、取不到、大小不对就拒绝（全程沙盘不现画）。
 //   两个替身：水面的替身把“水纹怎么摆”“画布的像素比”转给地面的材质；云气的替身什么也不做；路从这一块里转出去（路自己的测试在 route-kit.test.ts）。
-//   地形板：网格的疏密照样式（完整 198 × 224，减配粗 1.07 倍）；顶点不取附近的最低值；第二张图标的是水纹，着色器换了一段。
+//   地形板：网格的疏密照样式（苏轼的那一座完整 198 × 224，减配粗 1.07 倍）；顶点不取附近的最低值；第二张图标的是水纹，着色器换了一段。
 //   站点沙盘的地形板一个字也没有变（不传那三样时）。
+// 分两组：content/ 里有几座全程沙盘，“每一座”那一组就查几座，查的是哪一座都该有的事；
+// 一座沙盘自己的数（多少格、多少点、多少个三角形）在写着它名字的那一组里（现在只有 su-shi/route）。添一位人物，不许拿他的沙盘去对苏轼的数。
 
 import { Mesh, ShaderLib, UniformsUtils, type IUniform, type Material, type Vector2 } from 'three';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
-import { routeNormals, routePictureSize } from '../../src/stage/ground/route';
+import { ROUTE_POINTS_PER_CELL, routeNormals, routePictureSize } from '../../src/stage/ground/route';
 import type { GroundPaintSource } from '../../src/stage/three/groundPaint';
 import { buildRouteModels as kitRoads } from '../../src/stage/three/routeKit';
 import { buildRouteModels, routeGroundInputs, routeGroundPaint, routeMist, routeWater } from '../../src/stage/three/routeLevel';
@@ -56,9 +58,9 @@ describe.each(keys)('%s', (key) => {
   const live = new AbortController().signal;
 
   describe('先画好的地面', () => {
-    it('图多大：地面的一格三个点（586 × 662 格是 1756 × 1984）', () => {
-      expect([R.ground.nx, R.ground.nz]).toEqual([586, 662]);
-      expect(size).toEqual({ w: 1756, h: 1984 });
+    it('图多大：地面的一格三个点，两头的格点各占一个点（这一座自己是多少格、多少点，写着名字的那一组查）', () => {
+      expect(ROUTE_POINTS_PER_CELL).toBe(3);
+      expect(size).toEqual({ w: (R.ground.nx - 1) * ROUTE_POINTS_PER_CELL + 1, h: (R.ground.nz - 1) * ROUTE_POINTS_PER_CELL + 1 });
     });
 
     it('记号、大小都对得上：用这两张图，法线照地面现算；两张图是一开始就一起取的', async () => {
@@ -100,23 +102,59 @@ describe.each(keys)('%s', (key) => {
       await expect(wrong.finish(R.scene, R.ground, terrainBytes)).rejects.toThrow(`图是 ${size.w} × ${size.h - 3}`);
     });
 
-    it('记号：改一句依据、一个镜头、一条路不变；挪一条河、改一个抹成海的圈、换地形文件的一个字节都变', () => {
+    it('记号：改一句依据、一个镜头、一条路不变；挪一条河、改一个抹成海的圈、换地形文件的一个字节都变（这一座没有自己写了线的河、没有抹成海的圈，就先给它添一条、添一圈再挪）', () => {
       const copy = (): typeof R.scene => JSON.parse(JSON.stringify(R.scene)) as typeof R.scene;
+      // 哪一座全程沙盘都有海岸、整理地形的办法、头一节和至少一截路（规矩里要的）；河、自己写了线的河、抹成海的圈，规矩不要求有
       const words = copy();
-      words.water.rivers[0].basis = '换了一句依据。';
+      words.water.coast.basis = '换了一句依据。';
+      for (const first of words.water.rivers.slice(0, 1)) first.basis = '换了一句依据。';
       words.terrain.recipe.note = '换了一句说明。';
       words.sections[0].camera.distanceM += 500;
       words.roads.ways[0].line[0] = [words.roads.ways[0].line[0][0] + 0.01, words.roads.ways[0].line[0][1]];
       expect(routeGroundInputs(words, terrainBytes)).toEqual(inputs);
 
+      // 挪一条自己写了线的河。这一座没有的（河都照今天的数据画，或者一条河也没有），添一条编的：添了，记号变；再挪它一个点，又变
+      const [lng, lat] = R.scene.frame.center;
       const river = copy();
+      let riverWas = inputs.ground;
+      if (!river.water.rivers.some((item) => item.line)) {
+        river.water.rivers.push({
+          id: 'made-up-river',
+          name: '编的一条河',
+          kind: 'river',
+          weight: 'minor',
+          line: [[lng, lat], [lng + 0.2, lat], [lng + 0.4, lat + 0.1]],
+          class: 'schematic',
+          basis: '编的。',
+          sourceIds: [],
+        });
+        riverWas = routeGroundInputs(river, terrainBytes).ground;
+        expect(riverWas, '添了一条河').not.toBe(inputs.ground);
+      }
       const written = river.water.rivers.find((item) => item.line);
-      if (!written?.line) throw new Error('场景里没有自己写了线的河');
+      if (!written?.line) throw new Error('添了也没有自己写了线的河');
       written.line[1] = [written.line[1][0] + 0.01, written.line[1][1]];
+      expect(routeGroundInputs(river, terrainBytes).ground).not.toBe(riverWas);
       expect(routeGroundInputs(river, terrainBytes).ground).not.toBe(inputs.ground);
 
+      // 改一个抹成海的圈。这一座没有的（海岸照今天的画），添一圈编的：添了，记号变；再挪它一个点，又变
       const ring = copy();
+      let ringWas = inputs.ground;
+      if (ring.terrain.edits.length === 0) {
+        ring.terrain.edits.push({
+          id: 'made-up-sea',
+          name: '编的一圈',
+          op: 'sea',
+          area: [[lng, lat], [lng + 0.3, lat], [lng + 0.3, lat + 0.3]],
+          class: 'schematic',
+          basis: '编的。',
+          sourceIds: [],
+        });
+        ringWas = routeGroundInputs(ring, terrainBytes).ground;
+        expect(ringWas, '添了一圈').not.toBe(inputs.ground);
+      }
       ring.terrain.edits[0].area[0] = [ring.terrain.edits[0].area[0][0] + 0.01, ring.terrain.edits[0].area[0][1]];
+      expect(routeGroundInputs(ring, terrainBytes).ground).not.toBe(ringWas);
       expect(routeGroundInputs(ring, terrainBytes).ground).not.toBe(inputs.ground);
 
       const bytes = terrainBytes.slice(0);
@@ -149,18 +187,16 @@ describe.each(keys)('%s', (key) => {
       });
     const triangles = (mesh: Mesh): number => (mesh.geometry.getIndex()?.count ?? 0) / 3;
 
-    it('网格：完整的一档 198 × 224，减配的一档 185 × 210；减配的三角形少，可少得不到两成', { timeout: 30_000 }, () => {
+    it('网格：两档各照样式里写的疏密分格，上表面一格两个三角形，四边一段四个；减配的三角形少，可少得不到两成（这一座自己分成多少格，写着名字的那一组查）', { timeout: 30_000 }, () => {
       const full = terrainGrid(R.coords, route.segmentM);
       const reduced = terrainGrid(R.coords, route.segmentM * route.reducedSegmentTimes);
-      expect(full).toEqual({ sx: 198, sz: 224 });
-      expect(reduced).toEqual({ sx: 185, sz: 210 });
       const a = build('full');
       const b = build('reduced');
       const top = [triangles(a.top), triangles(b.top)];
       const sides = [triangles(a.sides), triangles(b.sides)];
-      expect(top).toEqual([198 * 224 * 2, 185 * 210 * 2]);
-      expect(sides).toEqual([(198 + 224) * 4, (185 + 210) * 4]);
-      console.log(`[全程沙盘的地形板] 完整 ${top[0] + sides[0]} 个三角形（上表面 ${top[0]}，四边 ${sides[0]}）；减配 ${top[1] + sides[1]} 个`);
+      expect(top).toEqual([full.sx * full.sz * 2, reduced.sx * reduced.sz * 2]);
+      expect(sides).toEqual([(full.sx + full.sz) * 4, (reduced.sx + reduced.sz) * 4]);
+      console.log(`[全程沙盘的地形板] ${key}：完整 ${full.sx} × ${full.sz} 格，${top[0] + sides[0]} 个三角形（上表面 ${top[0]}，四边 ${sides[0]}）；减配 ${reduced.sx} × ${reduced.sz} 格，${top[1] + sides[1]} 个`);
       expect(top[1]).toBeLessThan(top[0]);
       expect(top[1] / top[0]).toBeGreaterThan(0.8);
       a.dispose();
@@ -183,9 +219,9 @@ describe.each(keys)('%s', (key) => {
       expect(exact).toBeLessThanOrEqual(ground + 1e-6);
       expect(exact).toBeGreaterThan(ground * 0.9);
       expect(topOf(lowered.top)).toBeLessThan(exact);
-      // 每个顶点的高就是 coords.y(那一点的海拔)
+      // 每个顶点的高就是 coords.y(那一点的海拔)。抽四个顶点查；网格小、没有那么多顶点的沙盘上，没有的那一个不查
       const pos = here.top.geometry.getAttribute('position');
-      for (const i of [0, 1234, 20_000, pos.count - 1]) {
+      for (const i of [0, 1234, 20_000, pos.count - 1].filter((index) => index < pos.count)) {
         expect(pos.getY(i)).toBeCloseTo(R.coords.y(R.samplers.height(pos.getX(i), pos.getZ(i))), 3);
       }
       here.dispose();
@@ -238,9 +274,63 @@ describe.each(keys)('%s', (key) => {
   });
 });
 
+// ---------------------------------------------------------------- 苏轼的这一座自己的数
+
+describe('su-shi/route：苏轼这一座自己的数', () => {
+  const R = realRouteScene('su-shi/route');
+  const route = styleFor(R.scene.style).route;
+  if (!route) throw new Error('样式里没有全程沙盘的那一份');
+  const triangles = (mesh: Mesh): number => (mesh.geometry.getIndex()?.count ?? 0) / 3;
+  const build = (tier: 'full' | 'reduced') =>
+    buildTerrainMesh({
+      samplers: R.samplers,
+      paint: { kind: 'live', colour: new Uint8Array(4), w: 1, h: 1, normals: new Uint8Array(R.ground.nx * R.ground.nz * 4) },
+      nx: R.ground.nx,
+      nz: R.ground.nz,
+      coords: R.coords,
+      style: styleFor(R.scene.style),
+      maxAnisotropy: 8,
+      marks: 'ripples',
+      underWater: false,
+      segmentM: route.segmentM * (tier === 'reduced' ? route.reducedSegmentTimes : 1),
+      ripplePx: route.ripplePx,
+    });
+
+  it('先画好的地面图多大：586 × 662 格是 1756 × 1984', () => {
+    expect([R.ground.nx, R.ground.nz]).toEqual([586, 662]);
+    expect(routePictureSize(R.ground)).toEqual({ w: 1756, h: 1984 });
+  });
+
+  it('二十一条河里十条是自己写了线的，抹成海的圈有六个：“每一座”那一组里挪一条河、改一个圈的那一项，在这一座上挪的是他自己的河、他自己的圈，不是添进去的', () => {
+    expect(R.scene.water.rivers).toHaveLength(21);
+    expect(R.scene.water.rivers.filter((river) => river.line)).toHaveLength(10);
+    expect(R.scene.terrain.edits).toHaveLength(6);
+    // 那一项头一步改的是头一条河的依据、挪的是头一条自己写了线的河的第二个点、改的是头一个圈的第一个点：这三样他都有
+    expect(R.scene.water.rivers[0].basis.length).toBeGreaterThan(0);
+    expect(R.scene.water.rivers.find((river) => river.line)?.line?.length).toBeGreaterThanOrEqual(2);
+    expect(R.scene.terrain.edits[0].area.length).toBeGreaterThanOrEqual(3);
+  });
+
+  it('地形板的网格：完整的一档 198 × 224，减配的一档 185 × 210；三角形数是照这两个数算的', { timeout: 30_000 }, () => {
+    const full = terrainGrid(R.coords, route.segmentM);
+    const reduced = terrainGrid(R.coords, route.segmentM * route.reducedSegmentTimes);
+    expect(full).toEqual({ sx: 198, sz: 224 });
+    expect(reduced).toEqual({ sx: 185, sz: 210 });
+    const a = build('full');
+    const b = build('reduced');
+    expect([triangles(a.top), triangles(b.top)]).toEqual([198 * 224 * 2, 185 * 210 * 2]);
+    expect([triangles(a.sides), triangles(b.sides)]).toEqual([(198 + 224) * 4, (185 + 210) * 4]);
+    // 抽查顶点的那一项（上面“每一座”那一组里）在这一座上四个顶点都查得到
+    expect(a.top.geometry.getAttribute('position').count).toBeGreaterThan(20_000);
+    a.dispose();
+    b.dispose();
+  });
+});
+
 describe('站点沙盘的地形板没有变', () => {
+  // 拿黄州的沙盘查（写着名字取，不取“排在最前面的那一座”）：查的是地形板这段程序，哪一座站点沙盘都一样
   it('不传那三样：第二张图还是田，着色器里没有水纹；网格还是 59 米一格', { timeout: 60_000 }, () => {
-    const stop = realScene(realSceneKeys()[0]);
+    const stop = realScene('su-shi/huangzhou');
     const { ground, samplers, coords, scene } = stop;
     const paint: GroundPaintSource = { kind: 'live', colour: new Uint8Array(4), w: 1, h: 1, normals: new Uint8Array(ground.nx * ground.nz * 4) };
     const mesh = buildTerrainMesh({ samplers, paint, nx: ground.nx, nz: ground.nz, coords, style: styleFor(scene.style), maxAnisotropy: 8 });

@@ -10,9 +10,10 @@ import { DIVE_AIM_SHARE, DIVE_DISTANCE_M, diveEnd, divePath } from '../../src/st
 import { Sequencer, mixState, type TableState } from '../../src/stage/three/sequencer';
 import { styleFor } from '../../src/stage/three/style';
 import type { Vec3 } from '../../src/stage/ground/types';
-import { realRouteScene, realSceneKeys } from './support/realScenes';
+import { realRouteScene } from './support/realScenes';
 
-const KEY = realSceneKeys('route')[0];
+/** 查的是苏轼的全程沙盘（潜的是他有自己的沙盘的那几站）。写着名字取，不取“排在最前面的那一座”。 */
+const KEY = 'su-shi/route';
 const FIGURE = KEY.split('/')[0];
 const R = realRouteScene(KEY);
 const style = styleFor(R.scene.style);

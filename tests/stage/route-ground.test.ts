@@ -1,5 +1,8 @@
 // 全程沙盘的地面（src/stage/ground/route.ts）照真的场景文件和地形文件做出来对不对。
-// 在 Node 里跑，不要浏览器。content/ 里有几座全程沙盘就查几座（现在只有苏轼的）。
+// 在 Node 里跑，不要浏览器。分两组：
+//   “每一座”那一组：content/ 里有几座全程沙盘就查几座，查的是哪一座都该有的事（海是 0，四边收到零，抹成海的圈真的抹掉了陆地，山没有动……）；
+//   “su-shi/route”那一组：苏轼这一座自己的数和地名（四个角、586 × 662、海岸的对照点、六处湖和河道、西边打散的边……）。
+// 添一位人物，他的沙盘只进头一组；他自己的数另写一组、写上他的名字，不拿他的沙盘去对苏轼的数。
 //
 // 查的是 docs/data-spec.md“全程沙盘的场景数据”里说到地面的那几句：范围和网格；海是 0；抹成海的每一圈都真的抹掉了陆地，
 // 该留的地方留着、该抹的地方抹了；平原抹过以后六处台阶不到 3 米，山没有动；“矮山多夸”的曲线；highTimes 和做出来的地面对得上；
@@ -136,23 +139,149 @@ function stages(R: RealRouteScene): { before: RouteHeights; after: Float32Array;
   return made;
 }
 
+/** 海有多少格、离陆地两格以外的海有多少格、其中海拔或者高度不是 0 的有多少格。 */
+function seaCounts(R: RealRouteScene): { sea: number; far: number; nonZero: number } {
+  const { nx, nz, land, h, y } = R.ground;
+  let sea = 0;
+  let far = 0;
+  let nonZero = 0;
+  for (let j = 0; j < nz; j++) {
+    for (let i = 0; i < nx; i++) {
+      const k = j * nx + i;
+      if (land[k]) continue;
+      sea++;
+      let near = false;
+      for (let dj = -2; dj <= 2 && !near; dj++) {
+        for (let di = -2; di <= 2 && !near; di++) {
+          const jj = j + dj;
+          const ii = i + di;
+          if (jj >= 0 && jj < nz && ii >= 0 && ii < nx && land[jj * nx + ii]) near = true;
+        }
+      }
+      if (near) continue;
+      far++;
+      if (h[k] !== 0 || y[k] !== 0) nonZero++;
+    }
+  }
+  return { sea, far, nonZero };
+}
+
+/** 最外面一圈格子：平原抹平以前是陆地的有多少格、海拔不是 0 的有多少格；抹平以后又高出 0 的有多少格、一共多高、最高多少。 */
+function edgeCounts(R: RealRouteScene): { landOnEdge: number; notZero: number; lifted: number; highest: number; sum: number } {
+  const { before } = stages(R);
+  const { nx, nz, h, land } = R.ground;
+  const found = { landOnEdge: 0, notZero: 0, lifted: 0, highest: 0, sum: 0 };
+  const check = (k: number): void => {
+    if (before.land[k]) found.landOnEdge++;
+    if (before.h[k] !== 0) found.notZero++;
+    if (land[k] && h[k] > 0) {
+      found.lifted++;
+      found.sum += h[k];
+      found.highest = Math.max(found.highest, h[k]);
+    }
+  };
+  for (let i = 0; i < nx; i++) {
+    check(i);
+    check((nz - 1) * nx + i);
+  }
+  for (let j = 1; j < nz - 1; j++) {
+    check(j * nx);
+    check(j * nx + nx - 1);
+  }
+  return found;
+}
+
+/**
+ * 平原抹过以后，各样格子动了多少：海拔 highM 米以上的、midM 到 highM 米的、海。
+ * 两个数由叫它的人给：哪两个数有意思是一座沙盘自己的事（苏轼的是 100 和 300），这里不替谁定。
+ */
+function movedBySmoothing(R: RealRouteScene, midM: number, highM: number): { high: number; highMoved: number; mid: number; midSum: number; midMax: number; seaMoved: number } {
+  const { before, after } = stages(R);
+  const found = { high: 0, highMoved: 0, mid: 0, midSum: 0, midMax: 0, seaMoved: 0 };
+  for (let k = 0; k < after.length; k++) {
+    const d = Math.abs(after[k] - before.h[k]);
+    if (!before.land[k]) {
+      if (d !== 0) found.seaMoved++;
+      continue;
+    }
+    if (before.h[k] > highM) {
+      found.high++;
+      found.highMoved = Math.max(found.highMoved, d);
+    } else if (before.h[k] > midM) {
+      found.mid++;
+      found.midSum += d;
+      found.midMax = Math.max(found.midMax, d);
+    }
+  }
+  return found;
+}
+
+/**
+ * 平原抹过以后，照这一座沙盘自己写的办法分：算山地的格子（四周约 20 公里的平均海拔高过 recipe.hillAboveM，算平原的分量正好是 0）
+ * 有多少、动得最多的动了多少米；海动了的有几格；海上算平原的分量不是 0 的有几格。
+ * 另数两个只印不查的数：自己的海拔高过 hillAboveM 的陆地有多少格、其中动了的有几格（四周低的孤山算不算山地，看的是四周，不是它自己）。
+ */
+function mountainsAndSea(R: RealRouteScene): { mountain: number; mountainMoved: number; seaMoved: number; seaInPlain: number; above: number; aboveMoved: number } {
+  const { before, after } = stages(R);
+  const { nx, nz } = before.grid;
+  const recipe = R.scene.terrain.recipe;
+  const { k: plainShare } = plainSlope(before.h, before.land, recipe, nx, nz, before.grid.cell * R.scene.frame.scale);
+  const found = { mountain: 0, mountainMoved: 0, seaMoved: 0, seaInPlain: 0, above: 0, aboveMoved: 0 };
+  for (let k = 0; k < after.length; k++) {
+    const d = Math.abs(after[k] - before.h[k]);
+    if (!before.land[k]) {
+      if (d !== 0) found.seaMoved++;
+      if (plainShare[k] !== 0) found.seaInPlain++;
+      continue;
+    }
+    if (plainShare[k] === 0) {
+      found.mountain++;
+      found.mountainMoved = Math.max(found.mountainMoved, d);
+    }
+    if (before.h[k] > recipe.hillAboveM) {
+      found.above++;
+      if (d !== 0) found.aboveMoved++;
+    }
+  }
+  return found;
+}
+
+/** 留白：压到底的陆地有多少格、它们的坡加起来多少度；一点没有压的有多少格。 */
+function blankCounts(R: RealRouteScene): { blank: number; sum: number; open: number } {
+  const { keep } = stages(R);
+  const { nx, nz, cell, y, land } = R.ground;
+  let blank = 0;
+  let sum = 0;
+  let open = 0;
+  for (let j = 1; j < nz - 1; j++) {
+    for (let i = 1; i < nx - 1; i++) {
+      const k = j * nx + i;
+      if (keep[k] === 1) open++;
+      if (!land[k] || keep[k] > BLANK_KEEP + 1e-6) continue;
+      blank++;
+      const gx = (y[k + 1] - y[k - 1]) / (2 * cell);
+      const gz = (y[k + nx] - y[k - nx]) / (2 * cell);
+      sum += (Math.atan(Math.hypot(gx, gz)) * 180) / Math.PI;
+    }
+  }
+  return { blank, sum, open };
+}
+
+// ---------------------------------------------------------------- 每一座全程沙盘
+
 describe.each(realSceneKeys('route'))('%s 的地面', (key) => {
   // 第一次要算整张地面（三十几万格，几遍抹平）：这台机器上一秒上下，流水线的机器慢一倍，给足时间
-  it('范围和网格：四个角和定稿的样张对得上（差不到 0.01 度）；网格是 586 × 662，一格在地上是 3.42 公里', { timeout: 60_000 }, () => {
+  it('网格：海拔、沙盘里的高度、陆地各一张，都是 nx × nz 格（这一座的范围和格数，写着名字的那一组查）', { timeout: 60_000 }, () => {
     const t0 = Date.now();
     const R = realRouteScene(key);
     console.log(`${key}：地面算了 ${Date.now() - t0} 毫秒`);
-    const { x0, x1, z0, z1 } = R.coords;
-    const corners = [R.coords.toLngLat(x0, z0), R.coords.toLngLat(x1, z0), R.coords.toLngLat(x0, z1), R.coords.toLngLat(x1, z1)];
-    corners.forEach((corner, i) => {
-      expect(Math.abs(corner[0] - TRIAL_CORNERS[i][0]), `第 ${i + 1} 个角的经度 ${corner[0]}`).toBeLessThan(0.01);
-      expect(Math.abs(corner[1] - TRIAL_CORNERS[i][1]), `第 ${i + 1} 个角的纬度 ${corner[1]}`).toBeLessThan(0.01);
-    });
-    expect([R.ground.nx, R.ground.nz]).toEqual([586, 662]);
-    expect((R.ground.cell * R.scene.frame.scale) / 1000).toBeCloseTo(3.42, 6);
-    expect(R.ground.h.length).toBe(586 * 662);
-    expect(R.ground.y.length).toBe(586 * 662);
-    expect(R.ground.land.length).toBe(586 * 662);
+    const { nx, nz } = R.ground;
+    console.log(`${key}：网格 ${nx} × ${nz}，一格在地上是 ${((R.ground.cell * R.scene.frame.scale) / 1000).toFixed(2)} 公里`);
+    expect(nx).toBeGreaterThan(1);
+    expect(nz).toBeGreaterThan(1);
+    expect(R.ground.h.length).toBe(nx * nz);
+    expect(R.ground.y.length).toBe(nx * nz);
+    expect(R.ground.land.length).toBe(nx * nz);
   });
 
   it('同样的输入每次算出一样的地面；海拔、高度都是数，没有负的', { timeout: 60_000 }, () => {
@@ -164,34 +293,11 @@ describe.each(realSceneKeys('route'))('%s 的地面', (key) => {
     }
   });
 
-  it('海：离陆地两格以外的海，海拔和沙盘里的高度正好是 0；陆地和海都有', () => {
+  it('海：离陆地两格以外的海，海拔和沙盘里的高度正好是 0（这一座有多少陆地、多少海，写着名字的那一组查）', () => {
     const R = realRouteScene(key);
-    const { nx, nz, land, h, y } = R.ground;
-    let sea = 0;
-    let far = 0;
-    let nonZero = 0;
-    for (let j = 0; j < nz; j++) {
-      for (let i = 0; i < nx; i++) {
-        const k = j * nx + i;
-        if (land[k]) continue;
-        sea++;
-        let near = false;
-        for (let dj = -2; dj <= 2 && !near; dj++) {
-          for (let di = -2; di <= 2 && !near; di++) {
-            const jj = j + dj;
-            const ii = i + di;
-            if (jj >= 0 && jj < nz && ii >= 0 && ii < nx && land[jj * nx + ii]) near = true;
-          }
-        }
-        if (near) continue;
-        far++;
-        if (h[k] !== 0 || y[k] !== 0) nonZero++;
-      }
-    }
+    const { nx, nz } = R.ground;
+    const { sea, far, nonZero } = seaCounts(R);
     console.log(`${key}：陆地 ${nx * nz - sea} 格，海 ${sea} 格（离陆地两格以外的 ${far} 格）`);
-    expect(sea).toBeGreaterThan(50_000);
-    expect(nx * nz - sea).toBeGreaterThan(200_000);
-    expect(far).toBeGreaterThan(40_000);
     expect(nonZero).toBe(0);
   });
 
@@ -238,37 +344,14 @@ describe.each(realSceneKeys('route'))('%s 的地面', (key) => {
 
   it('沙盘四边：往里 6 公里以内收到零——平原抹平以前，最外面一圈格子海拔正好是 0，陆地也一样（抹平以后边上又高出多少，打印出来）', () => {
     const R = realRouteScene(key);
-    const { before } = stages(R);
-    const { nx, nz, h, land } = R.ground;
-    let landOnEdge = 0;
-    let notZero = 0;
-    let lifted = 0;
-    let highest = 0;
-    let sum = 0;
-    const check = (k: number): void => {
-      if (before.land[k]) landOnEdge++;
-      if (before.h[k] !== 0) notZero++;
-      if (land[k] && h[k] > 0) {
-        lifted++;
-        sum += h[k];
-        highest = Math.max(highest, h[k]);
-      }
-    };
-    for (let i = 0; i < nx; i++) {
-      check(i);
-      check((nz - 1) * nx + i);
-    }
-    for (let j = 1; j < nz - 1; j++) {
-      check(j * nx);
-      check(j * nx + nx - 1);
-    }
+    const { nx, nz } = R.ground;
+    const { landOnEdge, notZero, lifted, highest, sum } = edgeCounts(R);
     // 做出来的地面上，边上的平原又被“平原抹成缓坡”那一步往缓坡上拉回去了一些：这是照设计的先后（先收边，后抹平）做出来的结果，量给人看
     console.log(`${key}：最外面一圈 ${2 * (nx + nz) - 4} 格里陆地 ${landOnEdge} 格；平原抹平以前海拔都是 0；抹平以后 ${lifted} 格高出 0，平均 ${(sum / Math.max(1, lifted)).toFixed(1)} 米，最高 ${highest.toFixed(1)} 米`);
-    expect(landOnEdge).toBeGreaterThan(500);
     expect(notZero).toBe(0);
   });
 
-  it('抹成海的每一圈都抹掉了今天的陆地；该留的二十三处留着，该抹的十四处抹了', () => {
+  it('抹成海的每一圈都抹掉了今天的陆地（哪些地方该留、哪些该抹的对照点，写着名字的那一组查）', () => {
     const R = realRouteScene(key);
     const { before } = stages(R);
     const untouched = routeHeights({ ...R.scene, terrain: { ...R.scene.terrain, edits: [] } }, R.dem, R.coords);
@@ -282,7 +365,105 @@ describe.each(realSceneKeys('route'))('%s 的地面', (key) => {
       lines.push(`  ${edit.name}（${edit.id}）：抹掉今天的陆地 ${taken} 格，约 ${Math.round(taken * cellKm2)} 平方公里`);
       expect(taken, `${edit.id} 一格陆地也没有抹掉`).toBeGreaterThan(0);
     }
-    console.log(`${key} 抹成海的六圈：\n${lines.join('\n')}`);
+    console.log(`${key} 抹成海的 ${R.scene.terrain.edits.length} 圈：\n${lines.join('\n')}`);
+  });
+
+  it('平原抹过以后：算山地的地方（四周约 20 公里的平均海拔高过场景里写的 hillAboveM）一米也没有动；海没有动；海不算平原（这一座多高以上的山有多少格、平原上抹掉了多少台阶，写着名字的那一组查）', () => {
+    const R = realRouteScene(key);
+    const recipe = R.scene.terrain.recipe;
+    // 从多高起算山地，照这一座沙盘自己的 recipe 读，不在这里写一个数：平原高的地方（plainBelowM、hillAboveM 写得高）三四百米的台地也算平原，是要抹的
+    const { mountain, mountainMoved, seaMoved, seaInPlain, above, aboveMoved } = mountainsAndSea(R);
+    console.log(
+      `${key}：算平原的是四周平均海拔 ${recipe.plainBelowM} 米以下，算山地的是 ${recipe.hillAboveM} 米以上；算山地的 ${mountain} 格，动得最多的 ${mountainMoved.toFixed(2)} 米；` +
+        `自己的海拔高过 ${recipe.hillAboveM} 米的陆地 ${above} 格，其中动了的 ${aboveMoved} 格（只印不查）`,
+    );
+    expect(mountainMoved).toBe(0);
+    expect(seaMoved).toBe(0);
+    // 海不算平原：算平原的分量在海上是 0（不然海把岸边平原的缓坡往下拉）
+    expect(seaInPlain).toBe(0);
+  });
+
+  it('“矮山多夸”的曲线：300 米是 7500，接得上，倒得回去；做出来的地面上最高的山夸大的倍数正好是 highTimes', () => {
+    const R = realRouteScene(key);
+    const relief = R.scene.frame.relief;
+    expect(curve(relief, relief.lowBelowM)).toBeCloseTo(relief.lowBelowM * relief.lowTimes, 9);
+    expect(curve({ ...relief, lowBelowM: 300, lowTimes: 25 }, 300)).toBe(7500);
+    expect(curve(relief, relief.lowBelowM + 1e-6) - curve(relief, relief.lowBelowM - 1e-6)).toBeLessThan(1e-3);
+    for (const m of [0, 1, 50, 299, 300, 301, 1000, 3000, 5000]) expect(curveInverse(relief, curve(relief, m))).toBeCloseTo(m, 6);
+
+    let top = 0;
+    let at = 0;
+    for (let k = 0; k < R.ground.h.length; k++) {
+      if (R.ground.h[k] > top) {
+        top = R.ground.h[k];
+        at = k;
+      }
+    }
+    const { before } = stages(R);
+    const times = curve(relief, top) / top;
+    console.log(`${key}：做出来的地面上最高 ${top.toFixed(0)} 米（东经 ${before.lngLat[at * 2].toFixed(2)} 度、北纬 ${before.lngLat[at * 2 + 1].toFixed(2)} 度），夸大 ${times.toFixed(2)} 倍；场景里写的 highTimes 是 ${relief.highTimes}`);
+    expect(Math.round(times)).toBe(relief.highTimes);
+    // 沙盘里的高度就是曲线除以比例（留白的地方另压过）
+    expect(R.ground.y[at]).toBeCloseTo(curve(relief, top) / R.scene.frame.scale, 3);
+  });
+
+  it('留白的地方是平的：陆地上的坡平均不到 0.6 度（没有留白的沙盘不查这一句）；地名点都不在留白里，地势一点没有压', () => {
+    const R = realRouteScene(key);
+    const { keep } = stages(R);
+    const { blank, sum, open } = blankCounts(R);
+    console.log(`${key}：留白的陆地 ${blank} 格，坡平均 ${(sum / Math.max(1, blank)).toFixed(3)} 度；一点没有压的 ${open} 格`);
+    if (blank > 0) expect(sum / blank).toBeLessThan(0.6);
+    // 各站都不在留白里；别的地名点也一样，地势一点没有压
+    for (const place of R.scene.places.filter((p) => p.stops)) expect(keep[cellOf(R, place.at)], place.name).toBe(1);
+    for (const place of R.scene.places) expect(keep[cellOf(R, place.at)], place.name).toBe(1);
+  });
+
+  it('法线图：每格四个字节，平地朝上，没有倒过来的', () => {
+    const R = realRouteScene(key);
+    const normals = routeNormals(R.ground);
+    expect(normals.length).toBe(R.ground.nx * R.ground.nz * 4);
+    let down = 0;
+    for (let k = 0; k < normals.length; k += 4) if (normals[k + 1] < 128) down++;
+    expect(down).toBe(0);
+  });
+});
+
+// ---------------------------------------------------------------- 苏轼的这一座自己的数和地名
+
+describe('su-shi/route 的地面：苏轼这一座自己的数和地名', () => {
+  const key = 'su-shi/route';
+
+  it('范围和网格：四个角和定稿的样张对得上（差不到 0.01 度）；网格是 586 × 662，一格在地上是 3.42 公里', { timeout: 60_000 }, () => {
+    const R = realRouteScene(key);
+    const { x0, x1, z0, z1 } = R.coords;
+    const corners = [R.coords.toLngLat(x0, z0), R.coords.toLngLat(x1, z0), R.coords.toLngLat(x0, z1), R.coords.toLngLat(x1, z1)];
+    corners.forEach((corner, i) => {
+      expect(Math.abs(corner[0] - TRIAL_CORNERS[i][0]), `第 ${i + 1} 个角的经度 ${corner[0]}`).toBeLessThan(0.01);
+      expect(Math.abs(corner[1] - TRIAL_CORNERS[i][1]), `第 ${i + 1} 个角的纬度 ${corner[1]}`).toBeLessThan(0.01);
+    });
+    expect([R.ground.nx, R.ground.nz]).toEqual([586, 662]);
+    expect((R.ground.cell * R.scene.frame.scale) / 1000).toBeCloseTo(3.42, 6);
+    expect(R.ground.h.length).toBe(586 * 662);
+    expect(R.ground.y.length).toBe(586 * 662);
+    expect(R.ground.land.length).toBe(586 * 662);
+  });
+
+  it('海：陆地和海都有——海五万格以上，陆地二十万格以上，离陆地两格以外的海四万格以上', { timeout: 60_000 }, () => {
+    const R = realRouteScene(key);
+    const { nx, nz } = R.ground;
+    const { sea, far } = seaCounts(R);
+    expect(sea).toBeGreaterThan(50_000);
+    expect(nx * nz - sea).toBeGreaterThan(200_000);
+    expect(far).toBeGreaterThan(40_000);
+  });
+
+  it('沙盘四边：最外面一圈格子里，平原抹平以前是陆地的有五百格以上（收到零的那一步在这一座上真的管着陆地）', { timeout: 60_000 }, () => {
+    const R = realRouteScene(key);
+    expect(edgeCounts(R).landOnEdge).toBeGreaterThan(500);
+  });
+
+  it('抹成海的圈：该留的二十三处留着，该抹的十四处抹了', { timeout: 60_000 }, () => {
+    const R = realRouteScene(key);
 
     const wrong: string[] = [];
     for (const [name, p] of Object.entries(STAYS_LAND)) {
@@ -327,31 +508,12 @@ describe.each(realSceneKeys('route'))('%s 的地面', (key) => {
     expect(steep).toEqual([]);
   });
 
-  it('平原抹过以后：海拔 300 米以上的山一米也没有动；海没有动；打印 100 到 300 米之间动了多少、平原上还剩多少处台阶', () => {
+  it('平原抹过以后：海拔 300 米以上的山有五万格以上，一米也没有动；华北、黄淮、苏北的平地上和邻格差 3 米以上的比抹以前少；打印 100 到 300 米之间动了多少、平原上还剩多少处台阶', () => {
     const R = realRouteScene(key);
     const { before, after } = stages(R);
     const { nx, nz } = before.grid;
-    let high = 0;
-    let highMoved = 0;
-    let mid = 0;
-    let midSum = 0;
-    let midMax = 0;
-    let seaMoved = 0;
-    for (let k = 0; k < after.length; k++) {
-      const d = Math.abs(after[k] - before.h[k]);
-      if (!before.land[k]) {
-        if (d !== 0) seaMoved++;
-        continue;
-      }
-      if (before.h[k] > 300) {
-        high++;
-        highMoved = Math.max(highMoved, d);
-      } else if (before.h[k] > 100) {
-        mid++;
-        midSum += d;
-        midMax = Math.max(midMax, d);
-      }
-    }
+    // 100 米、300 米是苏轼这一座的数（他的 recipe：四周平均 100 米以下算平原，200 米以上算山地）
+    const { high, highMoved, mid, midSum, midMax } = movedBySmoothing(R, 100, 300);
     // 平原上的台阶：华北、黄淮、苏北（东经 113 到 122 度，北纬 32 到 39 度）里海拔不到 60 米、四邻没有高过 80 米的、也不挨着海的格子，
     // 和东边、南边的邻格差 3 米以上的有几格
     const { slope } = plainSlope(before.h, before.land, R.scene.terrain.recipe, nx, nz, before.grid.cell * R.scene.frame.scale);
@@ -394,66 +556,19 @@ describe.each(realSceneKeys('route'))('%s 的地面', (key) => {
       ].join('\n'),
     );
     expect(high).toBeGreaterThan(50_000);
+    // 300 米以上的山一米也没有动。“每一座”那一组查的是照各自的 recipe 算山地的格子；300 米这个数只在这里，是苏轼这一座的
     expect(highMoved).toBe(0);
-    expect(seaMoved).toBe(0);
-    // 海不算平原：算平原的分量在海上是 0（不然海把岸边平原的缓坡往下拉）
-    const { k: plainShare } = plainSlope(before.h, before.land, R.scene.terrain.recipe, nx, nz, before.grid.cell * R.scene.frame.scale);
-    let seaInPlain = 0;
-    for (let k = 0; k < plainShare.length; k++) if (!before.land[k] && plainShare[k] !== 0) seaInPlain++;
-    expect(seaInPlain).toBe(0);
     expect(stepsAfter).toBeLessThan(stepsBefore);
   });
 
-  it('“矮山多夸”的曲线：300 米是 7500，接得上，倒得回去；做出来的地面上最高的山夸大的倍数正好是 highTimes', () => {
+  it('留白的地方：留白的陆地一万格以上，坡平均不到 0.6 度；一点没有压的二十五万格以上', () => {
     const R = realRouteScene(key);
-    const relief = R.scene.frame.relief;
-    expect(curve(relief, relief.lowBelowM)).toBeCloseTo(relief.lowBelowM * relief.lowTimes, 9);
-    expect(curve({ ...relief, lowBelowM: 300, lowTimes: 25 }, 300)).toBe(7500);
-    expect(curve(relief, relief.lowBelowM + 1e-6) - curve(relief, relief.lowBelowM - 1e-6)).toBeLessThan(1e-3);
-    for (const m of [0, 1, 50, 299, 300, 301, 1000, 3000, 5000]) expect(curveInverse(relief, curve(relief, m))).toBeCloseTo(m, 6);
-
-    let top = 0;
-    let at = 0;
-    for (let k = 0; k < R.ground.h.length; k++) {
-      if (R.ground.h[k] > top) {
-        top = R.ground.h[k];
-        at = k;
-      }
-    }
-    const { before } = stages(R);
-    const times = curve(relief, top) / top;
-    console.log(`${key}：做出来的地面上最高 ${top.toFixed(0)} 米（东经 ${before.lngLat[at * 2].toFixed(2)} 度、北纬 ${before.lngLat[at * 2 + 1].toFixed(2)} 度），夸大 ${times.toFixed(2)} 倍；场景里写的 highTimes 是 ${relief.highTimes}`);
-    expect(Math.round(times)).toBe(relief.highTimes);
-    // 沙盘里的高度就是曲线除以比例（留白的地方另压过）
-    expect(R.ground.y[at]).toBeCloseTo(curve(relief, top) / R.scene.frame.scale, 3);
-  });
-
-  it('留白的地方是平的：陆地上的坡平均不到 0.6 度；不留白的地方没有压', () => {
-    const R = realRouteScene(key);
-    const { keep } = stages(R);
-    const { nx, nz, cell, y, land } = R.ground;
-    let blank = 0;
-    let sum = 0;
-    let open = 0;
-    for (let j = 1; j < nz - 1; j++) {
-      for (let i = 1; i < nx - 1; i++) {
-        const k = j * nx + i;
-        if (keep[k] === 1) open++;
-        if (!land[k] || keep[k] > BLANK_KEEP + 1e-6) continue;
-        blank++;
-        const gx = (y[k + 1] - y[k - 1]) / (2 * cell);
-        const gz = (y[k + nx] - y[k - nx]) / (2 * cell);
-        sum += (Math.atan(Math.hypot(gx, gz)) * 180) / Math.PI;
-      }
-    }
+    const { blank, sum, open } = blankCounts(R);
     // 留白是哪些格子，照程序自己说的算（压到底的那些）。2026-11-20 西边的边打散以前：33574 格，坡平均 0.589 度，一点没有压的 313784 格
     console.log(`${key}：留白的陆地 ${blank} 格，坡平均 ${(sum / Math.max(1, blank)).toFixed(3)} 度；一点没有压的 ${open} 格（边打散以前是 33574 格、0.589 度、313784 格）`);
     expect(blank).toBeGreaterThan(10_000);
     expect(sum / blank).toBeLessThan(0.6);
     expect(open).toBeGreaterThan(250_000);
-    // 八站都不在留白里；别的地名点也一样，地势一点没有压
-    for (const place of R.scene.places.filter((p) => p.stops)) expect(keep[cellOf(R, place.at)], place.name).toBe(1);
-    for (const place of R.scene.places) expect(keep[cellOf(R, place.at)], place.name).toBe(1);
   });
 
   it('留白的边在西边是打散的：最西边的高原那条边前后挪动半度以上，是来回弯的；西南角那条边离场景里写的直线也有远有近', () => {
@@ -518,14 +633,9 @@ describe.each(realSceneKeys('route'))('%s 的地面', (key) => {
     expect(Math.max(...west)).toBeLessThan(103);
   });
 
-  it('法线图：每格四个字节，平地朝上，没有倒过来的', () => {
+  it('法线图：远海的一格（东经 121.5 度、北纬 21.0 度）正好朝上', () => {
     const R = realRouteScene(key);
     const normals = routeNormals(R.ground);
-    expect(normals.length).toBe(R.ground.nx * R.ground.nz * 4);
-    let down = 0;
-    for (let k = 0; k < normals.length; k += 4) if (normals[k + 1] < 128) down++;
-    expect(down).toBe(0);
-    // 远海的一格：正好朝上
     const k = cellOf(R, [121.5, 21.0]) * 4;
     expect([normals[k], normals[k + 1], normals[k + 2], normals[k + 3]]).toEqual([128, 255, 128, 255]);
   });

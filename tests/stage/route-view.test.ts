@@ -33,9 +33,10 @@ import type { Figure } from '../../src/domain/types';
 import { readBytes } from '../support/readBytes';
 import { drawn } from './support/budgets';
 import { fakeCanvas, fakeDocument, fakeFetch, fakeHostParts, fakeRenderer, fakeStrips, trianglesUnder } from './support/fakeRenderer';
-import { realRouteScene, realSceneKeys } from './support/realScenes';
+import { realRouteScene } from './support/realScenes';
 
-const KEY = realSceneKeys('route')[0];
+/** 查的是苏轼的全程沙盘：三角形数、先画好的地面的清单、行迹都是他的。写着名字取，不取“排在最前面的那一座”。 */
+const KEY = 'su-shi/route';
 const [FIGURE] = KEY.split('/');
 
 let strips = fakeStrips();

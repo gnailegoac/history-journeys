@@ -9,7 +9,7 @@
 //   2 在河上找离路的两头最近的两点，取中间那一截。
 //   3 抽稀到 9 公里（离连线不到 9 公里的弯都抹掉），再削两遍角：整张沙盘上看不出锯齿。这是“引线”，路顺着它走。
 //     然后加密到 3 公里一个点（样张没有这一步：它的路都长；这里有四五十公里的短路，不加密中间就没有点可挪）。
-//   4 往一边挪（BANKS 里每条路写着离河心多少公里、挪到哪一边）。样张是从引线挪一个定数；真的河在引线两边摆来摆去，
+//   4 往一边挪（./figures.ts 里这位人物那一行的 banks：每条路写着离河心多少公里、挪到哪一边）。样张是从引线挪一个定数；真的河在引线两边摆来摆去，
 //     那样挪出来的线有的地方压在河上，有的地方离河十几公里。这里每一点各自量：挪到离画出来的河正好那么多公里为止；
 //     挪得多的点前后慢慢带过去（每走一公里最多变 BANK_SLOPE 公里），所以线只会比写的数离河远，不会近。
 //   5 两头各 34 公里（路短的是全长的三成）里慢慢收回到城里：路的两头是城，城在河边上。
@@ -64,35 +64,7 @@ export interface BankSpec {
   why: string;
 }
 
-/**
- * 苏轼的全程沙盘上每条沿着河走的路：离河多远、在哪一边。边是这样定的：一条路从头到尾在河的同一边；
- * 同一条河上接着走的几条路在同一边；城在河的哪一边，路尽量就在哪一边。样张里有的照样张。
- */
-export const BANKS: Record<string, BankSpec> = {
-  'w-min': { offKm: 5, side: -1, why: '往南走的右手边，就是西岸：眉州城在岷江西边（样张也是这一边）' },
-  'w-min-low': { offKm: 6, side: 1, why: '往东南走的左手边，就是东北岸：接着大江的北岸（样张也是这一边）' },
-  'w-jiang-upper': { offKm: 8, side: 1, thinKm: 6, why: '往东走的左手边，就是北岸（样张也是这一边）。三峡里河弯得大，引线抽得细一些' },
-  'w-ying': { offKm: 6, side: 1, why: '往东南走的左手边，就是东北岸：陈州在颍水的东北面，接着淮水的北岸' },
-  'w-huai-mid': { offKm: 6, side: 1, why: '往东走的左手边，就是北岸：下蔡、涡口、泗州都在北岸' },
-  'w-huai-low': { offKm: 6, side: -1, why: '往东北走的右手边，就是东南岸：淮阴、楚州在这一边（样张也是这一边）' },
-  'w-canal-n1': { offKm: 5, side: -1, why: '往南走的右手边，就是西岸：东边是射阳湖那一片水' },
-  'w-canal-n2': { offKm: 5, side: -1, why: '同上一条，西岸' },
-  'w-canal-s1': { offKm: 5, side: 1, paste: false, why: '不贴：大江以南的两段运河定了照直线画' },
-  'w-canal-s2': { offKm: 5, side: 1, paste: false, why: '不贴：大江以南的两段运河定了照直线画' },
-  'w-bian-a': { offKm: 6, side: 1, why: '往东南走的左手边，就是东北岸（样张也是这一边）' },
-  'w-bian-b': { offKm: 6, side: 1, why: '同上一条' },
-  'w-bian-c': { offKm: 6, side: 1, why: '同上一条' },
-  'w-jiang-lower': { offKm: 8, side: -1, why: '往西南（上水）走的右手边，就是北岸、西岸：和样张的大江下游是同一边，不碰南岸的彭蠡' },
-  'w-gan': { offKm: 6, side: 1, why: '往南（上水）走的左手边，就是东岸：吉州、虔州一带的路不压着西边的山' },
-  'w-bei': { offKm: 6, side: 1, why: '往南走的左手边，就是东岸：广州在北江的东面（样张也是这一边）' },
-  'w-dong': { offKm: 6, side: 1, why: '往东走的左手边，就是北岸：博罗在北岸（样张也是这一边）' },
-  'w-xi': {
-    offKm: 6,
-    side: -1,
-    meet: [112.83, 23.18],
-    why: '往西走的右手边，就是北岸：端州、康州、封州、梧州都在北岸（样张也是这一边）。从广州直着连到西江、北江汇合的地方（今三水）上岸：数据里离广州最近的是三角洲里往南的一条汊，照它走要先往南绕一个弯',
-  },
-};
+// 每条沿着河走的路离河多远、在哪一边，是一位人物一份的：写在 ./figures.ts 的那张表里（那一行的 banks），从那里交进来。
 
 const d2 = (a: Km, b: Km): number => Math.hypot(a[0] - b[0], a[1] - b[1]);
 const smoothstep = (e0: number, e1: number, x: number): number => {
@@ -459,14 +431,15 @@ export interface BankResult {
 }
 
 /**
- * 给场景里的一条路做岸线。paths 是 riverPaths(…) 给的画在地面上的河；spec 不写就查 BANKS。
- * 这条路没有写 along、along 写的是湖、BANKS 里没有它：都说不出线，抛出原因。
+ * 给场景里的一条路做岸线。paths 是 riverPaths(…) 给的画在地面上的河；spec 是这位人物的表里这条路的那一项
+ *（./figures.ts 里他那一行的 banks[way.id]；表里没有就是 undefined）。
+ * 这条路没有写 along、along 写的是湖、表里没有它：都说不出线，抛出原因。
  */
-export function bankOfWay(scene: RouteScene, features: TodayFeature[], coords: FrameCoords, paths: RiverPath[], way: RoadWay, spec: BankSpec | undefined = BANKS[way.id]): BankResult {
+export function bankOfWay(scene: RouteScene, features: TodayFeature[], coords: FrameCoords, paths: RiverPath[], way: RoadWay, spec: BankSpec | undefined): BankResult {
   if (!way.along) throw new Error(`路“${way.id}”没有写 along，不是沿着河走的`);
   const path = paths.find((item) => item.id === way.along);
   if (!path) throw new Error(`路“${way.id}”的 along 写的“${way.along}”不是一条河（沿着湖走的路不做岸线）`);
-  if (!spec) throw new Error(`路“${way.id}”在 BANKS 里没有写离河多远、在哪一边（tests/tools/route/bankTool.ts）`);
+  if (!spec) throw new Error(`路“${way.id}”在这位人物的表里没有写离河多远、在哪一边（tests/tools/route/figures.ts 里他那一行的 banks）`);
   const k = scene.frame.scale / 1000;
   const toKm = (p: [number, number]): Km => [p[0] * k, -p[1] * k];
   const kmOf = (p: LngLat): Km => toKm(coords.toLocal(p));

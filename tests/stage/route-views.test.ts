@@ -165,6 +165,84 @@ function wrongSides(input: StripInput, result: StripPlacement[], sealed: Set<str
   return found;
 }
 
+/** 看路的小节在一种画面上：到这一站的每一趟路，路上写的每个点查了多少个，落在留出来的那一块外面的是哪些。 */
+function roadPointsOutside(R: RealRouteScene, pane: Pane): { checked: number; outside: string[] } {
+  const outside: string[] = [];
+  let checked = 0;
+  for (const section of R.scene.sections.slice(1)) {
+    const { view, at } = placed(R, section, pane);
+    if (view.fit >= 2.49) continue;
+    for (const journey of R.scene.roads.journeys.filter((item) => item.stop === section.stop)) {
+      for (const part of journey.parts) {
+        for (const written of part.ways) {
+          const way = R.scene.roads.ways.find((item) => item.id === (written.startsWith('-') ? written.slice(1) : written));
+          for (const p of way?.line ?? []) {
+            const [x, z] = R.coords.toLocal(p);
+            const on = at([x, R.coords.y(Math.max(0, R.samplers.height(x, z))), z]);
+            checked++;
+            if (!inside(on, pane)) outside.push(`${section.heading}：${journey.id} 的 ${way?.id} 上 [${p[0]}, ${p[1]}] 落在 (${on.x.toFixed(0)}, ${on.y.toFixed(0)})`);
+          }
+        }
+      }
+    }
+  }
+  return { checked, outside };
+}
+
+/** 一块很窄的画面（420 × 800，不是标准的沙盘栏）上：看路的小节里镜头退远了的有几节，路上写的点落在画面外面的是哪些。 */
+function narrowView(R: RealRouteScene): { retreated: number; outside: string[] } {
+  const narrow: Pane = { name: '420 × 800', size: { width: 420, height: 800 }, insets: leave(62, 130) };
+  const outside: string[] = [];
+  let retreated = 0;
+  for (const section of R.scene.sections.slice(1)) {
+    const { view, at } = placed(R, section, narrow);
+    if (view.fit > 1.05) retreated++;
+    if (view.fit >= 2.49) continue;
+    for (const journey of R.scene.roads.journeys.filter((item) => item.stop === section.stop)) {
+      for (const written of journey.parts.flatMap((part) => part.ways)) {
+        const way = R.scene.roads.ways.find((item) => item.id === (written.startsWith('-') ? written.slice(1) : written));
+        for (const p of way?.line ?? []) {
+          const [x, z] = R.coords.toLocal(p);
+          const on = at([x, R.coords.y(Math.max(0, R.samplers.height(x, z))), z]);
+          if (!inside(on, narrow)) outside.push(`${section.heading}：${way?.id} 上 [${p[0]}, ${p[1]}] 落在 (${on.x.toFixed(0)}, ${on.y.toFixed(0)})，镜头是写的距离的 ${view.fit.toFixed(2)} 倍`);
+        }
+      }
+    }
+  }
+  return { retreated, outside };
+}
+
+/** 场景里写的每一句 note：是哪样东西的。一趟路的 note 写在它的各截上。地形的整理不在这里：它每一节都印。 */
+function writtenNotes(R: RealRouteScene): { what: string; note: string }[] {
+  const { terrain, water } = R.scene;
+  const all: { id: string; name: string; note?: string }[] = [
+    { id: 'terrain', name: '地形', note: terrain.note },
+    ...terrain.edits,
+    { id: 'levels', name: '海面', note: water.levels.note },
+    { id: 'coast', name: water.coast.name, note: water.coast.note },
+    ...water.rivers,
+    ...water.lakes,
+    ...water.lakes.flatMap((lake) => (lake.except ? [lake.except] : [])),
+    ...water.washes,
+    ...R.scene.places,
+    ...R.scene.far,
+    ...R.scene.roads.journeys.flatMap((journey) => journey.parts.map((part, n) => ({ id: `${journey.id}/${n + 1}`, name: part.name, note: part.note }))),
+  ];
+  return all.flatMap((item) => (item.note?.trim() ? [{ what: `${item.name}（${item.id}）`, note: item.note.trim() }] : []));
+}
+
+/** 另数一遍：到第 upTo 节为止画着的路里（0 是头一节，每一趟都画），示意的和有一部分示意的截有几截。 */
+function schematicParts(R: RealRouteScene, upTo: number): number {
+  return R.scene.roads.journeys
+    .filter((journey) => upTo === 0 || R.scene.sections.findIndex((section) => section.stop === journey.stop) <= upTo)
+    .flatMap((journey) => journey.parts)
+    .filter((part) => part.class === 'schematic' || (part.class === 'text' && part.unsure?.trim())).length;
+}
+
+// ---------------------------------------------------------------- 每一座全程沙盘
+// 下面各组 content/ 里有几座全程沙盘就查几座，查的是哪一座都该有的事。一座沙盘自己的数和地名（查到多少个点、几站、头一节讲哪几样、
+// 哪条题签多高）在文件最后写着它名字的那一组里：添一位人物，不拿他的沙盘去对苏轼的数。
+
 describe.each(realSceneKeys('route'))('%s 的镜头', (key) => {
   it('每一节：朝北、不转；不比 15000 米近（看整块沙盘的一节除外，它由 closest 管）；视角是 18 度', () => {
     const R = realRouteScene(key);
@@ -198,26 +276,9 @@ describe.each(realSceneKeys('route'))('%s 的镜头', (key) => {
 
     it('看路的小节：到这一站的每一趟路，路上写的每个点都在画面留出来的那一块里（点是从场景里另算的，不是镜头自己报的）', () => {
       const R = realRouteScene(key);
-      const outside: string[] = [];
-      let checked = 0;
-      for (const section of R.scene.sections.slice(1)) {
-        const { view, at } = placed(R, section, pane);
-        if (view.fit >= 2.49) continue;
-        for (const journey of R.scene.roads.journeys.filter((item) => item.stop === section.stop)) {
-          for (const part of journey.parts) {
-            for (const written of part.ways) {
-              const way = R.scene.roads.ways.find((item) => item.id === (written.startsWith('-') ? written.slice(1) : written));
-              for (const p of way?.line ?? []) {
-                const [x, z] = R.coords.toLocal(p);
-                const on = at([x, R.coords.y(Math.max(0, R.samplers.height(x, z))), z]);
-                checked++;
-                if (!inside(on, pane)) outside.push(`${section.heading}：${journey.id} 的 ${way?.id} 上 [${p[0]}, ${p[1]}] 落在 (${on.x.toFixed(0)}, ${on.y.toFixed(0)})`);
-              }
-            }
-          }
-        }
-      }
-      expect(checked).toBeGreaterThan(200);
+      const { checked, outside } = roadPointsOutside(R, pane);
+      // 真的查到了点（一座沙盘上查到多少个，写着它名字的那一组里另说）
+      expect(checked).toBeGreaterThan(0);
       expect(outside).toEqual([]);
     });
 
@@ -239,29 +300,10 @@ describe.each(realSceneKeys('route'))('%s 的镜头', (key) => {
     });
   });
 
-  it('画面很窄的时候（420 × 800，不是标准的沙盘栏）：镜头照着路退远，路上写的每个点还都在画面里', () => {
+  it('画面很窄的时候（420 × 800，不是标准的沙盘栏）：路上写的每个点还都在画面里（镜头真的退远了没有，写着名字的那一组查）', () => {
     // 标准的沙盘栏上，每一节写的距离本来就装得下整条路，镜头用不着退；这里用一块窄得多的画面，看“mustShow 里写的那几趟路”真的在管事
     const R = realRouteScene(key);
-    const narrow: Pane = { name: '420 × 800', size: { width: 420, height: 800 }, insets: leave(62, 130) };
-    const outside: string[] = [];
-    let retreated = 0;
-    for (const section of R.scene.sections.slice(1)) {
-      const { view, at } = placed(R, section, narrow);
-      if (view.fit > 1.05) retreated++;
-      if (view.fit >= 2.49) continue;
-      for (const journey of R.scene.roads.journeys.filter((item) => item.stop === section.stop)) {
-        for (const written of journey.parts.flatMap((part) => part.ways)) {
-          const way = R.scene.roads.ways.find((item) => item.id === (written.startsWith('-') ? written.slice(1) : written));
-          for (const p of way?.line ?? []) {
-            const [x, z] = R.coords.toLocal(p);
-            const on = at([x, R.coords.y(Math.max(0, R.samplers.height(x, z))), z]);
-            if (!inside(on, narrow)) outside.push(`${section.heading}：${way?.id} 上 [${p[0]}, ${p[1]}] 落在 (${on.x.toFixed(0)}, ${on.y.toFixed(0)})，镜头是写的距离的 ${view.fit.toFixed(2)} 倍`);
-          }
-        }
-      }
-    }
-    expect(retreated).toBeGreaterThan(0);
-    expect(outside).toEqual([]);
+    expect(narrowView(R).outside).toEqual([]);
   });
 
   it('把每一节在标准的沙盘栏（不带时间轴的四种、带着时间轴的四种）和样张的画面上摆好的数印出来：写的距离的几倍 / 镜头离多少米', () => {
@@ -427,7 +469,8 @@ describe.each(realSceneKeys('route'))('%s：“全程”那一节的站名', (ke
       const { input, text } = arranged(R, section, pane, names);
       const result = placeStrips(input);
       const sealed = new Set(stripTexts(R.scene, section.heading, names).flatMap((t) => (t.stops?.length ? [t.id] : [])));
-      expect(sealed.size, '八站的名字都带着印').toBeGreaterThanOrEqual(8);
+      // 有带着印的站名（这一座是几站，写着名字的那一组查；每一站都有印，在“站号的印”那一组查）
+      expect(sealed.size, '头一节里要有带着印的站名').toBeGreaterThan(0);
       const problems: string[] = [];
       for (const p of result) if (p.hidden) problems.push(`“${text(p.id)}”${p.why === 'room' ? '摆不下' : '指的那一点不在画面里'}`);
       problems.push(...faults(input, result, pane, text));
@@ -468,24 +511,7 @@ describe.each(realSceneKeys('route'))('%s：“全程”那一节的站名', (ke
 });
 
 describe.each(realSceneKeys('route'))('%s 的说明', (key) => {
-  /** 场景里写的每一句 note：是哪样东西的。一趟路的 note 写在它的各截上。地形的整理不在这里：它每一节都印。 */
-  function written(R: RealRouteScene): { what: string; note: string }[] {
-    const { terrain, water } = R.scene;
-    const all: { id: string; name: string; note?: string }[] = [
-      { id: 'terrain', name: '地形', note: terrain.note },
-      ...terrain.edits,
-      { id: 'levels', name: '海面', note: water.levels.note },
-      { id: 'coast', name: water.coast.name, note: water.coast.note },
-      ...water.rivers,
-      ...water.lakes,
-      ...water.lakes.flatMap((lake) => (lake.except ? [lake.except] : [])),
-      ...water.washes,
-      ...R.scene.places,
-      ...R.scene.far,
-      ...R.scene.roads.journeys.flatMap((journey) => journey.parts.map((part, n) => ({ id: `${journey.id}/${n + 1}`, name: part.name, note: part.note }))),
-    ];
-    return all.flatMap((item) => (item.note?.trim() ? [{ what: `${item.name}（${item.id}）`, note: item.note.trim() }] : []));
-  }
+  const written = writtenNotes;
 
   /** 每一节印在沙盘旁边的字（页面用的就是这个函数）。 */
   const printed = (R: RealRouteScene) => R.scene.sections.map((section) => ({ section, info: sectionInfo(R.scene, section.heading) }));
@@ -498,7 +524,6 @@ describe.each(realSceneKeys('route'))('%s 的说明', (key) => {
       .filter((item) => !shown.has(item.note))
       .map((item) => item.what);
     expect(lost, '这几样写了说明，却没有哪一节印出来').toEqual([]);
-    expect(written(R).length).toBeGreaterThan(10);
     const recipe = R.scene.terrain.recipe.note?.trim();
     expect(recipe).toBeTruthy();
     for (const { section, info } of all) expect(info.note.lines[1], section.heading).toBe(recipe);
@@ -524,11 +549,7 @@ describe.each(realSceneKeys('route'))('%s 的说明', (key) => {
     const all = printed(R);
     const count = (brief: string): number => Number(/^(\d+) 样是示意/.exec(brief)?.[1]);
     /** 另数一遍：这一节画着的路里，示意的和有一部分示意的截。 */
-    const partsShown = (upTo: number): number =>
-      R.scene.roads.journeys
-        .filter((journey) => upTo === 0 || R.scene.sections.findIndex((section) => section.stop === journey.stop) <= upTo)
-        .flatMap((journey) => journey.parts)
-        .filter((part) => part.class === 'schematic' || (part.class === 'text' && part.unsure?.trim())).length;
+    const partsShown = (upTo: number): number => schematicParts(R, upTo);
     /** 这一节的题签指到的远处里归在示意一类的（远处只在题签指到它的那一节算）。 */
     const farShown = (strips: string[]): number => R.scene.far.filter((far) => far.class === 'schematic' && strips.some((id) => R.scene.strips.find((strip) => strip.id === id)?.of === far.id)).length;
     const fixed = count(all[0].info.note.brief) - partsShown(0) - farShown(all[0].section.strips);
@@ -541,7 +562,8 @@ describe.each(realSceneKeys('route'))('%s 的说明', (key) => {
       expect(count(info.note.brief) - partsShown(n) - farShown(section.strips), section.heading).toBe(fixed);
       lines.push(`${section.heading} ${count(info.note.brief)} 样`);
     });
-    expect(partsShown(1)).toBeLessThan(partsShown(0));
+    // 画的路只多不少：到头一站的那一节算进去的示意的截，不比每一趟都画的头一节多（这一座上真的少了没有，写着名字的那一组查）
+    expect(partsShown(1)).toBeLessThanOrEqual(partsShown(0));
     console.log(`${key} 各节“几样是示意”：${lines.join('，')}（其中不是路也不是远处的 ${fixed} 样）`);
   });
 
@@ -567,15 +589,15 @@ describe.each(realSceneKeys('route'))('%s 的说明', (key) => {
       take(longest.brief, section.heading, [...info.note.brief].length);
     }
     expect([LINE_MAX, WORDS_MAX, NOTE_SHORT_MAX, NOTE_BRIEF_MAX]).toEqual([40, 50, 60, 32]);
-    // 这座沙盘上有一处远处（定州）：连同远处的那一项真的量到了东西
-    expect(far).toBeGreaterThan(0);
+    // 这一座上有没有远处、“连同远处”那一项真的量到了东西没有，写着名字的那一组查；这里只印出来
+    console.log(`${key}：各节印出来的远处一共 ${far} 处`);
     console.log(
       `${key} 最长的：题记 ${longest.line[1]} 个字（${longest.line[0]}）；题记连同远处 ${longest.withFar[1]} 个字宽（${longest.withFar[0]}）；` +
         `常印着的一句 ${longest.short[1]} 个字（${longest.short[0]}）；栏窄时的一句 ${longest.brief[1]} 个字（${longest.brief[0]}）`,
     );
   });
 
-  it('每一节看路的小节，explain 里有到这一站的每一趟路；头一节讲的是黄河、大江、海岸、湖和路这五样', () => {
+  it('每一节看路的小节，explain 里有到这一站的每一趟路，mustShow 里也有（头一节讲哪几样，写着名字的那一组查）', () => {
     const R = realRouteScene(key);
     for (const section of R.scene.sections.slice(1)) {
       const journeys = R.scene.roads.journeys.filter((journey) => journey.stop === section.stop).map((journey) => journey.id);
@@ -584,9 +606,6 @@ describe.each(realSceneKeys('route'))('%s 的说明', (key) => {
       // mustShow 里也有这几趟路：镜头照着路摆
       for (const id of journeys) expect(section.camera.mustShow ?? [], `${section.heading} 的 mustShow 里没有 ${id}`).toContain(id);
     }
-    expect(R.scene.sections[0].explain).toHaveLength(5);
-    // 头一节印出来的是这五句：五样东西各一句，一句不少
-    expect(sectionInfo(R.scene, R.scene.sections[0].heading).note.lines).toHaveLength(5 + 3);
   });
 
   it('题记：提到的站名、水名、山名，这一节都立着题签', () => {
@@ -606,7 +625,7 @@ describe.each(realSceneKeys('route'))('%s 的说明', (key) => {
 });
 
 describe.each(realSceneKeys('route'))('%s 的站号的印', (key) => {
-  it('是站的地名，题签带着这几站（页面拼的那一份）；题签的高照印的方数算：一站一方，杭州那样的两方', () => {
+  it('是站的地名，题签带着这几站（页面拼的那一份）；题签的高照印的方数算：一站一方，一个地名带着两站的两方', () => {
     const R = realRouteScene(key);
     const first = R.scene.sections[0].heading;
     const texts = stripTexts(R.scene, first, 'ancient');
@@ -619,13 +638,59 @@ describe.each(realSceneKeys('route'))('%s 的站号的印', (key) => {
       // 带印的比不带印的高
       if (seals > 0) expect(sized[i].h, t.text).toBeGreaterThan(stripSize(t.text, 'wide').h);
     });
-    // 头一节里每一站都有印，没有别的站（一站可以盖在两个地名上：惠州和昌化军都是第八站）
+    // 头一节里每一站都有印，没有别的站（一站可以盖在两个地名上）
     const stops = R.scene.sections.flatMap((section) => (section.stop ? [section.stop] : []));
     expect([...new Set(sealed.flatMap((t) => t.stops ?? []))].sort()).toEqual([...stops].sort());
-    // 苏轼的这一座：宽的栏上徐州 72 像素高，杭州（两方印）94，昌化军 91
-    if (key === 'su-shi/route') {
-      const h = (text: string): number => sized[texts.findIndex((t) => t.text === text)].h;
-      expect([h('徐州'), h('杭州'), h('昌化军')]).toEqual([72, 94, 91]);
-    }
+  });
+});
+
+// ---------------------------------------------------------------- 苏轼的这一座自己的数和地名
+
+describe('su-shi/route：苏轼这一座自己的数和地名', () => {
+  const key = 'su-shi/route';
+
+  describe.each(STANDARD)('镜头，画面 $name', (pane) => {
+    it('看路的小节：到各站的路上写的点，查到的有两百个以上', () => {
+      expect(roadPointsOutside(realRouteScene(key), pane).checked).toBeGreaterThan(200);
+    });
+  });
+
+  it('镜头：画面很窄的时候（420 × 800）有的小节镜头真的照着路退远了', () => {
+    // 这一座上每一节写的距离在标准的沙盘栏上装得下整条路；窄到 420 像素就装不下了，镜头得退——“mustShow 里写的那几趟路”真的在管事
+    expect(narrowView(realRouteScene(key)).retreated).toBeGreaterThan(0);
+  });
+
+  it.each(NAMES)('“全程”那一节的站名，%s：八站的名字都带着印', (names) => {
+    const R = realRouteScene(key);
+    const sealed = new Set(stripTexts(R.scene, R.scene.sections[0].heading, names).flatMap((t) => (t.stops?.length ? [t.id] : [])));
+    expect(sealed.size, '八站的名字都带着印').toBeGreaterThanOrEqual(8);
+  });
+
+  it('说明：写了说明的东西有十样以上；到头一站的那一节算进去的示意的截，比每一趟都画的头一节少', () => {
+    const R = realRouteScene(key);
+    expect(writtenNotes(R).length).toBeGreaterThan(10);
+    expect(schematicParts(R, 1)).toBeLessThan(schematicParts(R, 0));
+  });
+
+  it('说明：这座沙盘上有一处远处（定州），“题记连同远处”那一项真的量到了东西', () => {
+    const R = realRouteScene(key);
+    const far = R.scene.sections.reduce((sum, section) => sum + sectionInfo(R.scene, section.heading).far.length, 0);
+    expect(far).toBeGreaterThan(0);
+  });
+
+  it('说明：头一节讲的是黄河、大江、海岸、湖和路这五样', () => {
+    const R = realRouteScene(key);
+    expect(R.scene.sections[0].explain).toHaveLength(5);
+    // 头一节印出来的是这五句：五样东西各一句，一句不少
+    expect(sectionInfo(R.scene, R.scene.sections[0].heading).note.lines).toHaveLength(5 + 3);
+  });
+
+  it('站号的印：宽的栏上徐州 72 像素高，杭州（两方印）94，昌化军 91', () => {
+    const R = realRouteScene(key);
+    const first = R.scene.sections[0].heading;
+    const texts = stripTexts(R.scene, first, 'ancient');
+    const sized = routeSectionStrips(R.scene, first, 940);
+    const h = (text: string): number => sized[texts.findIndex((t) => t.text === text)].h;
+    expect([h('徐州'), h('杭州'), h('昌化军')]).toEqual([72, 94, 91]);
   });
 });

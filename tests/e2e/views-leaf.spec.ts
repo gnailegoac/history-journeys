@@ -14,11 +14,11 @@
 import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
 import { STANDARD_PANES } from '../stage/support/standardPanes';
-import { fakeUrl, fontsReady, stagePane, stopsWithScenes, twoFrames } from './helpers';
+import { fakeUrl, fontsReady, leafStopWithScene, stagePane, twoFrames } from './helpers';
 
 const WINDOWS = STANDARD_PANES.map((pane) => pane.window);
-/** 头一个有自己的沙盘、正文还没写的站；没有这样的站，这个文件的测试都跳过。 */
-const STOP = stopsWithScenes().find((one) => !one.written);
+/** 有自己的沙盘、正文还没写的一站：眉州，写着名字取（见 leafStopWithScene）；没有这样的站，这个文件的测试都跳过。 */
+const STOP = leafStopWithScene();
 /** 一行至少多高（像素）：同目录里的一行一样，4rem。 */
 const ROW_MIN = 64;
 

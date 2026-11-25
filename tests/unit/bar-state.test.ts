@@ -2,6 +2,7 @@
 // 行迹和全程沙盘的各节是 content/ 里真的；钟、下一帧、定时器、沙盘栏现在摆着什么，都是这里交进去的假的——
 // 钟不自己走，测试说走多少毫秒就走多少；“沙盘栏”只是一张小纸条（摆着哪一节、有没有小像、读者动没动过镜头），记下时间轴向它报了什么。
 // 哪一段落在哪一站里、有几节，都从真的文件里读，不写死在这里。
+// 样本是苏轼的行迹和他的全程沙盘（content/figures/su-shi/ 里的 itinerary.bar.json 和 scenes/route.json），所以两组的名字里写着他。
 
 import { describe, expect, it } from 'vitest';
 import type { ItineraryBar } from '../../src/domain/itinerary';
@@ -90,7 +91,7 @@ function rig(options: { calm?: boolean; pane?: Partial<PaneReport>; key?: string
 }
 const units = (day: number): number => unitsAt(barControl(bar, sections, barStore(`量/${++made}`), rig().env).scale, day);
 
-describe('时间轴怎么动', () => {
+describe('时间轴怎么动（照苏轼的行迹和他的全程沙盘 su-shi/route）', () => {
   it('真的行迹里找得到这几项要用的段', () => {
     expect(STAY).toBeGreaterThan(0);
     expect(STAY_THEN_WHOLE).toBeGreaterThan(0);
@@ -609,7 +610,7 @@ describe('时间轴怎么动', () => {
 // 播放要是只照钟走，这样的一帧里圆钮一步跨过一整段，那一段的两行字一帧也没有显示（“在廉州”就这样丢过）。
 // 所以两帧之间隔得再久也只算 PLAY_GAP_MAX_MS。这里拿真的行迹从出生播到去世，两帧之间隔 16 毫秒到 5 秒，沙盘栏跟得快、跟得慢、
 // 不跟，证明六十一段每一段都至少有一帧显示出来。
-describe('播放的时候，画得再慢，每一段都显示得出来', () => {
+describe('播放的时候，画得再慢，每一段都显示得出来（照苏轼的行迹）', () => {
   const scale = barControl(bar, sections, barStore(`量/${++made}`), rig().env).scale;
   /** 真的行迹里最窄的一段在轴上占几个单位。 */
   const narrowest = Math.min(...scale.blocks.map((block) => block.u1 - block.u0));

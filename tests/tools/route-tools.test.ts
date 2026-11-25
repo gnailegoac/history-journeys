@@ -1,17 +1,24 @@
-// 做全程沙盘要用的几个文件的工具。一个模式做一样：
-//   npm run route:terrain   地形文件      content/figures/su-shi/scenes/route.terrain.bin
-//   npm run route:today     今天的岸线、湖、河   content/figures/su-shi/scenes/route.today.geojson
+// 做全程沙盘要用的几个文件的工具。一个模式做一样（<人物> 是人物的文件夹名）：
+//   npm run route:terrain   地形文件      content/figures/<人物>/scenes/route.terrain.bin
+//   npm run route:today     今天的岸线、湖、河   content/figures/<人物>/scenes/route.today.geojson
 //   npm run route:map       检查图（不进仓库）  tests/shots/route-check/map.png、map.txt：从正上方看，场景里的每一条线、每一圈、每一条路
 //   npm run route:bank      走水路的路贴着河岸走的线：只印出来，人看过以后贴进 scenes/route.json（做法见 tests/tools/route/bankTool.ts 的开头）
 // 做好以后放进仓库，随场景文件一起走；发布的流程不重新做。两个文件都不手改。
 // 文件是什么样子、怎么做的，写在 tests/tools/route/terrainTool.ts 和 tests/tools/route/todayTool.ts 的开头。
+//
+// 给哪一位人物做：环境变量 ROUTE_FIGURE=<人物>，四个模式都认它（如 ROUTE_FIGURE=su-shi npm run route:terrain）。
+// 做全程沙盘的那张表（tests/tools/route/figures.ts，一位人物一行）里只有一位的时候可以不写，做的就是他；有两位以上不写，工具停下来说表里有谁。
+// 这位人物自己的东西从两处来，没有哪一样是写死在这里的：
+//   那张表里他的一行：源数据在哪，岸线文件裁到哪个方框，源数据里哪个湖要放回原来的大小，沿着河走的每条路离河多远、在哪一边；
+//   他的场景文件（content/figures/<人物>/scenes/route.json）：地形文件的格子（terrain 的 cols、rows、west、east、north、south）、
+//   地形文件叫什么（terrain.file）、岸线文件叫什么（water.todayFile）。
 //
 // 它是一个测试文件，因为这个项目是靠 vitest 在 Node 里跑 TypeScript 的（和 npm run bake 一样，见 tests/tools/bake-ground.test.ts）。
 // 最下面“工具自己”那一组随 npm test 跑（package.json 的 test 里列着这个文件），用的是编出来的小数据，什么也不写；
 // 上面真的做文件的两组，只有用它自己的模式跑才做（vitest --mode terrain、--mode today）。直接跑这个文件和 npm test 一样，只跑最下面那一组。
 // 要是哪一版的 vitest 不把 --mode 交到 import.meta.env.MODE 里，设环境变量 ROUTE_MODE=terrain（或者 today）也算。
 //
-// 两个文件都只照样张的文件做（spikes/art-direction/route/data/ 里的 dem.json、dem.bin、water.json），不连任何外面的服务：
+// 两个文件都只照表里写的源数据做（苏轼的是样张的文件：spikes/art-direction/route/data/ 里的 dem.json、dem.bin、water.json），不连任何外面的服务：
 // 没有“去取瓦片、去取 Natural Earth”的做法。所以 ROUTE_FROM_TRIAL 这个环境变量设不设都一样。
 // 另一个环境变量：
 //   ROUTE_OUT   做出来的文件放到这个文件夹（相对项目的根目录，或者一个完整的路径），不动 content/。试做的时候用。
@@ -24,7 +31,7 @@
 //   WAY         只做这一条路（路的 id，如 w-min）；不设就把写了 along、沿着一条河走的路都做一遍。
 // 设了 ROUTE_OUT 的话，另把做出来的线写成 banks.json 放进那个文件夹（给贴线的人用；不设就只印）。
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { contentKey } from '../../src/domain/contentKey';
 import type { RouteScene } from '../../src/domain/scene';
@@ -33,13 +40,15 @@ import { buildRouteGround, readRouteDem } from '../../src/stage/ground/route';
 import { styleFor } from '../../src/stage/three/style';
 import { readToday } from '../content/routeRules';
 import { decodePng, encodeRgbPng } from '../support/png';
-import { BANKS, BANK_TAPER_KM, bankLine, bankOfWay, chaikin, dense, lineText, simplify, stitch } from './route/bankTool';
+import { BANK_TAPER_KM, bankLine, bankOfWay, chaikin, dense, lineText, simplify, stitch } from './route/bankTool';
 import type { Km } from './route/bankTool';
+import { ROUTE_SCENE_FILE, ROUTE_TOOL_FIGURES, routeToolFigure, scenesFolder } from './route/figures';
+import type { RouteToolFigure } from './route/figures';
 import { MAP_POINTS_PER_CELL, drawRouteMap, lineKm, waySolid } from './route/mapTool';
 import { riverPaths } from './route/paint';
-import { ROUTE_GRID, insideTrial, lambertConic, landMask, latOf, lngOf, readTerrain, readTrialDem, resampleTerrain, terrainBytes, trialHeightAt } from './route/terrainTool';
+import { gridOf, insideTrial, lambertConic, landMask, latOf, lngOf, readTerrain, readTrialDem, resampleTerrain, terrainBytes, trialHeightAt } from './route/terrainTool';
 import type { LatLngGrid, LngLat } from './route/terrainTool';
-import { THIN_KM, TODAY_BOX, bytesByKind, clipLineToBox, closeRing, insideRing, landRings, positionName, restoreShrunk, ringCentre, signedArea, thin, todayFeatures, todayProblems, todayText } from './route/todayTool';
+import { THIN_KM, bytesByKind, clipLineToBox, closeRing, insideRing, landRings, positionName, restoreShrunk, ringCentre, signedArea, thin, todayFeatures, todayProblems, todayText } from './route/todayTool';
 import type { TodayFeature, TrialWater } from './route/todayTool';
 
 const env = (globalThis as { process?: { env: Record<string, string | undefined> } }).process?.env ?? {};
@@ -50,13 +59,54 @@ const MODE = (['terrain', 'today', 'map', 'bank'] as const).find((mode) => impor
 /** 项目的根目录：这个文件在 tests/tools/ 里，往上两层。 */
 const ROOT = new URL('../../', import.meta.url);
 
-/** 样张的数据在哪（相对项目的根目录）。 */
-const TRIAL_DATA = 'spikes/art-direction/route/data/';
+/** 磁盘上这位人物的全程沙盘的场景文件。 */
+function readRouteScene(figureId: string): RouteScene {
+  return JSON.parse(new TextDecoder().decode(readFileSync(new URL(`${scenesFolder(figureId)}${ROUTE_SCENE_FILE}`, ROOT)))) as RouteScene;
+}
 
-/** 做出来的文件平常放在哪（相对项目的根目录）。 */
-const SCENES = 'content/figures/su-shi/scenes/';
-const TERRAIN_FILE = 'route.terrain.bin';
-const TODAY_FILE = 'route.today.geojson';
+/**
+ * 这一次给哪一位人物做，和做的时候要用的他的那几样。只有真的来做文件的时候才问（随 npm test 跑的时候不问：
+ * 那时候谁也没说给哪一位做，表里有两位以上的话问了就要停下来）。
+ *   scenes       他的场景文件所在的文件夹，做出来的文件平常也放在这里；
+ *   grid         地形文件的格子，照他的场景里 terrain 那一块；
+ *   terrainFile、todayFile  两个文件叫什么，照他的场景里写的。
+ */
+interface Making {
+  id: string;
+  figure: RouteToolFigure;
+  scenes: string;
+  scene: RouteScene;
+  grid: LatLngGrid;
+  terrainFile: string;
+  todayFile: string;
+}
+let making: Making | null = null;
+function makingFor(): Making {
+  if (making) return making;
+  const { id, figure } = routeToolFigure(env.ROUTE_FIGURE);
+  const scene = readRouteScene(id);
+  making = { id, figure, scenes: scenesFolder(id), scene, grid: gridOf(scene.terrain), terrainFile: scene.terrain.file, todayFile: scene.water.todayFile };
+  return making;
+}
+
+/**
+ * 用自己的模式来做文件的这一次，做的是哪一位人物的文件夹名；随 npm test 跑（不是来做文件的）是 null。
+ * 说不出是哪一位（没写 ROUTE_FIGURE 而表里不止一位，或者写的不在表里）也是 null：做文件的那一项自己会停下来说。
+ */
+const MAKING_ID: string | null = (() => {
+  if (MODE === null) return null;
+  try {
+    return routeToolFigure(env.ROUTE_FIGURE).id;
+  } catch {
+    return null;
+  }
+})();
+
+/**
+ * “一位人物查一遍”的那几组，这一次查不查这一位：随 npm test 跑，每一位都查（答 false）；
+ * 来做文件的时候只查正在做的那一位，别的人物答 true（跳过）——一位人物还没写全的一行，不该让另一位的工具以失败收场。
+ */
+const notThisTime = (figureId: string): boolean => MODE !== null && figureId !== MAKING_ID;
 
 const withCommas = (n: number): string => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
 
@@ -80,9 +130,9 @@ function writeIfDifferent(io: FileIo, file: string, bytes: Uint8Array): WriteOut
   return old ? 'replaced' : 'created';
 }
 
-/** 做出来的文件放进哪个文件夹（以“/”结尾的地址）。out 是 ROUTE_OUT 的值：没设就是 content/ 里平常的地方。 */
-function outFolder(out: string | undefined): URL {
-  if (!out) return new URL(SCENES, ROOT);
+/** 做出来的文件放进哪个文件夹（以“/”结尾的地址）。out 是 ROUTE_OUT 的值：没设就是 content/ 里平常的地方（scenes：这位人物的场景文件所在的文件夹）。 */
+function outFolder(out: string | undefined, scenes: string): URL {
+  if (!out) return new URL(scenes, ROOT);
   const path = out.split('\\').join('/').replace(/\/*$/, '/');
   return /^[A-Za-z]:\//.test(path) ? new URL(`file:///${path}`) : new URL(path, ROOT);
 }
@@ -100,12 +150,12 @@ function diskIo(dir: URL): FileIo {
 const OUTCOME_WORDS: Record<WriteOutcome, string> = { fresh: '已经是新的，什么也没写', created: '写好了（以前没有）', replaced: '写好了（换掉了旧的）' };
 
 /** 印出来的话里文件夹怎么写：content/ 里平常的地方照写；ROUTE_OUT 指的地方只说是它，不印完整的路径。 */
-const outWords = (): string => (env.ROUTE_OUT ? 'ROUTE_OUT 指的文件夹里的 ' : SCENES);
+const outWords = (scenes: string): string => (env.ROUTE_OUT ? 'ROUTE_OUT 指的文件夹里的 ' : scenes);
 
-// ---------------------------------------------------------------- 读样张的文件
+// ---------------------------------------------------------------- 读源数据的文件（这位人物在那张表里写的文件夹）
 
-const trialBytes = (file: string): Uint8Array => readFileSync(new URL(`${TRIAL_DATA}${file}`, ROOT));
-const trialText = (file: string): string => new TextDecoder().decode(trialBytes(file));
+const sourceBytes = (figure: RouteToolFigure, file: string): Uint8Array => readFileSync(new URL(`${figure.source.folder}${file}`, ROOT));
+const sourceText = (figure: RouteToolFigure, file: string): string => new TextDecoder().decode(sourceBytes(figure, file));
 
 /** 一个数组里最大的数（数组很长，不能摊开交给 Math.max）。 */
 function largest(values: Int16Array): number {
@@ -118,23 +168,25 @@ function largest(values: Int16Array): number {
 
 describe.skipIf(MODE !== 'terrain')('做全程沙盘的地形文件（npm run route:terrain）', () => {
   // 30 万格、每格 9 个点，这台机器上一两秒；发布流程的机器慢一倍，给足时间。
-  it(`${SCENES}${TERRAIN_FILE}`, { timeout: 120_000 }, () => {
+  it('这位人物的 scenes/ 里的地形文件（ROUTE_FIGURE 说是哪一位；叫什么照他的场景）', { timeout: 120_000 }, () => {
     const tag = '[全程沙盘·地形]';
     const say = (line: string): void => console.log(line);
-    const trial = readTrialDem(trialText('dem.json'), trialBytes('dem.bin'));
-    const water = JSON.parse(trialText('water.json')) as TrialWater;
-    expect(largest(trial.heights), '样张的 dem.json 里写的最高一格，和 dem.bin 里数出来的不一样').toBe(trial.maxM);
+    const { id, figure, scenes, grid, terrainFile } = makingFor();
+    const { source } = figure;
+    const trial = readTrialDem(sourceText(figure, source.dem), sourceBytes(figure, source.demBytes));
+    const water = JSON.parse(sourceText(figure, source.water)) as TrialWater;
+    expect(largest(trial.heights), `${source.folder}${source.dem} 里写的最高一格，和 ${source.demBytes} 里数出来的不一样`).toBe(trial.maxM);
 
-    // 陆地照“今天的岸线”那个文件里的圈分（同一个函数做出来的，所以和 route.today.geojson 里的是同一批圈）
-    const rings = landRings(todayFeatures(water, trial.conic.toKm).features);
-    const mask = landMask(ROUTE_GRID, rings);
-    const { heights, report } = resampleTerrain(ROUTE_GRID, trialHeightAt(trial), mask, insideTrial(trial));
+    // 陆地照“今天的岸线”那个文件里的圈分（同一个函数做出来的，所以和岸线文件里的是同一批圈）
+    const rings = landRings(todayFeatures(water, trial.conic.toKm, figure.todayBox, figure.shrunkLakes).features);
+    const mask = landMask(grid, rings);
+    const { heights, report } = resampleTerrain(grid, trialHeightAt(trial), mask, insideTrial(trial));
     const bytes = terrainBytes(heights);
 
     // 对一遍
-    const { cols, rows } = ROUTE_GRID;
+    const { cols, rows } = grid;
     expect(bytes.length).toBe(cols * rows * 2);
-    expect([...readTerrain(ROUTE_GRID, bytes)]).toEqual([...heights]);
+    expect([...readTerrain(grid, bytes)]).toEqual([...heights]);
     let zeros = 0;
     for (let k = 0; k < heights.length; k++) {
       if (heights[k] === 0) zeros += 1;
@@ -146,9 +198,10 @@ describe.skipIf(MODE !== 'terrain')('做全程沙盘的地形文件（npm run ro
     expect(report.highest.m).toBeGreaterThan(0);
     expect(report.highest.m).toBeLessThanOrEqual(trial.maxM);
 
-    const step = (ROUTE_GRID.east - ROUTE_GRID.west) / (cols - 1);
-    say(`${tag} 照样张的 ${TRIAL_DATA}dem.bin 重新取样：${trial.cols} × ${trial.rows} 格，每格 ${trial.cellKm} 公里，最高的一格 ${withCommas(trial.maxM)} 米`);
-    say(`  做出来　　${cols} 列 × ${rows} 行，每格 ${step.toFixed(4)} 度；西 ${ROUTE_GRID.west}、东 ${ROUTE_GRID.east}、北 ${ROUTE_GRID.north}、南 ${ROUTE_GRID.south}；整米，低位在前，第 0 行最北`);
+    const step = (grid.east - grid.west) / (cols - 1);
+    say(`${tag} 给 ${id} 做，格子照 ${scenes}${ROUTE_SCENE_FILE} 里 terrain 写的`);
+    say(`${tag} 照样张的 ${source.folder}${source.demBytes} 重新取样：${trial.cols} × ${trial.rows} 格，每格 ${trial.cellKm} 公里，最高的一格 ${withCommas(trial.maxM)} 米`);
+    say(`  做出来　　${cols} 列 × ${rows} 行，每格 ${step.toFixed(4)} 度；西 ${grid.west}、东 ${grid.east}、北 ${grid.north}、南 ${grid.south}；整米，低位在前，第 0 行最北`);
     say(`  最高的一格 ${withCommas(report.highest.m)} 米，在东经 ${report.highest.lng.toFixed(2)}、北纬 ${report.highest.lat.toFixed(2)}`);
     say(`  四个角　　西北 ${report.corners.nw}、东北 ${report.corners.ne}、西南 ${report.corners.sw}、东南 ${report.corners.se} 米`);
     say(`  陆地 ${withCommas(report.land)} 格，不是陆地（存 0）${withCommas(report.sea)} 格；陆地照 ${rings.length} 圈岸线分`);
@@ -156,8 +209,8 @@ describe.skipIf(MODE !== 'terrain')('做全程沙盘的地形文件（npm run ro
     say(`  格点在样张的桌面以外的 ${withCommas(report.outside)} 格（样张没有量过那里，取的是最近的桌边上的高；沙盘用不到这些格子）`);
     say(`  文件 ${withCommas(bytes.length)} 字节，记号 ${contentKey(bytes)}`);
 
-    const outcome = writeIfDifferent(diskIo(outFolder(env.ROUTE_OUT)), TERRAIN_FILE, bytes);
-    say(`${tag} ${outWords()}${TERRAIN_FILE}：${OUTCOME_WORDS[outcome]}。`);
+    const outcome = writeIfDifferent(diskIo(outFolder(env.ROUTE_OUT, scenes)), terrainFile, bytes);
+    say(`${tag} ${outWords(scenes)}${terrainFile}：${OUTCOME_WORDS[outcome]}。`);
   });
 });
 
@@ -165,15 +218,17 @@ describe.skipIf(MODE !== 'terrain')('做全程沙盘的地形文件（npm run ro
 
 describe.skipIf(MODE !== 'today')('做今天的岸线、湖、河（npm run route:today）', () => {
   // 这台机器上不到一秒；和上面一样给足时间。
-  it(`${SCENES}${TODAY_FILE}`, { timeout: 120_000 }, () => {
+  it('这位人物的 scenes/ 里的岸线文件（ROUTE_FIGURE 说是哪一位；叫什么照他的场景）', { timeout: 120_000 }, () => {
     const tag = '[全程沙盘·今天的岸线、湖、河]';
     const say = (line: string): void => console.log(line);
-    const trial = readTrialDem(trialText('dem.json'), trialBytes('dem.bin'));
-    const water = JSON.parse(trialText('water.json')) as TrialWater;
-    const { features, report } = todayFeatures(water, trial.conic.toKm);
+    const { id, figure, scenes, todayFile } = makingFor();
+    const { source, todayBox } = figure;
+    const trial = readTrialDem(sourceText(figure, source.dem), sourceBytes(figure, source.demBytes));
+    const water = JSON.parse(sourceText(figure, source.water)) as TrialWater;
+    const { features, report } = todayFeatures(water, trial.conic.toKm, todayBox, figure.shrunkLakes);
 
     // 对一遍：每一项都合文件的规矩；写出来再读回来是同样的东西
-    expect(todayProblems(features)).toEqual([]);
+    expect(todayProblems(features, todayBox)).toEqual([]);
     const text = todayText(features);
     expect(JSON.parse(text)).toEqual({ type: 'FeatureCollection', features });
     expect(text.includes('\r')).toBe(false);
@@ -181,7 +236,8 @@ describe.skipIf(MODE !== 'today')('做今天的岸线、湖、河（npm run rout
     const kinds = bytesByKind(features);
     const { land, lakes, rivers } = report;
 
-    say(`${tag} 照样张的 ${TRIAL_DATA}water.json 做：裁到东经 ${TODAY_BOX.west} 到 ${TODAY_BOX.east}、北纬 ${TODAY_BOX.south} 到 ${TODAY_BOX.north}，按 ${THIN_KM} 公里抽稀，三位小数`);
+    say(`${tag} 给 ${id} 做，方框照 tests/tools/route/figures.ts 里他那一行写的`);
+    say(`${tag} 照样张的 ${source.folder}${source.water} 做：裁到东经 ${todayBox.west} 到 ${todayBox.east}、北纬 ${todayBox.south} 到 ${todayBox.north}，按 ${THIN_KM} 公里抽稀，三位小数`);
     say(`  陆地　样张里 ${land.ringsIn} 圈 ${withCommas(land.pointsIn)} 个点；一模一样的重复的 ${land.duplicates} 圈、不成面的 ${land.degenerate.length} 圈去掉以后 ${land.ringsOut} 圈 ${withCommas(land.pointsUnique)} 个点；`);
     say(`  　　　抽稀以后 ${withCommas(land.pointsOut)} 个点（其中 ${land.keptWhole} 圈一抽就不成面，原样留着），${withCommas(kinds.land)} 字节`);
     for (const p of land.degenerate) say(`  　　　不成面、去掉的一圈在东经 ${p[0]}、北纬 ${p[1]}（方框边上裁剩下的）`);
@@ -193,8 +249,8 @@ describe.skipIf(MODE !== 'today')('做今天的岸线、湖、河（npm run rout
     for (const r of water.removed) say(`  　　　${r.kind} ${r.name}：${r.why}`);
     say(`  一共 ${features.length} 项，文件 ${withCommas(bytes.length)} 字节，记号 ${contentKey(bytes)}`);
 
-    const outcome = writeIfDifferent(diskIo(outFolder(env.ROUTE_OUT)), TODAY_FILE, bytes);
-    say(`${tag} ${outWords()}${TODAY_FILE}：${OUTCOME_WORDS[outcome]}。`);
+    const outcome = writeIfDifferent(diskIo(outFolder(env.ROUTE_OUT, scenes)), todayFile, bytes);
+    say(`${tag} ${outWords(scenes)}${todayFile}：${OUTCOME_WORDS[outcome]}。`);
   });
 });
 
@@ -206,7 +262,7 @@ const MAP_FOLDER = 'tests/shots/route-check/';
 /** 读一座全程沙盘，算出地面，画检查图。dir 是场景文件所在的文件夹（相对项目的根目录，以“/”结尾）。 */
 function routeMapOf(dir: string): { map: ReturnType<typeof drawRouteMap>; scene: RouteScene } {
   const read = (file: string): Uint8Array => readFileSync(new URL(`${dir}${file}`, ROOT));
-  const scene = JSON.parse(new TextDecoder().decode(read('route.json'))) as RouteScene;
+  const scene = JSON.parse(new TextDecoder().decode(read(ROUTE_SCENE_FILE))) as RouteScene;
   const today = readToday({ today: new TextDecoder().decode(read(scene.water.todayFile)) }, 'today');
   if (!today || 'problem' in today) throw new Error(`${dir}${scene.water.todayFile} 读不出来${today ? `：${today.problem}` : ''}`);
   const coords = routeCoords(scene.frame);
@@ -218,11 +274,13 @@ function routeMapOf(dir: string): { map: ReturnType<typeof drawRouteMap>; scene:
 describe.skipIf(MODE !== 'map')('全程沙盘的检查图（npm run route:map）', () => {
   it(`${MAP_FOLDER}map.png、map.txt`, { timeout: 120_000 }, () => {
     const tag = '[全程沙盘·检查图]';
-    const { map, scene } = routeMapOf(SCENES);
+    const { id, scenes } = makingFor();
+    console.log(`${tag} 画的是 ${id} 的全程沙盘（${scenes}${ROUTE_SCENE_FILE}）`);
+    const { map, scene } = routeMapOf(scenes);
     const png = encodeRgbPng(map.pixels, map.width, map.height);
     const head = `全程沙盘的检查图：${map.width} × ${map.height}，一个点约 ${((scene.frame.scale * 20) / MAP_POINTS_PER_CELL / 1000).toFixed(2)} 公里。黑号是路，红号是地名点，蓝号是水，紫号是抹成海的圈。`;
     const text = `${[head, ...map.legend].join('\n')}\n`;
-    const io = diskIo(env.ROUTE_OUT ? outFolder(env.ROUTE_OUT) : new URL(MAP_FOLDER, ROOT));
+    const io = diskIo(env.ROUTE_OUT ? outFolder(env.ROUTE_OUT, scenes) : new URL(MAP_FOLDER, ROOT));
     io.write('map.png', png);
     io.write('map.txt', new TextEncoder().encode(text));
     console.log(`${tag} ${env.ROUTE_OUT ? 'ROUTE_OUT 指的文件夹里的 ' : MAP_FOLDER}map.png（${map.width} × ${map.height}，${withCommas(png.length)} 字节）和 map.txt（${map.legend.length} 行）写好了。`);
@@ -237,10 +295,10 @@ describe.skipIf(MODE !== 'map')('全程沙盘的检查图（npm run route:map）
 describe.skipIf(MODE !== 'bank')('走水路的路贴着河岸走的线（npm run route:bank）', () => {
   it('印出每一条线（WAY=<路的 id> 只做一条）', { timeout: 120_000 }, () => {
     const tag = '[全程沙盘·岸线]';
-    const read = (file: string): string => new TextDecoder().decode(readFileSync(new URL(`${SCENES}${file}`, ROOT)));
-    const scene = JSON.parse(read('route.json')) as RouteScene;
+    const { id, figure, scenes, scene } = makingFor();
+    const read = (file: string): string => new TextDecoder().decode(readFileSync(new URL(`${scenes}${file}`, ROOT)));
     const today = readToday({ today: read(scene.water.todayFile) }, 'today');
-    if (!today || 'problem' in today) throw new Error(`${SCENES}${scene.water.todayFile} 读不出来`);
+    if (!today || 'problem' in today) throw new Error(`${scenes}${scene.water.todayFile} 读不出来`);
     const coords = routeCoords(scene.frame);
     const paths = riverPaths(scene, today.features, coords, styleFor(scene.style));
     const rivers = new Set(scene.water.rivers.map((river) => river.id));
@@ -248,9 +306,10 @@ describe.skipIf(MODE !== 'bank')('走水路的路贴着河岸走的线（npm run
     if (asked && !scene.roads.ways.some((way) => way.id === asked)) throw new Error(`WAY 写的“${asked}”不是场景里的一条路`);
     const ways = scene.roads.ways.filter((way) => (asked ? way.id === asked : way.along !== undefined && rivers.has(way.along)));
     const out: Record<string, [number, number][]> = {};
-    console.log(`${tag} ${ways.length} 条路。每条印三行：怎么做的，做出来的线（贴进 ${SCENES}route.json 里这条路的 line），和场景里现在写的一样不一样。`);
+    console.log(`${tag} 给 ${id} 做，每条路离河多远、在哪一边照 tests/tools/route/figures.ts 里他那一行写的`);
+    console.log(`${tag} ${ways.length} 条路。每条印三行：怎么做的，做出来的线（贴进 ${scenes}${ROUTE_SCENE_FILE} 里这条路的 line），和场景里现在写的一样不一样。`);
     for (const way of ways) {
-      const made = bankOfWay(scene, today.features, coords, paths, way);
+      const made = bankOfWay(scene, today.features, coords, paths, way, figure.banks[way.id]);
       const side = made.spec.side === 1 ? '左手边' : '右手边';
       const end = (i: 0 | 1): string => `离河心 ${made.ends.km[i].toFixed(1)} 公里，${made.ends.tapered[i] ? '收回到城里' : '从岸上直着连过去'}`;
       const { pulled, wet, tight, folded, skippedKm } = made.made;
@@ -272,10 +331,12 @@ describe.skipIf(MODE !== 'bank')('走水路的路贴着河岸走的线（npm run
       if (made.spec.paste !== false) out[way.id] = made.line;
     }
     if (env.ROUTE_OUT) {
-      diskIo(outFolder(env.ROUTE_OUT)).write('banks.json', new TextEncoder().encode(`${JSON.stringify(out)}\n`));
+      diskIo(outFolder(env.ROUTE_OUT, scenes)).write('banks.json', new TextEncoder().encode(`${JSON.stringify(out)}\n`));
       console.log(`${tag} ROUTE_OUT 指的文件夹里的 banks.json 写好了（${Object.keys(out).length} 条要贴的线）。`);
     }
-    expect(ways.length).toBeGreaterThan(0);
+    // 点了一条路（WAY），或者这位人物的表里写着沿河的路：得真的做出线来。两样都没有的人物（没有沿着河走的路）只说一句
+    if (asked || Object.keys(figure.banks).length > 0) expect(ways.length).toBeGreaterThan(0);
+    else if (ways.length === 0) console.log(`${tag} ${id} 的全程沙盘上没有沿着一条河走的路，表里也没有写：没有线要做。`);
   });
 });
 
@@ -426,15 +487,21 @@ describe('做全程沙盘的文件的工具自己（用编出来的小数据，�
     const GRID: LatLngGrid = { cols: 4, rows: 3, west: 100, east: 100.12, north: 30.08, south: 30 };
     const all = (value: number): Uint8Array => new Uint8Array(GRID.cols * GRID.rows).fill(value);
 
-    it('全程沙盘的格子：570 × 520，每格 0.04 度，两头正好在格点上', () => {
-      expect([ROUTE_GRID.cols, ROUTE_GRID.rows]).toEqual([570, 520]);
-      expect(lngOf(ROUTE_GRID, 0)).toBe(100.86);
-      expect(lngOf(ROUTE_GRID, 569)).toBe(123.62);
-      expect(latOf(ROUTE_GRID, 0)).toBe(38.46);
-      expect(latOf(ROUTE_GRID, 519)).toBe(17.7);
-      expect(lngOf(ROUTE_GRID, 1) - lngOf(ROUTE_GRID, 0)).toBeCloseTo(0.04, 12);
-      expect(latOf(ROUTE_GRID, 0) - latOf(ROUTE_GRID, 1)).toBeCloseTo(0.04, 12);
-      expect(ROUTE_GRID.cols * ROUTE_GRID.rows * 2).toBe(592_800);
+    it('格子照场景的 terrain 那一块：六个数原样取来，两头正好在格点上；写得不成样子的不认（苏轼那一座是多少，写着名字的那一组查）', () => {
+      const block = { class: 'real', file: 'route.terrain.bin', heightUnit: 'm', cols: 4, rows: 3, west: 100, east: 100.12, north: 30.08, south: 30 };
+      const grid = gridOf(block);
+      expect(grid).toEqual(GRID);
+      expect(lngOf(grid, 0)).toBe(100);
+      expect(lngOf(grid, 3)).toBe(100.12);
+      expect(latOf(grid, 0)).toBe(30.08);
+      expect(latOf(grid, 2)).toBe(30);
+      expect(lngOf(grid, 1) - lngOf(grid, 0)).toBeCloseTo(0.04, 12);
+      expect(latOf(grid, 0) - latOf(grid, 1)).toBeCloseTo(0.04, 12);
+      expect(() => gridOf({ ...block, cols: 1 })).toThrow('不成样子');
+      expect(() => gridOf({ ...block, rows: 2.5 })).toThrow('不成样子');
+      expect(() => gridOf({ ...block, east: 100 })).toThrow('不成样子');
+      expect(() => gridOf({ ...block, north: 29 })).toThrow('不成样子');
+      expect(() => gridOf({ ...block, west: Number.NaN })).toThrow('不成样子');
     });
 
     it('每格取的是横竖各 3 个点，匀在这一格里；存的是它们的平均，不是正中那一个点', () => {
@@ -588,6 +655,8 @@ describe('做全程沙盘的文件的工具自己（用编出来的小数据，�
 
     describe('从样张的文件做出每一项', () => {
       const BOX = { west: 100, east: 110, south: 20, north: 30 };
+      /** 交给工具的“源数据里缩小过的湖”：下面编的数据里有一个。 */
+      const SHRUNK = [{ name: 'Gaoyou Hu', factor: 0.6 }];
       /** 一大块陆地：顺时针走，没有合上，一条边上多一个点。 */
       const mainland: LngLat[] = [[101, 21], [101, 25], [101, 29], [109, 29], [109, 21]];
       /** 两百米宽的小岛（顺时针走）：一抽稀就不成面。 */
@@ -611,7 +680,7 @@ describe('做全程沙盘的文件的工具自己（用编出来的小数据，�
       });
 
       it('先陆地、再湖、再河；重复的、不成面的圈去掉；圈都合上、逆时针走；抽稀；起名字；缩过的湖放回去；出框的河裁开', () => {
-        const { features, report } = todayFeatures(water(), flat, BOX);
+        const { features, report } = todayFeatures(water(), flat, BOX, SHRUNK);
         expect(features.map((f) => `${f.properties.kind} ${f.properties.name}`)).toEqual([
           'land land@105.00,25.00',
           'land land@105.00,20.50',
@@ -651,28 +720,30 @@ describe('做全程沙盘的文件的工具自己（用编出来的小数据，�
           change(w);
           return w;
         };
-        expect(() => todayFeatures(edit((w) => (w.lakes[0].note = '改过')), flat, BOX)).toThrow('不知道这一处改动');
-        expect(() => todayFeatures(edit((w) => delete w.lakes[2].note), flat, BOX)).toThrow('没有带着“缩小过”的说明');
-        expect(() => todayFeatures(edit((w) => w.land.push(lakeRing(105, 25, 1))), flat, BOX)).toThrow('在另一圈里面');
-        expect(() => todayFeatures(edit((w) => w.land.push(lakeRing(110, 25, 1))), flat, BOX)).toThrow('出了方框');
-        expect(() => todayFeatures(edit((w) => (w.lakes[0].ring = lakeRing(109.9, 24, 0.2))), flat, BOX)).toThrow('出了方框');
+        expect(() => todayFeatures(edit((w) => (w.lakes[0].note = '改过')), flat, BOX, SHRUNK)).toThrow('不知道这一处改动');
+        expect(() => todayFeatures(edit((w) => delete w.lakes[2].note), flat, BOX, SHRUNK)).toThrow('没有带着“缩小过”的说明');
+        expect(() => todayFeatures(edit((w) => w.land.push(lakeRing(105, 25, 1))), flat, BOX, SHRUNK)).toThrow('在另一圈里面');
+        expect(() => todayFeatures(edit((w) => w.land.push(lakeRing(110, 25, 1))), flat, BOX, SHRUNK)).toThrow('出了方框');
+        expect(() => todayFeatures(edit((w) => (w.lakes[0].ring = lakeRing(109.9, 24, 0.2))), flat, BOX, SHRUNK)).toThrow('出了方框');
+        // 哪个湖缩小过是交进来的，不是工具自己记着的：没交那张单子，源数据里带着说明的湖就是“不知道的改动”
+        expect(() => todayFeatures(water(), flat, BOX, [])).toThrow('不知道这一处改动');
       });
 
       it('写成文件：一项一行，行尾 LF，最后一个换行；读回来是同样的东西；同样的内容写出同样的字节', () => {
-        const { features } = todayFeatures(water(), flat, BOX);
+        const { features } = todayFeatures(water(), flat, BOX, SHRUNK);
         const text = todayText(features);
         expect(text.startsWith('{"type":"FeatureCollection","features":[\n{"type":"Feature","properties":{"kind":"land","name":"land@105.00,25.00"},"geometry":{"type":"Polygon","coordinates":[[[101,21],')).toBe(true);
         expect(text.endsWith(']}}\n]}\n')).toBe(true);
         expect(text.includes('\r')).toBe(false);
         expect(text.split('\n')).toHaveLength(features.length + 3);
         expect(JSON.parse(text)).toEqual({ type: 'FeatureCollection', features });
-        expect(todayText(todayFeatures(water(), flat, BOX).features)).toBe(text);
+        expect(todayText(todayFeatures(water(), flat, BOX, SHRUNK).features)).toBe(text);
         const sizes = bytesByKind(features);
         expect(sizes.land + sizes.lake + sizes.river).toBe(new TextEncoder().encode(text).length - '{"type":"FeatureCollection","features":[\n'.length - ']}\n'.length - features.length * 2 + 1);
       });
 
       it('不合文件规矩的一项，查得出来', () => {
-        const good = (): TodayFeature[] => todayFeatures(water(), flat, BOX).features;
+        const good = (): TodayFeature[] => todayFeatures(water(), flat, BOX, SHRUNK).features;
         const problems = (change: (features: TodayFeature[]) => void): string[] => {
           const features = good();
           change(features);
@@ -792,8 +863,151 @@ describe('做全程沙盘的文件的工具自己（用编出来的小数据，�
       expect(far.line[1][0]).toBeGreaterThanOrEqual(20);
     });
 
-    it('苏轼的全程沙盘：写了 along、沿着一条河走的路，在 BANKS 里都有；大江以南的两段运河写着不贴', () => {
-      const scene = JSON.parse(new TextDecoder().decode(readFileSync(new URL(`${SCENES}route.json`, ROOT)))) as RouteScene;
+  });
+
+  describe('给哪一位人物做（ROUTE_FIGURE 和那张表）', () => {
+    /** 编的一行：只为了数得出表里有几位。 */
+    const row = (folder: string): RouteToolFigure => ({ source: { folder, dem: 'dem.json', demBytes: 'dem.bin', water: 'water.json' }, todayBox: { west: 0, east: 1, south: 0, north: 1 }, shrunkLakes: [], banks: {} });
+
+    it('写了 ROUTE_FIGURE：就是表里的那一位；写的不在表里，停下来说表里有谁', () => {
+      const table = { first: row('a/'), second: row('b/') };
+      expect(routeToolFigure('second', table)).toEqual({ id: 'second', figure: table.second });
+      expect(routeToolFigure('first', table).figure.source.folder).toBe('a/');
+      expect(() => routeToolFigure('third', table)).toThrow('“third”不在做全程沙盘的那张表里');
+      expect(() => routeToolFigure('third', table)).toThrow('first、second');
+      // 表的原型上的名字不算表里的人物
+      expect(() => routeToolFigure('toString', table)).toThrow('不在做全程沙盘的那张表里');
+    });
+
+    it('没写：表里只有一位就是他；有两位以上、一位也没有，都停下来说，不悄悄挑一位', () => {
+      const one = { only: row('a/') };
+      expect(routeToolFigure(undefined, one)).toEqual({ id: 'only', figure: one.only });
+      expect(routeToolFigure('', one).id).toBe('only');
+      const two = { first: row('a/'), second: row('b/') };
+      expect(() => routeToolFigure(undefined, two)).toThrow('ROUTE_FIGURE=<人物的文件夹名>');
+      expect(() => routeToolFigure(undefined, two)).toThrow('first、second');
+      expect(() => routeToolFigure('', two)).toThrow('要说给哪一位人物做');
+      expect(() => routeToolFigure(undefined, {})).toThrow('一位也没有');
+    });
+
+    it('场景文件在这位人物的 scenes/ 里，叫 route.json；真的那张表里每一行的源数据都写着文件夹和三个文件', () => {
+      expect(scenesFolder('some-one')).toBe('content/figures/some-one/scenes/');
+      expect(ROUTE_SCENE_FILE).toBe('route.json');
+      expect(Object.keys(ROUTE_TOOL_FIGURES).length).toBeGreaterThan(0);
+      for (const [id, figure] of Object.entries(ROUTE_TOOL_FIGURES)) {
+        expect(figure.source.folder.endsWith('/'), id).toBe(true);
+        for (const file of [figure.source.dem, figure.source.demBytes, figure.source.water]) expect(file.length, id).toBeGreaterThan(0);
+        expect(figure.todayBox.east, id).toBeGreaterThan(figure.todayBox.west);
+        expect(figure.todayBox.north, id).toBeGreaterThan(figure.todayBox.south);
+        for (const lake of figure.shrunkLakes) {
+          expect(lake.factor, `${id} ${lake.name}`).toBeGreaterThan(0);
+          expect(lake.factor, `${id} ${lake.name}`).toBeLessThan(1);
+        }
+      }
+    });
+  });
+
+  // ---------------------------------------------------------------- 表里的每一位人物；content/ 里的每一座全程沙盘
+  // 这几组一位人物查一遍。随 npm test 跑，每一位都查：表里的一行要写全了才提交。
+  // 用自己的模式来做文件的时候只查正在做的那一位（notThisTime）：别的人物那一行还没写全、文件还没做齐，
+  // 不该让这一位的工具做完了却以失败收场。正在做的那一位自己的一行没写全（比如 banks 里还缺路），他的工具照做、照印，末了这里说对不上。
+
+  describe.each(Object.keys(ROUTE_TOOL_FIGURES))('那张表里的 %s', (figureId) => {
+    const figure = ROUTE_TOOL_FIGURES[figureId];
+
+    it.skipIf(notThisTime(figureId))('他有全程沙盘的场景文件；场景里写了 along、沿着一条河走的路，在他那一行的 banks 里都有，banks 里也没有场景里没有的路', () => {
+      const scene = readRouteScene(figureId);
+      expect(scene.level).toBe('route');
+      const rivers = new Set(scene.water.rivers.map((river) => river.id));
+      const along = scene.roads.ways.filter((way) => way.along !== undefined && rivers.has(way.along)).map((way) => way.id);
+      expect(Object.keys(figure.banks).sort()).toEqual(along.slice().sort());
+    });
+
+    it.skipIf(notThisTime(figureId))('地形文件的格子（场景里写的）整个落在裁岸线的方框里面：格子上每一点是不是陆地，岸线文件都说得出', () => {
+      const grid = gridOf(readRouteScene(figureId).terrain);
+      const box = figure.todayBox;
+      expect(grid.west).toBeGreaterThanOrEqual(box.west);
+      expect(grid.east).toBeLessThanOrEqual(box.east);
+      expect(grid.south).toBeGreaterThanOrEqual(box.south);
+      expect(grid.north).toBeLessThanOrEqual(box.north);
+    });
+  });
+
+  /** content/ 里有全程沙盘的场景文件的人物（文件夹名，排好的）。 */
+  const routeFigures = readdirSync(new URL('content/figures/', ROOT), { withFileTypes: true })
+    .filter((entry) => entry.isDirectory() && existsSync(new URL(`${scenesFolder(entry.name)}${ROUTE_SCENE_FILE}`, ROOT)))
+    .map((entry) => entry.name)
+    .sort();
+
+  it('content/ 里有全程沙盘', () => {
+    expect(routeFigures.length).toBeGreaterThan(0);
+  });
+
+  describe.each(routeFigures)('content/ 里 %s 做好的两个文件', (figureId) => {
+    const scenes = scenesFolder(figureId);
+    const scene = readRouteScene(figureId);
+    const terrainUrl = new URL(`${scenes}${scene.terrain.file}`, ROOT);
+    const todayUrl = new URL(`${scenes}${scene.water.todayFile}`, ROOT);
+    const have = existsSync(terrainUrl) && existsSync(todayUrl);
+
+    // 两个文件是一起做的：页面靠地形文件里“是不是 0”分陆地和海，上色的工具靠岸线文件，两边要是同一条岸。
+    // 只读这两个文件和场景里写的格子，不读源数据；哪一个还没有放进 content/ 就不查。
+    it.skipIf(!have || notThisTime(figureId))('对得上：地形文件大小是场景里写的格子的大小；它里面不是 0 的格子，正好是格点落在岸线文件的陆地里的那些', () => {
+      const grid = gridOf(scene.terrain);
+      const bytes = readFileSync(terrainUrl);
+      const text = new TextDecoder().decode(readFileSync(todayUrl));
+      expect(bytes.length).toBe(grid.cols * grid.rows * 2);
+      expect(text.includes('\r')).toBe(false);
+      const heights = readTerrain(grid, bytes);
+      const features = (JSON.parse(text) as { features: TodayFeature[] }).features;
+      // 合不合文件的规矩要知道裁到哪个方框，方框写在那张表里他的一行。两个文件都在、表里却没有他：不悄悄跳过这一句，说出来
+      const row = Object.hasOwn(ROUTE_TOOL_FIGURES, figureId) ? ROUTE_TOOL_FIGURES[figureId] : undefined;
+      if (!row) {
+        throw new Error(
+          `content/ 里有 ${figureId} 做好的地形文件和岸线文件，做全程沙盘的那张表（tests/tools/route/figures.ts）里却没有他的一行：` +
+            '岸线文件裁到哪个方框不知道，它合不合文件的规矩查不了。这两个文件是照表里的一行做的，把他的一行添上',
+        );
+      }
+      expect(todayProblems(features, row.todayBox)).toEqual([]);
+      const mask = landMask(grid, landRings(features));
+      let wrong = 0;
+      let negative = 0;
+      for (let k = 0; k < heights.length; k++) {
+        if ((mask[k] === 1) !== (heights[k] !== 0)) wrong += 1;
+        if (heights[k] < 0) negative += 1;
+      }
+      expect(wrong, '地形文件里“是不是陆地”和岸线文件对不上的格子：两个文件要一起重做（npm run route:today，再 npm run route:terrain）').toBe(0);
+      expect(negative).toBe(0);
+    });
+  });
+
+  // ---------------------------------------------------------------- 苏轼的这一座自己的数和路名
+
+  describe.skipIf(notThisTime('su-shi'))('苏轼的全程沙盘（su-shi）自己的数和路名', () => {
+    const figure = ROUTE_TOOL_FIGURES['su-shi'];
+    const grid = (): LatLngGrid => gridOf(readRouteScene('su-shi').terrain);
+
+    it('地形文件的格子：570 × 520，每格 0.04 度，两头正好在格点上', () => {
+      const ROUTE_GRID = grid();
+      expect([ROUTE_GRID.cols, ROUTE_GRID.rows]).toEqual([570, 520]);
+      expect(lngOf(ROUTE_GRID, 0)).toBe(100.86);
+      expect(lngOf(ROUTE_GRID, 569)).toBe(123.62);
+      expect(latOf(ROUTE_GRID, 0)).toBe(38.46);
+      expect(latOf(ROUTE_GRID, 519)).toBe(17.7);
+      expect(lngOf(ROUTE_GRID, 1) - lngOf(ROUTE_GRID, 0)).toBeCloseTo(0.04, 12);
+      expect(latOf(ROUTE_GRID, 0) - latOf(ROUTE_GRID, 1)).toBeCloseTo(0.04, 12);
+      expect(ROUTE_GRID.cols * ROUTE_GRID.rows * 2).toBe(592_800);
+    });
+
+    it('源数据是样张的三个文件；岸线裁到东经 100.3 到 124.3、北纬 16.8 到 39.3；放回原来大小的湖是高邮湖（缩到过六成）', () => {
+      expect(figure.source).toEqual({ folder: 'spikes/art-direction/route/data/', dem: 'dem.json', demBytes: 'dem.bin', water: 'water.json' });
+      expect(figure.todayBox).toEqual({ west: 100.3, east: 124.3, south: 16.8, north: 39.3 });
+      expect(figure.shrunkLakes).toEqual([{ name: 'Gaoyou Hu', factor: 0.6 }]);
+    });
+
+    it('写了 along、沿着一条河走的路，在他那一行的 banks 里都有；大江以南的两段运河写着不贴', () => {
+      const BANKS = figure.banks;
+      const scene = readRouteScene('su-shi');
       const rivers = new Set(scene.water.rivers.map((river) => river.id));
       const along = scene.roads.ways.filter((way) => way.along !== undefined && rivers.has(way.along)).map((way) => way.id);
       expect(Object.keys(BANKS).sort()).toEqual(along.slice().sort());
@@ -803,30 +1017,11 @@ describe('做全程沙盘的文件的工具自己（用编出来的小数据，�
         expect(spec.offKm).toBeLessThanOrEqual(9);
       }
     });
-  });
 
-  describe('content/ 里做好的两个文件', () => {
-    const have = existsSync(new URL(`${SCENES}${TERRAIN_FILE}`, ROOT)) && existsSync(new URL(`${SCENES}${TODAY_FILE}`, ROOT));
-
-    // 两个文件是一起做的：页面靠地形文件里“是不是 0”分陆地和海，上色的工具靠岸线文件，两边要是同一条岸。
-    // 只读这两个文件，不读样张的数据；哪一个还没有放进 content/ 就不查。
-    it.skipIf(!have)('对得上：地形文件大小对；它里面不是 0 的格子，正好是格点落在岸线文件的陆地里的那些', () => {
-      const bytes = readFileSync(new URL(`${SCENES}${TERRAIN_FILE}`, ROOT));
-      const text = new TextDecoder().decode(readFileSync(new URL(`${SCENES}${TODAY_FILE}`, ROOT)));
-      expect(bytes.length).toBe(592_800);
-      expect(text.includes('\r')).toBe(false);
-      const heights = readTerrain(ROUTE_GRID, bytes);
-      const features = (JSON.parse(text) as { features: TodayFeature[] }).features;
-      expect(todayProblems(features)).toEqual([]);
-      const mask = landMask(ROUTE_GRID, landRings(features));
-      let wrong = 0;
-      let negative = 0;
-      for (let k = 0; k < heights.length; k++) {
-        if ((mask[k] === 1) !== (heights[k] !== 0)) wrong += 1;
-        if (heights[k] < 0) negative += 1;
-      }
-      expect(wrong, '地形文件里“是不是陆地”和岸线文件对不上的格子：两个文件要一起重做（npm run route:today，再 npm run route:terrain）').toBe(0);
-      expect(negative).toBe(0);
+    it('content/ 里他的地形文件是 592,800 字节，叫 route.terrain.bin；岸线文件叫 route.today.geojson', () => {
+      const scene = readRouteScene('su-shi');
+      expect([scene.terrain.file, scene.water.todayFile]).toEqual(['route.terrain.bin', 'route.today.geojson']);
+      expect(readFileSync(new URL(`${scenesFolder('su-shi')}${scene.terrain.file}`, ROOT)).length).toBe(592_800);
     });
   });
 
@@ -852,13 +1047,16 @@ describe('做全程沙盘的文件的工具自己（用编出来的小数据，�
       expect([...fresh.files['a.bin']]).toEqual([1, 2, 3, 0]);
     });
 
-    it('做出来的文件放在哪：平常是 content/ 里；ROUTE_OUT 可以是相对项目根目录的文件夹，也可以是完整的路径', () => {
-      expect(outFolder(undefined).href).toBe(new URL('content/figures/su-shi/scenes/', ROOT).href);
-      expect(outFolder('').href).toBe(new URL('content/figures/su-shi/scenes/', ROOT).href);
-      expect(outFolder('tests/shots/e-trial').href).toBe(new URL('tests/shots/e-trial/', ROOT).href);
-      expect(outFolder('tests/shots/e-trial/').href).toBe(new URL('tests/shots/e-trial/', ROOT).href);
-      expect(outFolder('D:\\made\\route out').href).toBe('file:///D:/made/route%20out/');
-      expect(outFolder('D:/made/out/').href).toBe('file:///D:/made/out/');
+    it('做出来的文件放在哪：平常是 content/ 里这位人物的 scenes/；ROUTE_OUT 可以是相对项目根目录的文件夹，也可以是完整的路径', () => {
+      const scenes = scenesFolder('su-shi');
+      expect(outFolder(undefined, scenes).href).toBe(new URL('content/figures/su-shi/scenes/', ROOT).href);
+      expect(outFolder('', scenes).href).toBe(new URL('content/figures/su-shi/scenes/', ROOT).href);
+      // 换一位人物，平常的地方跟着换
+      expect(outFolder(undefined, scenesFolder('some-one')).href).toBe(new URL('content/figures/some-one/scenes/', ROOT).href);
+      expect(outFolder('tests/shots/e-trial', scenes).href).toBe(new URL('tests/shots/e-trial/', ROOT).href);
+      expect(outFolder('tests/shots/e-trial/', scenes).href).toBe(new URL('tests/shots/e-trial/', ROOT).href);
+      expect(outFolder('D:\\made\\route out', scenes).href).toBe('file:///D:/made/route%20out/');
+      expect(outFolder('D:/made/out/', scenes).href).toBe('file:///D:/made/out/');
     });
   });
 });

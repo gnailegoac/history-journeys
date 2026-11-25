@@ -24,11 +24,12 @@ import type { PiecePlace, StageInsets } from '../../src/stage/types';
 import { sectionAt } from '../../src/timebar/barState';
 import { whereAt } from '../../src/timebar/barWhere';
 import { readBytes } from '../support/readBytes';
-import { realRouteScene, realSceneKeys } from './support/realScenes';
+import { realRouteScene } from './support/realScenes';
 import { NOTICE_HEAD_PX, ROUTE_HOME_PANES, ROUTE_NOTICE_ROW_TOP, ROUTE_PANES, ROUTE_UPRIGHT_PANES, STANDARD_PANES } from './support/standardPanes';
 import { routeSectionStrips, stripSize, stripSizeKind } from './support/stripSizes';
 
-const KEY = realSceneKeys('route')[0];
+/** 这个文件查的是苏轼的全程沙盘和他的行迹：下面的数、地名都是他的。写着名字取，不取“排在最前面的那一座”（添了别的人物，排在最前面的就不一定是他）。 */
+const KEY = 'su-shi/route';
 const [FIGURE] = KEY.split('/');
 const R = realRouteScene(KEY);
 const style = styleFor(R.scene.style);

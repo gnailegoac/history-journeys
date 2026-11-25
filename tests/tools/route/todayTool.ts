@@ -8,6 +8,8 @@
 //   坐标是 [经度, 纬度]，三位小数；一圈的头尾是同一个点，照 GeoJSON 的规矩逆时针走。
 // 场景文件照名字从里面挑要画的；页面不读它，读它的是给地面上色的工具、内容校验和测试。
 //
+// 给哪一位人物做、他的源数据在哪、裁到哪个方框、哪个湖要放回原来的大小，写在 ./figures.ts 的那张表里（一位人物一行）。
+// 下面说的是苏轼的那一份：
 // 它是从样张的 spikes/art-direction/route/data/water.json 做的（那是 Natural Earth 1:10m 裁出来的，公有领域）：
 //   陆地：样张已经裁到方框（东经 100.3 到 124.3，北纬 16.8 到 39.3）；这里去掉一模一样的重复的圈，把没合上的圈合上。
 //   河：出了方框的部分裁掉。
@@ -76,14 +78,16 @@ export interface Box {
   north: number;
 }
 
-/** 文件裁到的方框（样张用的那一个，比沙盘的范围四边各宽出一截）。 */
-export const TODAY_BOX: Box = { west: 100.3, east: 124.3, south: 16.8, north: 39.3 };
+// 文件裁到哪个方框、源数据里哪个湖被缩小过，是一位人物一份的：写在 ./figures.ts 的那张表里，从那里交进来。
 
 /** 抽稀到多细（公里）。 */
 export const THIN_KM = 0.6;
 
-/** 样张改过的那个湖：按中心缩到了几成。 */
-export const TRIAL_SHRUNK = { name: 'Gaoyou Hu', factor: 0.6 };
+/** 源数据改过的一个湖：名字，按中心缩到了几成。工具照这个放回原来的大小。 */
+export interface ShrunkLake {
+  name: string;
+  factor: number;
+}
 
 // ---------------------------------------------------------------- 小工具
 
@@ -295,13 +299,15 @@ const count = (lines: LngLat[][]): number => lines.reduce((sum, line) => sum + l
 
 /**
  * 从样张的 water.json 做出文件里的每一项，先陆地、再湖、再河，各照样张里的先后。
- * toKm 是沙盘的投影（抽稀时量公里用）。样张的文件不是工具认得的样子（陆地里有套着的圈、
+ * toKm 是沙盘的投影（抽稀时量公里用）。box 是文件裁到的方框，shrunk 是源数据里缩小过、要放回原来大小的湖
+ *（两样都是这位人物在 ./figures.ts 里的那一行写的）。样张的文件不是工具认得的样子（陆地里有套着的圈、
  * 有工具不知道的改动、湖出了方框）就停下来说，不硬做。
  */
 export function todayFeatures(
   water: TrialWater,
   toKm: (lng: number, lat: number) => [number, number],
-  box: Box = TODAY_BOX,
+  box: Box,
+  shrunk: readonly ShrunkLake[],
   tolKm: number = THIN_KM,
 ): { features: TodayFeature[]; report: TodayReport } {
   const features: TodayFeature[] = [];
@@ -346,12 +352,13 @@ export function todayFeatures(
   let lakePoints = 0;
   for (const lake of water.lakes) {
     let ring = lake.ring;
+    const known = shrunk.find((item) => item.name === lake.name);
     if (lake.note !== undefined) {
-      if (lake.name !== TRIAL_SHRUNK.name) throw new Error(`样张改过“${lake.name ?? lake.zh ?? '没有名字的湖'}”（${lake.note}），这个工具不知道这一处改动`);
-      ring = restoreShrunk(ring, lake.at, TRIAL_SHRUNK.factor);
-      restored.push(lake.name);
-    } else if (lake.name === TRIAL_SHRUNK.name) {
-      throw new Error(`样张里的 ${TRIAL_SHRUNK.name} 没有带着“缩小过”的说明：不是这个工具认得的那份文件`);
+      if (!known) throw new Error(`样张改过“${lake.name ?? lake.zh ?? '没有名字的湖'}”（${lake.note}），这个工具不知道这一处改动`);
+      ring = restoreShrunk(ring, lake.at, known.factor);
+      restored.push(known.name);
+    } else if (known) {
+      throw new Error(`样张里的 ${known.name} 没有带着“缩小过”的说明：不是这个工具认得的那份文件`);
     }
     if (!ring.every(inBox)) throw new Error(`湖“${lake.name ?? positionName('lake', lake.at)}”出了方框：这个工具不裁湖`);
     const name = lake.name ?? positionName('lake', lake.at);
@@ -407,8 +414,8 @@ export function bytesByKind(features: TodayFeature[]): Record<TodayKind, number>
   return out;
 }
 
-/** 做出来的每一项合不合文件的规矩；不合的一条一句。没有问题是空的。 */
-export function todayProblems(features: TodayFeature[], box: Box = TODAY_BOX): string[] {
+/** 做出来的每一项合不合文件的规矩；不合的一条一句。没有问题是空的。box 是这位人物的文件裁到的方框。 */
+export function todayProblems(features: TodayFeature[], box: Box): string[] {
   const problems: string[] = [];
   const badPoint = (p: LngLat): boolean => !(p.length === 2 && Number.isFinite(p[0]) && Number.isFinite(p[1]) && r3(p[0]) === p[0] && r3(p[1]) === p[1]);
   const outside = (p: LngLat): boolean => p[0] < box.west || p[0] > box.east || p[1] < box.south || p[1] > box.north;

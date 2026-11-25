@@ -30,7 +30,7 @@ import { whereAt } from '../../src/timebar/barWhere';
 import { namesIn, readBytes } from '../support/readBytes';
 import { DRAW_CALLS_MAX, STANDING_STILL_MS, TRIANGLES_MAX, checkReduced } from '../stage/support/budgets';
 import { stripSize, stripSizeKind } from '../stage/support/stripSizes';
-import { expectRealTable, headingsOf, openFigureWithTable, realUrl, roadOf, routeOnDisk, sceneOnDisk, scrollToSection, stagePane, stageReadout, stopsWithScenes, stripsOf } from './helpers';
+import { expectRealTable, firstOpenFigureOnDisk, headingsOf, openFigureWithTable, realUrl, roadOf, routeOnDisk, sceneOnDisk, scrollToSection, stagePane, stageReadout, stopsWithScenes, stripsOf } from './helpers';
 
 const env = (globalThis as { process?: { env: Record<string, string | undefined> } }).process?.env ?? {};
 
@@ -44,6 +44,8 @@ const AUTO_MS = 2 * READY_MS;
 const TIER_NAME: Record<StageTier, string> = { full: '完整', reduced: '减配' };
 /** 取沙盘程序的那一次请求。 */
 const ENGINE_REQUEST = /\/engine(-[\w-]+)?\.(js|ts)(\?.*)?$/;
+/** 照行迹查的那几项（时间轴停在哪一天、他站在哪）查的是这一位：字和地名是他的行迹里的。 */
+const BAR_FIGURE = 'su-shi';
 
 /** 页面上的报错，记下来最后一起看。 */
 function watchProblems(page: Page): string[] {
@@ -205,7 +207,9 @@ test('真沙盘（减配的一档）：摆出来的真是减配的一档，换�
 // 别的有沙盘的站（第一个上面两项已经起过了）：每一座各起两遍，完整的一档和减配的一档。
 // 第二座沙盘用到的着色器、模型、夜里的光，只有打开它才编译、才造得出来；不这样查，它出了错两道关都看不见。
 // “第一个”和上面两项一样，是目录里第一个写好了正文、有沙盘的站：这几项要读到后面的小节，得有正文带着镜头走。
-const FIRST_FIGURE = stopsWithScenes()[0]?.figureId;
+// 是哪一位人物的站：首页头一张打得开的卡片的那一位（forcedTier 点开的就是他），不是文件夹排在最前面的那一位——
+// 添了别的人物，这两样就不是同一位了，拿一位的站名到另一位的目录里去找是找不到的。
+const FIRST_FIGURE = firstOpenFigureOnDisk();
 for (const { stopId } of stopsWithScenes().filter((one) => one.figureId === FIRST_FIGURE && one.written).slice(1)) {
   test(`真沙盘（完整的一档），${stopId}：这一站自己的沙盘摆得出来，换得到夜里的小节（有的话），三角形数和画几批在预算里，站着不动不再画`, async ({ page }) => {
     test.setTimeout(300_000);
@@ -500,6 +504,8 @@ test('人物页不带时间轴的开关（地址里没有 ?bar=）：全程沙�
   await page.emulateMedia({ reducedMotion: 'reduce' });
   const problems = watchProblems(page);
   const { figureId } = await openFigureWithTable(page, realUrl('#/', 'full', '&debug=1'));
+  // 下面的年号、地名是苏轼的：首页头一张打得开的卡片（照生年排）得是他，不然这一项查的就不是它说的那个人
+  expect(figureId, '首页头一张打得开的卡片不是苏轼：这一项的字是照他的行迹写的').toBe(BAR_FIGURE);
   await needWebGL2(page);
   const route = routeOnDisk(figureId);
   if (env.CI) expect(route, '发布流程里没有找到全程沙盘：它一次也没有起来过，不能算通过').not.toBeNull();
@@ -554,8 +560,8 @@ test('真的全程沙盘上，时间轴停在他站在线上、沙盘平时没�
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.emulateMedia({ reducedMotion: 'reduce' });
   const problems = watchProblems(page);
-  // 头一位有行迹的人物；行迹里头一处有今名的
-  const figureId = namesIn('content/figures').find((name) => !name.includes('.') && namesIn(`content/figures/${name}`).includes('itinerary.bar.json'));
+  // 苏轼（写着名字取，不取“文件夹排在最前面的、有行迹的那一位”）；他的行迹里头一处有今名的
+  const figureId = namesIn(`content/figures/${BAR_FIGURE}`).includes('itinerary.bar.json') ? BAR_FIGURE : undefined;
   if (env.CI) expect(figureId, '发布流程里没有找到行迹').toBeDefined();
   else test.skip(!figureId, '还没有哪一位人物有行迹');
   if (!figureId) return;
@@ -706,7 +712,7 @@ test('沙盘程序头一次没取到（网断了一下），时间轴停在他�
   test.setTimeout(300_000);
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.emulateMedia({ reducedMotion: 'reduce' });
-  const figureId = namesIn('content/figures').find((name) => !name.includes('.') && namesIn(`content/figures/${name}`).includes('itinerary.bar.json'));
+  const figureId = namesIn(`content/figures/${BAR_FIGURE}`).includes('itinerary.bar.json') ? BAR_FIGURE : undefined;
   if (env.CI) expect(figureId, '发布流程里没有找到行迹').toBeDefined();
   else test.skip(!figureId, '还没有哪一位人物有行迹');
   if (!figureId) return;

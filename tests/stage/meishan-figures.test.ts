@@ -208,9 +208,12 @@ describe.runIf(realSceneKeys().includes(KEY))('眉州的模型', { timeout: 60_0
     expect(rippleFor(70, 2000, 0)).toEqual({ dense: 1, turnDeg: 90 });
     expect(rippleFor(70, 2000)).toEqual({ dense: 0.3, turnDeg: 90 });
     expect(realScene('su-shi/xuzhou').scene.water.calmUnderPx).toBe(26);
-    for (const key of realSceneKeys().filter((k) => k !== KEY && k !== 'su-shi/xuzhou')) {
+    // 黄州没有写门槛（写着名字查：别的人物的沙盘写不写门槛是它们自己的事，不拿来对苏轼的这三座）
+    expect(realScene('su-shi/huangzhou').scene.water.calmUnderPx, 'su-shi/huangzhou').toBeUndefined();
+    // 没有写门槛的沙盘，哪一座都一样：哪一节、多远都照常画
+    for (const key of realSceneKeys()) {
       const other = realScene(key).scene;
-      expect(other.water.calmUnderPx, key).toBeUndefined();
+      if (other.water.calmUnderPx !== undefined) continue;
       for (const distance of [500, 5000, 50000, 5e6]) expect(rippleShare(other.water, distance, 21), `${key} ${distance}`).toBe(1);
     }
   });

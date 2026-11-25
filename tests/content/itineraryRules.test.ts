@@ -30,6 +30,7 @@ import {
   spotTown,
   validateItinerary,
 } from './itineraryRules';
+import { RULE_NAMES, formatViolation, validateFigure } from './rules';
 import type { ContentFiles, Violation } from './shape';
 
 const texts = import.meta.glob<string>('/content/figures/su-shi/{figure.json,itinerary.json,itinerary.bar.json,scenes/route.json}', { query: '?raw', import: 'default', eager: true });
@@ -542,13 +543,30 @@ describe('时间轴用的那一份（工具做的）', () => {
     expect(found).toEqual([expect.stringContaining('运行 npm run itinerary 重做')]);
   });
 
-  it('没有那一份：通不过；没有全程沙盘的人物有行迹：通不过', () => {
+  it('没有那一份：通不过；没有全程沙盘的人物有行迹：通不过；有全程沙盘、没有行迹的人物现在还不报（只有工具做的那一份、没有手写的，报）', () => {
     const files: ContentFiles = { [`${DIR}/figure.json`]: read('figure.json'), [`${DIR}/scenes/route.json`]: read('scenes/route.json'), [FILE]: read('itinerary.json') };
     expect(validateItinerary(files, DIR, FIGURE).map((v) => [v.rule, v.file])).toEqual([[ITINERARY_RULE, BAR]]);
     const { [`${DIR}/scenes/route.json`]: _route, ...withoutRoute } = files;
     expect(validateItinerary(withoutRoute, DIR, FIGURE).map((v) => v.file)).toEqual([FILE]);
     const { [FILE]: _itinerary, ...withoutItinerary } = files;
-    expect(validateItinerary(withoutItinerary, DIR, FIGURE).map((v) => v.problem)).toEqual([expect.stringContaining('有全程沙盘的人物要有行迹')]);
+    // 只管一头：有行迹的要有全程沙盘。反过来那一头等有了第二位人物再添
+    expect(validateItinerary(withoutItinerary, DIR, FIGURE)).toEqual([]);
+    expect(validateItinerary({ ...withoutItinerary, [BAR]: read('itinerary.bar.json') }, DIR, FIGURE).map((v) => [v.rule, v.file, v.problem])).toEqual([[ITINERARY_RULE, BAR, expect.stringContaining('没有手写的那一份')]]);
+  });
+
+  it('规则 22 接在一位人物的校验里（validateFigure）：真的那一份一处不报；手写的改了一个字、那一份没有重做，报的是【规则 22 行迹】；没有全程沙盘的人物带着行迹，也报', () => {
+    expect(RULE_NAMES[ITINERARY_RULE]).toBe('行迹');
+    const files: ContentFiles = { [`${DIR}/figure.json`]: read('figure.json'), [`${DIR}/scenes/route.json`]: read('scenes/route.json'), [FILE]: read('itinerary.json'), [BAR]: read('itinerary.bar.json') };
+    // 这里只放了四个文件，别的规则会报缺这缺那；只看规则 22 的
+    const rule22 = (given: ContentFiles): Violation[] => validateFigure(given, FIGURE.id).filter((v) => v.rule === ITINERARY_RULE);
+    expect(rule22(files)).toEqual([]);
+    const copy = copyOf();
+    stretch(copy, 't31').label = '住在黄州';
+    const changed = rule22({ ...files, [FILE]: JSON.stringify(copy) });
+    expect(changed.map((v) => v.file)).toEqual([BAR]);
+    expect(formatViolation(changed[0])).toContain('【规则 22 行迹】content/figures/su-shi/itinerary.bar.json');
+    const { [`${DIR}/scenes/route.json`]: _route, ...withoutRoute } = files;
+    expect(rule22(withoutRoute).map((v) => v.file)).toEqual([FILE, BAR]);
   });
 
   it('日子换算：儒略历的一天是第几天，来回换不走样；出生那天是第 0 天，去世那天是第 23,604 天', () => {

@@ -20,6 +20,9 @@ import { describe, expect, it, vi } from 'vitest';
 import { stopHref } from '../../../src/app/router';
 import { stopMarks, stripTexts } from '../../../src/domain';
 import type { Figure, RouteScene, StopScene } from '../../../src/domain';
+import type { Itinerary, ItinerarySource } from '../../../src/domain/itinerary';
+import { SCENE_CLASSES, SCENE_CLASS_LABEL } from '../../../src/domain/scene';
+import { itinerarySources, onceEach } from '../../../src/ui/SceneRegister';
 import { SITE_TITLE } from '../../../src/ui/text';
 import { pickSection, readingLine, remainingScroll } from '../../../src/ui/useReadingSection';
 import { readBytes } from '../../support/readBytes';
@@ -212,6 +215,46 @@ describe('整个版面 + 真的内容 + 沙盘的替身', () => {
     // 没有正文的凭据那一句
     expect(page.all('.provenance-item')).toHaveLength(0);
     await page.unmount();
+  });
+
+  it('全程沙盘的凭据：四类以后有“记号”一栏，里面是小像；最后是行迹的出处，一条印一次', { timeout: 30_000 }, async () => {
+    const itinerary = JSON.parse(new TextDecoder().decode(readBytes('content/figures/su-shi/itinerary.json'))) as Itinerary;
+    // 是哪位人物，凭据里面的那一块程序从地址里读：真的页面上人物页的地址是 #/su-shi
+    win.location.hash = '#/su-shi';
+    const page = await mount('?stage=fake', null);
+    await setFold(page.q('details.provenance')!, true);
+    await waitFor(() => page.q('.scene-register') !== null);
+    // 各栏的先后：有东西的那几类（照五类的先后），然后是“记号”，然后是“没有画的”
+    const classes = SCENE_CLASSES.filter((cls) => page.all(`.scene-register-group[data-class="${cls}"]`).length > 0);
+    expect(classes.length).toBe(4);
+    expect(page.all('.scene-register-group h4').map((h) => h.textContent)).toEqual([...classes.map((cls) => SCENE_CLASS_LABEL[cls]), '记号', '没有画的']);
+    // “记号”里只有小像一样：名字、照什么摆、哪些是示意的，都是场景文件里写的
+    expect(route.piece, '全程沙盘的场景文件里没有 piece').toBeDefined();
+    const mark = page.all('.scene-marks .scene-register-item');
+    expect(mark).toHaveLength(1);
+    expect(page.q('.scene-marks .scene-register-name')?.textContent).toBe(route.piece?.name);
+    expect(page.q('.scene-marks .scene-register-basis')?.textContent).toBe(route.piece?.basis);
+    expect(page.q('.scene-marks .scene-register-unsure')?.textContent).toBe(route.piece?.note);
+    expect(route.piece?.basis).toContain('比真人大得多');
+    expect(route.piece?.basis).toContain('旁边立出那一处的名字');
+    expect(route.piece?.note).toContain('没有照哪一幅画像');
+    // 最后：行迹的出处。上面一句话；下面一条出处印一次，连着读了它的什么，先后照手写的那一份
+    const once = itinerary.sources.filter((source, i) => itinerary.sources.findIndex((other) => other.cite === source.cite) === i);
+    expect(once.length).toBeGreaterThan(10);
+    expect(page.all('.itinerary-sources .provenance-line').map((p) => p.textContent)).toEqual(['他哪一年在哪里，是照下面这些书和文章排的。每一段各依据哪一条，写在这位人物的行迹文件里。']);
+    expect(page.all('.itinerary-sources .scene-register-name').map((p) => p.textContent)).toEqual(once.map((source) => source.cite));
+    expect(page.all('.itinerary-sources .scene-register-basis').map((p) => p.textContent)).toEqual(once.map((source) => source.read));
+    // 它在“沙盘上的东西”那一栏的后面，不在里面：那一栏里的出处还都是全程沙盘自己的
+    expect(page.all('.scene-register .itinerary-sources')).toHaveLength(0);
+    // 一条印一次：同一条出处写了两回的，只留头一回；地址里不是哪位有行迹的人物，一条也没有
+    const twice: ItinerarySource[] = [itinerary.sources[0], itinerary.sources[1], { ...itinerary.sources[0], id: 'again', read: '又读了一遍' }];
+    expect(onceEach(twice)).toEqual([itinerary.sources[0], itinerary.sources[1]]);
+    expect(itinerarySources('#/su-shi')).toEqual(once);
+    expect(itinerarySources('#/su-shi/xuzhou')).toEqual(once);
+    expect(itinerarySources('#/')).toEqual([]);
+    expect(itinerarySources('#/sources')).toEqual([]);
+    await page.unmount();
+    win.location.hash = '';
   });
 
   it('全程沙盘这一次没读出来（不是没有）：说“沙盘没能摆出来”，带“再试一次”；不说“还没接进来”；再试读出来了，沙盘摆上，还没写的一站正文那一栏的后半句也回来', { timeout: 30_000 }, async () => {

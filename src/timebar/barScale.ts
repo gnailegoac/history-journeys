@@ -15,8 +15,11 @@ export const STAY_MIN_UNITS = 3;
 export const OTHER_MIN_UNITS = 1;
 /** 一年多少天（算“年数”用）。 */
 const DAYS_A_YEAR = 365.25;
-/** 住下来的格子至少这么宽（像素）才画两道斜线。 */
-export const SQUEEZE_MIN_PX = 9;
+/**
+ * 住下来的格子至少这么宽（像素）才画两道斜线。两道斜线连线的粗细一共占 7 像素（TimeBar.tsx 的 squeezeMark），格子左右各有 1 像素的边：
+ * 9 像素宽的格子里它们正顶着两条边（设了“减少动态效果”、轴的两头多了两个按钮的窄栏上有这样的格子），所以要 10 像素。
+ */
+export const SQUEEZE_MIN_PX = 10;
 /** 两个年份的数字至少隔这么远（像素），不到的后一个不写。 */
 export const YEAR_GAP_PX = 40;
 /** 不到这么宽（像素）的空格子、白底格子不画左右两条边：好几格挤在一起的地方只剩上下两道线。 */

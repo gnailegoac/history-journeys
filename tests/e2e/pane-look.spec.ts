@@ -34,9 +34,11 @@
 
 import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
+import type { ItineraryBar } from '../../src/domain/itinerary';
 import { STANDARD_PANES } from '../stage/support/standardPanes';
 import { STRIP_NARROW_BELOW_PX } from '../stage/support/stripSizes';
 import { oldIpadSheet } from '../support/oldIpadSheet';
+import { namesIn, readBytes } from '../support/readBytes';
 import { expectStageAt, expectRoute, fakeStage, fakeUrl, fontsReady, headingsOf, openFigureWithTable, routeOnDisk, scrollToBottom, scrollToSection, stagePane, twoFrames } from './helpers';
 import { PANE_QUERIES, expectPane, notice, stopUrl } from './paneHelpers';
 
@@ -300,6 +302,34 @@ test('沙盘栏里框架的字都不直接落在沙盘栏的底色上：落在�
   const routeShown = await expectRoute(page);
   expect(routeShown, '人物页上摆着全程沙盘').toBe(routeOnDisk(figureId) !== null);
   if (routeShown) await look('人物页的全程沙盘', 3);
+
+  // 人物页带着时间轴（沙盘的替身上要在地址里写从哪一天起才摆；停在他住在一站里的年月上）：那一条上的字——两行字、“播放”、
+  // “图例”、进一站的入口、圆点里的站号、轴下面的年份——也都不直接落在沙盘栏的底色上，对比够，没有小于 14px 的；再点开“图例”看一遍
+  if (routeShown && namesIn(`content/figures/${figureId}`).includes('itinerary.bar.json')) {
+    const made = JSON.parse(new TextDecoder().decode(readBytes(`content/figures/${figureId}/itinerary.bar.json`))) as ItineraryBar;
+    const stay = made.stretches.findIndex((stretch) => stretch.look === 'stop');
+    expect(stay, '行迹里要有住在一站里的一段').toBeGreaterThan(0);
+    const day = Math.round((made.stretches[stay - 1].until + made.stretches[stay].until) / 2);
+    const withBar = async (label: string, atLeast: number): Promise<void> => {
+      const runs = await paneRuns(page);
+      // 题签和它脚上的印是沙盘自己的字（楷体，印上的站号 13px），不是框架的字，不在“没有小于 14px 的”里
+      const frame = runs.filter((run) => !/^(div|a|span)\.strip(-seal|-text)?(\.|$)/.test(run.where));
+      expect(frame.length, `${label}：框架的字`).toBeLessThan(runs.length);
+      expect(frame.filter((run) => run.size < 14).map((run) => `${run.where}“${run.text}”${run.size}px`), `${label}：小于 14px 的字`).toEqual([]);
+      // 时间轴那一条上的字都数到了：第二行那一句，轴下面的年份，圆点里的站号
+      for (const selector of ['p.bar-known', 'span.bar-year', 'span.bar-disc']) expect(runs.some((run) => run.where.startsWith(selector)), `${label}：没有数到 ${selector} 里的字`).toBe(true);
+      await look(label, atLeast);
+    };
+    await page.goto('about:blank');
+    await page.goto(fakeUrl(`#/${figureId}`, `&bar=${day}`));
+    await expect(stagePane(page)).toHaveAttribute('data-stage-state', 'ready');
+    await expect(page.locator('.bar-thumb')).toHaveCount(1);
+    await expect(page.locator('.bar-when .bar-label')).toHaveText(made.stretches[stay].label);
+    await withBar('人物页的全程沙盘，带着时间轴', 12);
+    await tap(page, '.bar-note');
+    await expect(pane.locator('.bar-panel')).toBeVisible();
+    await withBar('人物页的全程沙盘，时间轴的“图例”开着', 20);
+  }
 
   console.log(['沙盘栏里见到的每一种配法（字的颜色、垫在下面的是谁、对比）：', ...[...seen].sort().map(([pair, ratio]) => `  ${ratio} 比 1　${pair}`)].join('\n'));
 

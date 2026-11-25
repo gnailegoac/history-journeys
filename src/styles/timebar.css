@@ -109,7 +109,7 @@
   text-overflow: ellipsis;
 }
 
-/* “图例”和“进第几站”：两个小按钮，样子同题记里的“说明”（写在 stage.css 的“两个小按钮”那一条里）。看着 20px 高，
+/* “图例”和“进第几站”：两个小按钮，样子同题记里的“说明”（写在 stage.css 的“四个小按钮”那一条里）。看着 20px 高，
    能点的地方有 44px 高：::after 上下各撑出去 12px（从那一圈 1px 的边里面量，所以写 13）。 */
 .bar-note,
 .bar-enter {
@@ -225,6 +225,12 @@
   border: 2px solid var(--color-focus-pane);
   border-radius: var(--radius);
   pointer-events: none;
+}
+
+/* 栏宽的时候（.is-wide：题记上边垫着 8px）这一圈的下边再低 2px，年份的数字离它远一点：探进题记垫的空里 4px，离题记里的字还有 4px。
+   窄的栏上题记只垫 5px，再低就挨着题记里的字了，留在上面那一条写的地方。 */
+.stage-pane.is-wide .bar-track:focus-visible::after {
+  bottom: -6px;
 }
 
 /* 轴画出来的那一截：圆点、格子、刻度、年份、圆钮的位置都从它的左头量。 */

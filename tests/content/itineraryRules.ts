@@ -1071,7 +1071,9 @@ export function checkItinerary(itinerary: Itinerary, file: string, figure: Pick<
 }
 
 /**
- * 一位人物的行迹（rules.ts 的 validateFigure 调它）。有全程沙盘的人物要有行迹，没有全程沙盘的不许有（它的每一段都要对着沙盘上的点和路）；
+ * 一位人物的行迹（rules.ts 的 validateFigure 调它）。只管一头：有行迹的人物要有全程沙盘（它的每一段都要对着沙盘上的点和路）。
+ * 反过来那一头——有全程沙盘的人物要有行迹——现在还不查：等有了第二位人物再添（docs/data-spec.md“行迹”一节写着）。
+ * 所以没有行迹的人物在这里一处也不报；只有工具做的那一份、没有手写的那一份，报。
  * 格式有问题时别的先不查；前九句有问题时，第十句（工具做的那一份新不新）先不查：照一份还不对的行迹做出来的东西比不出什么。
  * 全程沙盘的场景文件自己读不出来、格式不对的，这里不查（那边会报）。
  */
@@ -1082,7 +1084,7 @@ export function validateItinerary(files: ContentFiles, dir: string, figure: Figu
   if (!has(files, routeFile)) {
     return [file, barFile].filter((path) => has(files, path)).map((path) => bad(path, '', `这位人物没有全程沙盘（scenes/${ROUTE_SCENE_ID}.json），不该有这个文件：行迹的每一段都要对着沙盘上的点和路`));
   }
-  if (!has(files, file)) return [bad(file, '', '没有这个文件：有全程沙盘的人物要有行迹（时间轴和沙盘上的小像照它走）')];
+  if (!has(files, file)) return has(files, barFile) ? [bad(barFile, '', `没有手写的那一份（${ITINERARY_FILE}），不该有这个文件：它是工具照手写的那一份做的`)] : [];
   const routeRead = readJson(files, routeFile);
   if (routeRead.data === undefined || !isRouteLevel(routeRead.data) || checkRouteShape(routeRead.data, routeFile).length > 0) return [];
   const read = readJson(files, file);

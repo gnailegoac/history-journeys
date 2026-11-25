@@ -1,63 +1,117 @@
 // 凭据里“沙盘上的东西”一栏：沙盘上摆的每样东西属于五类里的哪一类、依据什么、出处在哪；
 // 后面是史料里有、沙盘上故意没画的东西；最后一行是用了谁的数据。
 // 内容都是 src/domain 的 sceneRegister() 从场景数据拼出来的，这里只管排出来。
+// 全程沙盘另有两样，都直接从数据里读，不经 sceneRegister()（那个函数跟着页面一打开就下载的程序走，这里的字点开才下载）：
+//   五类后面的“记号”一栏：小像（场景文件最外面的 piece，不在五类里）；
+//   最后的一段：这位人物的行迹照哪些书和文章排的——手写的那一份行迹（itinerary.json）里的 sources，一条出处印一次，连着“读了什么”。
+//   那一份里只有 sources 这一个字段打进这一块程序（tests/build/dist-size.test.ts 查着）。
 
 import { useMemo } from 'react';
 import { sceneRegister } from '../domain';
 import type { SceneRegister as Register, Source, TableScene } from '../domain';
+import type { ItinerarySource } from '../domain/itinerary';
 import { REGISTER_TEXT } from './foldText';
+
+/** 每位人物手写的那一份行迹里的出处（import: 'sources'：别的字段——每一段、考证的话——不进网站）。 */
+const ITINERARY_SOURCES = import.meta.glob<ItinerarySource[]>('/content/figures/*/itinerary.json', { import: 'sources', eager: true });
+
+/**
+ * 现在看的这位人物的行迹的出处，一条出处只留头一次。
+ * 是哪位人物从地址里读（“#/人物”，全程沙盘的凭据只在人物页上）：这一块程序不引 src/app 里的东西（引了，打包的时候 React 会被单拆出去）。
+ */
+export function itinerarySources(hash: string): ItinerarySource[] {
+  return onceEach(ITINERARY_SOURCES[`/content/figures/${/^#\/([^/?#]+)/.exec(hash)?.[1]}/itinerary.json`] ?? []);
+}
+
+/** 一条出处（cite）只留头一次。 */
+export function onceEach(all: ItinerarySource[]): ItinerarySource[] {
+  return all.filter((source, i) => all.findIndex((other) => other.cite === source.cite) === i);
+}
 
 export function SceneRegister({ scene, sources }: { scene: TableScene; sources: Source[] }) {
   const register = useMemo(() => registerOf(scene, sources), [scene, sources]);
   if (!register) return null;
   const groups = register.groups.filter((group) => group.entries.length > 0);
+  const piece = scene.level === 'route' ? scene.piece : undefined;
+  const read = scene.level === 'route' ? itinerarySources(window.location.hash) : [];
 
   return (
-    <section className="scene-register">
-      <h3>{REGISTER_TEXT.heading}</h3>
-      <p className="provenance-line">{REGISTER_TEXT.line}</p>
+    <>
+      <section className="scene-register">
+        <h3>{REGISTER_TEXT.heading}</h3>
+        <p className="provenance-line">{REGISTER_TEXT.line}</p>
 
-      {groups.map((group) => (
-        <section key={group.class} className="scene-register-group" data-class={group.class}>
-          <h4>{group.label}</h4>
-          <ul>
-            {group.entries.map((entry) => (
-              <li key={entry.id} className="scene-register-item" data-scene-id={entry.id}>
-                <p className="scene-register-name">{entry.name}</p>
-                <p className="scene-register-basis">{entry.basis}</p>
-                {entry.unsure && (
-                  <p className="scene-register-unsure">
-                    {entry.name}的{entry.unsure}是示意。
-                  </p>
-                )}
-                <Cites cites={entry.cites} />
+        {groups.map((group) => (
+          <section key={group.class} className="scene-register-group" data-class={group.class}>
+            <h4>{group.label}</h4>
+            <ul>
+              {group.entries.map((entry) => (
+                <li key={entry.id} className="scene-register-item" data-scene-id={entry.id}>
+                  <p className="scene-register-name">{entry.name}</p>
+                  <p className="scene-register-basis">{entry.basis}</p>
+                  {entry.unsure && (
+                    <p className="scene-register-unsure">
+                      {entry.name}的{entry.unsure}是示意。
+                    </p>
+                  )}
+                  <Cites cites={entry.cites} />
+                </li>
+              ))}
+            </ul>
+          </section>
+        ))}
+
+        {/* 全程沙盘上的小像：不在五类里，另是一栏 */}
+        {piece && (
+          <section className="scene-register-group scene-marks">
+            <h4>{REGISTER_TEXT.mark}</h4>
+            <ul>
+              <li className="scene-register-item">
+                <p className="scene-register-name">{piece.name}</p>
+                <p className="scene-register-basis">{piece.basis}</p>
+                <p className="scene-register-unsure">{piece.note}</p>
               </li>
-            ))}
-          </ul>
-        </section>
-      ))}
+            </ul>
+          </section>
+        )}
 
-      {register.notDrawn.length > 0 && (
-        <section className="scene-register-group scene-not-drawn">
-          <h4>{REGISTER_TEXT.notDrawn}</h4>
+        {register.notDrawn.length > 0 && (
+          <section className="scene-register-group scene-not-drawn">
+            <h4>{REGISTER_TEXT.notDrawn}</h4>
+            <ul>
+              {register.notDrawn.map((item) => (
+                <li key={item.id} className="scene-register-item" data-scene-id={item.id}>
+                  <p className="scene-register-name">{item.name}</p>
+                  <p className="scene-register-basis">{item.why}</p>
+                  <Cites cites={item.cites} />
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+
+        <div className="scene-credits">
+          {register.credits.map((credit, i) => (
+            <p key={i}>{credit}</p>
+          ))}
+        </div>
+      </section>
+
+      {/* 行迹的出处：一条印一次，下面是读了它的什么 */}
+      {read.length > 0 && (
+        <section className="itinerary-sources">
+          <p className="provenance-line">{REGISTER_TEXT.itinerary}</p>
           <ul>
-            {register.notDrawn.map((item) => (
-              <li key={item.id} className="scene-register-item" data-scene-id={item.id}>
-                <p className="scene-register-name">{item.name}</p>
-                <p className="scene-register-basis">{item.why}</p>
-                <Cites cites={item.cites} />
+            {read.map((source) => (
+              <li key={source.id} className="scene-register-item">
+                <p className="scene-register-name">{source.cite}</p>
+                <p className="scene-register-basis">{source.read}</p>
               </li>
             ))}
           </ul>
         </section>
       )}
-
-      <div className="scene-credits">
-        {register.credits.map((credit, i) => (
-          <p key={i}>{credit}</p>
-        ))}
-      </div>
-    </section>
+    </>
   );
 }
 

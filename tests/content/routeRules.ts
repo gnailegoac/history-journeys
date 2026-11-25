@@ -79,6 +79,8 @@ const ROUTE: Shape = strict({
   style: text,
   credits: list(text),
   sources: list(strict({ id: text, basis: text, cite: text })),
+  // 沙盘上的小像在凭据里印的那几句话（它站在哪不写在场景里，照行迹走）；不在五类里，没有 class
+  piece: optional(strict({ name: text, basis: text, note: text })),
   frame: strict({
     center: lngLat,
     projection: strict({ kind: text, lat1: number, lat2: number }),

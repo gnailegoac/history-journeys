@@ -1,7 +1,7 @@
 // 内容校验规则：docs/data-spec.md 的那几条，加上“格式”（文件读得出来、字段齐全、id 对得上）。
 // 规则 1 到 9 和总的入口在这里；“格式”怎么查在 shape.ts；场景数据的规则 10 到 18 和规则 21（夜）在 sceneRules.ts；
 // 全程沙盘的场景文件（写着 "level": "route" 的）走 routeRules.ts，规则的号码和站点沙盘一样，另有规则 20；
-// 大小的上限在 budgetRules.ts。
+// 规则 22（行迹：itinerary.json 和工具照它做的那一份）在 itineraryRules.ts；大小的上限在 budgetRules.ts。
 // 全是纯函数：输入是读进内存的内容文件，输出是不合规格的地方。不读磁盘，也不依赖测试框架。
 
 import { annotate, BodyFormatError, bodyLength, parseBody } from '../../src/domain/body';
@@ -10,6 +10,7 @@ import { ROUTE_SCENE_ID } from '../../src/domain/scene';
 import type { RouteScene, StopScene, TableScene } from '../../src/domain/scene';
 import type { Figure, FigureCard, StopExtras, StopMeta } from '../../src/domain/types';
 import { MADE_FILES_PENDING } from '../support/pendingTables';
+import { validateItinerary } from './itineraryRules';
 import { checkRouteScene, checkRouteShape, checkStopPlaces, isRouteLevel } from './routeRules';
 import { checkBakedGround, checkScene, checkSceneShape, checkSectionStills, MADE_FILES_REQUIRED } from './sceneRules';
 import type { FileKeys, Measured, MeasuredPictures, SceneStop } from './sceneRules';
@@ -42,6 +43,7 @@ export const RULE_NAMES = [
   '随站的字体',
   '站的位置',
   '夜',
+  '行迹',
 ] as const;
 
 /**
@@ -162,6 +164,8 @@ export function validateFigure(
     if (stop.status === 'complete') out.push(...validateStop(files, dir, stop));
   }
   out.push(...validateScenes(files, sizes, dir, figure, { sizes, pictures, keys }, madeFilesRequired, pending));
+  // 规则 22：这位人物有行迹的话（没有全程沙盘的不许有）
+  out.push(...validateItinerary(files, dir, figure));
   return out;
 }
 

@@ -53,7 +53,8 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { expect, test } from '@playwright/test';
 import type { CDPSession, Page, Route } from '@playwright/test';
 import { expectRealTable, expectStageAt, expectRoute, fakeUrl, firstStopWithScene, firstWrittenStop, foldBodiesReady, fontsReady, headingsOf, openFigureWithTable, realUrl, routeOnDisk, sceneOnDisk, scrollToBottom, scrollToSection, stagePane, stripsOf } from './helpers';
-import { readBytes } from '../support/readBytes';
+import { namesIn, readBytes } from '../support/readBytes';
+import type { ItineraryBar } from '../../src/domain/itinerary';
 import { SHIPPED_FONTS } from '../../src/fonts/shipped';
 import { SOURCES_TEXT } from '../../src/ui/sourcesText';
 import { PANE_QUERIES, PANE_SAYS, expectPane, notice, stopUrl } from './paneHelpers';
@@ -337,6 +338,39 @@ test('走一遍网站：每一个字都是随站的字体画的，黑体的只�
   expect({ title: await feature('.page-title'), stop: await feature('.stop-item .stop-title'), label: await feature('.stop-item .stop-meta'), tag: await feature('.tag') }, '人物页上哪里开着 halt').toEqual({ title: '"halt"', stop: '"halt"', label: 'normal', tag: 'normal' });
   const stops = await page.locator('.stop-item').evaluateAll((items) => items.map((item) => ({ id: item.getAttribute('data-stop-id') ?? '', written: item.getAttribute('data-stop-status') === 'complete' })));
   expect(stops.length).toBeGreaterThan(0);
+
+  // ---- 时间轴（沙盘的替身上要在地址里写从哪一天起才摆）：人物页和首页上，停在他住在一站里、走在路上、沙盘上没有他的一段各看一遍；
+  // 人物页上再点开“图例”（里面是这一段的“说不准的”和那几句固定的话）
+  if (namesIn(`content/figures/${figureId}`).includes('itinerary.bar.json')) {
+    const made = JSON.parse(new TextDecoder().decode(readBytes(`content/figures/${figureId}/itinerary.bar.json`))) as ItineraryBar;
+    const at = (look: ItineraryBar['stretches'][number]['look']): { day: number; label: string } => {
+      const i = made.stretches.findIndex((stretch, k) => k > 0 && stretch.look === look);
+      expect(i, `行迹里要有一段是 ${look}`).toBeGreaterThan(0);
+      return { day: Math.round((made.stretches[i - 1].until + made.stretches[i].until) / 2), label: made.stretches[i].label };
+    };
+    for (const [where, hash] of [['人物页', `#/${figureId}`], ['首页', '#/']] as const) {
+      for (const [what, look_] of [['住在一站里', 'stop'], ['走在路上', 'road'], ['沙盘上没有他', 'off']] as const) {
+        const { day, label } = at(look_);
+        await page.goto('about:blank');
+        await page.goto(fakeUrl(hash, `&bar=${day}`));
+        await expect(page.locator('.bar-thumb')).toHaveCount(1);
+        await expect(page.locator('.bar-when .bar-label')).toHaveText(label);
+        await expect(page.locator('.bar-known')).not.toBeEmpty();
+        await look(`${where}，时间轴停在${what}的一段`, 12);
+      }
+    }
+    await page.goto('about:blank');
+    await page.goto(fakeUrl(`#/${figureId}`, `&bar=${at('stop').day}`));
+    await expect(page.locator('.bar-thumb')).toHaveCount(1);
+    await page.locator('.bar-note').click();
+    await expect(page.locator('.bar-panel .stage-note-lines p').first()).toBeVisible();
+    await fontsReady(page);
+    await look('人物页，时间轴的“图例”开着', 30);
+    // 回到人物页（下面从它的目录点进“来源”页）
+    await page.goto(fakeUrl(`#/${figureId}`));
+    await expect(page.locator('.stop-item').first()).toBeVisible();
+    await expectRoute(page);
+  }
 
   // ---- “来源”页：从人物页目录后面的链接点进去。里面的东西是另一段程序，两栏又要读内容：等它们都到了再查
   await page.locator('.figure-page .stop-nav a').evaluate((link: HTMLElement) => link.click());

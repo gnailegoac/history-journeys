@@ -17,6 +17,11 @@
 // 引线从他占的那一块的边上起。摆不下，或者引线（从那一块的边上量）比 NAME_LEADER_MAX_PX 长（他近处的位置都被别的题签占着）：
 // 让它先挑一个紧挨着他的位置，别的题签只挪碰着他、碰着它的那几条（它占的那一块同他占的那一块一样不许压）。
 // 这样还有一条让得太远，才整个重摆——那一回它排在最前头先挑，别的再躲开他和它。
+// 它挑的位置不挨着别的地名点：占的那一块离别的题签指的一点比离他还近的话，名字会被读成那个点的。最后才摆的那一回挑出来的位置要是这样
+//（或者他近处根本没有空位），就照摆的规矩里的先后把它能站的号一个一个试过去（叫 placeStrips、照“手还在动”的规矩给它一个号：那套规矩正好是
+// 只试这一个号）：先是别的题签都不动的时候，头一个站得上去、离他不超过 NAME_LEADER_MAX_PX、又不挨着别的点的号；没有，再让它先挑——
+// 头一个这样的号，而且碰着他、碰着它的那几条都让得开（没有一条没处让，没有一条让到 LEADER_MAX_PX 以外）。两回都没有：最后才摆的那一回
+// 摆成了的，就留在挨着的那个地方；摆不成的照上面说的让它先挑、再不行整个重摆。手真的还在动沙盘的时候不试（它留在原来的号上）；整个重摆的那一回也不试。
 //
 // 引线不画在他身上：一条题签的引线有一截落在他占的那一块里的（他站在这个地名点上，名字的线从他脚下出去；或者找不到位置、线还穿着他的），
 // 结果里记下 from——线从哪里画起（从它指的那一点数，走了全长的几成，就是线从那一块里出来的地方）；题签层照它画（strips.ts）。
@@ -74,6 +79,13 @@ export const LEADER_MAX_PX = 70;
 /** 他自己的名字，引线从他占的那一块的边上量，最长这么长（像素）；再长，或者摆不下，这一回整个重摆。 */
 export const NAME_LEADER_MAX_PX = 40;
 
+/**
+ * 他自己的名字能站的各个号，照摆的规矩里的先后（placeStrips.ts：一个号是哪一边 × 100 + 隔多远 × 10 + 偏几格，
+ * 换一边贵 8、远一档贵 5、偏一格贵 3）。只有四边的号；绕着那一点一圈一圈找的位置（号从 1000 起，摆的规矩里最后的办法）这里不试。
+ */
+const order = (slot: number): number => ((slot / 100) | 0) * 8 + (((slot / 10) | 0) % 10) * 5 + (slot % 10) * 3;
+export const SLOTS = [...Array(400).keys()].sort((a, b) => order(a) - order(b));
+
 /** 一条摆好的题签的引线多长（像素）；没有引线是 0。 */
 const reach = (p: StripPlacement): number => (p.leader ? Math.hypot(p.leader[2] - p.leader[0], p.leader[3] - p.leader[1]) : 0);
 
@@ -97,29 +109,63 @@ export function aroundPiece(): StripPlacer {
     if (boxes.length === 0) return self ? [...base, { id: PIECE_NAME, x: 0, y: 0, hidden: true, leader: null, why: 'unseen' }] : base;
     // 手真的还在动沙盘的时候，碰着他的也不重新挑：上一回挪到的号还空着就留在那里，不然先留在第一步的地方
     const kept = (id: string): StripPlacement[] => (opts?.moving ? (prev ?? []).filter((p) => p.id === id) : []);
-    /** 第二步：只挪碰着这几块（avoid）的那几条。far 是挪开的里面有一条的引线太长了。 */
-    const aside = (avoid: Box[]): { out: StripPlacement[]; far: boolean } => {
+    /** 第二步：只挪碰着这几块（avoid）的那几条。far 是挪开的里面有一条的引线太长了（比 max 长）；stuck 是有一条找不到位置、留在了原处。 */
+    const aside = (avoid: Box[], max = LEADER_MAX_PX): { out: StripPlacement[]; far: boolean; stuck: boolean } => {
       const hit = base.map((p, i) => !!p.leader && avoid.some((box) => touches(p.x, p.y, strips[i].w, strips[i].h, p.leader as Line, box)));
       const first = strips.map((strip, i) => (hit[i] ? strip : { ...strip, rank: strip.rank - FIRST }));
       const again = hit.includes(true) ? placeStrips({ ...input, strips: first, avoid }, base.flatMap((p, i) => (hit[i] ? kept(p.id) : [p])), { moving: true }) : base;
       // 找不到位置的留在原处
       const out = again.map((p, i) => (hit[i] && p.hidden ? base[i] : p));
-      return { out, far: out.some((p, i) => hit[i] && reach(p) > LEADER_MAX_PX) };
+      return { out, far: out.some((p, i) => hit[i] && reach(p) > max), stuck: again.some((p, i) => hit[i] && p.hidden) };
     };
-    /** 他自己的名字摆出来了，引线（从他占的那一块的边上量）也不太长。 */
+    /** 他自己的名字摆出来了，引线（从他占的那一块的边上量；p 是 trim 过的）也不太长。 */
     const near = (p: StripPlacement): boolean => !p.hidden && reach(p) * (1 - (p.from ?? 0)) <= NAME_LEADER_MAX_PX;
     /** 整个重摆的时候用的那一批：他自己的名字排在最前头（它要紧挨着他），别的再躲开他和它。 */
     const lead = self ? { ...input, strips: [...strips, { ...self, rank: -1 }] } : input;
-    let { out, far } = aside(boxes);
+    const { out, far: beyond } = aside(boxes);
+    let far = beyond;
     if (self && !far) {
+      const [w, h] = [self.w / 2, self.h / 2];
+      /** 他的名字摆在 p：占的那一块离别的题签指的一点比离他还近。 */
+      const shy = (p: StripPlacement): boolean => {
+        /** 它占的那一块离另一块多远（一点就是没有大小的一块）。 */
+        const gap = (b: Box): number => Math.hypot(Math.max(b.x0 - p.x - w, 0, p.x - w - b.x1), Math.max(b.y0 - p.y - h, 0, p.y - h - b.y1));
+        // 他占的是头一块（沙盘程序给的就这一块）。名字自己指的是他脚下，在那一块里面，从来不比那一块近，不用另外除开
+        return input.anchors.some((a) => a.visible && gap({ x0: a.x, y0: a.y, x1: a.x, y1: a.y }) < gap(boxes[0]));
+      };
+      /**
+       * 他的名字站在 q，别的只挪碰着他、碰着它的那几条：摆出来的一份。让开的里面有一条让到 NAME_LEADER_MAX_PX 以外的
+       *（为了一个名字，别的不该让得比它自己还远：让远了，两个镇的名字会站到对方的点旁边去），
+       * 或者有一条没处让、留在原处的（它会压着这个名字），不算数（false）。
+       */
+      const beside = (q: StripPlacement): StripPlacement[] | false => {
+        const next = aside([...boxes, { x0: q.x - w, y0: q.y - h, x1: q.x + w, y1: q.y + h }], NAME_LEADER_MAX_PX);
+        return !next.far && !next.stuck && [...next.out.map(trim), q];
+      };
       // 他自己的名字：别的都带着号、排在前头，留在原处；它在剩下的地方里挑
-      const last = placeStrips({ ...input, strips: [...strips.map((strip) => ({ ...strip, rank: strip.rank - FIRST })), self] }, [...out, ...kept(PIECE_NAME)], { moving: true });
-      let mine = trim(last[strips.length]);
-      if (near(mine) && !out.some((p, i) => p.hidden !== last[i].hidden || p.x !== last[i].x || p.y !== last[i].y)) return [...out.map(trim), mine];
-      // 他近处没有空位：让它先挑（只躲着他和各条题签指的那一点），别的只挪碰着他、碰着它的那几条
-      mine = trim(placeStrips(lead)[strips.length]);
-      ({ out, far } = aside([...boxes, { x0: mine.x - self.w / 2, y0: mine.y - self.h / 2, x1: mine.x + self.w / 2, y1: mine.y + self.h / 2 }]));
-      if (near(mine) && !far) return [...out.map(trim), mine];
+      const rest = { ...input, strips: [...strips.map((strip) => ({ ...strip, rank: strip.rank - FIRST })), self] };
+      const after = placeStrips(rest, [...out, ...kept(PIECE_NAME)], { moving: true });
+      const mine = trim(after[strips.length]);
+      /**
+       * 照先后一个号一个号地试：它站得上去、离他近、不挨着别的地名点，摆出来的一份又算数的，头一个就是。
+       * 平常别的题签都留在原处；first：让它先挑，别的照 beside 让开。
+       */
+      const seek = (first?: boolean): StripPlacement[] | false | undefined => {
+        for (const slot of SLOTS) {
+          const q = trim(placeStrips(first ? lead : rest, [...(first ? [] : out), { ...mine, slot }], { moving: true })[strips.length]);
+          const all = near(q) && !shy(q) && (first ? beside(q) : [...out.map(trim), q]);
+          if (all) return all;
+        }
+      };
+      /** 最后才摆的那一回摆成了（离他近，别的一条没动）的话，那一回的结果。 */
+      const calm = near(mine) && !out.some((p, i) => p.hidden !== after[i].hidden || p.x !== after[i].x || p.y !== after[i].y) && [...out.map(trim), mine];
+      // 摆成了，又不挨着别的地名点（手还在动的时候不挑）：就是它
+      if (calm && (opts?.moving || !shy(mine))) return calm;
+      // 挨着别的地名点，或者他近处没有空位。先在别的都不动的时候找一个不挨着的号；没有，让它先挑一个不挨着的
+      //（只躲着他和各条题签指的那一点），别的只挪碰着他、碰着它的那几条，都让得开才算；再没有，摆成了的就留在挨着的那个地方，
+      // 摆不成的整个重摆。手真的还在动沙盘的时候不试
+      const found = (!opts?.moving && ((calm && seek()) || seek(true))) || calm;
+      if (found) return found;
       far = true;
     }
     // 整个重摆：每一条都躲着他重新挑

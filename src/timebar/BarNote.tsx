@@ -61,7 +61,8 @@ export function BarNote({ bar, words, unsure, pictures, id, onClose, panelRef }:
         <p>{pictures ? BAR_NOTE_TEXT.pictures : BAR_NOTE_TEXT.figure(bar.name)}</p>
         <p>{BAR_NOTE_TEXT.scale}</p>
         <p>{BAR_NOTE_TEXT.even}</p>
-        {spots.length > 0 && <p>{BAR_NOTE_TEXT.spots(spots.join('、'))}</p>}
+        {/* 放着图片的时候不说这一句：图片上没有小像，也就没有立在他旁边的名字 */}
+        {!pictures && spots.length > 0 && <p>{BAR_NOTE_TEXT.spots(spots.join('、'))}</p>}
         <p>{BAR_NOTE_TEXT.off}</p>
         <p>{BAR_NOTE_TEXT.west}</p>
         <p>{BAR_NOTE_TEXT.camera}</p>

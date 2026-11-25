@@ -141,6 +141,7 @@ function sansLabels(): string[] {
     STAGE_TEXT.north,
     REGISTER_TEXT.heading,
     REGISTER_TEXT.notDrawn,
+    REGISTER_TEXT.mark,
     '时间',
     '地点',
     '年纪',

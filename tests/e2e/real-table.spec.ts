@@ -26,6 +26,7 @@ import { routeCoords } from '../../src/domain/sceneGeoRoute';
 import { stripTexts } from '../../src/domain/sceneText';
 import { NAME_LEADER_MAX_PX, PIECE_NAME } from '../../src/stage/overlay/placeAround';
 import type { StageTier } from '../../src/stage/types';
+import { whereAt } from '../../src/timebar/barWhere';
 import { namesIn, readBytes } from '../support/readBytes';
 import { DRAW_CALLS_MAX, STANDING_STILL_MS, TRIANGLES_MAX, checkReduced } from '../stage/support/budgets';
 import { stripSize, stripSizeKind } from '../stage/support/stripSizes';
@@ -41,6 +42,8 @@ const RETURN_MS = 60_000;
 const AUTO_MS = 2 * READY_MS;
 
 const TIER_NAME: Record<StageTier, string> = { full: '完整', reduced: '减配' };
+/** 取沙盘程序的那一次请求。 */
+const ENGINE_REQUEST = /\/engine(-[\w-]+)?\.(js|ts)(\?.*)?$/;
 
 /** 页面上的报错，记下来最后一起看。 */
 function watchProblems(page: Page): string[] {
@@ -678,4 +681,62 @@ test('真的全程沙盘，不指定画质：时限之内要么摆好（哪一�
   await expect(pane).toHaveAttribute('data-stage-level', 'route');
 
   expect(problems).toEqual([]);
+});
+
+test('沙盘程序头一次没取到（网断了一下），时间轴停在他住在一站的年月里：两行字照样有；点“再试一次”，沙盘摆出来，小像站在那一站的地名点上——新摆的沙盘又被告知了一遍他在哪', async ({ page }) => {
+  test.setTimeout(300_000);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  const figureId = namesIn('content/figures').find((name) => !name.includes('.') && namesIn(`content/figures/${name}`).includes('itinerary.bar.json'));
+  if (env.CI) expect(figureId, '发布流程里没有找到行迹').toBeDefined();
+  else test.skip(!figureId, '还没有哪一位人物有行迹');
+  if (!figureId) return;
+  const bar = JSON.parse(new TextDecoder().decode(readBytes(`content/figures/${figureId}/itinerary.bar.json`))) as ItineraryBar;
+  const route = routeOnDisk(figureId) as RouteScene;
+  // 他住在一站里的最后一段（不是一打开就站着的出生的地方），正中间的一天
+  const index = bar.stretches.reduce((found, stretch, i) => (stretch.look === 'stop' ? i : found), -1);
+  expect(index, '行迹里要有住在一站里的一段').toBeGreaterThan(0);
+  const day = Math.round((bar.stretches[index - 1].until + bar.stretches[index].until) / 2);
+  const where = whereAt(bar, day);
+  expect(where?.on).toBe('place');
+  const place = route.places.find((item) => where?.on === 'place' && item.id === where.place);
+  expect(place, '那一站的地名点').toBeDefined();
+  const [x, z] = routeCoords(route.frame).toLocal(place!.at);
+
+  // 头一次去取沙盘程序，断掉；以后放行
+  const asked: string[] = [];
+  page.on('request', (request) => {
+    if (ENGINE_REQUEST.test(request.url())) asked.push(request.url());
+  });
+  let cut = 0;
+  await page.goto('about:blank');
+  await page.route(ENGINE_REQUEST, (routed) => {
+    if (cut === 0) {
+      cut += 1;
+      return routed.abort();
+    }
+    return routed.continue();
+  });
+  await page.goto(realUrl(`#/${figureId}`, 'full', `&debug=1&bar=${day}`));
+  await needWebGL2(page);
+  const pane = stagePane(page);
+  await expect(pane).toHaveAttribute('data-stage-state', 'failed', { timeout: 30_000 });
+  expect(asked).toHaveLength(1);
+  // 沙盘没摆出来，时间轴的两行字照样有；沙盘里没有小像
+  const label = page.locator('.bar-when .bar-label');
+  await expect(label).toHaveText(bar.stretches[index].label, { timeout: 30_000 });
+  await expect(page.locator('.bar-known')).toHaveText(bar.stretches[index].says);
+  expect((await stageReadout(page))?.piece ?? null).toBeNull();
+  // 再试一次：沙盘摆出来了；时间轴没有动，小像站在那一站的地名点上
+  const retry = pane.locator('.stage-retry');
+  await expect(retry).toHaveText('再试一次');
+  await retry.click();
+  await expectRealTable(page, 'full', READY_MS);
+  expect(asked).toHaveLength(2);
+  await expect(label).toHaveText(bar.stretches[index].label);
+  await expect.poll(async () => (await stageReadout(page))?.piece ?? null, { message: '再试一次以后，沙盘的读数里要有小像', timeout: SECTION_MS }).not.toBeNull();
+  const piece = (await stageReadout(page))!.piece!;
+  console.log(`再试一次以后：小像在 (${piece.at[0].toFixed(1)}, ${piece.at[2].toFixed(1)})，${place!.name}的点在 (${x.toFixed(1)}, ${z.toFixed(1)})`);
+  expect(Math.abs(piece.at[0] - x)).toBeLessThan(0.01);
+  expect(Math.abs(piece.at[2] - z)).toBeLessThan(0.01);
 });

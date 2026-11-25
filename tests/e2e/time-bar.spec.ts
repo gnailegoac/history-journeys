@@ -16,7 +16,7 @@ import { wordsAt, westernAt, yearRowAt } from '../../src/timebar/barWords';
 import { stopMarks } from '../../src/domain/stopMarks';
 import { namesIn, readBytes } from '../support/readBytes';
 import { BAR_BAND_PX, ROUTE_HOME_PANES, ROUTE_PANES } from '../stage/support/standardPanes';
-import { fakeRequests, fakeStage, routeOnDisk, sceneOnDisk, stagePane } from './helpers';
+import { fakeRequests, fakeStage, fontsReady, realUrl, routeOnDisk, sceneOnDisk, stagePane } from './helpers';
 
 const readJson = <T>(path: string): T => JSON.parse(new TextDecoder().decode(readBytes(path))) as T;
 /** 头一位有行迹的人物。 */
@@ -435,6 +435,235 @@ test('农历年末、公历已经是下一年的日子：第一行括号里写�
   expect(cut).toEqual([]);
 });
 
+// ================================================================ 两行字放不放得下
+
+/**
+ * 每一段碰到的每一个农历年各取一天，连最前、最后两个位置：从时间轴用的那一份行迹里数出来的，不写死有几个。
+ * 这个农历年的最后一天落在这一段里、公历又已经是下一年的，取那一天（括号里写着公历的年和月，第一行最长）；
+ * 不然取这一段和这一年叠着的那些天的正中间。
+ */
+const FIT_POSITIONS: { name: string; day: number }[] = [
+  { name: '最前一个位置', day: 0 },
+  ...bar.stretches.flatMap((stretch, i) =>
+    bar.years.flatMap((row, k) => {
+      const next = bar.years[k + 1];
+      const lo = Math.max(startOf(i), row[2] ?? -Infinity);
+      const hi = Math.min(stretch.until, next?.[2] ?? Infinity);
+      if (!(lo < hi)) return [];
+      const tail = next && next[2] !== null ? next[2] - 1 : null;
+      const day = tail !== null && tail >= lo && tail < hi && westernAt(bar.day0, tail).year === next[0] ? tail : (lo + hi) / 2;
+      return [{ name: `${stretch.id} ${row[1]}`, day }];
+    }),
+  ),
+  { name: '最后一个位置', day: lastDay },
+];
+
+/** 两行字各比自己的地方窄多少（负数就是出格了、被截了）。 */
+const rowsRoom = (page: Page): Promise<{ when: number; known: number }> =>
+  page.evaluate(() => {
+    const room = (selector: string): number => {
+      const el = document.querySelector(selector) as HTMLElement;
+      return el.clientWidth - el.scrollWidth;
+    };
+    const label = document.querySelector('.bar-when .bar-label') as HTMLElement;
+    return { when: Math.min(room('.bar-when'), label.clientWidth - label.scrollWidth), known: room('.bar-known') };
+  });
+
+/**
+ * 在打开着的页面上把 FIT_POSITIONS 走一遍：按在轴上那一天的地方（横坐标带小数，正落在那一天上），等两行字换成那一天的，
+ * 再量它们放不放得下（量到放得下为止，等一秒还放不下的记下来）。按下去没有落在那一天上的（两行字不是那一天的），照那一天从头打开一次再量。
+ * 交回放不下的各处、第一行后面最少剩多少、从头打开了几次。
+ */
+async function walkPositions(page: Page, pictures: boolean, reopen: (day: number) => Promise<void>, name: string): Promise<{ cut: string[]; least: { px: number; what: string }; reopened: number }> {
+  const cut: string[] = [];
+  let least = { px: Infinity, what: '' };
+  let reopened = 0;
+  let box = await trackBox(page);
+  for (const { name: at, day } of FIT_POSITIONS) {
+    const words = wordsAt(bar, day, pictures);
+    const row = `${words.year}${words.age}${words.label}`;
+    const shown = async (): Promise<boolean> => (await page.locator('.bar-when').textContent())?.endsWith(row) === true && (await page.locator('.bar-known').textContent()) === words.says;
+    const x = Math.min(Math.max(box.left + (unitsAt(scale, day) / scale.total) * box.width, box.left), box.left + box.width);
+    await page.mouse.click(x, box.top + 28);
+    let ok = false;
+    for (let tries = 0; tries < 15 && !ok; tries++) {
+      ok = await shown();
+      if (!ok) await page.waitForTimeout(100);
+    }
+    if (!ok) {
+      // 按下去差了一点、落到了旁边的一段或者一年里：照这一天从头打开
+      reopened++;
+      await reopen(Math.round(day));
+      box = await trackBox(page);
+      await expect(page.locator('.bar-when'), `${name} ${at}`).toContainText(wordsAt(bar, Math.round(day), pictures).label);
+    }
+    // 量到放得下为止，最多等一秒（字刚换上的那一下还没排好）。真放不下的头三处各等这一秒；再往后只多量一回，
+    // 不然哪一天真的都放不下了，这一项要等上二十分钟才说得出来
+    let room = await rowsRoom(page);
+    for (let tries = 0; tries < (cut.length < 3 ? 10 : 1) && (room.when < 0 || room.known < 0); tries++) {
+      await page.waitForTimeout(100);
+      room = await rowsRoom(page);
+    }
+    if (room.when < 0) cut.push(`${name} ${at}：第一行“${row}”出格 ${-room.when} 像素`);
+    if (room.known < 0) cut.push(`${name} ${at}：第二行“${words.says}”出格 ${-room.known} 像素`);
+    const spare = await page.evaluate(() => {
+      const first = document.querySelector('.bar-when') as HTMLElement;
+      return first.getBoundingClientRect().right - (first.lastElementChild as HTMLElement).getBoundingClientRect().right;
+    });
+    if (spare < least.px) least = { px: spare, what: `${at} “${row}”` };
+  }
+  return { cut, least, reopened };
+}
+
+/** 摆全程沙盘的六种栏：人物页的四种，首页宽屏上的两种。 */
+const SIX_PANES: { where: 'figure' | 'home'; window: { width: number; height: number }; name: string }[] = [
+  ...ROUTE_PANES.map((pane) => ({ where: 'figure' as const, window: pane.window, name: `人物页 ${pane.name}` })),
+  ...ROUTE_HOME_PANES.slice(0, 2).map((pane) => ({ where: 'home' as const, window: pane.window, name: `首页 ${pane.name}` })),
+];
+
+test('每一段碰到的每一个农历年，连最前、最后两个位置，在六种栏上，两行字都不出格，也不截；设了“减少动态效果”也一样', async ({ page }) => {
+  test.setTimeout(900_000);
+  // 位置是数出来的：每一段至少一个，跨着正月初一的段不止一个
+  expect(FIT_POSITIONS.length).toBeGreaterThan(bar.stretches.length + 2);
+  expect(new Set(FIT_POSITIONS.map((position) => position.name)).size).toBe(FIT_POSITIONS.length);
+  const lines: string[] = [];
+  const cut: string[] = [];
+  for (const calm of [false, true]) {
+    await page.emulateMedia({ reducedMotion: calm ? 'reduce' : 'no-preference' });
+    for (const pane of SIX_PANES) {
+      const name = `${pane.name}${calm ? '，减少动态效果' : ''}`;
+      await page.goto('about:blank');
+      await page.setViewportSize(pane.window);
+      await open(page, 0, pane.where);
+      await expect.poll(() => page.evaluate(() => document.fonts.status)).toBe('loaded');
+      if (calm) await expect(page.locator('.bar')).toHaveClass(/is-calm/);
+      else await expect(page.locator('.bar-play')).toHaveCount(1);
+      const got = await walkPositions(page, false, (day) => open(page, day, pane.where), name);
+      cut.push(...got.cut);
+      lines.push(`${name}：${FIT_POSITIONS.length} 个位置${got.cut.length ? `，${got.cut.length} 处出格` : '都不出格'}；第一行后面最少还剩 ${got.least.px.toFixed(1)} 像素（${got.least.what}）；从头打开的 ${got.reopened} 次`);
+    }
+  }
+  console.log(lines.join('\n'));
+  expect(cut).toEqual([]);
+});
+
+test('只放图片的栏上（最窄的两种：横着拿的平板上的人物页和首页），每一段碰到的每一个农历年，连最前、最后两个位置，两行字也都不出格、不截——最前一个位置的第二行多着半句', async ({ page }) => {
+  test.setTimeout(600_000);
+  const lines: string[] = [];
+  const cut: string[] = [];
+  for (const pane of [SIX_PANES[1], SIX_PANES[5]]) {
+    const name = `只放图片，${pane.name}`;
+    const openAt = async (day: number): Promise<void> => {
+      await page.goto(`/?stage=fake&sectionstills=fake&tier=still&bar=${day}#/${pane.where === 'home' ? '' : FIGURE_ID}`);
+      await expect(stagePane(page)).toHaveAttribute('data-stage-picture', 'still');
+      await expect(page.locator('.bar-thumb')).toHaveCount(1);
+    };
+    await page.goto('about:blank');
+    await page.setViewportSize(pane.window);
+    await openAt(0);
+    await expect.poll(() => page.evaluate(() => document.fonts.status)).toBe('loaded');
+    // 最前一个位置：第二行是多着半句的那一句
+    await expect(page.locator('.bar-known')).toHaveText(`${bar.first.says}；图片上没有他的小像`);
+    const got = await walkPositions(page, true, openAt, name);
+    cut.push(...got.cut);
+    lines.push(`${name}：${FIT_POSITIONS.length} 个位置${got.cut.length ? `，${got.cut.length} 处出格` : '都不出格'}；第一行后面最少还剩 ${got.least.px.toFixed(1)} 像素（${got.least.what}）；从头打开的 ${got.reopened} 次`);
+  }
+  console.log(lines.join('\n'));
+  expect(cut).toEqual([]);
+});
+
+test('第一行的三种样子：栏 939、583、495 像素宽', async ({ page }) => {
+  const day = Math.ceil(midOf(STAYS[2]));
+  const words = wordsAt(bar, day);
+  /** 栏里面多宽，第一行有哪几块、字多大，是不是宽的那一种，进一站的入口是什么样。 */
+  const look = (): Promise<{ inner: number; spans: string[]; size: string; roomy: boolean; enter: string | null; seal: boolean }> =>
+    page.evaluate(() => {
+      const band = document.querySelector('.stage-bar') as HTMLElement;
+      const enter = document.querySelector('.bar-enter');
+      return {
+        inner: band.clientWidth,
+        spans: [...document.querySelectorAll('.bar-when span')].map((span) => span.textContent ?? ''),
+        size: getComputedStyle(document.querySelector('.bar-when') as HTMLElement).fontSize,
+        roomy: (document.querySelector('.bar') as HTMLElement).classList.contains('is-roomy'),
+        enter: enter?.textContent ?? null,
+        seal: enter?.classList.contains('is-seal') === true,
+      };
+    });
+  const at = async (window: { width: number; height: number }, where: 'figure' | 'home'): Promise<Awaited<ReturnType<typeof look>>> => {
+    await page.goto('about:blank');
+    await page.setViewportSize(window);
+    await open(page, day, where);
+    await expect(page.locator('.bar-when .bar-label')).toHaveText(words.label);
+    // 量到连着两次一样才算数
+    let last = await look();
+    for (let tries = 0; tries < 40; tries++) {
+      await page.waitForTimeout(100);
+      const now = await look();
+      if (JSON.stringify(now) === JSON.stringify(last)) return now;
+      last = now;
+    }
+    throw new Error('第一行的样子一直在变');
+  };
+  const mark = stopMarks(figure, (id) => `#/${FIGURE_ID}/${id}`)[bar.stretches[STAYS[2]].group as string];
+  // 一、栏里面 640 像素起宽（电脑上的人物页，939）：17 像素的字，三块；进一站的入口写全。首页上前面多一块人物的名字
+  const wide = await at({ width: 1440, height: 900 }, 'figure');
+  expect(wide.inner).toBe(939);
+  expect(wide).toMatchObject({ roomy: true, size: '17px', spans: [words.year, words.age, words.label], enter: `进第${mark.label}站`, seal: false });
+  const home = await at({ width: 1440, height: 900 }, 'home');
+  expect(home.inner).toBeGreaterThanOrEqual(640);
+  expect(home).toMatchObject({ roomy: true, size: '17px', spans: [bar.name, words.year, words.age, words.label] });
+  // 二、不到 640（横着拿的平板上的人物页，583）：16 像素，还是三块，没有名字；入口只是那一站的圆点和箭头
+  const middle = await at({ width: 1024, height: 768 }, 'figure');
+  expect(middle.inner).toBe(583);
+  expect(middle).toMatchObject({ roomy: false, size: '16px', spans: [words.year, words.age, words.label], enter: mark.label, seal: true });
+  // 三、不到 540（495 像素宽的窗口，已经不是平板和电脑的栏）：不写岁数，15 像素
+  const narrow = await at({ width: 495, height: 900 }, 'figure');
+  expect(narrow.inner).toBe(495);
+  expect(narrow).toMatchObject({ roomy: false, size: '15px', spans: [words.year, words.label], seal: true });
+});
+
+test('把每一段走一遍，不去取点开才用的那个宋体文件；点开“图例”才取', async ({ page }) => {
+  test.setTimeout(240_000);
+  const asked: string[] = [];
+  page.on('request', (request) => {
+    if (/\/assets\/yanlu-song-more-[^/]*\.woff2$/.test(request.url())) asked.push(request.url());
+  });
+  // 不用沙盘的替身（它上面给测试看的字会把那个文件引来）：真的页面，只放图片，时间轴本来就在
+  await page.goto(realUrl(`#/${FIGURE_ID}`, null, '&tier=still'));
+  await expect(stagePane(page)).toHaveAttribute('data-stage-picture', 'still', { timeout: 60_000 });
+  await expect(page.locator('.bar-thumb')).toHaveCount(1);
+  await expect(page.locator('.bar-known')).toHaveText(`${bar.first.says}；图片上没有他的小像`);
+  await fontsReady(page);
+  const box = await trackBox(page);
+  // 每一段的正中间按一下：两行字换成那一段的
+  for (const [i, stretch] of bar.stretches.entries()) {
+    const to = pointOf(box, midOf(i));
+    if (stretchIndexAt(bar, to.day) !== i) continue;
+    await page.mouse.click(to.x, box.top + 28);
+    await expect(page.locator('.bar-known'), stretch.id).toHaveText(wordsAt(bar, to.day).says);
+    await expect(page.locator('.bar-when .bar-label'), stretch.id).toHaveText(stretch.label);
+  }
+  // 最前、最后两个位置
+  await page.locator('.bar-track').focus();
+  await page.keyboard.press('End');
+  await expect(page.locator('.bar-known')).toHaveText(bar.last.says);
+  await page.keyboard.press('Home');
+  await expect(page.locator('.bar-known')).toHaveText(`${bar.first.says}；图片上没有他的小像`);
+  // 字都画好了，等一会儿：那个文件一次也没有取
+  await fontsReady(page);
+  await page.waitForTimeout(1500);
+  expect(asked, '还没点开“图例”，就去取了点开才用的那个宋体文件').toEqual([]);
+  // 点开“图例”（停在一段有“说不准的”的地方）：这才取，只取一次
+  const to = pointOf(box, midOf(STAYS[1]));
+  await page.mouse.click(to.x, box.top + 28);
+  await page.locator('.bar-note').click();
+  await expect(page.locator('.bar-panel .bar-now-unsure')).toHaveCount(1);
+  await expect.poll(() => asked.length, { message: '点开了“图例”，那个宋体文件还没有取' }).toBe(1);
+  await fontsReady(page);
+  await page.waitForTimeout(500);
+  expect(asked).toHaveLength(1);
+});
+
 // ================================================================ 播放
 
 /** 住在一站里、它后面那一段该看的是另一节的头一段：播放的几项用它。 */
@@ -590,6 +819,42 @@ test('系统设了“减少动态效果”：没有“播放”，轴的两头�
   await expect(track).toHaveAttribute('aria-valuenow', String(valueNow(to.day)));
 });
 
+test('设了“减少动态效果”、横着拿的平板（轴的两头多了两个按钮，轴短了一截）：住下来的格子不到 10 像素宽的不画那两道斜线；画了斜线的每一格都够宽', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.setViewportSize({ width: 1024, height: 768 });
+  await open(page, Math.ceil(midOf(STAYS[1])));
+  await expect(page.locator('.bar')).toHaveClass(/is-calm/);
+  const box = await trackBox(page);
+  // 照页面上量到的轴宽另算：哪几格够 10 像素宽、该有斜线
+  const px = box.width / scale.total;
+  const stays = scale.blocks.filter((block) => block.look === 'stop' || block.look === 'quiet');
+  const wide = stays.filter((block) => (block.u1 - block.u0) * px >= 10);
+  // 这么短的轴上真的有不够宽的一站（不然这一项什么也没查）
+  const narrowStops = stays.filter((block) => block.look === 'stop' && (block.u1 - block.u0) * px < 10);
+  expect(narrowStops.length, `轴 ${box.width.toFixed(1)} 像素宽`).toBeGreaterThan(0);
+  expect(wide.length).toBeGreaterThan(0);
+  await expect(page.locator('.bar-squeeze')).toHaveCount(wide.length);
+  // 页面上画出来的：每一对斜线落在哪一格里，那一格画出来多宽（格子画出来比它占的地方窄 1 像素）；斜线离格子的两条边多远只印出来
+  const marks = await page.locator('.bar-axis svg').evaluate((svg) => {
+    const blocks = [...svg.querySelectorAll('rect.bar-stay, rect.bar-quiet')].map((rect) => ({ x: Number(rect.getAttribute('x')), w: Number(rect.getAttribute('width')) }));
+    return [...svg.querySelectorAll('.bar-squeeze')].map((mark) => {
+      const at = (mark as SVGGraphicsElement).getBBox();
+      const block = blocks.find((b) => at.x + at.width / 2 > b.x && at.x + at.width / 2 < b.x + b.w);
+      return { x: at.x, w: at.width, block: block ?? null };
+    });
+  });
+  expect(marks.length).toBe(wide.length);
+  let tightest = Infinity;
+  for (const mark of marks) {
+    expect(mark.block, '斜线不在哪一格里').not.toBeNull();
+    const block = mark.block as { x: number; w: number };
+    expect(block.w + 1, '画了斜线的格子多宽').toBeGreaterThanOrEqual(10);
+    // 斜线（连线的粗细，左右各半个像素）离格子里面的两条边（格子的边线 1 像素，里面从 x + 0.5 到 x + w − 0.5）
+    tightest = Math.min(tightest, mark.x - 0.5 - (block.x + 0.5), block.x + block.w - 0.5 - (mark.x + mark.w + 0.5));
+  }
+  console.log(`减少动态效果、1024 × 768：轴 ${box.width.toFixed(1)} 像素宽，住下来的 ${stays.length} 格里 ${wide.length} 格画了斜线，一站的格子不画的 ${narrowStops.length} 格（最宽的 ${Math.max(...narrowStops.map((b) => (b.u1 - b.u0) * px)).toFixed(1)} 像素）；斜线离格子的边最近 ${tightest.toFixed(1)} 像素`);
+});
+
 test('只放图片的时候：时间轴照样有，两行字照样换，图片上没有小像——最前一个位置的第二行多半句“图片上没有他的小像”，“图例”的头一句也这么说', async ({ page }) => {
   await page.goto(`/?stage=fake&sectionstills=fake&tier=still&bar=0#/${FIGURE_ID}`);
   const pane = stagePane(page);
@@ -607,6 +872,10 @@ test('只放图片的时候：时间轴照样有，两行字照样换，图片�
   const lines = page.locator('.bar-panel .stage-note-lines p');
   await expect(lines.first()).toHaveText('这台设备上放的是沙盘的图片，图片上没有小像；时间轴上的字照样说他在哪里。');
   await expect(page.locator('.bar-panel')).not.toContainText('沙盘上的小像是');
+  // 图片上没有小像，也就没有立在他旁边的名字：说那几处名字的一句不印，一共七句
+  await expect(lines).toHaveCount(7);
+  await expect(page.locator('.bar-panel')).not.toContainText('旁边才立出那一处的名字');
+  await expect(lines.nth(3)).toHaveText('空着的虚线格子，是这座沙盘上没有的地方、没有画的路，那时候沙盘上没有他。');
   await page.keyboard.press('Escape');
   await expect(page.locator('.bar-panel')).toHaveCount(0);
   // 按在轴上：两行字照样换，图片换到那一节；别的位置的第二行就是行迹里的那一句
@@ -762,7 +1031,7 @@ test('点时间轴的“图例”：先是这一段的哪一年、在哪和整�
   await expect(lines.nth(3)).toHaveText(`有几处沙盘上平时没有立名字（${spots.join('、')}），他站到那里的时候，旁边才立出那一处的名字。`);
   await expect(lines.nth(4)).toHaveText('空着的虚线格子，是这座沙盘上没有的地方、没有画的路，那时候沙盘上没有他。');
   await expect(lines.nth(5)).toHaveText('括号里的公历年份，是这个农历年大半落在的那一年。腊月有时已经是公历下一年的一月，那些天括号里写的是公历的年和月；日子说不准的地方仍只写年份。');
-  await expect(lines.nth(6)).toContainText('松开以后，转到他那一站的那一段');
+  await expect(lines.nth(6)).toHaveText('拖着圆点的时候，一出眼前这一站讲的年份，沙盘就退回全程；松开以后，沙盘转到讲这几年的那一站，哪一站都不讲的年份就留在全程。');
   const stops = new Set(bar.stretches.flatMap((stretch) => (stretch.group ? [stretch.group] : []))).size;
   await expect(lines.nth(7)).toHaveText(`轴上圆圈里的数字是他走过的${'一二三四五六七八九十'[stops - 1]}站，和题签上的印是同一个数。古名、今名只换题签上的名字，时间轴上写的是当时的名字。`);
   await expect(page.locator('.bar-track .bar-disc')).toHaveCount(stops);

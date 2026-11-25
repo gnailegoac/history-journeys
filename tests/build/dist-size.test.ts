@@ -229,6 +229,49 @@ describe('时间轴的那一块', () => {
   });
 });
 
+describe('手写的那一份行迹', () => {
+  it('手写的那一份行迹不在页面的程序里，也不在时间轴的那一块里；凭据点开才下载的那一块里只有它的出处', () => {
+    expect(existsSync(MANIFEST), '没有 dist/.vite/manifest.json：先运行 npm run build').toBe(true);
+    const manifest = readManifest(new TextDecoder().decode(readFileSync(MANIFEST)));
+    const read = (file: string): string => new TextDecoder().decode(readFileSync(new URL(file, DIST)));
+    const page = staticClosure(manifest, PAGE_ENTRY).map((key) => read(manifest[key].file)).join(' ');
+    const bar = read(manifest[BAR_ENTRY].file);
+    const fold = read(manifest['src/ui/ProvenanceBody.tsx'].file);
+    interface Hand {
+      about: unknown;
+      sources: { cite: string; read: string }[];
+      stretches: { id: string; note?: string; where?: string; waypoints?: { note?: string }[] }[];
+    }
+    const hands = Object.entries(import.meta.glob<Hand>('/content/figures/*/itinerary.json', { import: 'default', eager: true }));
+    expect(hands.length).toBeGreaterThan(0);
+    /** 一样东西里所有的字（一层一层找下去）。 */
+    const strings = (value: unknown): string[] => (typeof value === 'string' ? [value] : value !== null && typeof value === 'object' ? Object.values(value).flatMap(strings) : []);
+    // 程序里的字是照 JSON 的写法存的（引号、反斜杠前面多一道反斜杠）
+    const written = (text: string): string => JSON.stringify(text).slice(1, -1);
+    for (const [path, hand] of hands) {
+      const made = new TextDecoder().decode(readFileSync(new URL(`../..${path.replace('itinerary.json', 'itinerary.bar.json')}`, import.meta.url)));
+      // 出处：每一条的写法和“读了什么”都在凭据的那一块里；“读了什么”只在那一块里
+      expect(hand.sources.length).toBeGreaterThan(0);
+      for (const source of hand.sources) {
+        expect(fold.includes(written(source.cite)), `${path} 的出处“${source.cite}”不在凭据点开才下载的那一块里`).toBe(true);
+        expect(fold.includes(written(source.read)), `${path} 的“${source.read}”不在凭据点开才下载的那一块里`).toBe(true);
+        if (source.read.length < 8) continue;
+        expect(page.includes(written(source.read)), `${path} 的“${source.read}”出现在页面一打开就下载的程序里`).toBe(false);
+        expect(bar.includes(written(source.read)), `${path} 的“${source.read}”出现在时间轴的那一块里`).toBe(false);
+      }
+      // 别的字段：说明这份文件怎么写的那几段（about），每一段、路上每一处考证的话（note）——时间轴用的那一份里没有的，三块里都没有
+      const rest = [...strings(hand.about), ...hand.stretches.flatMap((stretch) => [stretch.note, ...(stretch.waypoints ?? []).map((point) => point.note)])]
+        .filter((text): text is string => typeof text === 'string' && text.length >= 12 && !made.includes(written(text)));
+      expect(rest.length, `${path}：about 和 note 里够长的话`).toBeGreaterThan(20);
+      for (const text of rest) {
+        for (const [name, chunk] of [['页面一打开就下载的程序', page], ['时间轴的那一块', bar], ['凭据点开才下载的那一块', fold]] as const) {
+          expect(chunk.includes(written(text)), `${path} 里的“${text.slice(0, 30)}…”出现在${name}里：只有 sources 一个字段该进网站`).toBe(false);
+        }
+      }
+    }
+  });
+});
+
 describe('点开才下载的几块', () => {
   /** 用到才下载的几段界面程序：凭据里面的东西，讲解员面板里面的东西，“来源”页里面的东西（这三段点开才下载），和全程沙盘下面的时间轴（栏里摆上全程沙盘才下载）。 */
   const ON_DEMAND = ['src/ui/ProvenanceBody.tsx', 'src/ui/GuideBody.tsx', 'src/ui/SourcesBody.tsx', BAR_ENTRY];

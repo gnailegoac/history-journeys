@@ -173,14 +173,22 @@ describe('时间轴的刻度', () => {
     expect(labelledTicks(made, 1).map((tick) => tick.year)).toEqual([1000, 1002, 1004]);
   });
 
-  it('说这条轴不匀的记号：住下来的格子够 9 像素宽的都有两道斜线，路上的、没有他的格子没有', () => {
-    expect(SQUEEZE_MIN_PX).toBe(9);
+  it('说这条轴不匀的记号：住下来的格子够 10 像素宽的都有两道斜线，路上的、没有他的格子没有；不到 10 像素的不画——两道斜线不顶着格子的边', () => {
+    expect(SQUEEZE_MIN_PX).toBe(10);
+    // 两道斜线一共占多宽：从 TimeBar.tsx 画它们的那一句里读（左边那一道从正中往左几像素起，右边那一道到正中往右几像素），加上线的粗细
+    const drawn = /M\$\{mid - ([\d.]+)\} \$\{BLOCK_BOTTOM - [\d.]+\}l([\d.]+) -[\d.]+M\$\{mid \+ ([\d.]+)\} \$\{BLOCK_BOTTOM - [\d.]+\}l([\d.]+) -[\d.]+/.exec(new TextDecoder().decode(readBytes('src/timebar/TimeBar.tsx')));
+    expect(drawn, 'TimeBar.tsx 里画两道斜线的那一句').not.toBeNull();
+    const [left, , rightFrom, rightRun] = (drawn as RegExpExecArray).slice(1).map(Number);
+    const strokes = left + rightFrom + rightRun + parseFloat(/stroke-width:\s*([\d.]+)/.exec(ruleOf('.bar-squeeze'))?.[1] ?? 'NaN');
+    expect(strokes).toBe(7);
+    // 格子左右各一像素的边：最窄的带斜线的格子里，斜线两边还有空（9 像素宽的格子里正顶着两条边）
+    expect(SQUEEZE_MIN_PX - 2).toBeGreaterThan(strokes);
     for (const pane of PANES) {
       const px = pane.track / scale.total;
       for (const block of scale.blocks) {
         const width = (block.u1 - block.u0) * px;
         const stay = block.look === 'stop' || block.look === 'quiet';
-        expect(squeezed(block, px), `${pane.name} ${block.id}（${block.look}，${width.toFixed(1)} 像素）`).toBe(stay && width >= 9);
+        expect(squeezed(block, px), `${pane.name} ${block.id}（${block.look}，${width.toFixed(1)} 像素）`).toBe(stay && width >= 10);
       }
       // 每一站住下来的格子在哪一种栏上都够宽：都有这两道
       expect(scale.blocks.filter((b) => b.look === 'stop').every((b) => squeezed(b, px)), pane.name).toBe(true);
@@ -233,6 +241,24 @@ describe('时间轴的刻度', () => {
     expect(yearTop + 14 - innerBottom).toBeLessThanOrEqual(0.5);
     // 这一圈的下边探出这一条的下边不到题记上边垫的空（这一条下边垫 2 像素）
     expect(-ringBottom).toBeLessThanOrEqual(4);
+    // 栏宽的时候这一圈的下边再低 2 像素（年份的数字离它远一点）。题记上边垫的空从 stage.css 里读：窄的栏 5 像素，宽的栏 8 像素；
+    // 这一圈探进那块空里以后，离题记里的字（垫的空的下边）窄的栏上还有 3 像素，宽的栏上还有 4 像素——再低就挨着题记里的字了
+    const [wideBottom] = pxOf('.stage-pane.is-wide .bar-track:focus-visible::after', 'bottom');
+    expect(wideBottom).toBe(ringBottom - 2);
+    const stageSheet = new TextDecoder().decode(readBytes('src/styles/stage.css')).replace(/\/\*[\s\S]*?\*\//g, '');
+    const captionPad = (selector: string): number => {
+      const rule = stageSheet.split('}').find((item) => item.split('{')[0].trim() === selector);
+      const written = /(?:^|;|\s)padding:\s*([^;\s]+)/.exec(rule?.split('{')[1] ?? '')?.[1] ?? '';
+      return written.endsWith('rem') ? parseFloat(written) * 16 : parseFloat(written);
+    };
+    const bandPad = pxOf('.bar', 'padding')[2];
+    expect(bandPad).toBe(2);
+    expect(captionPad('.stage-caption')).toBe(5);
+    expect(captionPad('.stage-pane.is-wide .stage-caption')).toBe(8);
+    expect(captionPad('.stage-caption') - (-ringBottom - bandPad)).toBeGreaterThanOrEqual(3);
+    expect(captionPad('.stage-pane.is-wide .stage-caption') - (-wideBottom - bandPad)).toBeGreaterThanOrEqual(4);
+    // 宽的栏上年份那一行的下边在这一圈里边的下边以上 1 像素半（窄的栏上是那半个像素以外）
+    expect(yearTop + 14 - (track - wideBottom - border)).toBeLessThanOrEqual(-1);
     // 轴自己身上没有往里贴的一圈、往里收的外框线（它们原来从年份的数字上穿过去）；沙盘栏里别处贴的那一圈白也去掉
     expect(ruleOf('.bar-track:focus-visible')).not.toMatch(/inset|outline-offset/);
     expect(ruleOf('.bar-track:focus-visible')).toMatch(/box-shadow:\s*none;/);

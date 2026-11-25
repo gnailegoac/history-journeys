@@ -249,3 +249,37 @@ test('读者在只放图片的时候点了“试试立体的沙盘”，按钮�
     }
   }
 });
+
+test('人物页上时间轴那一条里有没有东西（地址里写不写 ?bar=0：沙盘的替身上写了才摆时间轴）：四种标准的窗口上沙盘栏一样大，四边留的空一样，那一条一样高', async ({ page }) => {
+  test.setTimeout(240_000);
+  const { figureId } = await openFigureWithTable(page, fakeUrl('#/'));
+  for (const [n, pane] of STANDARD_PANES.entries()) {
+    const where = `窗口 ${pane.window.width} × ${pane.window.height}`;
+    // 不写：那一条在，里面是空的（measure 是从头打开量的）
+    const without = await measure(page, pane, figureId, null);
+    await expect(page.locator('.stage-bar .bar'), `${where}：没写 ?bar= 的时候那一条里不该有东西`).toHaveCount(0);
+    // 写了：那一段程序取来了，里面有了圆钮和两行字；再量一遍（量到连着两次一样）
+    await page.goto('about:blank');
+    await page.setViewportSize(pane.window);
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.goto(fakeUrl(`#/${figureId}`, '&bar=0'));
+    await expect(stagePane(page)).toHaveAttribute('data-stage-state', 'ready');
+    await expect(page.locator('.stage-bar .bar-thumb')).toHaveCount(1);
+    let filled: Measured | null = null;
+    let last: Measured | null = null;
+    for (let tries = 0; tries < 40 && !filled; tries++) {
+      await page.waitForTimeout(250);
+      const now = await read(page);
+      if (now && last && now.pane === last.pane && now.insets === last.insets && now.band === last.band) filled = now;
+      last = now;
+    }
+    expect(filled, `${where}：写了 ?bar=0 以后量不准`).not.toBeNull();
+    console.log(`人物页 ${where}：那一条空着的时候沙盘栏 ${without.pane}、四边留 ${without.insets}、那一条 ${without.band}；有东西的时候 ${filled?.pane}、${filled?.insets}、${filled?.band}`);
+    expect(filled, `${where}：那一条里有了东西，沙盘栏、留的空、那一条的高都不该变`).toEqual(without);
+    // 就是量过的那一种带着时间轴的栏
+    const withBar = ROUTE_PANES[n];
+    expect(without.pane, where).toBe(`${withBar.size.width} × ${withBar.size.height}`);
+    expect(without.insets, where).toBe(`${withBar.insets.top} ${withBar.insets.right} ${withBar.insets.bottom} ${withBar.insets.left}`);
+    expect(without.band, where).toBe(BAR_BAND_PX);
+  }
+});

@@ -81,6 +81,34 @@ describe('网站上显示的每一个字都在随站的字体里', () => {
     expect(missingFromShipped(await plan, shipped)).toEqual([]);
   });
 
+  it('全程沙盘的凭据里另外的两样也数进去了：“记号”一栏里小像的三句（场景文件的 piece），行迹的出处（手写的那一份的 sources：每一条的写法和读了它的什么）——每一个汉字都在要做的两个宋体文件之一里', async () => {
+    const song = new Set([...(await planned('song')).characters, ...(await planned('song-more')).characters]);
+    const figures = readdirSync(at('content/figures'), { withFileTypes: true }).filter((entry) => entry.isDirectory()).map((entry) => entry.name);
+    const missing: string[] = [];
+    let counted = 0;
+    const need = (where: string, written: string): void => {
+      for (const ch of written.match(/\p{Script=Han}/gu) ?? []) {
+        counted++;
+        if (!song.has(ch)) missing.push(`${where}的“${ch}”`);
+      }
+    };
+    for (const figure of figures) {
+      const routePath = `content/figures/${figure}/scenes/route.json`;
+      const handPath = `content/figures/${figure}/itinerary.json`;
+      if (existsSync(at(routePath))) {
+        const piece = (JSON.parse(text(routePath).replace(/^﻿/, '')) as { piece?: { name: string; basis: string; note: string } }).piece;
+        if (piece) for (const written of [piece.name, piece.basis, piece.note]) need(`${routePath} 的 piece`, written);
+      }
+      if (existsSync(at(handPath))) {
+        const sources = (JSON.parse(text(handPath).replace(/^﻿/, '')) as { sources: { cite: string; read: string }[] }).sources;
+        for (const source of sources) for (const written of [source.cite, source.read]) need(`${handPath} 的出处`, written);
+      }
+    }
+    // 真的数到了东西（至少一位人物有小像、有行迹）
+    expect(counted).toBeGreaterThan(200);
+    expect([...new Set(missing)], '凭据里这几个字没有数进字体：tests/support/fontTool.ts 里数小像的三句、数行迹出处的那两处').toEqual([]);
+  });
+
   it('查得出来：网站上多了一个字体里没有的字，这里通不过，说出是哪个字、在哪里用的、该跑哪条命令', async () => {
     const all = new Set(shipped.files.flatMap((file) => [...file.characters]));
     const absent = [...'龘䨻𪚥'].find((ch) => !all.has(ch));

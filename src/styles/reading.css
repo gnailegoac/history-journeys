@@ -472,7 +472,8 @@ details[open] > summary .fold-mark :first-child {
 /* ---- 凭据里“沙盘上的东西”一栏 */
 
 .scene-register,
-.scene-credits {
+.scene-credits,
+.itinerary-sources {
   margin-top: var(--gap-5);
   padding-top: var(--gap-3);
   border-top: 1px solid var(--color-line);

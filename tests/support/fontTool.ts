@@ -14,7 +14,7 @@
 import { Buffer } from 'node:buffer';
 import { createHash } from 'node:crypto';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
-import type { ItineraryBar } from '../../src/domain/itinerary';
+import type { ItineraryBar, ItinerarySource } from '../../src/domain/itinerary';
 import type { RouteScene, StopScene, TableScene } from '../../src/domain/scene';
 import { ROUTE_SCENE_ID, SCENE_CLASS_LABEL } from '../../src/domain/scene';
 import { loadFigure, loadFigureCards, loadStop } from '../../src/domain/content';
@@ -246,6 +246,8 @@ export interface SiteFigure {
   route: RouteScene | null;
   /** 这位人物时间轴用的那一份行迹（itinerary.bar.json，页面带的就是它）；没有是 null。 */
   bar: ItineraryBar | null;
+  /** 手写的那一份行迹里的出处（itinerary.json 的 sources）：全程沙盘的凭据最后印它们。没有行迹的不写。 */
+  itinerarySources?: ItinerarySource[];
 }
 
 export interface SiteStop {
@@ -445,7 +447,7 @@ export function planFonts(
 
   // ---- 每位人物
   const stopIds: string[] = [];
-  for (const { figure, stops, route, bar } of site.figures) {
+  for (const { figure, stops, route, bar, itinerarySources } of site.figures) {
     const page = `${figure.name}的人物页`;
     for (const text of [figure.name, figure.era, figure.years, figure.tagline, ...figure.intro]) first('common', page, text);
     sans('common', page, figure.name);
@@ -524,6 +526,9 @@ export function planFonts(
       for (const stretch of bar.stretches) more('common', where, stretch.unsure);
       for (const stretch of bar.stretches) for (const name of stretch.spot?.slice(2) ?? []) kai('common', `${page}（小像旁边立出的名字）`, name as string);
     }
+
+    // ---- 行迹的出处：全程沙盘的凭据最后的一段（一条出处、读了它的什么），点开才看得见
+    for (const source of itinerarySources ?? []) for (const text of [source.cite, source.read]) more('common', `${page}（凭据里行迹的出处）`, text);
   }
 
   /**
@@ -554,6 +559,8 @@ export function planFonts(
     }
     for (const item of register.notDrawn) for (const text of [item.name, item.why, ...item.cites]) more(home, column, text);
     for (const credit of register.credits) more(home, column, credit);
+    // 全程沙盘上的小像（场景文件最外面的 piece）：“记号”一栏里的三句
+    if (scene.level === 'route' && scene.piece) for (const text of [scene.piece.name, scene.piece.basis, scene.piece.note]) more(home, column, text);
   }
 
   // ---- 分组
@@ -674,7 +681,10 @@ export async function readSite(): Promise<SiteText> {
     // 时间轴用的那一份行迹：也直接读文件（时间轴的那一段程序带的是同一份）
     const barPath = `content/figures/${folder}/itinerary.bar.json`;
     const bar = existsSync(new URL(barPath, ROOT)) ? (JSON.parse(readText(barPath).replace(/^﻿/, '')) as ItineraryBar) : null;
-    figures.push({ figure, stops, route, bar });
+    // 手写的那一份行迹里的出处：凭据点开才下载的那一块程序带的是同一个字段
+    const handPath = `content/figures/${folder}/itinerary.json`;
+    const itinerarySources = existsSync(new URL(handPath, ROOT)) ? (JSON.parse(readText(handPath).replace(/^﻿/, '')) as { sources: ItinerarySource[] }).sources : undefined;
+    figures.push({ figure, stops, route, bar, ...(itinerarySources ? { itinerarySources } : {}) });
   }
   return { sources, sansLabels: SANS_LABELS, cards: await loadFigureCards(), figures };
 }

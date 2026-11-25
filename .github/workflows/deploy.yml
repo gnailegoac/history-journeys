@@ -70,16 +70,15 @@ jobs:
           retention-days: 7
           if-no-files-found: ignore
 
-  # 前两步都通过才发布：构建出 dist，发布到 GitHub Pages。
-  deploy:
-    name: 构建并发布
+  # 前两步都通过才发布。分成两段：先构建出 dist 并上传，再发布到 GitHub Pages。
+  # 原来这两段是同一段里紧挨着的两步，平台有两回刚收下上传的文件、下一步就说找不到，要重跑一遍才发得出去；
+  # 分成两段以后中间隔着一段的收尾和下一段的开头。
+  build:
+    name: 构建并上传
     if: github.ref == 'refs/heads/main'
     needs: [check, e2e]
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - name: 取出代码
         uses: actions/checkout@v6
@@ -98,6 +97,17 @@ jobs:
         uses: actions/upload-pages-artifact@v4
         with:
           path: dist
+
+  deploy:
+    name: 发布
+    if: github.ref == 'refs/heads/main'
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
       - name: 发布
         id: deployment
         uses: actions/deploy-pages@v4

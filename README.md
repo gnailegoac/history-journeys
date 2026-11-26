@@ -46,7 +46,7 @@ npm start
 | `node tools/fetch-dem.mjs <输出文件，不带后缀> <西> <东> <南> <北> [每格多少米]`（在 `spikes/art-direction/` 里跑） | 取一站沙盘的地形文件：一块地方今天的高程，存成一张网格。要连外面的高程瓦片服务，所以只在添一座新沙盘时跑一次，取下来的 `.bin` 改名放进 `content/figures/<人物>/scenes/<站>.terrain.bin`，范围和行列数写进场景文件的 `terrain`。不带参数取的是徐州那一张。黄州的是：`node tools/fetch-dem.mjs out/huangzhou 114.80 114.92 30.385 30.49 60`（193 列 × 195 行，每格约 60 米） |
 | `npm run route:terrain`、`npm run route:today` | 做一位人物的全程沙盘的地形文件和“今天的海岸、湖、河”（`content/figures/<人物>/scenes/route.terrain.bin`、`route.today.geojson`）。只照 `tests/tools/route/figures.ts` 那张表里这位人物写的源数据做（苏轼的是 `spikes/art-direction/route/data/` 里的文件），不连外面的服务；文件没有变时什么也不写。平常用不着跑 |
 | `npm run route:map` | 画一位人物的全程沙盘的检查图：从正上方看，场景文件里的每一条线、每一圈、每一条路，放在 `tests/shots/route-check/`（不进仓库）。改了 `scenes/route.json` 里的线以后跑一遍，看一眼 |
-| `npm run route:bank` | 做全程沙盘上走水路的路贴着河岸走的线：路画在河的一边，离河心几公里，河才露得出来。只把线印出来，不改文件；看过以后贴进 `scenes/route.json` 里那条路的 `line`，再跑 `npm run route:map` 看一眼。`WAY=w-min npm run route:bank` 只做一条路；每条路离河多远、在哪一边，写在 `tests/tools/route/figures.ts` 里这位人物那一行的 `banks` 里。改了河的线或者这几条路的两头以后才用得着 |
+| `npm run route:bank` | 做全程沙盘上走水路的路贴着河岸走的线：路画在河的一边，离河心几公里，河才露得出来。只把线印出来，不改文件；看过以后贴进 `scenes/route.json` 里那条路的 `line`，再跑 `npm run route:map` 看一眼。`WAY=w-min npm run route:bank` 只做一条路；每条路离河多远、在哪一边，写在 `tests/tools/route/figures.ts` 里这位人物那一行的 `banks` 里。改了河的线或者这几条路的两头以后才用得着。船走在水上的全程沙盘（场景里 `roads.boats` 写 `on`）没有岸线要做：它说一句就收 |
 | `STILLS_OUT=content/figures npm run stills` | 把每座沙盘的每一小节拍成定格图，宽、窄各一张，连同一份清单，放进 `content/figures/<人物>/stills/`。一座沙盘半分钟上下；画面没有变的图片不重写 |
 | `npm run stills` | 同上一条，只是试拍：存到 `tests/shots/stills-trial/`（不进仓库），不动 `content/` |
 

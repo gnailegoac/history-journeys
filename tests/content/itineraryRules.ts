@@ -536,7 +536,7 @@ export function checkItinerarySources(itinerary: Itinerary, file: string): Viola
 /**
  * 规则 22 五 路：路上的一段写的那一趟是全程沙盘里有的，stopYearsOf 是这一趟到的那一站；它的每一截名字、类别和场景里的那一截一样，
  * 走的路是那一截的全部，或者（写了 partial）其中连着的一段；同一趟的各段接起来，正好是场景里这一趟的每一截路，一截不多、一截不少、先后一样；
- * 全程沙盘里的每一趟都有人走；路上有位置的各处离这一段走的线不超过 25 公里，先后和走的方向一样；
+ * 全程沙盘里的每一趟都有人走，行迹走到各趟的先后和全程沙盘里写的先后一样（写的先后就是走的先后）；路上有位置的各处离这一段走的线不超过 25 公里，先后和走的方向一样；
  * 只有精确到日、又有位置的地方把路切成一程一程，它们的日子落在这一段的头尾之间，一个不比一个早；
  * 路上各处的日子，不早于这一段最早可能开始的那一天，不晚于最晚可能结束的那一天。
  */
@@ -610,6 +610,16 @@ export function checkItineraryRoads(itinerary: Itinerary, file: string, route: R
       previous = Math.max(previous, day);
     }
   });
+
+  // 写的先后就是走的先后：行迹先走到的一趟，在全程沙盘的 roads.journeys 里也写在前面（哪一节画哪些路是照写的先后算的）
+  const written = route.roads.journeys.map((journey) => journey.id);
+  let earlier: string | null = null;
+  for (const id of walked.keys()) {
+    if (earlier !== null && written.indexOf(id) < written.indexOf(earlier)) {
+      out.push(bad(file, 'stretches', `行迹里“${earlier}”这一趟走在“${id}”前面，全程沙盘的 roads.journeys 里“${id}”却写在“${earlier}”前面：roads.journeys 要照走的先后写（哪一节画哪些路是照写的先后算的），两处的先后要一样`));
+    }
+    earlier = id;
+  }
 
   for (const [i, journey] of route.roads.journeys.entries()) {
     const mine = walked.get(journey.id);

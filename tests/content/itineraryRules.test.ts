@@ -606,6 +606,21 @@ describe('链、出处、站', () => {
   it('落在一站讲的年月里的各段没有连在一起：通不过', () => {
     expect(problems((copy) => (stretch(copy, 't18').stopYearsOf = null))).toContainEqual(expect.stringContaining('没有连在一起'));
   });
+
+  it('写的先后就是走的先后：行迹走到各趟路的先后，和全程沙盘的 roads.journeys 里写的一样；场景里把两趟写反了（行迹不动），通不过，说的是哪两趟', () => {
+    // 真的那一份：行迹先后走到的十一趟，就是场景里写的那十一趟，一趟不差、先后一样
+    const walked = [...new Set(REAL.stretches.flatMap((item) => (item.kind === 'road' ? [item.journey] : [])))];
+    expect(walked).toEqual(ROUTE.roads.journeys.map((journey) => journey.id));
+    expect(problems(() => {})).toEqual([]);
+    // 场景的抄本里把到密州、到徐州的两趟对调（文件不动）：行迹先走的是到密州的那一趟，场景里它却写在后面
+    const swapped = JSON.parse(JSON.stringify(ROUTE)) as RouteScene;
+    const at = swapped.roads.journeys.findIndex((journey) => journey.id === 'j-1074');
+    expect(swapped.roads.journeys[at + 1].id).toBe('j-1077');
+    [swapped.roads.journeys[at], swapped.roads.journeys[at + 1]] = [swapped.roads.journeys[at + 1], swapped.roads.journeys[at]];
+    expect(problems(() => {}, { route: swapped })).toEqual([
+      '行迹里“j-1074”这一趟走在“j-1077”前面，全程沙盘的 roads.journeys 里“j-1077”却写在“j-1074”前面：roads.journeys 要照走的先后写（哪一节画哪些路是照写的先后算的），两处的先后要一样',
+    ]);
+  });
 });
 
 describe('时间轴用的那一份（工具做的）', () => {

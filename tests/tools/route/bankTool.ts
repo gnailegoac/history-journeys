@@ -411,6 +411,16 @@ export function waterTest(scene: RouteScene, features: TodayFeature[]): (p: LngL
   return (p) => !inAny(p, land) || inAny(p, seas) || inAny(p, washes) || lakes.some((lake) => inAny(p, lake.areas) && !(lake.except && insideRing(p, lake.except)));
 }
 
+/**
+ * 这座沙盘上要做岸线的路：写了 along、沿着一条河走的那几条。船走在水上的沙盘（场景的 roads.boats 写 on）一条也没有——
+ * 它的水路就画在河上，不贴着河岸，这个工具不给它做线，那位人物的表里 banks 也得是空的。
+ */
+export function bankWays(scene: RouteScene): RoadWay[] {
+  if (scene.roads.boats === 'on') return [];
+  const rivers = new Set(scene.water.rivers.map((river) => river.id));
+  return scene.roads.ways.filter((way) => way.along !== undefined && rivers.has(way.along));
+}
+
 export interface BankResult {
   way: string;
   river: string;

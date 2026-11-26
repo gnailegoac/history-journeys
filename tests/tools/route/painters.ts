@@ -32,19 +32,25 @@ export const ROUTE_PAINTERS: Readonly<Record<string, RoutePainterRow>> = {
   'song-qinglv': { paint: paintRoute, rivers: riverPaths },
 };
 
+/** 画法的一张表：样式的名字 → 它的那一行。 */
+export type RoutePainterTable = Readonly<Record<string, RoutePainterRow>>;
+
 /** style 这种样式的那一行。没有登记的，说一句就停。 */
-function rowFor(style: string): RoutePainterRow {
-  const row = Object.keys(ROUTE_PAINTERS).includes(style) ? ROUTE_PAINTERS[style] : undefined;
-  if (!row) throw new Error(`样式“${style}”还没有全程沙盘地面的画法（tests/tools/route/painters.ts）；有画法的是：${Object.keys(ROUTE_PAINTERS).join('、')}`);
+function rowFor(style: string, table: RoutePainterTable): RoutePainterRow {
+  const row = Object.keys(table).includes(style) ? table[style] : undefined;
+  if (!row) throw new Error(`样式“${style}”还没有全程沙盘地面的画法（tests/tools/route/painters.ts）；有画法的是：${Object.keys(table).join('、')}`);
   return row;
 }
 
-/** style 这种样式的画法。没有登记的，说一句就停。 */
-export function routePainterFor(style: string): RoutePainter {
-  return rowFor(style).paint;
+/**
+ * style 这种样式的画法。没有登记的，说一句就停。
+ * table 不写就是上面那张表；测试里编出来的样式不进那张表，查编出来的沙盘时把它自己的一张交进来（下面的 routeRiversFor 也一样）。
+ */
+export function routePainterFor(style: string, table: RoutePainterTable = ROUTE_PAINTERS): RoutePainter {
+  return rowFor(style, table).paint;
 }
 
 /** style 这种样式的画法画在地面上的河。没有登记的，说一句就停（不悄悄拿别的样式的河宽来顶）。 */
-export function routeRiversFor(style: string): RouteRivers {
-  return rowFor(style).rivers;
+export function routeRiversFor(style: string, table: RoutePainterTable = ROUTE_PAINTERS): RouteRivers {
+  return rowFor(style, table).rivers;
 }

@@ -6,7 +6,7 @@
 
 import { describe, expect, it } from 'vitest';
 import type { BakedGroundManifest } from '../../src/domain/bakedGround';
-import type { RouteScene, StopScene } from '../../src/domain/scene';
+import type { PlainSmoothed, RouteScene, StopScene } from '../../src/domain/scene';
 import { routeCoords } from '../../src/domain/sceneGeoRoute';
 import { sectionInfo } from '../../src/domain/sceneText';
 import type { Figure, LngLat } from '../../src/domain/types';
@@ -222,9 +222,9 @@ describe('格式：全程沙盘和站点沙盘各有各的样子', () => {
   });
 
   it('两个数要比着看的两处：算山地的海拔比算平原的高；rippleM 是两个数，前小后大', () => {
-    expect(routeProblems((s) => (s.terrain.recipe.hillAboveM = 100))).toEqual(['0 terrain.recipe.hillAboveM']);
+    expect(routeProblems((s) => ((s.terrain.recipe as PlainSmoothed).hillAboveM = 100))).toEqual(['0 terrain.recipe.hillAboveM']);
     expect(looseProblems<{ terrain: { recipe: { rippleM: number[] } } }>((s) => (s.terrain.recipe.rippleM = [15]))).toEqual(['0 terrain.recipe.rippleM']);
-    expect(routeProblems((s) => (s.terrain.recipe.rippleM = [40, 15]))).toEqual(['0 terrain.recipe.rippleM']);
+    expect(routeProblems((s) => ((s.terrain.recipe as PlainSmoothed).rippleM = [40, 15]))).toEqual(['0 terrain.recipe.rippleM']);
   });
 
   it('站点沙盘里写全程沙盘的字段通不过；level 可以不写，写了只能是 stop', () => {

@@ -8,7 +8,8 @@ import type { FrameCoords } from '../../src/domain/sceneGeo';
 import { coordsOf } from '../../src/domain/sceneGeoRoute';
 import type { Vec2 } from '../../src/stage/ground/types';
 import { ROAD_CORNER_KM, ROAD_CORNER_STEPS, ROAD_STATES, ROAD_STEP_KM, densify, journeyStates, lineLength, roadRuns, roundCorners, roundedWay, segmentCount, segmentsOf, wayLine } from '../../src/stage/roadLines';
-import type { RoadRun } from '../../src/stage/roadLines';
+import type { RoadRun, RoadState } from '../../src/stage/roadLines';
+import { journeysShown } from '../../src/domain/sceneRoads';
 import { waySolid } from '../tools/route/mapTool';
 
 /** 抹圆以后的线离写的线最远多少公里（设计里定的）。 */
@@ -120,6 +121,35 @@ function small(): RouteScene {
 /** 一笔写成一句：哪一种、虚实、哪几截路。 */
 const say = (run: RoadRun): string => `${run.state} ${run.dotted ? '虚' : '实'} ${run.ways.join('+')}`;
 
+/**
+ * 以前的算法，原样留在测试里（2026-11-26 以前 src/stage/roadLines.ts 的 journeyStates）：照站的先后——到这一站去的是刚走的，
+ * 到排在它前面的站去的是走过的，站的先后照小节的先后。现在照写的先后算（src/domain/sceneRoads.ts）；每一站的几趟挨着写、
+ * 站的先后和小节一样的沙盘上两种算法给的一样，下面“每一座”那一组照这个查；一站分两段讲的沙盘上它是错的，上面有一条说错在哪。
+ */
+function statesByStopOrder(scene: RouteScene, section: number): Map<string, RoadState> {
+  const out = new Map<string, RoadState>();
+  const stop = scene.sections[section]?.stop;
+  if (stop === undefined) {
+    for (const journey of scene.roads.journeys) out.set(journey.id, 'ink');
+    return out;
+  }
+  const order = scene.sections.flatMap((item) => (item.stop === undefined ? [] : [item.stop]));
+  const here = order.indexOf(stop);
+  for (const journey of scene.roads.journeys) {
+    const at = order.indexOf(journey.stop);
+    if (journey.stop === stop) out.set(journey.id, 'now');
+    else if (at >= 0 && at < here) out.set(journey.id, 'past');
+  }
+  return out;
+}
+
+/** 这座沙盘的路是不是“每一站的几趟挨着写、站的先后和小节一样”：照 roads.journeys 的先后，每一趟的站在小节里排第几，一路不往回走。 */
+function groupedByStop(scene: RouteScene): boolean {
+  const order = scene.sections.flatMap((item) => (item.stop === undefined ? [] : [item.stop]));
+  const at = scene.roads.journeys.map((journey) => order.indexOf(journey.stop));
+  return at.every((n, i) => n >= 0 && (i === 0 || n >= at[i - 1]));
+}
+
 describe('一小节里的路排成一笔一笔（编出来的小场景）', () => {
   it('哪几趟画成哪一种：头一节都是墨线；后面到这一站的是刚走的，前面各站的是走过的，后面的不画', () => {
     const scene = small();
@@ -128,6 +158,26 @@ describe('一小节里的路排成一笔一笔（编出来的小场景）', () =
     expect([...journeyStates(scene, 2)]).toEqual([['j1', 'past'], ['j2', 'now']]);
     expect([...journeyStates(scene, 3)]).toEqual([['j1', 'past'], ['j2', 'past'], ['j3', 'now']]);
     expect(ROAD_STATES).toEqual(['now', 'ink', 'past']);
+  });
+
+  it('一站分两段讲（中间去过别的站）：照写的先后算——夹在中间的几趟在这一站的小节里是走过的，在它们自己那一站的小节里这一站后一段的路不画；照“站排在前面”算就错了', () => {
+    // 五趟，照走的先后写：甲站的头一段（a1），乙站（b1），甲站的后一段（a2、a3），丙站（c1）。小节照站的先后：甲、乙、丙。
+    const scene = small();
+    const journey = (id: string, stop: string) => ({ id, name: '编的', stop, date: '编的', parts: [{ name: '编的', class: 'text' as const, basis: '编的', sourceIds: [], ways: ['wa'] }] });
+    scene.roads.journeys = [journey('a1', 's1'), journey('b1', 's2'), journey('a2', 's1'), journey('a3', 's1'), journey('c1', 's3')];
+    expect(journeysShown(scene, 0)).toEqual(['whole', 'whole', 'whole', 'whole', 'whole']);
+    // 甲站的小节：自己的三趟是刚走的；夹在中间的乙站那一趟写在甲站最后一趟（a3）前面，是走过的；丙站的还没有走
+    expect(journeysShown(scene, 1)).toEqual(['own', 'before', 'own', 'own', undefined]);
+    expect([...journeyStates(scene, 1)]).toEqual([['a1', 'now'], ['b1', 'past'], ['a2', 'now'], ['a3', 'now']]);
+    // 乙站的小节：只有写在它前面的 a1 是走过的；甲站后一段的 a2、a3 那时候还没有走，不画
+    expect(journeysShown(scene, 2)).toEqual(['before', 'own', undefined, undefined, undefined]);
+    expect([...journeyStates(scene, 2)]).toEqual([['a1', 'past'], ['b1', 'now']]);
+    expect([...journeyStates(scene, 3)]).toEqual([['a1', 'past'], ['b1', 'past'], ['a2', 'past'], ['a3', 'past'], ['c1', 'now']]);
+    // 以前的算法（照站的先后；留在这里只为比一比）在这两节都错了：甲站的小节里少了乙站那一趟，乙站的小节里多画了甲站后一段的两趟
+    expect([...statesByStopOrder(scene, 1)]).toEqual([['a1', 'now'], ['a2', 'now'], ['a3', 'now']]);
+    expect([...statesByStopOrder(scene, 2)]).toEqual([['a1', 'past'], ['b1', 'now'], ['a2', 'past'], ['a3', 'past']]);
+    // 旁边的说明用的是同一处：这一节不画的路，就是画线的程序不画的那几趟
+    for (const section of [1, 2, 3]) expect(journeysShown(scene, section).filter((shown) => shown !== undefined)).toHaveLength(journeyStates(scene, section).size);
   });
 
   it('全程：每截路只画一笔；有“按史料摆的”一截走到的是实线；接着走、虚实一样的连成一笔', () => {
@@ -259,6 +309,14 @@ describe.each(real)('$key 的路画成的线', ({ key, scene }) => {
     for (const run of whole) for (const written of run.ways) expect(run.dotted, `全程里的 ${written}`).toBe(!waySolid(scene, written.replace(/^-/, '')));
   });
 
+  it('每一站的几趟挨着写、站的先后和小节一样的沙盘：每一节哪几趟画成哪一种，和以前照站的先后算出来的一样（一站分两段写的沙盘不比，只打印）', () => {
+    const grouped = groupedByStop(scene);
+    console.log(`${key}：${scene.roads.journeys.length} 趟路${grouped ? '每一站的挨着写、站的先后和小节一样：照写的先后算和照站的先后算，每一节都要一样' : '有一站分成了几段写：照写的先后算，不同以前的算法比'}`);
+    if (!grouped) return;
+    scene.sections.forEach((section, index) => {
+      expect([...journeyStates(scene, index)], section.heading).toEqual([...statesByStopOrder(scene, index)]);
+    });
+  });
 });
 
 // ---------------------------------------------------------------- 苏轼的这一座自己的数和路名
@@ -270,6 +328,11 @@ describe('su-shi/route 的路画成的线：苏轼这一座自己的数和路名
 
   it('抹圆了的拐角有二十个以上', () => {
     expect(roundedOff(scene).corners).toBeGreaterThan(20);
+  });
+
+  it('他的十一趟路每一站的挨着写、站的先后和小节一样：“每一座”那一组里同以前的算法比的那一条，在这一座上真的比了', () => {
+    expect(groupedByStop(scene)).toBe(true);
+    expect(scene.roads.journeys).toHaveLength(11);
   });
 
   it('到徐州那一节：到徐州的一趟是刚走的，前面四站的四趟是走过的，后面的不画', () => {
@@ -307,13 +370,15 @@ describe('src/stage/roadLines.ts 只给全程沙盘的那一块程序用', () =>
       .filter(([file, text]) => file !== '/src/stage/roadLines.ts' && /from\s*['"][^'"]*\/roadLines['"]|import\(\s*['"][^'"]*\/roadLines['"]\s*\)/.test(text))
       .map(([file]) => file);
 
-  it('它自己不引 three，引别的文件只取类型', () => {
+  it('它自己不引 three；真的引进来的只有“哪几趟画、算哪一种”的那一个文件（src/domain/sceneRoads.ts，它只取类型），别的只取类型', () => {
     const text = sources['/src/stage/roadLines.ts'];
     expect(text).toBeDefined();
     expect(text).toContain('import type');
-    expect(runtimeImports(text)).toEqual([]);
+    expect(runtimeImports(text)).toEqual(['../domain/sceneRoads']);
+    // 那一个文件自己什么也不真的引进来（只取场景的类型）：路的线这一块还是只算数，不带 three，也不带页面的程序
+    expect(runtimeImports(sources['/src/domain/sceneRoads.ts'])).toEqual([]);
     // 这个查法认得出来：添一句真的引入就查得到
-    expect(runtimeImports(`${text}\nimport { Group } from 'three';\n`)).toEqual(['three']);
+    expect(runtimeImports(`${text}\nimport { Group } from 'three';\n`)).toEqual(['../domain/sceneRoads', 'three']);
     expect(runtimeImports("import './engine';\nconst kit = await import('./routeKit');\nimport type { A } from './a';")).toEqual(['./engine', './routeKit']);
   });
 

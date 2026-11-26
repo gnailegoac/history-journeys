@@ -1,0 +1,674 @@
+{
+  "level": "route",
+  "stopId": "route",
+  "style": "made-up-lines",
+  "credits": [
+    "地形：测试用的假数据，不是真的高程。",
+    "海岸、河、湖：测试用的假数据，不是今天的地图。"
+  ],
+  "sources": [
+    {
+      "id": "m1",
+      "basis": "own-words",
+      "cite": "编出来的《行记》"
+    },
+    {
+      "id": "m2",
+      "basis": "later",
+      "cite": "编出来的今天的地图"
+    }
+  ],
+  "frame": {
+    "center": [
+      160,
+      20
+    ],
+    "projection": {
+      "kind": "lambert-conic",
+      "lat1": 18,
+      "lat2": 22
+    },
+    "scale": 60,
+    "westM": 300000,
+    "eastM": 300000,
+    "northM": 200000,
+    "southM": 200000,
+    "datumM": 0,
+    "relief": {
+      "kind": "low-hills-more",
+      "lowBelowM": 300,
+      "lowTimes": 25,
+      "power": 0.6,
+      "highTimes": 16
+    }
+  },
+  "terrain": {
+    "class": "real",
+    "basis": "山的位置和形状照编出来的高程网格。",
+    "sourceIds": [
+      "m2"
+    ],
+    "note": "山的位置和形状是编出来的。",
+    "file": "route.terrain.bin",
+    "cols": 86,
+    "rows": 53,
+    "west": 156.6,
+    "east": 163.4,
+    "south": 17.9,
+    "north": 22.06,
+    "heightUnit": "m",
+    "recipe": {
+      "class": "schematic",
+      "basis": "地面照网格量到的样子，平原不抹；西南角路没到，留白。",
+      "sourceIds": [],
+      "note": "地面照今天的样子，没有抹平。路没到的西南角留白。",
+      "kind": "as-measured",
+      "edgeTaperM": 20000,
+      "blank": [
+        [
+          [
+            157.3,
+            18.35
+          ],
+          [
+            158.3,
+            18.35
+          ],
+          [
+            157.3,
+            19.2
+          ]
+        ]
+      ]
+    },
+    "edits": []
+  },
+  "water": {
+    "levels": {
+      "class": "today",
+      "basis": "海面画在海拔 0 米。",
+      "sourceIds": [
+        "m2"
+      ],
+      "note": "海面是一个平面。海岸、湖和河是照线画上去的。",
+      "values": {
+        "normal": 0
+      }
+    },
+    "todayFile": "route.today.geojson",
+    "coast": {
+      "name": "海岸",
+      "class": "today",
+      "basis": "照编出来的今天的地图画。",
+      "sourceIds": [
+        "m2"
+      ],
+      "note": "海岸是照编出来的今天的地图画的。"
+    },
+    "rivers": [
+      {
+        "id": "zi",
+        "name": "子河",
+        "kind": "river",
+        "weight": "major",
+        "today": [
+          {
+            "names": [
+              "Zi"
+            ]
+          }
+        ],
+        "class": "today",
+        "basis": "照编出来的今天的地图画。",
+        "sourceIds": [
+          "m2"
+        ],
+        "note": "子河照编出来的今天的地图画。"
+      }
+    ],
+    "lakes": [
+      {
+        "id": "wu",
+        "name": "午湖",
+        "today": [
+          {
+            "names": [
+              "Wu"
+            ]
+          }
+        ],
+        "class": "today",
+        "basis": "照编出来的今天的地图画。",
+        "sourceIds": [
+          "m2"
+        ],
+        "note": "午湖照编出来的今天的地图画。"
+      }
+    ],
+    "washes": []
+  },
+  "places": [
+    {
+      "id": "p-jia",
+      "name": "甲城",
+      "at": [
+        158,
+        21.05
+      ],
+      "stops": [
+        "jia"
+      ],
+      "class": "today",
+      "basis": "照编出来的今天的地图上的位置。",
+      "sourceIds": [
+        "m2"
+      ]
+    },
+    {
+      "id": "p-yi",
+      "name": "乙渡",
+      "at": [
+        160.6,
+        20.4
+      ],
+      "class": "today",
+      "basis": "照编出来的今天的地图上的位置。",
+      "sourceIds": [
+        "m2"
+      ]
+    },
+    {
+      "id": "p-bing",
+      "name": "丙港",
+      "at": [
+        161.85,
+        20.304
+      ],
+      "stops": [
+        "bing"
+      ],
+      "class": "today",
+      "basis": "照编出来的今天的地图上的位置。",
+      "sourceIds": [
+        "m2"
+      ]
+    },
+    {
+      "id": "p-ding",
+      "name": "丁镇",
+      "at": [
+        159.55,
+        19.53
+      ],
+      "stops": [
+        "ding"
+      ],
+      "class": "today",
+      "basis": "照编出来的今天的地图上的位置。",
+      "sourceIds": [
+        "m2"
+      ]
+    },
+    {
+      "id": "p-wu",
+      "name": "戊庄",
+      "at": [
+        159.55,
+        18.97
+      ],
+      "class": "today",
+      "basis": "照编出来的今天的地图上的位置。",
+      "sourceIds": [
+        "m2"
+      ]
+    },
+    {
+      "id": "p-ji",
+      "name": "己岛",
+      "at": [
+        162.6,
+        19.6
+      ],
+      "class": "today",
+      "basis": "照编出来的今天的地图上的位置。",
+      "sourceIds": [
+        "m2"
+      ]
+    },
+    {
+      "id": "p-xin",
+      "name": "辛集",
+      "at": [
+        159,
+        18.6
+      ],
+      "class": "today",
+      "basis": "照编出来的今天的地图上的位置。",
+      "sourceIds": [
+        "m2"
+      ]
+    }
+  ],
+  "strips": [
+    {
+      "id": "s-jia",
+      "text": "甲城",
+      "of": "p-jia"
+    },
+    {
+      "id": "s-bing",
+      "text": "丙港",
+      "of": "p-bing",
+      "side": "left"
+    },
+    {
+      "id": "s-ding",
+      "text": "丁镇",
+      "of": "p-ding"
+    },
+    {
+      "id": "s-zi",
+      "text": "子河",
+      "of": "zi",
+      "at": [
+        159.7,
+        20.85
+      ]
+    },
+    {
+      "id": "s-wu",
+      "text": "午湖",
+      "of": "wu",
+      "at": [
+        159.55,
+        19.25
+      ]
+    },
+    {
+      "id": "s-sea",
+      "text": "海",
+      "of": "coast",
+      "at": [
+        162.3,
+        20.7
+      ]
+    }
+  ],
+  "far": [],
+  "roads": {
+    "stopShows": "stop-years",
+    "boats": "on",
+    "ways": [
+      {
+        "id": "w-west",
+        "by": "land",
+        "line": [
+          [
+            157.25,
+            21.55
+          ],
+          [
+            157.62,
+            21.35
+          ],
+          [
+            158,
+            21.05
+          ]
+        ]
+      },
+      {
+        "id": "w-zi-up",
+        "by": "water",
+        "along": "zi",
+        "line": [
+          [
+            158,
+            21.05
+          ],
+          [
+            158.8,
+            20.75
+          ],
+          [
+            159.7,
+            20.85
+          ],
+          [
+            160.6,
+            20.4
+          ]
+        ]
+      },
+      {
+        "id": "w-zi-down",
+        "by": "water",
+        "along": "zi",
+        "line": [
+          [
+            160.6,
+            20.4
+          ],
+          [
+            161.3,
+            20.35
+          ],
+          [
+            161.85,
+            20.304
+          ]
+        ]
+      },
+      {
+        "id": "w-sea",
+        "by": "sea",
+        "line": [
+          [
+            161.85,
+            20.304
+          ],
+          [
+            162.2,
+            20
+          ],
+          [
+            162.6,
+            19.6
+          ]
+        ]
+      },
+      {
+        "id": "w-ridge",
+        "by": "land",
+        "line": [
+          [
+            160.6,
+            20.4
+          ],
+          [
+            159.5,
+            21.35
+          ],
+          [
+            158,
+            21.05
+          ]
+        ]
+      },
+      {
+        "id": "w-south",
+        "by": "land",
+        "line": [
+          [
+            160.6,
+            20.4
+          ],
+          [
+            160.2,
+            19.9
+          ],
+          [
+            159.55,
+            19.53
+          ]
+        ]
+      },
+      {
+        "id": "w-lake",
+        "by": "water",
+        "along": "wu",
+        "line": [
+          [
+            159.55,
+            19.53
+          ],
+          [
+            159.55,
+            19.25
+          ],
+          [
+            159.55,
+            18.97
+          ]
+        ]
+      },
+      {
+        "id": "w-ferry",
+        "by": "water",
+        "line": [
+          [
+            159.55,
+            18.97
+          ],
+          [
+            159,
+            18.6
+          ]
+        ]
+      }
+    ],
+    "journeys": [
+      {
+        "id": "j-arrive",
+        "name": "头一回到甲城",
+        "stop": "jia",
+        "date": "编的元年",
+        "parts": [
+          {
+            "name": "元年从西边到甲城的路",
+            "ways": [
+              "w-west"
+            ],
+            "class": "text",
+            "basis": "编出来的《行记》里写了途中的地方。",
+            "sourceIds": [
+              "m1"
+            ],
+            "note": "从西边到甲城的路是照《行记》画的。"
+          }
+        ]
+      },
+      {
+        "id": "j-down",
+        "name": "下子河到丙港",
+        "stop": "bing",
+        "date": "编的二年",
+        "parts": [
+          {
+            "name": "二年甲城到乙渡的水路",
+            "ways": [
+              "w-zi-up"
+            ],
+            "class": "text",
+            "basis": "编出来的《行记》里写了途中的地方。",
+            "sourceIds": [
+              "m1"
+            ],
+            "note": "甲城到乙渡坐船走子河，《行记》里写了。"
+          },
+          {
+            "name": "二年乙渡到丙港的水路",
+            "ways": [
+              "w-zi-down"
+            ],
+            "class": "schematic",
+            "basis": "编出来的《行记》里只有两头。",
+            "sourceIds": [],
+            "note": "乙渡到丙港只知道两头，画成空长的虚线。"
+          }
+        ]
+      },
+      {
+        "id": "j-island",
+        "name": "出海到己岛",
+        "stop": "bing",
+        "date": "编的二年秋",
+        "parts": [
+          {
+            "name": "二年丙港到己岛的海路",
+            "ways": [
+              "w-sea"
+            ],
+            "class": "schematic",
+            "basis": "编出来的《行记》里只有两头。",
+            "sourceIds": [],
+            "note": "到己岛的海路只知道两头。"
+          }
+        ]
+      },
+      {
+        "id": "j-return",
+        "name": "回甲城",
+        "stop": "jia",
+        "date": "编的三年",
+        "parts": [
+          {
+            "name": "三年乙渡回甲城的路",
+            "ways": [
+              "w-ridge"
+            ],
+            "class": "schematic",
+            "basis": "编出来的《行记》里只有两头。",
+            "sourceIds": [],
+            "note": "回甲城的路只知道两头，画成虚线。"
+          }
+        ]
+      },
+      {
+        "id": "j-lake",
+        "name": "到丁镇，过午湖",
+        "stop": "ding",
+        "date": "编的五年",
+        "parts": [
+          {
+            "name": "五年乙渡到丁镇、过午湖到戊庄的路",
+            "ways": [
+              "w-south",
+              "w-lake"
+            ],
+            "class": "text",
+            "basis": "编出来的《行记》里写了途中的地方。",
+            "sourceIds": [
+              "m1"
+            ],
+            "note": "到丁镇走陆路，过午湖坐船。"
+          },
+          {
+            "name": "五年戊庄到辛集的水路",
+            "ways": [
+              "w-ferry"
+            ],
+            "class": "text",
+            "basis": "编出来的《行记》里写了途中的地方。",
+            "sourceIds": [
+              "m1"
+            ],
+            "note": "戊庄到辛集坐船，走的是哪条水没有写。"
+          }
+        ]
+      }
+    ]
+  },
+  "sections": [
+    {
+      "heading": "全程",
+      "date": "编的元年到五年",
+      "line": "编出来的旅人走过的三站。实线是他写到过的路，虚线只知道两头。",
+      "camera": {
+        "target": [
+          160,
+          20
+        ],
+        "distanceM": 40000,
+        "pitch": 40,
+        "bearing": 0,
+        "fov": 18,
+        "closest": 0.75,
+        "mustShow": [
+          "frame"
+        ]
+      },
+      "strips": [
+        "s-jia",
+        "s-bing",
+        "s-ding",
+        "s-zi",
+        "s-wu",
+        "s-sea"
+      ],
+      "explain": [
+        "recipe",
+        "coast"
+      ]
+    },
+    {
+      "heading": "甲城那几年",
+      "date": "编的元年到三年",
+      "line": "住在甲城的两段日子里走的路。",
+      "camera": {
+        "target": [
+          159.3,
+          20.9
+        ],
+        "distanceM": 17000,
+        "pitch": 46,
+        "bearing": 0
+      },
+      "strips": [
+        "s-jia",
+        "s-zi"
+      ],
+      "explain": [
+        "j-arrive"
+      ],
+      "stop": "jia"
+    },
+    {
+      "heading": "丙港那几年",
+      "date": "编的二年",
+      "line": "下子河到丙港，又出海到己岛。",
+      "camera": {
+        "target": [
+          161.4,
+          20.2
+        ],
+        "distanceM": 16000,
+        "pitch": 46,
+        "bearing": 0
+      },
+      "strips": [
+        "s-bing",
+        "s-zi",
+        "s-sea"
+      ],
+      "explain": [
+        "j-down",
+        "levels"
+      ],
+      "stop": "bing"
+    },
+    {
+      "heading": "丁镇那几年",
+      "date": "编的五年",
+      "line": "到丁镇，坐船过午湖。",
+      "camera": {
+        "target": [
+          159.8,
+          19.5
+        ],
+        "distanceM": 16000,
+        "pitch": 46,
+        "bearing": 0
+      },
+      "strips": [
+        "s-ding",
+        "s-wu"
+      ],
+      "explain": [
+        "j-lake"
+      ],
+      "stop": "ding"
+    }
+  ],
+  "notDrawn": []
+}

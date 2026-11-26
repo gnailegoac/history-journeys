@@ -8,7 +8,7 @@
 //   2 抹成海的圈（terrain.edits，op 是 sea）里面改成海；
 //   3 沙盘四边往里 edgeTaperM 米以内，海拔慢慢收到零；
 //   4 轻轻抹一下（半格）；
-//   5 平原抹成缓坡（recipe 是 plain-smoothed），只动陆地；
+//   5 平原抹成缓坡（recipe 是 plain-smoothed），只动陆地；recipe 是 as-measured（照量到的样子）的跳过这一步，别的六步照做；
 //   6 海拔过“矮山多夸”的曲线，除以沙盘的比例，得到沙盘里的高度；
 //   7 留白的圈（recipe.blank）里面，把夸大以后的高度压到 3%，再倒算回海拔，两样才对得上。
 //     西边的高原和西南角那两条边不照圈的直线切，用噪声打散、顺着山谷伸进来（blankKeep）。
@@ -325,8 +325,9 @@ export function buildRouteGround(scene: RouteScene, dem: Dem, coords: FrameCoord
   const heights = routeHeights(scene, dem, coords);
   const { nx, nz, cell, x0, z0 } = heights.grid;
   const { scale, datumM, relief } = scene.frame;
-  // 5 平原抹成缓坡
-  const h = smoothPlain(heights.h, heights.land, scene.terrain.recipe, nx, nz, cell * scale);
+  // 5 平原抹成缓坡；写着照量到的样子（as-measured）的不抹，前四步的结果照用
+  const recipe = scene.terrain.recipe;
+  const h = recipe.kind === 'as-measured' ? heights.h : smoothPlain(heights.h, heights.land, recipe, nx, nz, cell * scale);
   // 6 过曲线，除以比例；7 留白的地方压平，再倒算回海拔
   const blank = blankSoft(scene, heights, edge);
   const y = new Float32Array(nx * nz);

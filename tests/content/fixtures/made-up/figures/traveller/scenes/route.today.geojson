@@ -1,0 +1,151 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "kind": "land",
+        "name": "made-up mainland"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              156,
+              17
+            ],
+            [
+              161.9,
+              17
+            ],
+            [
+              161.9,
+              23
+            ],
+            [
+              156,
+              23
+            ],
+            [
+              156,
+              17
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "kind": "land",
+        "name": "made-up island"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              162.45,
+              19.45
+            ],
+            [
+              162.75,
+              19.45
+            ],
+            [
+              162.75,
+              19.75
+            ],
+            [
+              162.45,
+              19.75
+            ],
+            [
+              162.45,
+              19.45
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "kind": "river",
+        "name": "Zi"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            156.9,
+            21.4
+          ],
+          [
+            158,
+            21.05
+          ],
+          [
+            158.8,
+            20.75
+          ],
+          [
+            159.7,
+            20.85
+          ],
+          [
+            160.6,
+            20.4
+          ],
+          [
+            161.3,
+            20.35
+          ],
+          [
+            161.9,
+            20.3
+          ],
+          [
+            162.05,
+            20.29
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "kind": "lake",
+        "name": "Wu"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              159.2,
+              19
+            ],
+            [
+              159.9,
+              19
+            ],
+            [
+              159.9,
+              19.5
+            ],
+            [
+              159.2,
+              19.5
+            ],
+            [
+              159.2,
+              19
+            ]
+          ]
+        ]
+      }
+    }
+  ]
+}

@@ -25,6 +25,7 @@ import { LINE_MAX, WORDS_MAX, textWidth } from '../content/sceneRules';
 import { realRouteScene, realSceneKeys } from './support/realScenes';
 import type { RealRouteScene } from './support/realScenes';
 import { NOTICE_HEAD_PX, NOTICE_ROW_TOP, ROUTE_HOME_PANES, ROUTE_NOTICE_ROW_TOP, ROUTE_PANES, ROUTE_UPRIGHT_PANES, STANDARD_PANES, UPRIGHT_PANES } from './support/standardPanes';
+import { ownJourneysTold, ownRoadsHeldInPane } from './support/routeFacts';
 import { routeSectionStrips, stripSize } from './support/stripSizes';
 
 interface Pane {
@@ -169,6 +170,8 @@ function wrongSides(input: StripInput, result: StripPlacement[], sealed: Set<str
 function roadPointsOutside(R: RealRouteScene, pane: Pane): { checked: number; outside: string[] } {
   const outside: string[] = [];
   let checked = 0;
+  // 看“这一站那几年走的路”的沙盘（roads.stopShows 写 stop-years）：这一站自己的路可以走出画面，不查
+  if (!ownRoadsHeldInPane(R.scene)) return { checked, outside };
   for (const section of R.scene.sections.slice(1)) {
     const { view, at } = placed(R, section, pane);
     if (view.fit >= 2.49) continue;
@@ -197,7 +200,8 @@ function narrowView(R: RealRouteScene): { retreated: number; outside: string[] }
   for (const section of R.scene.sections.slice(1)) {
     const { view, at } = placed(R, section, narrow);
     if (view.fit > 1.05) retreated++;
-    if (view.fit >= 2.49) continue;
+    // 看“这一站那几年走的路”的沙盘：这一站自己的路可以走出画面，不查（镜头退没退照数）
+    if (view.fit >= 2.49 || !ownRoadsHeldInPane(R.scene)) continue;
     for (const journey of R.scene.roads.journeys.filter((item) => item.stop === section.stop)) {
       for (const written of journey.parts.flatMap((part) => part.ways)) {
         const way = R.scene.roads.ways.find((item) => item.id === (written.startsWith('-') ? written.slice(1) : written));
@@ -231,10 +235,18 @@ function writtenNotes(R: RealRouteScene): { what: string; note: string }[] {
   return all.flatMap((item) => (item.note?.trim() ? [{ what: `${item.name}（${item.id}）`, note: item.note.trim() }] : []));
 }
 
-/** 另数一遍：到第 upTo 节为止画着的路里（0 是头一节，每一趟都画），示意的和有一部分示意的截有几截。 */
+/**
+ * 另数一遍：第 upTo 节画着的路里（0 是头一节，每一趟都画），示意的和有一部分示意的截有几截。
+ * 哪几趟画着，这里照规矩自己再数一遍，不用程序的那一个函数（src/domain/sceneRoads.ts）：照写的先后，这一站自己的最后一趟和写在它前面的都画着。
+ */
 function schematicParts(R: RealRouteScene, upTo: number): number {
+  const stop = R.scene.sections[upTo]?.stop;
+  let last = -1;
+  R.scene.roads.journeys.forEach((journey, i) => {
+    if (journey.stop === stop) last = i;
+  });
   return R.scene.roads.journeys
-    .filter((journey) => upTo === 0 || R.scene.sections.findIndex((section) => section.stop === journey.stop) <= upTo)
+    .filter((_, i) => upTo === 0 || i <= last)
     .flatMap((journey) => journey.parts)
     .filter((part) => part.class === 'schematic' || (part.class === 'text' && part.unsure?.trim())).length;
 }
@@ -274,11 +286,12 @@ describe.each(realSceneKeys('route'))('%s 的镜头', (key) => {
       expect(outside).toEqual([]);
     });
 
-    it('看路的小节：到这一站的每一趟路，路上写的每个点都在画面留出来的那一块里（点是从场景里另算的，不是镜头自己报的）', () => {
+    it('看路的小节：到这一站的每一趟路，路上写的每个点都在画面留出来的那一块里（点是从场景里另算的，不是镜头自己报的）；看“这一站那几年走的路”的沙盘（roads.stopShows 写 stop-years）不查：那几年的路可以走出画面', () => {
       const R = realRouteScene(key);
       const { checked, outside } = roadPointsOutside(R, pane);
-      // 真的查到了点（一座沙盘上查到多少个，写着它名字的那一组里另说）
-      expect(checked).toBeGreaterThan(0);
+      // 真的查到了点（一座沙盘上查到多少个，写着它名字的那一组里另说）；路可以走出画面的沙盘一个点也不查
+      if (ownRoadsHeldInPane(R.scene)) expect(checked).toBeGreaterThan(0);
+      else expect(checked).toBe(0);
       expect(outside).toEqual([]);
     });
 
@@ -597,15 +610,10 @@ describe.each(realSceneKeys('route'))('%s 的说明', (key) => {
     );
   });
 
-  it('每一节看路的小节，explain 里有到这一站的每一趟路，mustShow 里也有（头一节讲哪几样，写着名字的那一组查）', () => {
+  it('每一节看路的小节，explain 里有到这一站的每一趟路，mustShow 里也有（头一节讲哪几样，写着名字的那一组查）；看“这一站那几年走的路”的沙盘（roads.stopShows 写 stop-years）：explain 里至少有一趟这一站自己的路，mustShow 不管路', () => {
     const R = realRouteScene(key);
-    for (const section of R.scene.sections.slice(1)) {
-      const journeys = R.scene.roads.journeys.filter((journey) => journey.stop === section.stop).map((journey) => journey.id);
-      expect(journeys.length, section.heading).toBeGreaterThan(0);
-      for (const id of journeys) expect(section.explain, `${section.heading} 的 explain 里没有 ${id}`).toContain(id);
-      // mustShow 里也有这几趟路：镜头照着路摆
-      for (const id of journeys) expect(section.camera.mustShow ?? [], `${section.heading} 的 mustShow 里没有 ${id}`).toContain(id);
-    }
+    // 两种沙盘各问什么在 ./support/routeFacts.ts：不合的一句一句列出来，这里要一句也没有
+    expect(ownJourneysTold(R.scene)).toEqual([]);
   });
 
   it('题记：提到的站名、水名、山名，这一节都立着题签', () => {

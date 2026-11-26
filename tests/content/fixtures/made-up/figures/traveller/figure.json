@@ -1,0 +1,66 @@
+{
+  "id": "traveller",
+  "name": "编出来的旅人",
+  "era": "编出来的年代",
+  "years": "1000–1005",
+  "tagline": "测试用的虚构人物，不是史实。",
+  "intro": [
+    "这是测试用的一座编出来的全程沙盘：一站分两段讲，船走在水上，地面照量到的样子。"
+  ],
+  "stops": [
+    {
+      "id": "jia",
+      "title": "甲城：编出来的一站",
+      "shortTitle": "甲城",
+      "years": "1000–1002",
+      "age": "编的",
+      "place": {
+        "id": "jia",
+        "ancient": "甲城",
+        "modern": "甲城",
+        "lngLat": [
+          158,
+          21.05
+        ]
+      },
+      "summary": "测试用的一站，不是史实。",
+      "status": "outline"
+    },
+    {
+      "id": "bing",
+      "title": "丙港：编出来的一站",
+      "shortTitle": "丙港",
+      "years": "1001",
+      "age": "编的",
+      "place": {
+        "id": "bing",
+        "ancient": "丙港",
+        "modern": "丙港",
+        "lngLat": [
+          161.85,
+          20.304
+        ]
+      },
+      "summary": "测试用的一站，不是史实。",
+      "status": "outline"
+    },
+    {
+      "id": "ding",
+      "title": "丁镇：编出来的一站",
+      "shortTitle": "丁镇",
+      "years": "1004",
+      "age": "编的",
+      "place": {
+        "id": "ding",
+        "ancient": "丁镇",
+        "modern": "丁镇",
+        "lngLat": [
+          159.55,
+          19.53
+        ]
+      },
+      "summary": "测试用的一站，不是史实。",
+      "status": "outline"
+    }
+  ]
+}

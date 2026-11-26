@@ -119,7 +119,42 @@ export interface RouteStyle {
     dashPx: [number, number];
     reducedExtraPx: number;
     liftM: number;
+    /**
+     * 线型（不写：只有实线和 dashPx 那一种虚线，同这一截路是水路还是陆路无关）。list 是这种样式的每一种线型；
+     * of 说一笔用 list 里的第几种：dotted 是照类别算的虚实（只有“示意的”一截走到），by 是这一截路是哪一种。
+     * 一笔在线型变的地方断开；一种状态、一种线型的笔画合成一批。
+     */
+    patterns?: { list: readonly RoadPattern[]; of(dotted: boolean, by: 'water' | 'land' | 'sea'): number };
+    /**
+     * 线的粗细跟着画面的比例（不写：不变）。画线的程序每一帧叫它一次，它自己去改那几种线的宽度和透明度：
+     * lines 是现在造着的每一种线；pxPer100Km 是画面上 100 公里合多少像素，看一站的小节（写了 stop）交 null（照样式里写的宽度）。
+     * 这个函数是样式自己带的：不写它的样式的沙盘不下载这一段程序。
+     */
+    fit?(lines: readonly RoadLineNow[], pxPer100Km: number | null): void;
   };
+}
+
+/** 一种线型（样式里 roads.patterns.list 的一项）。 */
+export interface RoadPattern {
+  /** 虚线一划多长、一空多长（页面上的像素）。不写是实线。 */
+  dashPx?: [number, number];
+  /** 宽度是那一种状态的线宽的几成。不写是 1。 */
+  widthTimes?: number;
+  /** 垫在下面的浅色线跟着这种虚线断开：它的一划、一空各多长，头一划往前挪多少（都是像素）。不写，垫的是不断的一道。 */
+  under?: { dashPx: [number, number]; offsetPx: number };
+}
+
+/** 画着的一种线（一种状态、一种线型一份材质），交给样式的 fit 去调粗细。 */
+export interface RoadLineNow {
+  /** 哪一种状态的线；'halo' 是垫底的浅色线。 */
+  state: 'ink' | 'now' | 'past' | 'halo';
+  /** 第几种线型（patterns.list 里的序号）；垫底的不断的那一道是 -1。 */
+  pattern: number;
+  /** 照样式里写的造出来时多宽（减配的一档加粗过的）、多透。 */
+  widthPx: number;
+  opacity: number;
+  /** 画它的材质（three 的 LineMaterial）：fit 只改这两样。 */
+  material: { linewidth: number; opacity: number };
 }
 
 /** 一种线：颜色（'#rrggbb'）、透明度、多宽（页面上的像素）。 */
@@ -177,7 +212,7 @@ export interface TableStyle {
    * 只取了一半的样式里只有哪一层都要的几种（水纹、云气、雾、地形板的侧面、装裱和座子的）；整套里是全部。
    */
   palette: Record<string, string>;
-  /** 这种样式的灯。只看天色（夜里再看月亮在哪），不看镜头。 */
+  /** 这种样式的灯，不看镜头。整套样式只看天色（夜里再看月亮在哪）；只取了一半的样式里只有白天的一盏，问哪一种天色给的都是它。 */
   light(sky: SceneSky, moon?: SceneMoon): LightSpec;
   /** 远处的雾从多远开始、到多远全白：[近, 远]，米。 */
   fogFor(distanceM: number): [number, number];

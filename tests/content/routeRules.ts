@@ -16,7 +16,7 @@ import type { Figure, LngLat } from '../../src/domain/types';
 import { kilobytes, megabytes } from './budgetRules';
 import { CLASS_LIST, GROUNDS, HAN, LINE_MAX, NEEDS_SOURCE, STYLE_IDS, TERRAIN_MAX_BYTES, WORDS_MAX, insideRing, samePoint, textWidth, toLine, unsureProblem } from './sceneRules';
 import type { XZ } from './sceneRules';
-import { checkShape, has, list, lngLat, lngLatProblem, number, numberIn, oneOf, optional, record, strict, text, violation } from './shape';
+import { checkShape, has, list, lngLat, lngLatProblem, number, numberIn, oneOf, optional, record, strict, tagged, text, violation } from './shape';
 import type { ContentFiles, FileSizes, Shape, Violation } from './shape';
 
 /** 一节最多摆几条题签（规则 15）。站点沙盘是六条。 */
@@ -102,16 +102,20 @@ const ROUTE: Shape = strict({
     south: number,
     north: number,
     heightUnit: text,
-    recipe: strict({
-      ...GROUNDS,
-      kind: oneOf(['plain-smoothed']),
-      plainBelowM: number,
-      hillAboveM: number,
-      smoothM: positive,
-      plainKeep: numberIn({ min: 0, max: 1 }),
-      rippleM: list(notNegative),
-      edgeTaperM: notNegative,
-      blank: list(RING),
+    // 整理地形的两种办法：平原抹成缓坡（plain-smoothed），地面照量到的样子（as-measured，不抹，所以没有抹平原的那几个数）
+    recipe: tagged('kind', {
+      'plain-smoothed': strict({
+        ...GROUNDS,
+        kind: text,
+        plainBelowM: number,
+        hillAboveM: number,
+        smoothM: positive,
+        plainKeep: numberIn({ min: 0, max: 1 }),
+        rippleM: list(notNegative),
+        edgeTaperM: notNegative,
+        blank: list(RING),
+      }),
+      'as-measured': strict({ ...GROUNDS, kind: text, edgeTaperM: notNegative, blank: list(RING) }),
     }),
     edits: list(strict({ ...GROUNDS, id: text, name: text, op: oneOf(['sea']), area: RING })),
   }),
@@ -131,6 +135,9 @@ const ROUTE: Shape = strict({
   roads: strict({
     ways: list(strict({ id: text, by: oneOf(['water', 'land', 'sea']), along: optional(text), line: RING })),
     journeys: list(strict({ id: text, name: text, stop: text, date: text, parts: list(strict({ ...GROUNDS, name: text, ways: list(text) })) })),
+    // 这座沙盘自己说的两件事，都可以不写：看一站的小节画的是来路还是这一站那几年走的路；船走的线画在河边还是画在水上
+    stopShows: optional(oneOf(['way-there', 'stop-years'])),
+    boats: optional(oneOf(['beside', 'on'])),
   }),
   sections: list(strict({ heading: text, date: text, line: text, camera: ROUTE_CAMERA, strips: list(text), explain: list(text), stop: optional(text) })),
   notDrawn: list(strict({ id: text, name: text, why: text, sourceIds: list(text) })),
@@ -144,13 +151,17 @@ export function checkRouteShape(data: unknown, file: string): Violation[] {
   return checkShape(data, ROUTE, file);
 }
 
-/** 格式通过以后，一个全程沙盘场景文件的规则 10 到 15，外加两处要拿两个数比着看的格式。 */
-export function checkRouteScene(scene: RouteScene, file: string, figure: RouteFigure, files: ContentFiles, sizes: FileSizes = {}): Violation[] {
+/**
+ * 格式通过以后，一个全程沙盘场景文件的规则 10 到 15，外加两处要拿两个数比着看的格式。
+ * styleIds 是程序里有的样式（不写就是登记表里的那几种）：测试里编出来的样式不进登记表，查编出来的沙盘时把它的名字交进来。
+ */
+export function checkRouteScene(scene: RouteScene, file: string, figure: RouteFigure, files: ContentFiles, sizes: FileSizes = {}, styleIds: readonly string[] = STYLE_IDS): Violation[] {
   const today = readToday(files, todayPath(scene, file));
   return [
     ...checkRouteNumbers(scene, file),
-    ...checkRouteFile(scene, file, files, sizes, today),
+    ...checkRouteFile(scene, file, files, sizes, today, styleIds),
     ...checkRouteExtent(scene, file),
+    ...checkBlankClear(scene, file),
     ...checkRouteGrounds(scene, file),
     ...checkRouteParts(scene, file, figure.stops),
     ...checkRouteSections(scene, file, figure.stops),
@@ -158,10 +169,11 @@ export function checkRouteScene(scene: RouteScene, file: string, figure: RouteFi
   ];
 }
 
-/** 格式里要拿两个数比着看的两处：算山地的海拔要比算平原的高；rippleM 是两个数，前一个比后一个小。 */
+/** 格式里要拿两个数比着看的两处：算山地的海拔要比算平原的高；rippleM 是两个数，前一个比后一个小。地面照量到的样子的沙盘（as-measured）没有这几个数，不查。 */
 export function checkRouteNumbers(scene: RouteScene, file: string): Violation[] {
   const out: Violation[] = [];
   const recipe = scene.terrain.recipe;
+  if (recipe.kind === 'as-measured') return out;
   if (recipe.hillAboveM <= recipe.plainBelowM) {
     out.push(violation(0, file, 'terrain.recipe.hillAboveM', `算山地的海拔（${recipe.hillAboveM}）要比算平原的海拔（plainBelowM，${recipe.plainBelowM}）高，两个数之间才有地方过渡`));
   }
@@ -336,7 +348,14 @@ function inPolygon(p: LngLat, polygon: LngLat[][]): boolean {
  * 地形文件叫 route.terrain.bin，存在，大小正好是 行 × 列 × 2 字节，不超过 1.5 MB，heightUnit 写 m，盖得住整块沙盘；
  * todayFile 是同一个文件夹里的一个 .geojson 文件，存在，读得出来，不超过 300 KB，每条取法里的每个名字在里面都找得到。
  */
-export function checkRouteFile(scene: RouteScene, file: string, files: ContentFiles, sizes: FileSizes = {}, today: Today = readToday(files, todayPath(scene, file))): Violation[] {
+export function checkRouteFile(
+  scene: RouteScene,
+  file: string,
+  files: ContentFiles,
+  sizes: FileSizes = {},
+  today: Today = readToday(files, todayPath(scene, file)),
+  styleIds: readonly string[] = STYLE_IDS,
+): Violation[] {
   const out: Violation[] = [];
   const bad = (field: string, problem: string) => out.push(violation(10, file, field, problem));
   const folder = file.slice(0, file.lastIndexOf('/') + 1);
@@ -344,7 +363,7 @@ export function checkRouteFile(scene: RouteScene, file: string, files: ContentFi
   if (!file.endsWith(`/scenes/${ROUTE_SCENE_ID}.json`)) bad('', `全程沙盘的场景文件要叫 ${ROUTE_SCENE_ID}.json（scenes/${ROUTE_SCENE_ID}.json），一位人物只有一个`);
   if (scene.stopId !== ROUTE_SCENE_ID) bad('stopId', `全程沙盘的 stopId 写 ${ROUTE_SCENE_ID}，现在是“${scene.stopId}”`);
 
-  if (!STYLE_IDS.includes(scene.style)) bad('style', `样式“${scene.style}”程序里没有；有的是：${STYLE_IDS.join('、')}`);
+  if (!styleIds.includes(scene.style)) bad('style', `样式“${scene.style}”程序里没有；有的是：${styleIds.join('、')}`);
 
   if (scene.credits.length < 2) bad('credits', `至少要写两条：地形用了谁的高程数据，今天的海岸、河、湖用了谁的数据；现在是 ${scene.credits.length} 条`);
   scene.credits.forEach((credit, i) => {
@@ -457,6 +476,66 @@ export function checkRouteExtent(scene: RouteScene, file: string): Violation[] {
     if (coords.inside(far.at)) out.push(violation(11, file, `far[${i}].at`, `远处“${far.id}”在沙盘里面；远处写的是沙盘外面的地方，里面的地方登记成地名点`));
   });
   return out;
+}
+
+/** 留白的每一圈离画出来的每一截路、每一个地名点至少多少公里（规则 11）。 */
+export const BLANK_CLEAR_KM = 60;
+/** 量一截路离留白多远时，沿线每隔多少公里取一个点（写的拐点都取）。 */
+const BLANK_STEP_KM = 5;
+
+/** 留白的一圈旁边的一样东西：是哪一圈（从 0 数起）、是什么、离圈的边多少公里（落在圈里面是 0）。 */
+export interface NearBlank {
+  ring: number;
+  what: string;
+  km: number;
+}
+
+/**
+ * 留白的每一圈离画出来的每一截路、每一个地名点各多远：每一圈、每一样东西一行（一截路取它离这一圈最近的那一点）。
+ * 在沙盘的投影里量：圈是写的那几个点直着连成的（画出来的边是样式抹开、打散过的，这里量的是写的圈）；落在圈里面的是 0。
+ * 投影说不通、量不了的时候是空的。校验（规则 11）和测试量的都是这一个函数。
+ */
+export function blankClearance(scene: RouteScene): NearBlank[] {
+  const coords = coordsFor(scene);
+  if (!coords) return [];
+  const out: NearBlank[] = [];
+  const step = (BLANK_STEP_KM * 1000) / scene.frame.scale;
+  scene.terrain.recipe.blank.forEach((written, ring) => {
+    if (written.length < 3) return;
+    const edge = written.map((p): XZ => coords.toLocal(p));
+    const away = (p: XZ): number => (insideRing(p, edge) ? 0 : kmOf(scene, toLine(p, edge, true)));
+    for (const way of scene.roads.ways) {
+      let km = Infinity;
+      const line = way.line.map((p): XZ => coords.toLocal(p));
+      line.forEach((a, i) => {
+        km = Math.min(km, away(a));
+        const b = line[i + 1];
+        if (!b) return;
+        const n = Math.ceil(Math.hypot(b[0] - a[0], b[1] - a[1]) / step);
+        for (let k = 1; k < n; k++) km = Math.min(km, away([a[0] + ((b[0] - a[0]) * k) / n, a[1] + ((b[1] - a[1]) * k) / n]));
+      });
+      if (Number.isFinite(km)) out.push({ ring, what: `路“${way.id}”`, km });
+    }
+    for (const place of scene.places) out.push({ ring, what: `地名点“${place.id}”`, km: away(coords.toLocal(place.at)) });
+  });
+  return out;
+}
+
+/**
+ * 规则 11 范围（全程沙盘）添的一句：留白的每一圈，离画出来的每一截路、每一个地名点至少 60 公里。
+ * 留白的边是抹开的（地势在边线外面几十公里起就收平，颜色淡得更早）：路和地名离圈近了，就落在收平、淡掉的那一条里。
+ */
+export function checkBlankClear(scene: RouteScene, file: string): Violation[] {
+  return blankClearance(scene)
+    .filter((near) => near.km < BLANK_CLEAR_KM)
+    .map((near) =>
+      violation(
+        11,
+        file,
+        `terrain.recipe.blank[${near.ring}]`,
+        `留白的第 ${near.ring + 1} 圈${near.km === 0 ? `把${near.what}圈在里面了` : `离${near.what}只有 ${Math.floor(near.km)} 公里`}；留白的每一圈离画出来的路、地名点至少要有 ${BLANK_CLEAR_KM} 公里（留白的边是抹开的，离得近的路和地名会落在收平、淡掉的那一条里），把圈挪开`,
+      ),
+    );
 }
 
 // ---------------------------------------------------------------- 规则 12 类别和依据
@@ -711,8 +790,10 @@ export function checkRouteParts(scene: RouteScene, file: string, stops: string[]
   ways.forEach((way, i) => {
     if (!used.has(way.id)) bad(`roads.ways[${i}]`, `路“${way.id}”哪一趟也没有走到；用不着就删掉`);
   });
+  // 看一站的小节画的是这一站那几年走的路的沙盘（roads.stopShows 写 stop-years）：一趟的 stop 是它算在哪一站名下
+  const years = scene.roads.stopShows === 'stop-years';
   for (const stop of stops) {
-    if (!journeys.some((journey) => journey.stop === stop)) bad('roads.journeys', `“${stop}”这一站一趟路也没有；每一站至少要有一趟到它那里去的路`);
+    if (!journeys.some((journey) => journey.stop === stop)) bad('roads.journeys', `“${stop}”这一站一趟路也没有；每一站至少要有一趟${years ? '算在它名下的路（stop 写着它）' : '到它那里去的路'}`);
   }
   return out;
 }
@@ -738,7 +819,7 @@ export function checkRouteSections(scene: RouteScene, file: string, stops: strin
   const later = scene.sections.slice(1);
   later.forEach((section, n) => {
     const i = n + 1;
-    if (section.stop === undefined) bad(`sections[${i}]`, `小节“${section.heading}”没有写 stop：头一节以后，每一节看的是到哪一站的来路`);
+    if (section.stop === undefined) bad(`sections[${i}]`, `小节“${section.heading}”没有写 stop：头一节以后，每一节看的是${scene.roads.stopShows === 'stop-years' ? '哪一站那几年走的路' : '到哪一站的来路'}`);
     else if (!stops.includes(section.stop)) bad(`sections[${i}].stop`, `小节“${section.heading}”写的站“${section.stop}”在 figure.json 里找不到`);
     else if (later.findIndex((other) => other.stop === section.stop) < n) bad(`sections[${i}].stop`, `“${section.stop}”这一站写了不止一节`);
   });

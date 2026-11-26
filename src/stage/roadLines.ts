@@ -5,15 +5,17 @@
 // 做三件事：
 //   1 一截路（roads.ways 里的一条）的线：经纬度换成沙盘里的米，每个拐角抹圆一次（从两边各切掉最多 9 公里，换成一小段弧），
 //     再加密到最长 6 公里一段（线要贴着起伏的地面）。两头是城，一点不动。
-//   2 一小节里哪几趟路要画、画成哪一种：头一节（全程）每一趟都是墨线；后面的小节，到这一站去的几趟是“刚走的”，
-//     到前面各站去的是“走过的”，后面的不画。
+//   2 一小节里哪几趟路要画、画成哪一种：头一节（全程）每一趟都是墨线；后面的小节，这一站自己的几趟是“刚走的”，
+//     写在这一站自己的最后一趟前面的是“走过的”，其余的不画（哪几趟算哪一种是 ../domain/sceneRoads.ts 定的，这里只换成线）。
 //   3 把要画的路排成一笔一笔：同一截路几趟都走的只画一笔（刚走的压过墨线，墨线压过走过的）；
-//     一截路在这一种里只要有“按史料摆的”一截走到它就是实线，不然是虚线；一趟路里接着走的几截、虚实一样的连成一笔
-//     （虚线的一划一空要一路排下去，不能在接头上重来）。
-// 画线的程序拿到这些以后：一种状态的实线合成一份线段表，虚线一笔一条线，另有一份垫在下面的浅色线段表（全部的笔画）。
+//     一截路在这一种里只要有“按史料摆的”一截走到它就是实线，不然是虚线；一趟路里接着走的几截、线型一样的连成一笔
+//     （虚线的一划一空要一路排下去，不能在接头上重来），线型变的地方断开。线型是样式说的（照虚实和这一截路是水路还是陆路）；
+//     样式不说的时候只有实线和一种虚线，线型一样就是虚实一样。
+// 画线的程序拿到这些以后：一种状态的实线合成一份线段表，虚线也合成一份（线上的距离每一笔从头量起），另有一份垫在下面的浅色线段表（全部的笔画）。
 
 import type { RoadWay, RouteScene } from '../domain/scene';
 import type { FrameCoords } from '../domain/sceneGeo';
+import { journeysShown } from '../domain/sceneRoads';
 import type { Vec2 } from './ground/types';
 
 /** 拐角从两边各切掉最多多少公里。 */
@@ -34,11 +36,22 @@ export type RoadState = 'ink' | 'now' | 'past';
 /** 画的先后：前面的压过后面的。 */
 export const ROAD_STATES: readonly RoadState[] = ['now', 'ink', 'past'];
 
+/**
+ * 一笔画成第几种线型，由样式说（RouteStyle.roads.patterns.of）：dotted 是照类别算的虚实（只有“示意的”一截走到它），
+ * by 是这一截路是哪一种（陆路、水路、海路）。样式不写的时候只有两种：0 是实线，1 是虚线，同 by 无关。
+ */
+export type RoadPatternOf = (dotted: boolean, by: RoadWay['by']) => number;
+
 /** 一笔。 */
 export interface RoadRun {
   state: RoadState;
-  /** 虚线（只有“示意的”一截走到它）还是实线。 */
+  /**
+   * 照类别算的虚实：只有“示意的”一截走到它是 true，有“按史料摆的”一截走到的是 false。
+   * 样式不写线型的时候它就是“虚线还是实线”；样式把两类画成同一种线型的话，一笔里两类都可以有，这里记的是头一截的。
+   */
   dotted: boolean;
+  /** 第几种线型（见 RoadPatternOf）。一笔里只有一种：线型变的地方断成两笔。 */
+  pattern: number;
   /** 这一笔是哪几截路连成的，按走的先后；倒着走的前面有一个减号（和场景文件里的写法一样）。 */
   ways: string[];
   /** 线上的点：沙盘里的米，[x, z]。拐角抹圆过，最长 ROAD_STEP_KM 公里一段。 */
@@ -121,23 +134,12 @@ export function wayLine(scene: RouteScene, coords: FrameCoords, way: RoadWay): V
 
 /**
  * 这一小节里每一趟路画成哪一种（不画的不在里面）。section 是第几节，从 0 数起。
- * 没有写 stop 的小节（头一节，全程）：每一趟都是墨线。写了 stop 的：到这一站去的是刚走的，
- * 到排在它前面的站去的是走过的。站的先后照小节的先后。
+ * 哪几趟画、算哪一种只有一处定（src/domain/sceneRoads.ts，照 roads.journeys 里写的先后）：没有写 stop 的小节（头一节，全程）
+ * 每一趟都是墨线；写了 stop 的，这一站自己的是刚走的，写在这一站自己的最后一趟前面的是走过的。这里只把那三种换成三种线。
  */
 export function journeyStates(scene: RouteScene, section: number): Map<string, RoadState> {
   const out = new Map<string, RoadState>();
-  const stop = scene.sections[section]?.stop;
-  if (stop === undefined) {
-    for (const journey of scene.roads.journeys) out.set(journey.id, 'ink');
-    return out;
-  }
-  const order = scene.sections.flatMap((item) => (item.stop === undefined ? [] : [item.stop]));
-  const here = order.indexOf(stop);
-  for (const journey of scene.roads.journeys) {
-    const at = order.indexOf(journey.stop);
-    if (journey.stop === stop) out.set(journey.id, 'now');
-    else if (at >= 0 && at < here) out.set(journey.id, 'past');
-  }
+  journeysShown(scene, section).forEach((shown, i) => shown && out.set(scene.roads.journeys[i].id, shown === 'whole' ? 'ink' : shown === 'own' ? 'now' : 'past'));
   return out;
 }
 
@@ -147,14 +149,16 @@ const wayRef = (written: string): { id: string; reversed: boolean } => (written.
 /**
  * 这一小节要画的每一笔，按画的先后（刚走的、墨线、走过的；同一种里照场景文件里路的先后）。
  * 每一截路在一小节里最多画一笔。coords 是这座沙盘的换算（coordsOf(scene)）。
+ * patternOf 是这座沙盘的样式说的“画成第几种线型”；不写就是两种（0 实线，1 虚线）。一笔在线型变的地方断开。
  */
-export function roadRuns(scene: RouteScene, coords: FrameCoords, section: number): RoadRun[] {
+export function roadRuns(scene: RouteScene, coords: FrameCoords, section: number, patternOf: RoadPatternOf = Number): RoadRun[] {
   const states = journeyStates(scene, section);
   const lines = new Map<string, Vec2[]>();
+  const wayOf = (id: string): RoadWay | undefined => scene.roads.ways.find((item) => item.id === id);
   const lineOf = (id: string): Vec2[] | undefined => {
     const have = lines.get(id);
     if (have) return have;
-    const way = scene.roads.ways.find((item) => item.id === id);
+    const way = wayOf(id);
     if (!way) return undefined;
     const made = wayLine(scene, coords, way);
     lines.set(id, made);
@@ -184,12 +188,13 @@ export function roadRuns(scene: RouteScene, coords: FrameCoords, section: number
           seen.add(id);
           const points = reversed ? line.slice().reverse() : line;
           const dotted = !solid.has(id);
-          if (cur && cur.dotted === dotted && dist(cur.points[cur.points.length - 1], points[0]) <= join) {
+          const pattern = patternOf(dotted, (wayOf(id) as RoadWay).by);
+          if (cur && cur.pattern === pattern && dist(cur.points[cur.points.length - 1], points[0]) <= join) {
             const same = dist(cur.points[cur.points.length - 1], points[0]) < 1e-9;
             cur.points = cur.points.concat(same ? points.slice(1) : points);
             cur.ways.push(written);
           } else {
-            cur = { state, dotted, ways: [written], points: points.slice(), lengthM: 0 };
+            cur = { state, dotted, pattern, ways: [written], points: points.slice(), lengthM: 0 };
             out.push(cur);
           }
         }

@@ -3,6 +3,9 @@
 //   1 路不从海里过（今天的陆地外面，或者抹成海的圈里面），走海路的（by 是 sea）除外；
 //   2 路不从湖里、只染水色的水里过；沿着这个湖走的路（along 写的是它）除外；
 //   3 沿着一条河走的路（along 写的是它），线上每一点离这条河不超过 15 公里，又不贴到 2 公里以内。
+//     这是船画在河边的沙盘（场景的 roads.boats 不写，或者写 beside；苏轼的这一座）。船走在水上的沙盘（写 on）反过来量：
+//     每一条水路（by 是 water）写了 along 的，线上每一点都在它走的那条河上（离画出来的河不超过那一座沙盘定的公里数）、
+//     那个湖的圈里，两头靠岸的一截让开；没有写 along 的水路说不出走的是哪条水，另数、印出来，不算不合（./support/routeFacts.ts）。
 // 沿线每 2 公里取一个点来查。河可以过（扬州到润州过大江），不算。
 //
 // 第 3 条量的是画在地面上的那条河（这座沙盘的样式的画法画的那一条，照 tests/tools/route/painters.ts 取；宋代青绿设色的是 tests/tools/route/paint.ts 的 riverPaths：自己写的河是抹顺以后的线，不是直着连的）。
@@ -26,11 +29,11 @@ import { BANK_TAPER_KM, BANK_TAPER_SHARE } from '../tools/route/bankTool';
 import { routeRiversFor } from '../tools/route/painters';
 import { realRouteScene, realSceneKeys } from './support/realScenes';
 import type { RealRouteScene } from './support/realScenes';
+import { STEP_KM, along, boatsOn, boatsOnWater, boxed, inAny, insideRing, kmToPainted } from './support/routeFacts';
+import type { BoatLimits, Boxed } from './support/routeFacts';
 
 /** 走水路的那几条路是不是已经换成了贴着河岸走的线。换了，第 3 条才算数。 */
 const BANK_LINES_IN = true;
-/** 沿线每隔多少公里取一个点。 */
-const STEP_KM = 2;
 /** 沿着河走的路，离这条河最远多少公里。 */
 const ALONG_MAX_KM = 15;
 /** 贴岸的线离河的中线最近多少公里（换成贴岸的线以后才查）。 */
@@ -49,6 +52,12 @@ const ALONG_EXCEPTIONS: Record<string, AlongExceptions> = {
   'su-shi/route': { townOffRiver: { 'w-ying': 'first', 'w-bei': 'last', 'w-dong': 'first' }, straightOnCanal: ['w-canal-s1', 'w-canal-s2'] },
 };
 const NO_EXCEPTIONS: AlongExceptions = { townOffRiver: {}, straightOnCanal: [] };
+/**
+ * 船走在水上的沙盘（场景的 roads.boats 写 on），一座一份：沿河的水路离画出来的那条河最多多少公里，两头让出多少公里
+ *（./support/routeFacts.ts 的 boatsOnWater 照它量）。数是照那一座沙盘的线量过定的，跟着它的场景文件一起进来；
+ * content/ 里现在没有这样的沙盘，表是空的。编出来的那一座的两个数在 tests/stage/made-up-route.test.ts 里。
+ */
+const BOAT_LIMITS: Record<string, BoatLimits> = {};
 
 const texts = import.meta.glob<string>('/content/figures/*/scenes/*.geojson', { query: '?raw', import: 'default', eager: true });
 
@@ -58,70 +67,6 @@ function todayOf(R: RealRouteScene): TodayFeature[] {
   const today = readToday({ today: text }, 'today');
   if (!today || 'problem' in today) throw new Error(`${R.todayPath} 读不出来`);
   return today.features;
-}
-
-const insideRing = (p: LngLat, ring: LngLat[]): boolean => {
-  let inside = false;
-  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
-    const a = ring[i];
-    const b = ring[j];
-    if (a[1] > p[1] !== b[1] > p[1] && p[0] < ((b[0] - a[0]) * (p[1] - a[1])) / (b[1] - a[1]) + a[0]) inside = !inside;
-  }
-  return inside;
-};
-const insidePolygon = (p: LngLat, polygon: LngLat[][]): boolean => insideRing(p, polygon[0]) && !polygon.slice(1).some((hole) => insideRing(p, hole));
-
-interface Boxed {
-  polygon: LngLat[][];
-  box: [number, number, number, number];
-}
-function boxed(polygon: LngLat[][]): Boxed {
-  let w = Infinity;
-  let e = -Infinity;
-  let s = Infinity;
-  let n = -Infinity;
-  for (const [lng, lat] of polygon[0]) {
-    w = Math.min(w, lng);
-    e = Math.max(e, lng);
-    s = Math.min(s, lat);
-    n = Math.max(n, lat);
-  }
-  return { polygon, box: [w, e, s, n] };
-}
-const inAny = (p: LngLat, list: Boxed[]): boolean => list.some(({ polygon, box }) => p[0] >= box[0] && p[0] <= box[1] && p[1] >= box[2] && p[1] <= box[3] && insidePolygon(p, polygon));
-
-/** 沿一条线每 STEP_KM 公里取一个点（两头也取）：经纬度，和它是从头量起的第几公里。 */
-function along(scene: RouteScene, coords: FrameCoords, line: LngLat[]): { at: LngLat; km: number }[] {
-  const out: { at: LngLat; km: number }[] = [];
-  let walked = 0;
-  for (let i = 1; i < line.length; i++) {
-    const [ax, az] = coords.toLocal(line[i - 1]);
-    const [bx, bz] = coords.toLocal(line[i]);
-    const km = (Math.hypot(bx - ax, bz - az) * scene.frame.scale) / 1000;
-    const steps = Math.max(1, Math.ceil(km / STEP_KM));
-    for (let s = i === 1 ? 0 : 1; s <= steps; s++) {
-      const t = s / steps;
-      out.push({ at: coords.toLngLat(ax + (bx - ax) * t, az + (bz - az) * t), km: walked + km * t });
-    }
-    walked += km;
-  }
-  return out;
-}
-
-/** 一点离画在地面上的几条线最近多少公里。lines 是沙盘里的米（riverPaths 给的）。 */
-function kmToPainted(scene: RouteScene, coords: FrameCoords, p: LngLat, lines: [number, number][][]): number {
-  const [px, pz] = coords.toLocal(p);
-  let best = Infinity;
-  for (const line of lines) {
-    for (let i = 1; i < line.length; i++) {
-      const [ax, az] = line[i - 1];
-      const dx = line[i][0] - ax;
-      const dz = line[i][1] - az;
-      const t = Math.min(1, Math.max(0, ((px - ax) * dx + (pz - az) * dz) / (dx * dx + dz * dz || 1)));
-      best = Math.min(best, Math.hypot(px - ax - dx * t, pz - az - dz * t));
-    }
-  }
-  return (best * scene.frame.scale) / 1000;
 }
 
 /** 两点之间多少公里（在沙盘的投影里量）。 */
@@ -250,8 +195,19 @@ describe.each(realSceneKeys('route'))('%s 的路', (key) => {
     expect(wet).toEqual([]);
   });
 
-  it('沿着一条河走的路：线上每一点离它的河 2 到 15 公里（两头收回到城里的一截另算；这一座沙盘定下来不查的路照它自己的名单），量出来打印', () => {
+  it('沿着一条河走的路：线上每一点离它的河 2 到 15 公里（两头收回到城里的一截另算；这一座沙盘定下来不查的路照它自己的名单），量出来打印；船走在水上的沙盘（roads.boats 写 on）反过来量：每一条水路都在它走的河上、湖里', () => {
     const R = realRouteScene(key);
+    if (boatsOn(R.scene)) {
+      // 船走在水上的沙盘：水路不在河边，就在水上。离河最多差多少、两头让出多少是这一座沙盘自己定的数，没有定的说一句就停
+      const limits = BOAT_LIMITS[key];
+      expect(limits, `${key} 的船走在水上（roads.boats 写 on），可这里的 BOAT_LIMITS 里没有它的两个数（离河最多多少公里、两头让出多少公里）`).toBeDefined();
+      const { lines, off, nameless, unmeasured } = boatsOnWater(R.scene, R.coords, todayOf(R), routeRiversFor(R.scene.style)(R.scene, todayOf(R), R.coords), limits);
+      console.log(
+        `${key} 的船走在水上（离河不超过 ${limits.riverKm} 公里，两头 ${limits.landingKm} 公里以内不查）：\n${lines.join('\n')}\n  没有写走的是哪条水的水路（另数，不查）：${nameless.join('、') || '没有'}\n  两头一让就一个点也不剩的水路（另数，没有量）：${unmeasured.join('、') || '没有'}\n  不合的：${off.join('；') || '没有'}`,
+      );
+      expect(off).toEqual([]);
+      return;
+    }
     const { lines, loose, listed, exceptions } = alongRivers(R);
     console.log(`${key} 沿着河走的路（离河不超过 ${ALONG_MAX_KM} 公里，不贴到 ${ALONG_MIN_KM} 公里以内）：\n${lines.join('\n')}\n  不合的：${loose.join('、') || '没有'}`);
     if (BANK_LINES_IN) expect(loose).toEqual([]);

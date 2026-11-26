@@ -30,6 +30,7 @@ import type {
   When,
 } from './scene';
 import { farEdgePoint } from './sceneGeo';
+import { journeysShown } from './sceneRoads';
 import type { LngLat, Source } from './types';
 
 // ---------------------------------------------------------------- 小节，和什么时候有
@@ -205,11 +206,12 @@ export const NOTE_BRIEF_MAX = 32;
 
 /**
  * 地形整理过，一句话怎么说。full 只在 recipe 没有写 note 时顶上（校验不让它不写）。
- * plain-and-hills 是站点沙盘的办法，plain-smoothed 是全程沙盘的。
+ * plain-and-hills 是站点沙盘的办法，plain-smoothed 和 as-measured（地面照量到的样子，不抹）是全程沙盘的。
  */
 const RECIPE_SAY: Record<TableScene['terrain']['recipe']['kind'], { full: string; short: string }> = {
   'plain-and-hills': { full: '平地是修整过的：高高低低的平地抹成了差不多一样高，山也跟着矮了一截。', short: '平地修整过' },
   'plain-smoothed': { full: '平地抹平了，山照原样。', short: '平地抹平' },
+  'as-measured': { full: '地面照今天的样子，没有抹平。', short: '地面没有抹平' },
 };
 
 /** 模型和河都放大了。 */
@@ -405,15 +407,16 @@ function unsureShort(all: Unsure[], count: number): string {
 
 /**
  * 这一小节沙盘上没有的东西。站点沙盘：when 不在这一节的摆件和点缀。
- * 全程沙盘：后面各站的路——头一节看全程，路都画着；后面每一节看到一站去的来路，这一站和前面各站的路画着，后面的还没有画。
+ * 全程沙盘：这一节不画的路——头一节看全程，路都画着；后面每一节，这一站自己的路和走过的路画着，其余的还没有画
+ * （哪几趟画是 ./sceneRoads.ts 定的，画线的程序用的也是它）。
  */
 function notShown(scene: TableScene, section: Section): Grounds[] {
   if (scene.level !== 'route') {
     const headings = sectionHeadings(scene);
     return [...scene.things, ...scene.dressing].filter((item) => !existsAt(item.when, section.heading, headings));
   }
-  const at = scene.sections.findIndex((s) => s === section);
-  return scene.roads.journeys.filter((journey) => at > 0 && scene.sections.findIndex((s) => s.stop === journey.stop) > at).flatMap((journey) => journey.parts);
+  const shown = journeysShown(scene, scene.sections.findIndex((s) => s === section));
+  return scene.roads.journeys.filter((_, i) => !shown[i]).flatMap((journey) => journey.parts);
 }
 
 /** 按场景文件里写的先后，带类别和依据的全部东西。 */

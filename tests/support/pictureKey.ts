@@ -11,8 +11,10 @@ import { contentKey } from '../../src/domain/contentKey';
  *   credits、notDrawn              用了谁的数据，没有画的东西
  *   date、explain                  小节的时间，说明先讲哪几样
  *   name、gloss、inHisWords        给读者看的名字和括注；远处照当时人的话写的那一句（只印在题记下面，题签摆在哪看的是坐标）
+ *   stopShows、boats               全程沙盘的 roads 里这座沙盘自己说的两件事（看一站的小节画的是来路还是那几年走的路；船走的线画在河边
+ *                                  还是水上）：画线的程序不看它们，哪几趟画只看每一趟的 stop 和写的先后，线画在哪只看 line；看它们的是校验和测试
  */
-const DROPPED = new Set(['basis', 'sourceIds', 'unsure', 'note', 'credits', 'notDrawn', 'date', 'explain', 'name', 'gloss', 'inHisWords']);
+const DROPPED = new Set(['basis', 'sourceIds', 'unsure', 'note', 'credits', 'notDrawn', 'date', 'explain', 'name', 'gloss', 'inHisWords', 'stopShows', 'boats']);
 
 /** 题签上只有这两个字段不管画面：当时的名字，今天的名字。别的（指着哪样东西、指在哪一点、摆在哪一边）都留着。 */
 const DROPPED_ON_STRIPS = new Set(['text', 'modern']);

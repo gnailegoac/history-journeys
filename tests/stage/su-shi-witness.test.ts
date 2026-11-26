@@ -101,7 +101,7 @@ describe('苏轼的四座沙盘：搬动程序以前留下的凭证', () => {
     },
   );
 
-  it(`${ROUTE} 九个小节：今天路是这样分批的——垫底的一批，每种状态的实线一批，虚线一笔一条（改分批办法的那一次改的是这一条；上面两档的线段不该动）`, { timeout: 60_000 }, async () => {
+  it(`${ROUTE} 九个小节：今天路是这样分批的——垫底的一批，每种状态的实线一批，虚线也是一批（改分批办法的那一次改的是这一条；上面两档的线段不该动）`, { timeout: 60_000 }, async () => {
     const full = await roadsNow('full', roadBatches);
     expect(full).toEqual(STORED.roadBatches);
     // 减配的一档只是每一种粗一点：批数、先后、每批几段都一样

@@ -40,7 +40,7 @@ import { buildRouteGround, readRouteDem } from '../../src/stage/ground/route';
 import { readToday } from '../content/routeRules';
 import { blankEdgeFor } from '../stage/support/styles';
 import { decodePng, encodeRgbPng } from '../support/png';
-import { BANK_TAPER_KM, bankLine, bankOfWay, chaikin, dense, lineText, simplify, stitch } from './route/bankTool';
+import { BANK_TAPER_KM, bankLine, bankOfWay, bankWays, chaikin, dense, lineText, simplify, stitch } from './route/bankTool';
 import type { Km } from './route/bankTool';
 import { ROUTE_SCENE_FILE, ROUTE_TOOL_FIGURES, routeToolFigure, scenesFolder } from './route/figures';
 import type { RouteToolFigure } from './route/figures';
@@ -302,10 +302,14 @@ describe.skipIf(MODE !== 'bank')('走水路的路贴着河岸走的线（npm run
     const coords = routeCoords(scene.frame);
     // 河的线照这座沙盘自己的样式的画法取（tests/tools/route/painters.ts）：别的样式的沙盘不拿宋代青绿设色的河宽来做岸线，没有画法的说一句就停
     const paths = routeRiversFor(scene.style)(scene, today.features, coords);
-    const rivers = new Set(scene.water.rivers.map((river) => river.id));
     const asked = env.WAY;
     if (asked && !scene.roads.ways.some((way) => way.id === asked)) throw new Error(`WAY 写的“${asked}”不是场景里的一条路`);
-    const ways = scene.roads.ways.filter((way) => (asked ? way.id === asked : way.along !== undefined && rivers.has(way.along)));
+    // 船走在水上的沙盘（roads.boats 写 on）不做岸线：它的水路就画在河上
+    if (scene.roads.boats === 'on') {
+      if (asked) throw new Error(`${id} 的全程沙盘上船走在水上（roads.boats 写 on），水路就画在河上，不做岸线`);
+      console.log(`${tag} ${id} 的全程沙盘上船走在水上（roads.boats 写 on）：水路就画在河上，没有岸线要做。`);
+    }
+    const ways = asked ? scene.roads.ways.filter((way) => way.id === asked) : bankWays(scene);
     const out: Record<string, [number, number][]> = {};
     console.log(`${tag} 给 ${id} 做，每条路离河多远、在哪一边照 tests/tools/route/figures.ts 里他那一行写的`);
     console.log(`${tag} ${ways.length} 条路。每条印三行：怎么做的，做出来的线（贴进 ${scenes}${ROUTE_SCENE_FILE} 里这条路的 line），和场景里现在写的一样不一样。`);
@@ -916,12 +920,11 @@ describe('做全程沙盘的文件的工具自己（用编出来的小数据，�
   describe.each(Object.keys(ROUTE_TOOL_FIGURES))('那张表里的 %s', (figureId) => {
     const figure = ROUTE_TOOL_FIGURES[figureId];
 
-    it.skipIf(notThisTime(figureId))('他有全程沙盘的场景文件；场景里写了 along、沿着一条河走的路，在他那一行的 banks 里都有，banks 里也没有场景里没有的路', () => {
+    it.skipIf(notThisTime(figureId))('他有全程沙盘的场景文件；场景里写了 along、沿着一条河走的路，在他那一行的 banks 里都有，banks 里也没有场景里没有的路（船走在水上的沙盘不做岸线，banks 是空的）', () => {
       const scene = readRouteScene(figureId);
       expect(scene.level).toBe('route');
-      const rivers = new Set(scene.water.rivers.map((river) => river.id));
-      const along = scene.roads.ways.filter((way) => way.along !== undefined && rivers.has(way.along)).map((way) => way.id);
-      expect(Object.keys(figure.banks).sort()).toEqual(along.slice().sort());
+      // 要做岸线的路是哪几条，照做岸线的工具自己的那个函数：船走在水上的沙盘（roads.boats 写 on）一条也没有
+      expect(Object.keys(figure.banks).sort()).toEqual(bankWays(scene).map((way) => way.id).sort());
     });
 
     it.skipIf(notThisTime(figureId))('地形文件的格子（场景里写的）整个落在裁岸线的方框里面：格子上每一点是不是陆地，岸线文件都说得出', () => {

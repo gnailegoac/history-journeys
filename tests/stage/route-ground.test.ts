@@ -9,7 +9,7 @@
 // 留白的地方是平的。最后把写进 terrain.recipe.basis 的那几个数打印出来：那句话里的数只从这里抄。
 
 import { describe, expect, it } from 'vitest';
-import type { RouteScene } from '../../src/domain/scene';
+import type { PlainSmoothed, RouteScene } from '../../src/domain/scene';
 import { curve, curveInverse, routeCoords } from '../../src/domain/sceneGeoRoute';
 import type { LngLat } from '../../src/domain/types';
 import { BLANK_KEEP, blankKeep, blankSoft, buildRouteGround, keepAt, plainSlope, readRouteDem, routeHeights, routeNormals, smoothPlain } from '../../src/stage/ground/route';
@@ -129,6 +129,15 @@ function largestStep(at: (p: LngLat) => number, profile: (typeof PROFILES)[numbe
   return worst;
 }
 
+/** 这一座沙盘抹平原的办法（recipe 是 plain-smoothed）；地面照量到的样子的沙盘（recipe 是 as-measured）不抹，是 null。 */
+const smoothed = (R: RealRouteScene): PlainSmoothed | null => (R.scene.terrain.recipe.kind === 'plain-smoothed' ? R.scene.terrain.recipe : null);
+/** 同上，给写着名字、知道自己抹过平原的那一组用：不是抹过的就说一句停下。 */
+function smoothedOf(R: RealRouteScene): PlainSmoothed {
+  const recipe = smoothed(R);
+  if (!recipe) throw new Error(R.key + ' 的地面是照量到的样子（as-measured），没有抹平原的那几个数');
+  return recipe;
+}
+
 /** 第 1 到 4 步的结果，和只做到第 5 步（平原抹过）的海拔。一座沙盘只算一次。 */
 const stagesOf = new Map<string, { before: RouteHeights; after: Float32Array; keep: Float32Array }>();
 function stages(R: RealRouteScene): { before: RouteHeights; after: Float32Array; keep: Float32Array } {
@@ -136,7 +145,9 @@ function stages(R: RealRouteScene): { before: RouteHeights; after: Float32Array;
   if (have) return have;
   const before = routeHeights(R.scene, R.dem, R.coords);
   const { nx, nz, cell } = before.grid;
-  const after = smoothPlain(before.h, before.land, R.scene.terrain.recipe, nx, nz, cell * R.scene.frame.scale);
+  // 地面照量到的样子的沙盘（as-measured）没有第 5 步：抹过以后的就是抹以前的
+  const recipe = smoothed(R);
+  const after = recipe ? smoothPlain(before.h, before.land, recipe, nx, nz, cell * R.scene.frame.scale) : before.h;
   const made = { before, after, keep: blankKeep(R.scene, before, blankEdgeFor(R.scene.style)) };
   stagesOf.set(R.key, made);
   return made;
@@ -224,10 +235,9 @@ function movedBySmoothing(R: RealRouteScene, midM: number, highM: number): { hig
  * 有多少、动得最多的动了多少米；海动了的有几格；海上算平原的分量不是 0 的有几格。
  * 另数两个只印不查的数：自己的海拔高过 hillAboveM 的陆地有多少格、其中动了的有几格（四周低的孤山算不算山地，看的是四周，不是它自己）。
  */
-function mountainsAndSea(R: RealRouteScene): { mountain: number; mountainMoved: number; seaMoved: number; seaInPlain: number; above: number; aboveMoved: number } {
+function mountainsAndSea(R: RealRouteScene, recipe: PlainSmoothed): { mountain: number; mountainMoved: number; seaMoved: number; seaInPlain: number; above: number; aboveMoved: number } {
   const { before, after } = stages(R);
   const { nx, nz } = before.grid;
-  const recipe = R.scene.terrain.recipe;
   const { k: plainShare } = plainSlope(before.h, before.land, recipe, nx, nz, before.grid.cell * R.scene.frame.scale);
   const found = { mountain: 0, mountainMoved: 0, seaMoved: 0, seaInPlain: 0, above: 0, aboveMoved: 0 };
   for (let k = 0; k < after.length; k++) {
@@ -373,9 +383,16 @@ describe.each(realSceneKeys('route'))('%s 的地面', (key) => {
 
   it('平原抹过以后：算山地的地方（四周约 20 公里的平均海拔高过场景里写的 hillAboveM）一米也没有动；海没有动；海不算平原（这一座多高以上的山有多少格、平原上抹掉了多少台阶，写着名字的那一组查）', () => {
     const R = realRouteScene(key);
-    const recipe = R.scene.terrain.recipe;
+    const recipe = smoothed(R);
+    if (!recipe) {
+      // 地面照量到的样子的沙盘：没有抹平原这一步，做到第 5 步的海拔就是前四步的，陆地、海一格也没有动
+      const { before, after } = stages(R);
+      expect(after).toBe(before.h);
+      console.log(key + '：地面照量到的样子（as-measured），平原没有抹');
+      return;
+    }
     // 从多高起算山地，照这一座沙盘自己的 recipe 读，不在这里写一个数：平原高的地方（plainBelowM、hillAboveM 写得高）三四百米的台地也算平原，是要抹的
-    const { mountain, mountainMoved, seaMoved, seaInPlain, above, aboveMoved } = mountainsAndSea(R);
+    const { mountain, mountainMoved, seaMoved, seaInPlain, above, aboveMoved } = mountainsAndSea(R, recipe);
     console.log(
       `${key}：算平原的是四周平均海拔 ${recipe.plainBelowM} 米以下，算山地的是 ${recipe.hillAboveM} 米以上；算山地的 ${mountain} 格，动得最多的 ${mountainMoved.toFixed(2)} 米；` +
         `自己的海拔高过 ${recipe.hillAboveM} 米的陆地 ${above} 格，其中动了的 ${aboveMoved} 格（只印不查）`,
@@ -519,9 +536,9 @@ describe('su-shi/route 的地面：苏轼这一座自己的数和地名', () => 
     const { high, highMoved, mid, midSum, midMax } = movedBySmoothing(R, 100, 300);
     // 平原上的台阶：华北、黄淮、苏北（东经 113 到 122 度，北纬 32 到 39 度）里海拔不到 60 米、四邻没有高过 80 米的、也不挨着海的格子，
     // 和东边、南边的邻格差 3 米以上的有几格
-    const { slope } = plainSlope(before.h, before.land, R.scene.terrain.recipe, nx, nz, before.grid.cell * R.scene.frame.scale);
+    const { slope } = plainSlope(before.h, before.land, smoothedOf(R), nx, nz, before.grid.cell * R.scene.frame.scale);
     /** 这一格比平原自己的缓坡高出或低下 15 米以上：是一座照原样留着的小山（rippleM 的头一个数就是 15）。 */
-    const hill = (k: number): boolean => Math.abs(before.h[k] - slope[k]) >= R.scene.terrain.recipe.rippleM[0];
+    const hill = (k: number): boolean => Math.abs(before.h[k] - slope[k]) >= smoothedOf(R).rippleM[0];
     let plain = 0;
     let stepsBefore = 0;
     let stepsAfter = 0;

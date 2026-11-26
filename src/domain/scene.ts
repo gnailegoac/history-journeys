@@ -503,8 +503,20 @@ export interface RouteTerrain extends Grounds {
   north: number;
   /** 地形文件里一个数是多少米。全程沙盘写 'm'；0 是海，陆地最小是 1。 */
   heightUnit: 'm';
-  recipe: PlainSmoothed;
+  recipe: PlainSmoothed | AsMeasured;
   edits: SeaEdit[];
+}
+
+/**
+ * 全程沙盘整理地形的另一种办法：地面照量到的样子，平原不抹。别的照做——取样，抹成海的圈，四边收低，轻轻抹半格，
+ * 山高过“矮山多夸”的曲线，留白的圈里压平。它的 note 必须写。
+ */
+export interface AsMeasured extends Grounds {
+  kind: 'as-measured';
+  /** 离沙盘边这么多米以内，地面收低到海面，切面才齐整。 */
+  edgeTaperM: number;
+  /** 路没到的地方：这几圈里面留白（和 PlainSmoothed 的一样）。 */
+  blank: LngLat[][];
 }
 
 /** 全程沙盘整理地形的办法：平原抹成缓坡，山照原样。它的 note 必须写。 */
@@ -589,7 +601,19 @@ export interface RoutePlace extends ScenePlace {
 
 export interface SceneRoads {
   ways: RoadWay[];
+  /** 一趟一趟的路，照走的先后写：写的先后就是走的先后（哪一节画哪些路照它算，见 ./sceneRoads.ts）。 */
   journeys: RoadJourney[];
+  /**
+   * 看一站的小节画的是什么。不写是 'way-there'：到这一站去的来路（一趟的 stop 是它到的那一站）。
+   * 'stop-years'：这一站那几年里走的路（一趟的 stop 是它算在哪一站名下，不一定走到那一站；这一站自己的路可以走出画面）。
+   * 画线的程序不看它（哪几趟画只看 stop 和写的先后）；看它的是校验和场景验收的测试。
+   */
+  stopShows?: 'way-there' | 'stop-years';
+  /**
+   * 船走的线画在哪。不写是 'beside'：沿河的水路画在河的一边（离河的线 2 到 15 公里，不压在河上）。
+   * 'on'：水路就画在它走的那条河、那个湖上。画线的程序不看它；看它的是场景验收的测试和做岸线的工具。
+   */
+  boats?: 'beside' | 'on';
 }
 
 /** 一截路。几趟都走它的，只画一笔。 */
@@ -603,13 +627,14 @@ export interface RoadWay {
 }
 
 /**
- * 到一站去的那一趟。parts 按走的先后；每一截有自己的名字、类别和依据，在说明和凭据里的 id 是“<这一趟的 id>/<第几截>”（从 1 数起）。
+ * 一趟路：到一站去的那一趟（roads.stopShows 写 'stop-years' 的沙盘上，是算在一站名下的一趟）。parts 按走的先后；
+ * 每一截有自己的名字、类别和依据，在说明和凭据里的 id 是“<这一趟的 id>/<第几截>”（从 1 数起）。
  * 一截的类别定它画成什么线：text（他自己的文字写到了途中的地方）画实线，schematic（只知道两头，或者照以前走过的路画）画虚线。
  */
 export interface RoadJourney {
   id: string;
   name: string;
-  /** 到的是哪一站（figure.json 里站的 id）。 */
+  /** 到的是哪一站（figure.json 里站的 id）；roads.stopShows 写 'stop-years' 的沙盘上，是这一趟算在哪一站名下。 */
   stop: string;
   date: string;
   /** ways 写一截路的 id；倒着走的在前面加一个减号，如 "-w-canal"。 */
@@ -628,7 +653,7 @@ export interface RouteSection {
   strips: string[];
   /** 旁边的说明先讲哪几样，至少一样。还可以写一趟路的 id（它各截的 note 照先后印）、从湖面里裁掉的那一角的 id，或者 'coast'。 */
   explain: string[];
-  /** 这一节看的是到哪一站的来路。第一节（全程）不写。 */
+  /** 这一节看的是哪一站：到这一站的来路，或者（roads.stopShows 写 'stop-years' 的沙盘上）这一站那几年里走的路。第一节（全程）不写。 */
   stop?: string;
 }
 

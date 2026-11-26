@@ -1,0 +1,730 @@
+{
+  "stand": {
+    "su-shi/huangzhou": {
+      "meshes": 8,
+      "triangles": 148,
+      "arrays": {
+        "position": {
+          "n": 1332,
+          "key": "489340a85dd06be8"
+        },
+        "normal": {
+          "n": 1332,
+          "key": "34d3881ae59a9867"
+        },
+        "uv": {
+          "n": 888,
+          "key": "cc79e11d262194e3"
+        }
+      }
+    },
+    "su-shi/meishan": {
+      "meshes": 8,
+      "triangles": 148,
+      "arrays": {
+        "position": {
+          "n": 1332,
+          "key": "54b6216d24560469"
+        },
+        "normal": {
+          "n": 1332,
+          "key": "34d3881ae59a9867"
+        },
+        "uv": {
+          "n": 888,
+          "key": "cf5a4cc450b9f2be"
+        }
+      }
+    },
+    "su-shi/xuzhou": {
+      "meshes": 8,
+      "triangles": 148,
+      "arrays": {
+        "position": {
+          "n": 1332,
+          "key": "818276665de195ce"
+        },
+        "normal": {
+          "n": 1332,
+          "key": "34d3881ae59a9867"
+        },
+        "uv": {
+          "n": 888,
+          "key": "30c0d927106d1c53"
+        }
+      }
+    },
+    "su-shi/route": {
+      "meshes": 8,
+      "triangles": 148,
+      "arrays": {
+        "position": {
+          "n": 1332,
+          "key": "ef7ca3a7acaf6ebb"
+        },
+        "normal": {
+          "n": 1332,
+          "key": "34d3881ae59a9867"
+        },
+        "uv": {
+          "n": 888,
+          "key": "a5af3dfeaa7c9c43"
+        }
+      }
+    }
+  },
+  "routeGround": {
+    "nx": 586,
+    "nz": 662,
+    "cell": 20,
+    "x0": -5850.876953125,
+    "z0": -6614.03515625,
+    "h": {
+      "n": 387932,
+      "key": "57921add760f34f9"
+    },
+    "y": {
+      "n": 387932,
+      "key": "ec3ea11a8966c37b"
+    },
+    "land": {
+      "n": 387932,
+      "key": "1b9a34e105765ad8"
+    },
+    "blank": {
+      "n": 387932,
+      "key": "8ae20b3d64f11f00"
+    }
+  },
+  "strokes": {
+    "全程": {
+      "strokes": [
+        "ink 虚 225 点：w-1056",
+        "ink 实 450 点：w-min w-min-low w-jiang-upper w-jiangling-bianjing",
+        "ink 实 253 点：w-bianjing-chenzhou w-ying w-huai-mid w-huai-low w-canal-n1 w-canal-n2 w-cross w-canal-s1",
+        "ink 虚 36 点：w-canal-s2",
+        "ink 实 14 点：w-hangzhou-huzhou",
+        "ink 虚 16 点：w-huzhou-wujiang",
+        "ink 实 23 点：w-chuzhou-haizhou",
+        "ink 虚 32 点：w-haizhou-mizhou",
+        "ink 实 50 点：w-mizhou-jinan",
+        "ink 虚 89 点：w-jinan-bianjing w-bian-a w-bian-b",
+        "ink 实 26 点：w-nandu-xuzhou",
+        "ink 实 69 点：w-bian-c",
+        "ink 实 79 点：w-chenzhou-huangzhou",
+        "ink 实 51 点：w-north-tangyin",
+        "ink 虚 29 点：w-tangyin-yongqiu",
+        "ink 实 373 点：w-yangzhou-zhenzhou w-jiang-lower w-pengli w-gan w-dayu w-zhen w-bei w-dong",
+        "ink 虚 59 点：w-xi",
+        "ink 实 8 点：w-wuzhou-tengzhou",
+        "ink 虚 68 点：w-teng-lei",
+        "ink 实 42 点：w-lei-xuwen w-sea w-qiong-dan"
+      ],
+      "points": {
+        "n": 3984,
+        "key": "a30f94930b4046b3"
+      }
+    },
+    "出川": {
+      "strokes": [
+        "now 虚 225 点：w-1056",
+        "now 实 450 点：w-min w-min-low w-jiang-upper w-jiangling-bianjing"
+      ],
+      "points": {
+        "n": 1350,
+        "key": "3d053722f2b6566b"
+      }
+    },
+    "到杭州": {
+      "strokes": [
+        "now 实 223 点：w-bianjing-chenzhou w-ying w-huai-mid w-huai-low w-canal-n1 w-canal-n2 w-cross",
+        "now 虚 66 点：w-canal-s1 w-canal-s2",
+        "past 虚 225 点：w-1056",
+        "past 实 450 点：w-min w-min-low w-jiang-upper w-jiangling-bianjing"
+      ],
+      "points": {
+        "n": 1928,
+        "key": "8672d9045cf4a1e1"
+      }
+    },
+    "到密州": {
+      "strokes": [
+        "now 实 14 点：w-hangzhou-huzhou",
+        "now 虚 16 点：w-huzhou-wujiang",
+        "now 实 93 点：-w-canal-s1 -w-cross -w-canal-n2 -w-canal-n1 w-chuzhou-haizhou",
+        "now 虚 32 点：w-haizhou-mizhou",
+        "past 虚 225 点：w-1056",
+        "past 实 450 点：w-min w-min-low w-jiang-upper w-jiangling-bianjing",
+        "past 实 183 点：w-bianjing-chenzhou w-ying w-huai-mid w-huai-low",
+        "past 虚 36 点：w-canal-s2"
+      ],
+      "points": {
+        "n": 2098,
+        "key": "cfce8f14df3184c9"
+      }
+    },
+    "到徐州": {
+      "strokes": [
+        "now 实 50 点：w-mizhou-jinan",
+        "now 虚 114 点：w-jinan-bianjing w-bian-a w-bian-b w-nandu-xuzhou",
+        "past 虚 225 点：w-1056",
+        "past 实 450 点：w-min w-min-low w-jiang-upper w-jiangling-bianjing",
+        "past 实 253 点：w-bianjing-chenzhou w-ying w-huai-mid w-huai-low w-canal-n1 w-canal-n2 w-cross w-canal-s1",
+        "past 虚 36 点：w-canal-s2",
+        "past 实 14 点：w-hangzhou-huzhou",
+        "past 虚 16 点：w-huzhou-wujiang",
+        "past 实 23 点：w-chuzhou-haizhou",
+        "past 虚 32 点：w-haizhou-mizhou"
+      ],
+      "points": {
+        "n": 2426,
+        "key": "1d1b73a0f59bcc3f"
+      }
+    },
+    "到汴京": {
+      "strokes": [
+        "now 实 183 点：-w-nandu-xuzhou w-bian-c w-huai-low w-canal-n1 w-canal-n2 w-cross w-canal-s1",
+        "now 虚 16 点：-w-huzhou-wujiang",
+        "now 虚 33 点：-w-bian-b -w-bian-a",
+        "past 虚 225 点：w-1056",
+        "past 实 450 点：w-min w-min-low w-jiang-upper w-jiangling-bianjing",
+        "past 实 164 点：w-bianjing-chenzhou w-ying w-huai-mid",
+        "past 虚 36 点：w-canal-s2",
+        "past 实 14 点：w-hangzhou-huzhou",
+        "past 实 23 点：w-chuzhou-haizhou",
+        "past 虚 32 点：w-haizhou-mizhou",
+        "past 实 50 点：w-mizhou-jinan",
+        "past 虚 57 点：w-jinan-bianjing"
+      ],
+      "points": {
+        "n": 2566,
+        "key": "76e2056b3cda2d97"
+      }
+    },
+    "到黄州": {
+      "strokes": [
+        "now 实 101 点：w-bianjing-chenzhou w-chenzhou-huangzhou",
+        "past 虚 225 点：w-1056",
+        "past 实 450 点：w-min w-min-low w-jiang-upper w-jiangling-bianjing",
+        "past 实 231 点：w-ying w-huai-mid w-huai-low w-canal-n1 w-canal-n2 w-cross w-canal-s1",
+        "past 虚 36 点：w-canal-s2",
+        "past 实 14 点：w-hangzhou-huzhou",
+        "past 虚 16 点：w-huzhou-wujiang",
+        "past 实 23 点：w-chuzhou-haizhou",
+        "past 虚 32 点：w-haizhou-mizhou",
+        "past 实 50 点：w-mizhou-jinan",
+        "past 虚 89 点：w-jinan-bianjing w-bian-a w-bian-b",
+        "past 实 26 点：w-nandu-xuzhou",
+        "past 实 69 点：w-bian-c"
+      ],
+      "points": {
+        "n": 2724,
+        "key": "1093a04a236e8228"
+      }
+    },
+    "再到杭州": {
+      "strokes": [
+        "now 虚 225 点：w-bian-a w-bian-b w-bian-c w-huai-low w-canal-n1 w-canal-n2 w-cross w-canal-s1 w-canal-s2",
+        "past 虚 225 点：w-1056",
+        "past 实 450 点：w-min w-min-low w-jiang-upper w-jiangling-bianjing",
+        "past 实 164 点：w-bianjing-chenzhou w-ying w-huai-mid",
+        "past 实 14 点：w-hangzhou-huzhou",
+        "past 虚 16 点：w-huzhou-wujiang",
+        "past 实 23 点：w-chuzhou-haizhou",
+        "past 虚 32 点：w-haizhou-mizhou",
+        "past 实 50 点：w-mizhou-jinan",
+        "past 虚 57 点：w-jinan-bianjing",
+        "past 实 26 点：w-nandu-xuzhou",
+        "past 实 79 点：w-chenzhou-huangzhou"
+      ],
+      "points": {
+        "n": 2722,
+        "key": "249336a864de2c30"
+      }
+    },
+    "到惠州、儋州": {
+      "strokes": [
+        "now 实 51 点：w-north-tangyin",
+        "now 虚 155 点：w-tangyin-yongqiu w-bian-b w-bian-c w-huai-low w-canal-n1",
+        "now 实 384 点：w-canal-n2 w-yangzhou-zhenzhou w-jiang-lower w-pengli w-gan w-dayu w-zhen w-bei w-dong",
+        "now 虚 59 点：w-xi",
+        "now 实 8 点：w-wuzhou-tengzhou",
+        "now 虚 68 点：w-teng-lei",
+        "now 实 42 点：w-lei-xuwen w-sea w-qiong-dan",
+        "past 虚 225 点：w-1056",
+        "past 实 450 点：w-min w-min-low w-jiang-upper w-jiangling-bianjing",
+        "past 实 164 点：w-bianjing-chenzhou w-ying w-huai-mid",
+        "past 实 40 点：w-cross w-canal-s1",
+        "past 虚 36 点：w-canal-s2",
+        "past 实 14 点：w-hangzhou-huzhou",
+        "past 虚 16 点：w-huzhou-wujiang",
+        "past 实 23 点：w-chuzhou-haizhou",
+        "past 虚 32 点：w-haizhou-mizhou",
+        "past 实 50 点：w-mizhou-jinan",
+        "past 虚 70 点：w-jinan-bianjing w-bian-a",
+        "past 实 26 点：w-nandu-xuzhou",
+        "past 实 79 点：w-chenzhou-huangzhou"
+      ],
+      "points": {
+        "n": 3984,
+        "key": "87ae494f40a816f2"
+      }
+    }
+  },
+  "roadSegments": {
+    "full": {
+      "全程": {
+        "第 10 层 #f4ecd6 透 0.62 宽 4.5 像素 实": {
+          "segments": 1972,
+          "key": "8ec76b6536f559e5"
+        },
+        "第 12 层 #3a2d24 透 0.92 宽 1.8 像素 实": {
+          "segments": 1426,
+          "key": "b2a79e3e210dc87b"
+        },
+        "第 12 层 #3a2d24 透 0.92 宽 1.8 像素 虚 7/5.5 起 0": {
+          "segments": 546,
+          "key": "0b3ca095517de8f6"
+        }
+      },
+      "出川": {
+        "第 10 层 #f4ecd6 透 0.62 宽 4.5 像素 实": {
+          "segments": 673,
+          "key": "ef1ba3b203b983c0"
+        },
+        "第 13 层 #b03a2a 透 1 宽 2.4 像素 实": {
+          "segments": 449,
+          "key": "3bea32317ec0cb2f"
+        },
+        "第 13 层 #b03a2a 透 1 宽 2.4 像素 虚 7/5.5 起 0": {
+          "segments": 224,
+          "key": "84e97db937671657"
+        }
+      },
+      "到杭州": {
+        "第 10 层 #f4ecd6 透 0.62 宽 4.5 像素 实": {
+          "segments": 287,
+          "key": "648fbb6d6dab9251"
+        },
+        "第 11 层 #665645 透 0.8 宽 1.4 像素 实": {
+          "segments": 449,
+          "key": "3bea32317ec0cb2f"
+        },
+        "第 11 层 #665645 透 0.8 宽 1.4 像素 虚 7/5.5 起 0": {
+          "segments": 224,
+          "key": "84e97db937671657"
+        },
+        "第 13 层 #b03a2a 透 1 宽 2.4 像素 实": {
+          "segments": 222,
+          "key": "22c0d792417e4ded"
+        },
+        "第 13 层 #b03a2a 透 1 宽 2.4 像素 虚 7/5.5 起 0": {
+          "segments": 65,
+          "key": "46342e3c762a4ad6"
+        }
+      },
+      "到密州": {
+        "第 10 层 #f4ecd6 透 0.62 宽 4.5 像素 实": {
+          "segments": 151,
+          "key": "132d8ab31b813787"
+        },
+        "第 11 层 #665645 透 0.8 宽 1.4 像素 实": {
+          "segments": 631,
+          "key": "153466da0656a8b5"
+        },
+        "第 11 层 #665645 透 0.8 宽 1.4 像素 虚 7/5.5 起 0": {
+          "segments": 259,
+          "key": "9f16d2039f6b957b"
+        },
+        "第 13 层 #b03a2a 透 1 宽 2.4 像素 实": {
+          "segments": 105,
+          "key": "b499c8922ac3b9a6"
+        },
+        "第 13 层 #b03a2a 透 1 宽 2.4 像素 虚 7/5.5 起 0": {
+          "segments": 46,
+          "key": "cbb2cc4862b58ea7"
+        }
+      },
+      "到徐州": {
+        "第 10 层 #f4ecd6 透 0.62 宽 4.5 像素 实": {
+          "segments": 162,
+          "key": "2ce7e38135f97890"
+        },
+        "第 11 层 #665645 透 0.8 宽 1.4 像素 实": {
+          "segments": 736,
+          "key": "2886c8c76fd8d7d3"
+        },
+        "第 11 层 #665645 透 0.8 宽 1.4 像素 虚 7/5.5 起 0": {
+          "segments": 305,
+          "key": "6d75fd67feee94c3"
+        },
+        "第 13 层 #b03a2a 透 1 宽 2.4 像素 实": {
+          "segments": 49,
+          "key": "81223f49f998c390"
+        },
+        "第 13 层 #b03a2a 透 1 宽 2.4 像素 虚 7/5.5 起 0": {
+          "segments": 113,
+          "key": "30ce36e9d3e67394"
+        }
+      },
+      "到汴京": {
+        "第 10 层 #f4ecd6 透 0.62 宽 4.5 像素 实": {
+          "segments": 229,
+          "key": "0899d98a75ac1573"
+        },
+        "第 11 层 #665645 透 0.8 宽 1.4 像素 实": {
+          "segments": 696,
+          "key": "8160e3f31f4b03f9"
+        },
+        "第 11 层 #665645 透 0.8 宽 1.4 像素 虚 7/5.5 起 0": {
+          "segments": 346,
+          "key": "f0383693f665b3b8"
+        },
+        "第 13 层 #b03a2a 透 1 宽 2.4 像素 实": {
+          "segments": 182,
+          "key": "47d240b908fc2fab"
+        },
+        "第 13 层 #b03a2a 透 1 宽 2.4 像素 虚 7/5.5 起 0": {
+          "segments": 47,
+          "key": "295747b30f8af2e8"
+        }
+      },
+      "到黄州": {
+        "第 10 层 #f4ecd6 透 0.62 宽 4.5 像素 实": {
+          "segments": 100,
+          "key": "33a9e8eb97ace78e"
+        },
+        "第 11 层 #665645 透 0.8 宽 1.4 像素 实": {
+          "segments": 856,
+          "key": "b51afd105ff2922c"
+        },
+        "第 11 层 #665645 透 0.8 宽 1.4 像素 虚 7/5.5 起 0": {
+          "segments": 393,
+          "key": "5dfe90c5a32fe60e"
+        },
+        "第 13 层 #b03a2a 透 1 宽 2.4 像素 实": {
+          "segments": 100,
+          "key": "33a9e8eb97ace78e"
+        }
+      },
+      "再到杭州": {
+        "第 10 层 #f4ecd6 透 0.62 宽 4.5 像素 实": {
+          "segments": 224,
+          "key": "1314ec7b39fee7ad"
+        },
+        "第 11 层 #665645 透 0.8 宽 1.4 像素 实": {
+          "segments": 799,
+          "key": "05e08fab0f8ed832"
+        },
+        "第 11 层 #665645 透 0.8 宽 1.4 像素 虚 7/5.5 起 0": {
+          "segments": 326,
+          "key": "7fb8fe96e1168e5b"
+        },
+        "第 13 层 #b03a2a 透 1 宽 2.4 像素 虚 7/5.5 起 0": {
+          "segments": 224,
+          "key": "a755903c10f3c926"
+        }
+      },
+      "到惠州、儋州": {
+        "第 10 层 #f4ecd6 透 0.62 宽 4.5 像素 实": {
+          "segments": 760,
+          "key": "35d11d4576cd2b13"
+        },
+        "第 11 层 #665645 透 0.8 宽 1.4 像素 实": {
+          "segments": 838,
+          "key": "ac88cc99eee4d864"
+        },
+        "第 11 层 #665645 透 0.8 宽 1.4 像素 虚 7/5.5 起 0": {
+          "segments": 374,
+          "key": "dd1cb906fbcc2ad2"
+        },
+        "第 13 层 #b03a2a 透 1 宽 2.4 像素 实": {
+          "segments": 481,
+          "key": "7ac418f85e681e3d"
+        },
+        "第 13 层 #b03a2a 透 1 宽 2.4 像素 虚 7/5.5 起 0": {
+          "segments": 279,
+          "key": "e8dcb8ecd2849844"
+        }
+      }
+    },
+    "reduced": {
+      "全程": {
+        "第 10 层 #f4ecd6 透 0.62 宽 4.8 像素 实": {
+          "segments": 1972,
+          "key": "8ec76b6536f559e5"
+        },
+        "第 12 层 #3a2d24 透 0.92 宽 2.1 像素 实": {
+          "segments": 1426,
+          "key": "b2a79e3e210dc87b"
+        },
+        "第 12 层 #3a2d24 透 0.92 宽 2.1 像素 虚 7/5.5 起 0": {
+          "segments": 546,
+          "key": "0b3ca095517de8f6"
+        }
+      },
+      "出川": {
+        "第 10 层 #f4ecd6 透 0.62 宽 4.8 像素 实": {
+          "segments": 673,
+          "key": "ef1ba3b203b983c0"
+        },
+        "第 13 层 #b03a2a 透 1 宽 2.7 像素 实": {
+          "segments": 449,
+          "key": "3bea32317ec0cb2f"
+        },
+        "第 13 层 #b03a2a 透 1 宽 2.7 像素 虚 7/5.5 起 0": {
+          "segments": 224,
+          "key": "84e97db937671657"
+        }
+      },
+      "到杭州": {
+        "第 10 层 #f4ecd6 透 0.62 宽 4.8 像素 实": {
+          "segments": 287,
+          "key": "648fbb6d6dab9251"
+        },
+        "第 11 层 #665645 透 0.8 宽 1.7 像素 实": {
+          "segments": 449,
+          "key": "3bea32317ec0cb2f"
+        },
+        "第 11 层 #665645 透 0.8 宽 1.7 像素 虚 7/5.5 起 0": {
+          "segments": 224,
+          "key": "84e97db937671657"
+        },
+        "第 13 层 #b03a2a 透 1 宽 2.7 像素 实": {
+          "segments": 222,
+          "key": "22c0d792417e4ded"
+        },
+        "第 13 层 #b03a2a 透 1 宽 2.7 像素 虚 7/5.5 起 0": {
+          "segments": 65,
+          "key": "46342e3c762a4ad6"
+        }
+      },
+      "到密州": {
+        "第 10 层 #f4ecd6 透 0.62 宽 4.8 像素 实": {
+          "segments": 151,
+          "key": "132d8ab31b813787"
+        },
+        "第 11 层 #665645 透 0.8 宽 1.7 像素 实": {
+          "segments": 631,
+          "key": "153466da0656a8b5"
+        },
+        "第 11 层 #665645 透 0.8 宽 1.7 像素 虚 7/5.5 起 0": {
+          "segments": 259,
+          "key": "9f16d2039f6b957b"
+        },
+        "第 13 层 #b03a2a 透 1 宽 2.7 像素 实": {
+          "segments": 105,
+          "key": "b499c8922ac3b9a6"
+        },
+        "第 13 层 #b03a2a 透 1 宽 2.7 像素 虚 7/5.5 起 0": {
+          "segments": 46,
+          "key": "cbb2cc4862b58ea7"
+        }
+      },
+      "到徐州": {
+        "第 10 层 #f4ecd6 透 0.62 宽 4.8 像素 实": {
+          "segments": 162,
+          "key": "2ce7e38135f97890"
+        },
+        "第 11 层 #665645 透 0.8 宽 1.7 像素 实": {
+          "segments": 736,
+          "key": "2886c8c76fd8d7d3"
+        },
+        "第 11 层 #665645 透 0.8 宽 1.7 像素 虚 7/5.5 起 0": {
+          "segments": 305,
+          "key": "6d75fd67feee94c3"
+        },
+        "第 13 层 #b03a2a 透 1 宽 2.7 像素 实": {
+          "segments": 49,
+          "key": "81223f49f998c390"
+        },
+        "第 13 层 #b03a2a 透 1 宽 2.7 像素 虚 7/5.5 起 0": {
+          "segments": 113,
+          "key": "30ce36e9d3e67394"
+        }
+      },
+      "到汴京": {
+        "第 10 层 #f4ecd6 透 0.62 宽 4.8 像素 实": {
+          "segments": 229,
+          "key": "0899d98a75ac1573"
+        },
+        "第 11 层 #665645 透 0.8 宽 1.7 像素 实": {
+          "segments": 696,
+          "key": "8160e3f31f4b03f9"
+        },
+        "第 11 层 #665645 透 0.8 宽 1.7 像素 虚 7/5.5 起 0": {
+          "segments": 346,
+          "key": "f0383693f665b3b8"
+        },
+        "第 13 层 #b03a2a 透 1 宽 2.7 像素 实": {
+          "segments": 182,
+          "key": "47d240b908fc2fab"
+        },
+        "第 13 层 #b03a2a 透 1 宽 2.7 像素 虚 7/5.5 起 0": {
+          "segments": 47,
+          "key": "295747b30f8af2e8"
+        }
+      },
+      "到黄州": {
+        "第 10 层 #f4ecd6 透 0.62 宽 4.8 像素 实": {
+          "segments": 100,
+          "key": "33a9e8eb97ace78e"
+        },
+        "第 11 层 #665645 透 0.8 宽 1.7 像素 实": {
+          "segments": 856,
+          "key": "b51afd105ff2922c"
+        },
+        "第 11 层 #665645 透 0.8 宽 1.7 像素 虚 7/5.5 起 0": {
+          "segments": 393,
+          "key": "5dfe90c5a32fe60e"
+        },
+        "第 13 层 #b03a2a 透 1 宽 2.7 像素 实": {
+          "segments": 100,
+          "key": "33a9e8eb97ace78e"
+        }
+      },
+      "再到杭州": {
+        "第 10 层 #f4ecd6 透 0.62 宽 4.8 像素 实": {
+          "segments": 224,
+          "key": "1314ec7b39fee7ad"
+        },
+        "第 11 层 #665645 透 0.8 宽 1.7 像素 实": {
+          "segments": 799,
+          "key": "05e08fab0f8ed832"
+        },
+        "第 11 层 #665645 透 0.8 宽 1.7 像素 虚 7/5.5 起 0": {
+          "segments": 326,
+          "key": "7fb8fe96e1168e5b"
+        },
+        "第 13 层 #b03a2a 透 1 宽 2.7 像素 虚 7/5.5 起 0": {
+          "segments": 224,
+          "key": "a755903c10f3c926"
+        }
+      },
+      "到惠州、儋州": {
+        "第 10 层 #f4ecd6 透 0.62 宽 4.8 像素 实": {
+          "segments": 760,
+          "key": "35d11d4576cd2b13"
+        },
+        "第 11 层 #665645 透 0.8 宽 1.7 像素 实": {
+          "segments": 838,
+          "key": "ac88cc99eee4d864"
+        },
+        "第 11 层 #665645 透 0.8 宽 1.7 像素 虚 7/5.5 起 0": {
+          "segments": 374,
+          "key": "dd1cb906fbcc2ad2"
+        },
+        "第 13 层 #b03a2a 透 1 宽 2.7 像素 实": {
+          "segments": 481,
+          "key": "7ac418f85e681e3d"
+        },
+        "第 13 层 #b03a2a 透 1 宽 2.7 像素 虚 7/5.5 起 0": {
+          "segments": 279,
+          "key": "e8dcb8ecd2849844"
+        }
+      }
+    }
+  },
+  "roadBatches": {
+    "全程": [
+      "第 10 层 #f4ecd6 透 0.62 宽 4.5 像素 实：一份线段表，1972 段",
+      "第 12 层 #3a2d24 透 0.92 宽 1.8 像素 实：一份线段表，1426 段",
+      "第 12 层 #3a2d24 透 0.92 宽 1.8 像素 虚 7/5.5 起 0：一笔一条，224 段",
+      "第 12 层 #3a2d24 透 0.92 宽 1.8 像素 虚 7/5.5 起 0：一笔一条，35 段",
+      "第 12 层 #3a2d24 透 0.92 宽 1.8 像素 虚 7/5.5 起 0：一笔一条，15 段",
+      "第 12 层 #3a2d24 透 0.92 宽 1.8 像素 虚 7/5.5 起 0：一笔一条，31 段",
+      "第 12 层 #3a2d24 透 0.92 宽 1.8 像素 虚 7/5.5 起 0：一笔一条，88 段",
+      "第 12 层 #3a2d24 透 0.92 宽 1.8 像素 虚 7/5.5 起 0：一笔一条，28 段",
+      "第 12 层 #3a2d24 透 0.92 宽 1.8 像素 虚 7/5.5 起 0：一笔一条，58 段",
+      "第 12 层 #3a2d24 透 0.92 宽 1.8 像素 虚 7/5.5 起 0：一笔一条，67 段"
+    ],
+    "出川": [
+      "第 10 层 #f4ecd6 透 0.62 宽 4.5 像素 实：一份线段表，673 段",
+      "第 13 层 #b03a2a 透 1 宽 2.4 像素 实：一份线段表，449 段",
+      "第 13 层 #b03a2a 透 1 宽 2.4 像素 虚 7/5.5 起 0：一笔一条，224 段"
+    ],
+    "到杭州": [
+      "第 10 层 #f4ecd6 透 0.62 宽 4.5 像素 实：一份线段表，287 段",
+      "第 13 层 #b03a2a 透 1 宽 2.4 像素 实：一份线段表，222 段",
+      "第 13 层 #b03a2a 透 1 宽 2.4 像素 虚 7/5.5 起 0：一笔一条，65 段",
+      "第 11 层 #665645 透 0.8 宽 1.4 像素 实：一份线段表，449 段",
+      "第 11 层 #665645 透 0.8 宽 1.4 像素 虚 7/5.5 起 0：一笔一条，224 段"
+    ],
+    "到密州": [
+      "第 10 层 #f4ecd6 透 0.62 宽 4.5 像素 实：一份线段表，151 段",
+      "第 13 层 #b03a2a 透 1 宽 2.4 像素 实：一份线段表，105 段",
+      "第 13 层 #b03a2a 透 1 宽 2.4 像素 虚 7/5.5 起 0：一笔一条，15 段",
+      "第 13 层 #b03a2a 透 1 宽 2.4 像素 虚 7/5.5 起 0：一笔一条，31 段",
+      "第 11 层 #665645 透 0.8 宽 1.4 像素 实：一份线段表，631 段",
+      "第 11 层 #665645 透 0.8 宽 1.4 像素 虚 7/5.5 起 0：一笔一条，224 段",
+      "第 11 层 #665645 透 0.8 宽 1.4 像素 虚 7/5.5 起 0：一笔一条，35 段"
+    ],
+    "到徐州": [
+      "第 10 层 #f4ecd6 透 0.62 宽 4.5 像素 实：一份线段表，162 段",
+      "第 13 层 #b03a2a 透 1 宽 2.4 像素 实：一份线段表，49 段",
+      "第 13 层 #b03a2a 透 1 宽 2.4 像素 虚 7/5.5 起 0：一笔一条，113 段",
+      "第 11 层 #665645 透 0.8 宽 1.4 像素 实：一份线段表，736 段",
+      "第 11 层 #665645 透 0.8 宽 1.4 像素 虚 7/5.5 起 0：一笔一条，224 段",
+      "第 11 层 #665645 透 0.8 宽 1.4 像素 虚 7/5.5 起 0：一笔一条，35 段",
+      "第 11 层 #665645 透 0.8 宽 1.4 像素 虚 7/5.5 起 0：一笔一条，15 段",
+      "第 11 层 #665645 透 0.8 宽 1.4 像素 虚 7/5.5 起 0：一笔一条，31 段"
+    ],
+    "到汴京": [
+      "第 10 层 #f4ecd6 透 0.62 宽 4.5 像素 实：一份线段表，229 段",
+      "第 13 层 #b03a2a 透 1 宽 2.4 像素 实：一份线段表，182 段",
+      "第 13 层 #b03a2a 透 1 宽 2.4 像素 虚 7/5.5 起 0：一笔一条，15 段",
+      "第 13 层 #b03a2a 透 1 宽 2.4 像素 虚 7/5.5 起 0：一笔一条，32 段",
+      "第 11 层 #665645 透 0.8 宽 1.4 像素 实：一份线段表，696 段",
+      "第 11 层 #665645 透 0.8 宽 1.4 像素 虚 7/5.5 起 0：一笔一条，224 段",
+      "第 11 层 #665645 透 0.8 宽 1.4 像素 虚 7/5.5 起 0：一笔一条，35 段",
+      "第 11 层 #665645 透 0.8 宽 1.4 像素 虚 7/5.5 起 0：一笔一条，31 段",
+      "第 11 层 #665645 透 0.8 宽 1.4 像素 虚 7/5.5 起 0：一笔一条，56 段"
+    ],
+    "到黄州": [
+      "第 10 层 #f4ecd6 透 0.62 宽 4.5 像素 实：一份线段表，100 段",
+      "第 13 层 #b03a2a 透 1 宽 2.4 像素 实：一份线段表，100 段",
+      "第 11 层 #665645 透 0.8 宽 1.4 像素 实：一份线段表，856 段",
+      "第 11 层 #665645 透 0.8 宽 1.4 像素 虚 7/5.5 起 0：一笔一条，224 段",
+      "第 11 层 #665645 透 0.8 宽 1.4 像素 虚 7/5.5 起 0：一笔一条，35 段",
+      "第 11 层 #665645 透 0.8 宽 1.4 像素 虚 7/5.5 起 0：一笔一条，15 段",
+      "第 11 层 #665645 透 0.8 宽 1.4 像素 虚 7/5.5 起 0：一笔一条，31 段",
+      "第 11 层 #665645 透 0.8 宽 1.4 像素 虚 7/5.5 起 0：一笔一条，88 段"
+    ],
+    "再到杭州": [
+      "第 10 层 #f4ecd6 透 0.62 宽 4.5 像素 实：一份线段表，224 段",
+      "第 13 层 #b03a2a 透 1 宽 2.4 像素 虚 7/5.5 起 0：一笔一条，224 段",
+      "第 11 层 #665645 透 0.8 宽 1.4 像素 实：一份线段表，799 段",
+      "第 11 层 #665645 透 0.8 宽 1.4 像素 虚 7/5.5 起 0：一笔一条，224 段",
+      "第 11 层 #665645 透 0.8 宽 1.4 像素 虚 7/5.5 起 0：一笔一条，15 段",
+      "第 11 层 #665645 透 0.8 宽 1.4 像素 虚 7/5.5 起 0：一笔一条，31 段",
+      "第 11 层 #665645 透 0.8 宽 1.4 像素 虚 7/5.5 起 0：一笔一条，56 段"
+    ],
+    "到惠州、儋州": [
+      "第 10 层 #f4ecd6 透 0.62 宽 4.5 像素 实：一份线段表，760 段",
+      "第 13 层 #b03a2a 透 1 宽 2.4 像素 实：一份线段表，481 段",
+      "第 13 层 #b03a2a 透 1 宽 2.4 像素 虚 7/5.5 起 0：一笔一条，154 段",
+      "第 13 层 #b03a2a 透 1 宽 2.4 像素 虚 7/5.5 起 0：一笔一条，58 段",
+      "第 13 层 #b03a2a 透 1 宽 2.4 像素 虚 7/5.5 起 0：一笔一条，67 段",
+      "第 11 层 #665645 透 0.8 宽 1.4 像素 实：一份线段表，838 段",
+      "第 11 层 #665645 透 0.8 宽 1.4 像素 虚 7/5.5 起 0：一笔一条，224 段",
+      "第 11 层 #665645 透 0.8 宽 1.4 像素 虚 7/5.5 起 0：一笔一条，35 段",
+      "第 11 层 #665645 透 0.8 宽 1.4 像素 虚 7/5.5 起 0：一笔一条，15 段",
+      "第 11 层 #665645 透 0.8 宽 1.4 像素 虚 7/5.5 起 0：一笔一条，31 段",
+      "第 11 层 #665645 透 0.8 宽 1.4 像素 虚 7/5.5 起 0：一笔一条，69 段"
+    ]
+  },
+  "piece": {
+    "meshes": 1,
+    "triangles": 256,
+    "arrays": {
+      "position": {
+        "n": 2304,
+        "key": "10b7146b66ea45c6"
+      },
+      "color": {
+        "n": 2304,
+        "key": "19c9808ae0dce47d"
+      }
+    }
+  }
+}

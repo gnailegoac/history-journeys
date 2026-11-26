@@ -10,8 +10,11 @@ import { deflateSync } from 'node:zlib';
 import { describe, expect, it } from 'vitest';
 import packageJson from '../../package.json';
 import { contentKey } from '../../src/domain/contentKey';
+import { SCENE_STYLES } from '../../src/domain/scene';
 import type { RouteScene, StopScene, TableScene } from '../../src/domain/scene';
+import { loadStopTable } from '../../src/domain/sceneContent';
 import type { StillManifest } from '../../src/domain/stills';
+import { FAMILIES } from '../../src/stage/families';
 import { groundKey } from '../../src/stage/ground/key';
 import { FIT_MARGIN_PX, MAX_FIT } from '../../src/stage/three/rig';
 import type { StageShot } from '../../src/stage/types';
@@ -19,24 +22,46 @@ import { STILL_MAX_BYTES as BUDGET_STILL_MAX_BYTES } from '../content/budgetRule
 import { fixtureScene } from '../support/fixtureScene';
 import { pictureKey, pictureParts } from '../support/pictureKey';
 import { decodePng } from '../support/png';
-import { PROGRAM_FILES, PROGRAM_FOLDERS, isProgramPath, programKey } from '../support/programKey';
+import {
+  FAMILY_FOLDER,
+  LEFT_OUT_FILES,
+  PROGRAM_FILES,
+  PROGRAM_FOLDERS,
+  ROUTE_LEVEL_FILES,
+  STYLE_FILES,
+  STYLE_FOLDER,
+  STYLE_SHARED_FILES,
+  inTableKey,
+  isProgramPath,
+  programKey,
+  programPart,
+  styleFilesIn,
+  stylesClaiming,
+  tableFiles,
+  type TableUse,
+} from '../support/programKey';
+import { namesIn } from '../support/readBytes';
 import { fixtureStills } from '../support/stills-fixture';
 import {
   SHAPE_PLANS,
   SHOT_CAMERA,
   STILL_MAX_BYTES,
   checkShot,
+  fileExists,
   flatColour,
   groundKeyOf,
   hexColour,
   keepStill,
   keepWithin,
+  madeFromNow,
   manifestText,
   paneColour,
   pixelSum,
   programVersions,
   rawKey,
+  readFile,
   readProgramFiles,
+  readTableFiles,
   relativePath,
   reviewPage,
   reviewWord,
@@ -45,6 +70,7 @@ import {
   shotViewport,
   stillFile,
   stillFromShot,
+  tableUse,
   worstTileOf,
   type RawPicture,
 } from '../support/stillsTool';
@@ -253,7 +279,8 @@ describe('沙盘程序和拍照工具的记号（programKey）', () => {
     expect(programKey(files, { three: versions.playwright, playwright: versions.three })).not.toBe(base);
   });
 
-  it('哪些文件算在里面', () => {
+  it('哪些文件算在里面，各归哪一类：各座沙盘共用的，一种样式自己的，一家零件自己的，全程沙盘才用的；小像和读内容的程序不算', () => {
+    // 算在记号里的（至少算进一座沙盘的）
     for (const path of [
       'src/stage/three/view.ts',
       'src/stage/three/kit/things.ts',
@@ -273,6 +300,7 @@ describe('沙盘程序和拍照工具的记号（programKey）', () => {
     ]) {
       expect(isProgramPath(path), path).toBe(true);
     }
+    // 哪一座沙盘的记号里都不算的
     for (const path of [
       'src/stage/still/engine.ts',
       'src/stage/overlay/strips.ts',
@@ -286,11 +314,55 @@ describe('沙盘程序和拍照工具的记号（programKey）', () => {
       'tests/support/programKey.ts',
       'playwright.config.ts',
       'index.html',
+      // 名字合得上、点了名不算的两个
+      'src/stage/three/piece.ts',
+      'src/domain/sceneContent.ts',
+      // 登记零件的那张表、算小像站在哪的、内容的清单：都不在那几个文件夹里，名字也不以 scene 打头
+      'src/stage/families.ts',
+      'src/stage/pieceWhere.ts',
+      'src/domain/contentLists.ts',
     ]) {
       expect(isProgramPath(path), path).toBe(false);
+      expect(programPart(path), path).toEqual({ part: 'out' });
     }
+    // 各归哪一类
+    for (const path of [
+      'src/stage/three/view.ts',
+      'src/stage/three/internal.ts',
+      'src/stage/three/table.ts',
+      'src/stage/three/kit/things.ts',
+      'src/stage/three/kit/families.ts',
+      'src/stage/three/style/index.ts',
+      'src/stage/ground/paint.ts',
+      'src/stage/dev/harness.ts',
+      'src/stage/scale.ts',
+      'src/domain/scene.ts',
+      'src/domain/sceneGeo.ts',
+      'src/domain/sceneGeoRoute.ts',
+      'src/domain/sceneKinds.ts',
+      'src/domain/sceneParams.ts',
+      'src/domain/sceneStripPoint.ts',
+      'src/domain/sceneText.ts',
+      'stage-dev.html',
+      'tests/tools/make-stills.spec.ts',
+      'tests/support/stillsTool.ts',
+      'playwright.stills.config.ts',
+    ]) {
+      expect(programPart(path), path).toEqual({ part: 'shared' });
+    }
+    expect(programPart('src/stage/three/style/songQinglv.ts')).toEqual({ part: 'style', style: 'song-qinglv' });
+    expect(programPart('src/stage/three/style/songQinglvFigure.ts')).toEqual({ part: 'style', style: 'song-qinglv' });
+    for (const family of ['rock', 'plants', 'works']) expect(programPart(`src/stage/three/families/${family}.ts`), family).toEqual({ part: 'family', family });
+    for (const path of ['src/stage/ground/route.ts', 'src/stage/roadLines.ts', 'src/stage/three/routeKit.ts', 'src/stage/three/routeLevel.ts']) expect(programPart(path), path).toEqual({ part: 'route' });
+    // 几张单子，一个字不差
     expect(PROGRAM_FOLDERS).toEqual(['src/stage/three/', 'src/stage/ground/', 'src/stage/dev/']);
-    expect(PROGRAM_FILES).toEqual(['src/stage/scale.ts', 'src/stage/roadLines.ts', 'stage-dev.html', 'tests/tools/make-stills.spec.ts', 'tests/support/stillsTool.ts', 'playwright.stills.config.ts']);
+    expect(PROGRAM_FILES).toEqual(['src/stage/scale.ts', 'stage-dev.html', 'tests/tools/make-stills.spec.ts', 'tests/support/stillsTool.ts', 'playwright.stills.config.ts']);
+    expect(ROUTE_LEVEL_FILES).toEqual(['src/stage/ground/route.ts', 'src/stage/roadLines.ts', 'src/stage/three/routeKit.ts', 'src/stage/three/routeLevel.ts']);
+    expect(LEFT_OUT_FILES).toEqual(['src/stage/three/piece.ts', 'src/domain/sceneContent.ts']);
+    expect(STYLE_FOLDER).toBe('src/stage/three/style/');
+    expect(STYLE_SHARED_FILES).toEqual(['src/stage/three/style/index.ts']);
+    expect(STYLE_FILES).toEqual({ 'song-qinglv': ['src/stage/three/style/songQinglv.ts', 'src/stage/three/style/songQinglvFigure.ts'] });
+    expect(FAMILY_FOLDER).toBe('src/stage/three/families/');
   });
 
   it('工具和测试读的是磁盘上同一批文件：都在单子里，路径用“/”，版本就是 package.json 里写的', () => {
@@ -325,6 +397,425 @@ describe('沙盘程序和拍照工具的记号（programKey）', () => {
     expect(programKey(readProgramFiles(), programVersions())).toBe(key);
     const touched = { ...disk, 'src/stage/scale.ts': new Uint8Array([...disk['src/stage/scale.ts'], 0x20]) };
     expect(programKey(touched, now)).not.toBe(key);
+  });
+});
+
+// ---------------------------------------------------------------- 一座沙盘的记号里算哪些文件
+
+describe('一座沙盘的记号里算哪些文件（inTableKey、tableFiles），在编出来的文件单子上', () => {
+  const versions = { three: '0.187.0', playwright: '1.65.0' };
+  /** 编出来的两种样式：甲的文件直接放在样式的文件夹里（表里点名），乙的放在以它的名字命名的子文件夹里（照文件夹认；表里它那一行是空的，有这一行才认得它）。 */
+  const styles: Record<string, string[]> = { 'style-a': ['src/stage/three/style/styleA.ts', 'src/stage/three/style/styleAFigure.ts'], 'style-b': [] };
+  const files: Record<string, string> = {
+    'src/stage/three/view.ts': 'view\n',
+    'src/stage/three/style/index.ts': 'registry\n',
+    'src/stage/three/style/styleA.ts': 'a\n',
+    'src/stage/three/style/styleAFigure.ts': 'a figure\n',
+    'src/stage/three/families/rock.ts': 'rock\n',
+    'src/stage/three/families/plants.ts': 'plants\n',
+    'src/stage/three/families/works.ts': 'works\n',
+    'src/stage/ground/paint.ts': 'paint\n',
+    'src/stage/ground/route.ts': 'route ground\n',
+    'src/stage/roadLines.ts': 'road lines\n',
+    'src/stage/three/routeKit.ts': 'route kit\n',
+    'src/stage/three/routeLevel.ts': 'route level\n',
+    'src/domain/scene.ts': 'scene\n',
+    'tests/support/stillsTool.ts': 'tool\n',
+  };
+  /** 四座编出来的沙盘，都用甲这种样式：两座各用两家零件，一座一家不用，一座是全程沙盘。 */
+  const tables: Record<string, TableUse> = {
+    cliff: { style: 'style-a', families: ['rock', 'plants'], route: false },
+    garden: { style: 'style-a', families: ['plants', 'works'], route: false },
+    plain: { style: 'style-a', families: [], route: false },
+    route: { style: 'style-a', families: [], route: true },
+  };
+  const names = Object.keys(tables);
+  const keys = (from: Record<string, string>): Record<string, string> => Object.fromEntries(names.map((name) => [name, programKey(tableFiles(from, tables[name], styles), versions)]));
+  const base = keys(files);
+  /** 改了这批文件以后，哪几座沙盘的记号变了。 */
+  const stale = (from: Record<string, string>): string[] => names.filter((name) => keys(from)[name] !== base[name]);
+  const touch = (path: string): Record<string, string> => ({ ...files, [path]: `${files[path] ?? ''} ` });
+
+  it('各座沙盘的记号里各有哪些文件', () => {
+    const shared = ['src/domain/scene.ts', 'src/stage/ground/paint.ts', 'src/stage/three/style/index.ts', 'src/stage/three/style/styleA.ts', 'src/stage/three/style/styleAFigure.ts', 'src/stage/three/view.ts', 'tests/support/stillsTool.ts'];
+    const listed = (name: string): string[] => Object.keys(tableFiles(files, tables[name], styles)).sort();
+    expect(listed('plain')).toEqual(shared);
+    expect(listed('cliff')).toEqual([...shared, 'src/stage/three/families/plants.ts', 'src/stage/three/families/rock.ts'].sort());
+    expect(listed('garden')).toEqual([...shared, 'src/stage/three/families/plants.ts', 'src/stage/three/families/works.ts'].sort());
+    expect(listed('route')).toEqual([...shared, 'src/stage/ground/route.ts', 'src/stage/roadLines.ts', 'src/stage/three/routeKit.ts', 'src/stage/three/routeLevel.ts'].sort());
+    // 四座沙盘算的文件各不一样，记号也各不一样
+    expect(new Set(Object.values(base)).size).toBe(4);
+  });
+
+  it('共用的文件改一个字节：四座都旧', () => {
+    for (const path of ['src/stage/three/view.ts', 'src/stage/three/style/index.ts', 'src/stage/ground/paint.ts', 'src/domain/scene.ts', 'tests/support/stillsTool.ts']) expect(stale(touch(path)), path).toEqual(names);
+    // 添一个共用的文件也是
+    expect(stale({ ...files, 'src/stage/three/new.ts': '' })).toEqual(names);
+    // 库换了版本也是
+    expect(names.filter((name) => programKey(tableFiles(files, tables[name], styles), { ...versions, three: '0.188.0' }) !== base[name])).toEqual(names);
+  });
+
+  it('这种样式自己的文件改一个字节：用这种样式的都旧（这里是四座）', () => {
+    expect(stale(touch('src/stage/three/style/styleA.ts'))).toEqual(names);
+    expect(stale(touch('src/stage/three/style/styleAFigure.ts'))).toEqual(names);
+  });
+
+  it('另一种样式的文件——添进来、改它、再删掉——哪一座都不旧：放在以它的名字命名的子文件夹里的，和在表里点了名的，都一样', () => {
+    const inFolder = { ...files, 'src/stage/three/style/style-b/look.ts': 'b\n', 'src/stage/three/style/style-b/figure.ts': 'b figure\n' };
+    expect(stale(inFolder)).toEqual([]);
+    expect(stale({ ...inFolder, 'src/stage/three/style/style-b/look.ts': 'b changed\n' })).toEqual([]);
+    const both = { ...styles, 'style-b': ['src/stage/three/style/styleB.ts'] };
+    const named = { ...files, 'src/stage/three/style/styleB.ts': 'b\n' };
+    expect(names.filter((name) => programKey(tableFiles(named, tables[name], both), versions) !== base[name])).toEqual([]);
+    // 用乙这种样式的沙盘才算它：记号里有乙的文件，没有甲的
+    const other: TableUse = { style: 'style-b', families: [], route: false };
+    expect(Object.keys(tableFiles(inFolder, other, styles)).filter((path) => path.startsWith(STYLE_FOLDER)).sort()).toEqual(['src/stage/three/style/index.ts', 'src/stage/three/style/style-b/figure.ts', 'src/stage/three/style/style-b/look.ts']);
+    expect(programKey(tableFiles({ ...inFolder, 'src/stage/three/style/style-b/look.ts': 'b changed\n' }, other, styles), versions)).not.toBe(programKey(tableFiles(inFolder, other, styles), versions));
+    expect(programKey(tableFiles(touch('src/stage/three/style/styleA.ts'), other, styles), versions)).toBe(programKey(tableFiles(files, other, styles), versions));
+  });
+
+  it('样式的文件夹里一个没有哪一种样式认的文件（忘了在表里点名）：先当共用的算，四座都旧', () => {
+    expect(programPart('src/stage/three/style/styleC.ts', styles)).toEqual({ part: 'shared' });
+    expect(stale({ ...files, 'src/stage/three/style/styleC.ts': 'c\n' })).toEqual(names);
+    // 两种样式都认的也是
+    const twice = { 'style-a': ['src/stage/three/style/styleA.ts'], 'style-b': ['src/stage/three/style/styleA.ts'] };
+    expect(stylesClaiming('src/stage/three/style/styleA.ts', twice)).toEqual(['style-a', 'style-b']);
+    expect(programPart('src/stage/three/style/styleA.ts', twice)).toEqual({ part: 'shared' });
+  });
+
+  it('样式的文件夹里一个子文件夹，名字不是哪一种认得的样式（几种样式合用的小东西；把样式的名字写错了一个字）：里面的文件没有谁认，当共用的算——添进来四座都旧，再改它四座的记号又变', () => {
+    for (const path of ['src/stage/three/style/common/tint.ts', 'src/stage/three/style/style-bb/look.ts', 'src/stage/three/style/common/deep/tint.ts']) {
+      expect(stylesClaiming(path, styles), path).toEqual([]);
+      expect(programPart(path, styles), path).toEqual({ part: 'shared' });
+      for (const name of names) expect(inTableKey(path, tables[name], styles), `${path} ${name}`).toBe(true);
+      const planted = { ...files, [path]: 'tint\n' };
+      expect(stale(planted), path).toEqual(names);
+      const before = keys(planted);
+      const after = keys({ ...planted, [path]: 'tint changed\n' });
+      expect(names.filter((name) => after[name] !== before[name]), path).toEqual(names);
+    }
+    // 用另一种样式的沙盘也算它
+    const other: TableUse = { style: 'style-b', families: [], route: false };
+    expect(inTableKey('src/stage/three/style/common/tint.ts', other, styles)).toBe(true);
+    // 认不认得，看的是表里有没有这一行：同一个文件夹，表里添了它那一行就归它，别的沙盘不算它
+    const known = { ...styles, common: [] };
+    expect(stylesClaiming('src/stage/three/style/common/tint.ts', known)).toEqual(['common']);
+    expect(programPart('src/stage/three/style/common/tint.ts', known)).toEqual({ part: 'style', style: 'common' });
+    expect(names.filter((name) => inTableKey('src/stage/three/style/common/tint.ts', tables[name], known))).toEqual([]);
+    // 一种样式的文件有哪些，照这条规矩问（表里点了名的，和以它的名字命名的子文件夹里的）；没有谁认的不在哪一种里
+    const paths = [...Object.keys(files), 'src/stage/three/style/style-b/look.ts', 'src/stage/three/style/common/tint.ts'];
+    expect(styleFilesIn(paths, 'style-a', styles)).toEqual(['src/stage/three/style/styleA.ts', 'src/stage/three/style/styleAFigure.ts']);
+    expect(styleFilesIn(paths, 'style-b', styles)).toEqual(['src/stage/three/style/style-b/look.ts']);
+    expect(styleFilesIn(paths, 'common', styles)).toEqual([]);
+    expect(styleFilesIn(paths, 'style-c', styles)).toEqual([]);
+  });
+
+  it('一家零件的文件改一个字节：旧的正好是用到这一家的那几座', () => {
+    expect(stale(touch('src/stage/three/families/rock.ts'))).toEqual(['cliff']);
+    expect(stale(touch('src/stage/three/families/plants.ts'))).toEqual(['cliff', 'garden']);
+    expect(stale(touch('src/stage/three/families/works.ts'))).toEqual(['garden']);
+  });
+
+  it('一家哪一座都没用到的零件——添进来、改它——哪一座都不旧；一家的文件放在以它的名字命名的子文件夹里也认', () => {
+    expect(stale({ ...files, 'src/stage/three/families/town.ts': 'town\n' })).toEqual([]);
+    expect(stale({ ...files, 'src/stage/three/families/town.ts': 'town changed\n' })).toEqual([]);
+    expect(programPart('src/stage/three/families/town/gate.ts')).toEqual({ part: 'family', family: 'town' });
+    expect(stale({ ...files, 'src/stage/three/families/rock/cliff.ts': 'cliff\n' })).toEqual(['cliff']);
+  });
+
+  it('全程沙盘才用的那一块改一个字节：旧的只有全程沙盘', () => {
+    for (const path of ROUTE_LEVEL_FILES) expect(stale(touch(path)), path).toEqual(['route']);
+  });
+
+  it('小像、读内容的程序改了：哪一座都不旧（它们不在记号里）', () => {
+    for (const path of LEFT_OUT_FILES) {
+      expect(stale({ ...files, [path]: 'something\n' }), path).toEqual([]);
+      expect(stale({ ...files, [path]: 'something else\n' }), path).toEqual([]);
+      for (const name of names) expect(inTableKey(path, tables[name], styles), `${path} ${name}`).toBe(false);
+    }
+  });
+});
+
+describe('磁盘上的文件各归哪一类：样式、零件、全程沙盘才用的那一块', () => {
+  const text = (path: string): string => new TextDecoder().decode(readFile(path));
+  /** 一个文件夹里所有的文件（连子文件夹），路径相对项目的根目录。名字里没有点的当作子文件夹（这两个文件夹里的文件都带扩展名）。 */
+  const under = (folder: string): string[] => namesIn(folder).flatMap((name) => (name.includes('.') ? [`${folder}${name}`] : under(`${folder}${name}/`)));
+
+  it('样式的文件夹里的每一个文件，要么在共用的单子里，要么正好归一种样式；表里点了名的文件都在；场景里能写的每一种样式都有自己的文件', () => {
+    const problems: string[] = [];
+    for (const path of under(STYLE_FOLDER)) {
+      const claimed = stylesClaiming(path);
+      const shared = (STYLE_SHARED_FILES as readonly string[]).includes(path);
+      if (shared && claimed.length > 0) problems.push(`${path} 在共用的单子里，又有样式认它（${claimed.join('、')}）：只能是一样`);
+      if (!shared && claimed.length === 0) {
+        problems.push(
+          `${path} 既不在共用的单子里（STYLE_SHARED_FILES），也没有哪一种样式认它，现在是当各座沙盘共用的算的：` +
+            '几种样式合用的，写进 tests/support/programKey.ts 的 STYLE_SHARED_FILES；一种样式自己的，在 STYLE_FILES 里它那种样式的一行添上它，' +
+            `或者把它放进以那种样式的名字命名的子文件夹（认得的样式是：${Object.keys(STYLE_FILES).join('、')}；子文件夹叫别的名字的不算哪一种样式的）`,
+        );
+      }
+      if (claimed.length > 1) problems.push(`${path} 有两种以上的样式认它（${claimed.join('、')}）：一个文件只能归一种样式；几种样式共用的写进 STYLE_SHARED_FILES`);
+    }
+    for (const path of [...STYLE_SHARED_FILES, ...Object.values(STYLE_FILES).flat()]) if (!fileExists(path)) problems.push(`单子里写着 ${path}，这个文件不在`);
+    expect(problems).toEqual([]);
+    // 表里有哪几行，就是认得哪几种样式：正好是场景里能写的那几种
+    expect(Object.keys(STYLE_FILES).sort()).toEqual([...SCENE_STYLES].sort());
+    const onDisk = under(STYLE_FOLDER);
+    for (const id of SCENE_STYLES) {
+      expect(styleFilesIn(onDisk, id).length, `样式“${id}”自己的文件一个也没有找到：它的文件要在 STYLE_FILES 里它那一行点名，或者放在 ${STYLE_FOLDER}${id}/ 里（文件夹的名字要一个字不差）`).toBeGreaterThan(0);
+      expect(onDisk.filter((path) => stylesClaiming(path).includes(id))).toEqual(styleFilesIn(onDisk, id));
+      // 以它的名字命名的子文件夹里的文件归它
+      expect(stylesClaiming(`${STYLE_FOLDER}${id}/look.ts`), id).toEqual([id]);
+      expect(programPart(`${STYLE_FOLDER}${id}/look.ts`), id).toEqual({ part: 'style', style: id });
+    }
+    // 这个查法认得出来：添一个没人认的文件，添一个子文件夹、名字不是哪一种认得的样式——都没有谁认，当共用的算；表里添了那一行才认
+    expect(stylesClaiming('src/stage/three/style/planted.ts')).toEqual([]);
+    expect(stylesClaiming('src/stage/three/style/another-style/look.ts')).toEqual([]);
+    expect(stylesClaiming('src/stage/three/style/common/tint.ts')).toEqual([]);
+    expect(programPart('src/stage/three/style/common/tint.ts')).toEqual({ part: 'shared' });
+    expect(stylesClaiming('src/stage/three/style/another-style/look.ts', { ...STYLE_FILES, 'another-style': [] })).toEqual(['another-style']);
+  });
+
+  it('零件的文件夹里的每一个文件都是登记表里的一家（名字就是那一家的名字）；登记表里的每一家都有它的文件', () => {
+    const registered = FAMILIES.map((family) => family.name);
+    const onDisk = under(FAMILY_FOLDER);
+    for (const path of onDisk) {
+      const part = programPart(path);
+      expect(part.part, path).toBe('family');
+      if (part.part === 'family') expect(registered, `${path}：登记表（src/stage/families.ts）里没有“${part.family}”这一家，它不会算进哪一座沙盘的记号`).toContain(part.family);
+    }
+    for (const name of registered) expect(onDisk.some((path) => path === `${FAMILY_FOLDER}${name}.ts` || path.startsWith(`${FAMILY_FOLDER}${name}/`)), name).toBe(true);
+  });
+
+  /** 一个文件里运行时真的引进来的东西（只取类型的不算，typeof import(…) 也不算）：从哪里引的。转出去的（export … from）和动态的 import() 也算。 */
+  const staticImports = (source: string): string[] => [
+    ...[...source.matchAll(/(?:^|\n)\s*(?:import|export)\s+(type\s+)?[^;'"]*?from\s*['"]([^'"]+)['"]/g)].filter((m) => !m[1]).map((m) => m[2]),
+    ...[...source.matchAll(/(?:^|\n)\s*import\s*['"]([^'"]+)['"]/g)].map((m) => m[1]),
+  ];
+  /** 用到时才取的那一种（import(…)）。 */
+  const dynamicImports = (source: string): string[] => [...source.matchAll(/(?<!typeof\s)\bimport\(\s*['"]([^'"]+)['"]\s*\)/g)].map((m) => m[1]);
+  const runtimeImports = (source: string): string[] => [...staticImports(source), ...dynamicImports(source)];
+  /** 从 file 里引 spec，引的是哪个文件（不带扩展名，相对项目的根目录）。不是相对路径的（库）是 null。 */
+  const resolved = (file: string, spec: string): string | null => (spec.startsWith('.') ? new URL(spec, `file:///${file}`).pathname.slice(1) : null);
+  /** 这些文件里，谁在运行时引了 banned 里的文件。 */
+  const importers = (sources: Record<string, string>, banned: readonly string[]): string[] => {
+    const stems = banned.map((path) => path.replace(/\.ts$/, ''));
+    return Object.keys(sources)
+      .filter((file) => /\.tsx?$/.test(file))
+      .filter((file) => runtimeImports(sources[file]).some((spec) => stems.includes(resolved(file, spec) ?? '')))
+      .sort();
+  };
+
+  // 要把算记号的文件都读一遍、一个一个找引入的句子：整套测试一起跑的时候不止一秒半，单给一个时限
+  it('站点沙盘的记号里算的文件（共用的，样式的，零件的）没有一个在运行时引全程沙盘才用的那一块，也没有一个引小像的程序：所以那几个文件可以只算进全程沙盘的记号、小像可以不算', { timeout: 60_000 }, () => {
+    const disk = readProgramFiles();
+    const sources: Record<string, string> = {};
+    for (const [path, bytes] of Object.entries(disk)) if (programPart(path).part !== 'route') sources[path] = new TextDecoder().decode(bytes);
+    for (const path of ROUTE_LEVEL_FILES) expect(fileExists(path), path).toBe(true);
+    expect(importers(sources, [...ROUTE_LEVEL_FILES, 'src/stage/three/piece.ts'])).toEqual([]);
+    // 这个查法认得出来：真的引了、转出去了、动态引了都查得到；只取类型的、typeof import(…) 的不算
+    expect(runtimeImports("import { a } from './a';\nimport type { B } from './b';\nexport { c } from './c';\nexport type { D } from './d';\nimport './e';\nconst f = await import('./f');\ntype G = typeof import('./g');")).toEqual(['./a', './c', './e', './f']);
+    expect(importers({ ...sources, 'src/stage/three/planted.ts': "import { roadRuns } from '../roadLines';" }, ROUTE_LEVEL_FILES)).toEqual(['src/stage/three/planted.ts']);
+    expect(importers({ 'src/stage/three/view.ts': "export { buildRouteModels } from './routeKit';", 'src/stage/three/water.ts': "const level = await import('./routeLevel');" }, ROUTE_LEVEL_FILES)).toEqual(['src/stage/three/view.ts', 'src/stage/three/water.ts']);
+    expect(importers({ 'src/stage/three/view.ts': "import type { Piece } from './piece';\nexport type RouteLevel = typeof import('./routeLevel');" }, [...ROUTE_LEVEL_FILES, 'src/stage/three/piece.ts'])).toEqual([]);
+    // 现在的沙盘程序里，小像只有这两处提到：全程沙盘那一块把它转出去，沙盘程序只取它的类型
+    expect(text('src/stage/three/view.ts')).toContain("import type { Piece } from './piece';");
+    expect(importers({ 'src/stage/three/routeLevel.ts': text('src/stage/three/routeLevel.ts') }, ['src/stage/three/piece.ts'])).toEqual(['src/stage/three/routeLevel.ts']);
+  });
+
+  it('小像不在定格图里：拍照的那一页和拍照的工具从不叫沙盘摆小像（placePiece）——所以小像的程序不算在记号里', () => {
+    for (const path of ['src/stage/dev/harness.ts', 'stage-dev.html', 'tests/tools/make-stills.spec.ts']) expect(text(path), path).not.toContain('placePiece');
+    // 沙盘程序里这个方法就叫这个名字（改了名字，上面那一条要跟着改）
+    expect(text('src/stage/three/view.ts')).toContain('placePiece(');
+  });
+
+  /** 拍照的那一页（stage-dev.html）装的头一个程序文件。 */
+  const SHOT_PAGE_ENTRY = 'src/stage/dev/harness.ts';
+
+  /**
+   * 拍照的那一页运行时装得进来、却不在哪一座沙盘的记号里的文件，一个一个写在这里：读内容的，挑哪一家零件、哪一层沙盘的，
+   * 题签，定格图那一种沙盘。除了 sceneContent.ts（见 LEFT_OUT_FILES），它们从有这个记号起就不在里面。
+   * 往这里添一个文件，就是说“改它不用重拍定格图”：要说得出为什么，写在提交里。
+   */
+  const OUTSIDE_EVERY_TABLE = [
+    'src/domain/body.ts',
+    'src/domain/content.ts',
+    'src/domain/contentKey.ts',
+    'src/domain/contentLists.ts',
+    'src/domain/sceneContent.ts',
+    'src/domain/stopMarks.ts',
+    'src/stage/families.ts',
+    'src/stage/index.ts',
+    'src/stage/overlay/index.ts',
+    'src/stage/overlay/placeStrips.ts',
+    'src/stage/overlay/strips.ts',
+    'src/stage/still/engine.ts',
+    'src/stage/still/fit.ts',
+    'src/stage/still/index.ts',
+    'src/stage/support.ts',
+    'src/styles/still.css',
+  ];
+  /** 全程沙盘另外装进来的三个：题签绕着摆的办法，算小像站在哪的，小像的程序（见 LEFT_OUT_FILES）。 */
+  const OUTSIDE_ROUTE_TABLE = ['src/stage/overlay/placeAround.ts', 'src/stage/pieceWhere.ts', 'src/stage/three/piece.ts'];
+
+  /**
+   * 从拍照的那一页装的头一个文件起，顺着运行时的引入一个一个找下去：use 这座沙盘的画面会装进哪些文件（只找项目里的，库不算）。
+   * 写在文件头上的引入都跟；用到时才取的（import(…)），取的要是一家零件、全程沙盘才用的那一块、一种样式的文件，
+   * 只有这座沙盘用得着才跟——沙盘程序就是这样取的（哪几家照 familiesOf，全程沙盘那一块只有全程沙盘取）。
+   * extra 是“假如磁盘上还有这些文件、这些文件是这样写的”（路径 → 内容）。找不到的引入记在 missing 里。
+   */
+  const shotPageLoads = (use: TableUse, extra: Record<string, string> = {}): { reached: string[]; missing: string[] } => {
+    const has = (path: string): boolean => path in extra || fileExists(path);
+    const fileOf = (file: string, spec: string): string | null => {
+      if (!spec.startsWith('.')) return null;
+      const stem = resolved(file, spec.replace(/\?.*$/, '')) ?? '';
+      return [`${stem}.ts`, `${stem}.tsx`, `${stem}/index.ts`, ...(/\.[a-z]+$/.test(stem) ? [stem] : [])].find(has) ?? `?${stem}`;
+    };
+    const taken = (path: string): boolean => {
+      const part = programPart(path);
+      if (part.part === 'family') return use.families.includes(part.family);
+      if (part.part === 'route') return use.route;
+      if (part.part === 'style') return part.style === use.style;
+      return true;
+    };
+    const seen = new Set<string>();
+    const missing: string[] = [];
+    const todo = [SHOT_PAGE_ENTRY];
+    while (todo.length > 0) {
+      const file = todo.pop() as string;
+      if (seen.has(file)) continue;
+      seen.add(file);
+      if (!/\.tsx?$/.test(file)) continue;
+      const source = extra[file] ?? text(file);
+      const follow = (spec: string, dynamic: boolean): void => {
+        const next = fileOf(file, spec);
+        if (next === null) return;
+        if (next.startsWith('?')) missing.push(`${file} 引的 ${spec}`);
+        else if (!dynamic || taken(next)) todo.push(next);
+      };
+      for (const spec of staticImports(source)) follow(spec, false);
+      for (const spec of dynamicImports(source)) follow(spec, true);
+    }
+    return { reached: [...seen].sort(), missing };
+  };
+
+  // 四座沙盘各找一遍，每一遍要读七八十个文件：整套测试一起跑的时候不止一秒半，单给一个时限
+  it('拍照的那一页运行时装进来的每一个文件，要么在这座沙盘的记号里，要么在写明“不算”的单子上：隔着一个不在记号里的文件引进来的也找得到', { timeout: 60_000 }, () => {
+    expect(text('stage-dev.html')).toContain(`src="/${SHOT_PAGE_ENTRY}"`);
+    const outside = (use: TableUse, extra: Record<string, string> = {}): string[] => shotPageLoads(use, extra).reached.filter((path) => !inTableKey(path, use));
+    const allowed = (use: TableUse): string[] => [...OUTSIDE_EVERY_TABLE, ...(use.route ? OUTSIDE_ROUTE_TABLE : [])].sort();
+    const keys = Object.keys(realScenes).sort();
+    expect(keys.length).toBeGreaterThan(0);
+    for (const key of keys) {
+      const use = tableUse(realScenes[key]);
+      const { reached, missing } = shotPageLoads(use);
+      expect(missing, key).toEqual([]);
+      // 找得到沙盘程序、这座沙盘的样式、它用到的那几家零件；全程沙盘才用的那一块只有全程沙盘装
+      expect(reached, key).toEqual(expect.arrayContaining(['src/stage/three/view.ts', 'src/stage/three/engine.ts', 'src/domain/scene.ts', ...use.families.map((family) => `${FAMILY_FOLDER}${family}.ts`)]));
+      expect(styleFilesIn(reached, use.style).length, key).toBeGreaterThan(0);
+      expect(reached.filter((path) => programPart(path).part === 'family').length, key).toBe(use.families.length);
+      expect(ROUTE_LEVEL_FILES.filter((path) => reached.includes(path)), key).toEqual(use.route ? [...ROUTE_LEVEL_FILES] : []);
+      expect(
+        outside(use),
+        `${key}：拍照的那一页装进来、却不在这座沙盘的记号里的文件，要正好是单子上的那几个。多出来的那个：改它会改画面，就把它放进记号算的文件夹（或者在 tests/support/programKey.ts 里点名）；` +
+          '真的不决定画面，才写进这条测试上面的单子，并说明为什么。少了的那个：从单子上拿掉。',
+      ).toEqual(allowed(use));
+    }
+
+    // 这个查法认得出来（在一座编出来的站点沙盘上，一家零件不用）：
+    const stop: TableUse = { style: 'song-qinglv', families: [], route: false };
+    expect(outside(stop)).toEqual(allowed(stop));
+    expect(shotPageLoads(stop).reached.filter((path) => programPart(path).part === 'family')).toEqual([]);
+    // 一个共用的文件隔着记号外面的文件引了全程沙盘才用的那一块：找得到中间那个文件，也找得到那一块
+    const through = outside(stop, { 'src/stage/three/mist.ts': `import '../pieceWhere';\n${text('src/stage/three/mist.ts')}` });
+    expect(through).toEqual(expect.arrayContaining(['src/stage/pieceWhere.ts', 'src/stage/roadLines.ts']));
+    // 一个共用的文件引了记号外面一个新文件，那个文件把路的笔画和小像转出去：三个都找得到
+    const helper = outside(stop, {
+      'src/stage/helpers/roads.ts': "export { roadRuns } from '../roadLines';\nexport { buildPiece } from '../three/piece';\n",
+      'src/stage/three/water.ts': `import { roadRuns, buildPiece } from '../helpers/roads';\n${text('src/stage/three/water.ts')}`,
+    });
+    expect(helper).toEqual(expect.arrayContaining(['src/stage/helpers/roads.ts', 'src/stage/roadLines.ts', 'src/stage/three/piece.ts']));
+    // 样式引了一个合用的小文件：放在样式的文件夹里（哪怕子文件夹的名字不是哪一种样式）就在记号里；放在记号算的文件夹外面就找出来
+    const style = styleFilesIn(shotPageLoads(stop).reached, 'song-qinglv')[0];
+    /** 从这个样式文件所在的文件夹回到项目的根目录。 */
+    const up = '../'.repeat(style.split('/').length - 1);
+    const inside = { [`${STYLE_FOLDER}common/tint.ts`]: "export const TINT = '#000000';\n", [style]: `import { TINT } from '${up}${STYLE_FOLDER}common/tint';\nvoid TINT;\n${text(style)}` };
+    expect(shotPageLoads(stop, inside).reached).toContain(`${STYLE_FOLDER}common/tint.ts`);
+    expect(outside(stop, inside)).toEqual(allowed(stop));
+    const elsewhere = { 'src/stage/helpers/tint.ts': "export const TINT = '#000000';\n", [style]: `import { TINT } from '${up}src/stage/helpers/tint';\nvoid TINT;\n${text(style)}` };
+    expect(outside(stop, elsewhere)).toContain('src/stage/helpers/tint.ts');
+    // 引了一个不存在的文件：说出来，不当没看见
+    expect(shotPageLoads(stop, { 'src/stage/three/mist.ts': `import '../nowhere';\n${text('src/stage/three/mist.ts')}` }).missing).toEqual(['src/stage/three/mist.ts 引的 ../nowhere']);
+  });
+});
+
+describe('content/ 里每一座沙盘：它的记号里算的文件，和读内容的程序交给沙盘的东西', () => {
+  const tables = Object.keys(realScenes)
+    .map((path) => /^\/content\/figures\/([^/]+)\/scenes\/([^/]+)\.json$/.exec(path))
+    .filter((m): m is RegExpExecArray => m !== null)
+    .map((m) => ({ figureId: m[1], stopId: m[2], scene: realScenes[m[0]] }));
+
+  it('找得到沙盘', () => {
+    expect(tables.length).toBeGreaterThan(0);
+  });
+
+  it.each(tables)('$figureId/$stopId：用哪种样式、哪几家零件、是不是全程沙盘，是照场景文件说的；记号里的文件都是磁盘上那一批里的，样式的文件在里面', { timeout: 60_000 }, ({ scene }) => {
+    const use = tableUse(scene);
+    expect(use.style).toBe(scene.style);
+    expect(use.route).toBe(scene.level === 'route');
+    const registered = FAMILIES.map((family) => family.name);
+    for (const family of use.families) expect(registered).toContain(family);
+    if (scene.level === 'route') expect(use.families).toEqual([]);
+    const all = readProgramFiles();
+    const mine = readTableFiles(scene);
+    for (const path of Object.keys(mine)) {
+      expect(all[path], path).toBeDefined();
+      expect(inTableKey(path, use), path).toBe(true);
+    }
+    for (const path of Object.keys(all)) if (!(path in mine)) expect(inTableKey(path, use), path).toBe(false);
+    // 它的样式的文件：照磁盘上的文件和算记号的那条规矩问（表里点了名的，和以样式的名字命名的子文件夹里的），至少有一个，都在它的记号里
+    const styleFiles = styleFilesIn(Object.keys(all), scene.style);
+    expect(styleFiles.length, `磁盘上没有找到“${scene.style}”这种样式自己的文件`).toBeGreaterThan(0);
+    for (const path of styleFiles) expect(mine[path], path).toBeDefined();
+    for (const path of ROUTE_LEVEL_FILES) expect(path in mine, path).toBe(use.route);
+    for (const path of LEFT_OUT_FILES) expect(path in mine, path).toBe(false);
+    for (const path of ['src/stage/three/view.ts', 'src/stage/scale.ts', 'src/domain/scene.ts', 'stage-dev.html', 'tests/tools/make-stills.spec.ts', 'tests/support/stillsTool.ts', 'playwright.stills.config.ts']) expect(mine[path], path).toBeDefined();
+    // 读两遍算出来一样；把其中一个共用的文件改一个字节就不一样
+    const now = programVersions();
+    const key = programKey(mine, now);
+    expect(programKey(readTableFiles(scene), programVersions())).toBe(key);
+    expect(programKey({ ...mine, 'src/stage/scale.ts': new Uint8Array([...mine['src/stage/scale.ts'], 0x20]) }, now)).not.toBe(key);
+  });
+
+  it.each(tables)('$figureId/$stopId：场景里的样式要是换成一种算记号的程序不认得的，不悄悄算出一个没有样式文件的记号：停下来，说是哪座沙盘、哪种样式、文件该放在哪', { timeout: 60_000 }, ({ figureId, stopId, scene }) => {
+    const unknown = { ...scene, style: 'zz-unknown' } as unknown as TableScene;
+    expect(() => readTableFiles(unknown, `${figureId}/${stopId}`)).toThrow(`${figureId}/${stopId}的场景文件里写的样式是“zz-unknown”，算记号的时候没有找到这种样式自己的文件，记号算不出来。`);
+    expect(() => readTableFiles(unknown)).toThrow(/^这座沙盘的场景文件里写的样式是“zz-unknown”.+src\/stage\/three\/style\/.+tests\/support\/programKey\.ts 的 STYLE_FILES.+npm run validate 会说。$/);
+    // 真的那一份照常算得出来
+    expect(Object.keys(readTableFiles(scene, `${figureId}/${stopId}`)).length).toBeGreaterThan(0);
+  });
+
+  it.each(tables)('$figureId/$stopId：读内容的程序（sceneContent.ts，不在记号里）交给沙盘的只有四样，前三样各有自己的记号', { timeout: 60_000 }, async ({ figureId, stopId }) => {
+    const table = await loadStopTable(figureId, stopId);
+    expect(table).not.toBeNull();
+    if (!table) return;
+    expect(Object.keys(table).filter((name) => !['scene', 'terrainUrl', 'ground', 'stills'].includes(name))).toEqual([]);
+    const now = madeFromNow(figureId, stopId).madeFrom;
+    // 场景：交出去的就是场景文件，决定画面的那一部分的记号是 madeFrom.scene
+    expect(pictureKey(table.scene)).toBe(now.scene);
+    // 地形文件：交出去的网址指的是场景里写的那个文件，它的字节的记号是 madeFrom.terrain
+    expect(table.terrainUrl).toContain(table.scene.terrain.file.replace(/\.[^.]+$/, ''));
+    expect(now.terrain).toBe(contentKey(readFile(`content/figures/${figureId}/scenes/${table.scene.terrain.file}`)));
+    // 先画好的地面：交出去的是清单里写的两张图和几个数，清单里两份像素的记号合起来是 madeFrom.ground
+    const bakedPath = `content/figures/${figureId}/baked/${stopId}.json`;
+    if (fileExists(bakedPath)) {
+      const baked = JSON.parse(new TextDecoder().decode(readFile(bakedPath))) as { inputs: unknown; pixels: { colour: string; fields: string }; colour: { file: string }; fields: { file: string } };
+      expect(Object.keys(table.ground ?? {}).sort()).toEqual(['colourUrl', 'fieldsUrl', 'height', 'inputs', 'width']);
+      expect(table.ground?.colourUrl).toContain(baked.colour.file.replace(/\.[^.]+$/, ''));
+      expect(table.ground?.fieldsUrl).toContain(baked.fields.file.replace(/\.[^.]+$/, ''));
+      expect(table.ground?.inputs).toEqual(baked.inputs);
+      expect(now.ground).toBe(groundKeyOf(baked));
+    } else expect(now.ground).toBe(groundKeyOf(null));
   });
 });
 
@@ -759,10 +1250,108 @@ describe('几样小东西', () => {
   it('沙盘栏的底色：从 tokens.css 里读，从浏览器给的写法换过来', () => {
     expect(paneColour(':root {\n  --color-paper: #f5efe3;\n  --color-paper-sunk: #EBE3D3;\n}\n')).toBe('#ebe3d3');
     expect(paneColour(':root { --color-paper: #f5efe3; }')).toBeNull();
+    // 写了人物也一样读得到：文件里没有他自己的一块，读的是头一处
+    expect(paneColour(':root {\n  --color-paper: #f5efe3;\n  --color-paper-sunk: #EBE3D3;\n}\n', 'someone')).toBe('#ebe3d3');
+    expect(paneColour(':root { --color-paper: #f5efe3; }', 'someone')).toBeNull();
     expect(hexColour('rgb(235, 227, 211)')).toBe('#ebe3d3');
     expect(hexColour('rgb(0,0,5)')).toBe('#000005');
     expect(hexColour('rgba(235, 227, 211, 0.5)')).toBeNull();
     expect(hexColour('transparent')).toBeNull();
+  });
+
+  it('沙盘栏的底色按人物读：他自己有一块的读他那一块，没有的读头一处；注释里的字、别人的一块、不落在沙盘栏上的一块都不算', () => {
+    const css = [
+      "/* 再添一位人物：选择符写成 [data-figure='…'] .stage-pane */",
+      '.stage-pane {',
+      '  --color-paper-sunk: #C5B189; /* 头一处 */',
+      '  --figure-ink: #28231f;',
+      '}',
+      "/* 比如 [data-figure='second'] .stage-pane { --color-paper-sunk: #000000; } */",
+      "[data-figure='second'] .stage-pane {",
+      '  --color-paper-sunk: #BFC1B6;',
+      '}',
+      '[data-figure="third"] .stage-pane,',
+      "[data-figure='fourth'] .stage-pane {",
+      '  --figure-ink: #111111;',
+      '  --color-paper-sunk: #abcdef;',
+      '}',
+      "[data-figure='fifth'] .stage-pane { --figure-ink: #222222; }",
+      "[data-figure='sixth'] .reading { --color-paper-sunk: #123456; }",
+      "[data-figure='seventh'] .stage-pane-note { --color-paper-sunk: #654321; }",
+      '',
+    ].join('\n');
+    // 不写人物：头一处，和原来一样
+    expect(paneColour(css)).toBe('#c5b189');
+    // 文件里没有这位人物的一块：头一处
+    expect(paneColour(css, 'first')).toBe('#c5b189');
+    // 有自己的一块：读他的；单引号、双引号都认，几个选择符写在一起的也认
+    expect(paneColour(css, 'second')).toBe('#bfc1b6');
+    expect(paneColour(css, 'third')).toBe('#abcdef');
+    expect(paneColour(css, 'fourth')).toBe('#abcdef');
+    // 他那一块里没有写底色，或者那一块不落在沙盘栏上（.stage-pane）：头一处
+    expect(paneColour(css, 'fifth')).toBe('#c5b189');
+    expect(paneColour(css, 'sixth')).toBe('#c5b189');
+    expect(paneColour(css, 'seventh')).toBe('#c5b189');
+    // 名字只对上一半的不算
+    expect(paneColour(css, 'sec')).toBe('#c5b189');
+    // 注释里举的例子不算：把真的那一块去掉，读到的是头一处，不是注释里的 #000000
+    expect(paneColour(css.replace("[data-figure='second'] .stage-pane {\n  --color-paper-sunk: #BFC1B6;\n}\n", ''), 'second')).toBe('#c5b189');
+  });
+
+  it('沙盘栏的底色，头一处不认写着人物的一块：别的人物的一块写在前面，没有自己一块的人物读到的还是没写人物的那一处；写在沙盘栏里面的东西上的一块不是栏的底色；注释里的字不算', () => {
+    const unnamed = '.stage-pane {\n  --color-paper-sunk: #C5B189;\n  --figure-ink: #28231f;\n}\n';
+    const second = "[data-figure='second'] .stage-pane {\n  --color-paper-sunk: #112233;\n}\n";
+    // 别的人物的一块写在前面
+    const before = `${second}${unnamed}`;
+    expect(paneColour(before)).toBe('#c5b189');
+    expect(paneColour(before, 'first')).toBe('#c5b189');
+    expect(paneColour(before, 'second')).toBe('#112233');
+    // 写在后面也一样
+    expect(paneColour(`${unnamed}${second}`, 'first')).toBe('#c5b189');
+    expect(paneColour(`${unnamed}${second}`, 'second')).toBe('#112233');
+    // 几位人物合写的一块、写在沙盘栏自己身上的（.stage-pane[data-figure=…]）、双引号的，都是写着人物的一块，头一处不认
+    for (const block of ["[data-figure='second'] .stage-pane,\n[data-figure=\"third\"] .stage-pane { --color-paper-sunk: #112233; }\n", '.stage-pane[data-figure="second"] { --color-paper-sunk: #112233; }\n']) {
+      expect(paneColour(`${block}${unnamed}`), block).toBe('#c5b189');
+      expect(paneColour(`${block}${unnamed}`, 'first'), block).toBe('#c5b189');
+      expect(paneColour(`${block}${unnamed}`, 'second'), block).toBe('#112233');
+    }
+    // 只有写着人物的一块，没有别的：没有自己一块的人物读不到颜色
+    expect(paneColour(second)).toBeNull();
+    expect(paneColour(second, 'first')).toBeNull();
+    // 有一个选择符没写人物的一块，是大家的：算头一处
+    expect(paneColour(".stage-pane,\n[data-figure='second'] .stage-pane { --color-paper-sunk: #445566; }\n", 'first')).toBe('#445566');
+    // 写在沙盘栏里面的东西上的一块（.stage-pane .strip、.stage-pane > .strip）：不是栏的底色，不当他的读；它写着人物，头一处也不认
+    for (const inner of ["[data-figure='second'] .stage-pane .strip {\n  --color-paper-sunk: #445566;\n}\n", "[data-figure='second'] .stage-pane > .strip { --color-paper-sunk: #445566; }\n", "[data-figure='second'] .stage-pane-note { --color-paper-sunk: #445566; }\n"]) {
+      expect(paneColour(`${unnamed}${inner}`, 'second'), inner).toBe('#c5b189');
+      expect(paneColour(`${inner}${unnamed}`, 'second'), inner).toBe('#c5b189');
+      expect(paneColour(`${inner}${unnamed}`), inner).toBe('#c5b189');
+    }
+    // 注释里的字不算：注释里举着一处完整的写法、举着写着人物的选择符，都不当真
+    const commented = `/* 比如 --color-paper-sunk: #000000; 再添一位人物写成 [data-figure='…'] .stage-pane */\n${unnamed}`;
+    expect(paneColour(commented)).toBe('#c5b189');
+    expect(paneColour(commented, 'second')).toBe('#c5b189');
+    expect(paneColour(`.stage-pane {\n  /* --color-paper-sunk: #000000; */\n  --color-paper-sunk: #C5B189; /* 头一处 */\n}\n`)).toBe('#c5b189');
+  });
+
+  it('src/styles/tokens.css 里，su-shi 读到的沙盘栏的底色就是头一处的那一个：他的那一块没有写人物，按人物读和原来读到的是同一个颜色', { timeout: 60_000 }, () => {
+    const tokens = new TextDecoder().decode(readFile('src/styles/tokens.css'));
+    const first = paneColour(tokens);
+    expect(first).toMatch(/^#[0-9a-f]{6}$/);
+    expect(paneColour(tokens, 'su-shi')).toBe(first);
+    expect(tokens.replace(/\/\*[\s\S]*?\*\//g, '')).not.toMatch(/\[data-figure=['"]su-shi['"]\]/);
+    expect(madeFromNow('su-shi', 'route').background).toBe(first);
+    // 它就是他四座沙盘的清单里记着的、拍的时候到页面上量到的那个底色
+    for (const stop of ['huangzhou', 'meishan', 'route', 'xuzhou']) {
+      const manifest = JSON.parse(new TextDecoder().decode(readFile(`content/figures/su-shi/stills/${stop}.json`))) as StillManifest;
+      expect(manifest.made.background.toLowerCase(), stop).toBe(first);
+    }
+    // 另一位人物的一块不管添在他的前面还是后面，他读到的都不变，那一位读到的是自己的
+    const another = "[data-figure='another-figure'] .stage-pane {\n  --color-paper-sunk: #112233;\n}\n";
+    for (const sheet of [`${another}${tokens}`, `${tokens}${another}`]) {
+      expect(paneColour(sheet, 'su-shi')).toBe(first);
+      expect(paneColour(sheet)).toBe(first);
+      expect(paneColour(sheet, 'another-figure')).toBe('#112233');
+    }
   });
 
   it('从给人看的那一页到图片文件的相对路径', () => {

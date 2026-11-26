@@ -97,7 +97,12 @@ export interface RealRouteScene {
 
 const builtRoutes = new Map<string, RealRouteScene>();
 
-/** 取一座全程沙盘：读场景和地形文件，算出地面（只算一次，不到一秒）。key 从 realSceneKeys('route') 来。 */
+/**
+ * 取一座全程沙盘：读场景和地形文件，算出地面（只算一次，不到一秒）。key 从 realSceneKeys('route') 来。
+ * 凭证的测试（../su-shi-witness.test.ts，经 ./witnessSubjects.ts）比的地面、路要的范围和取高度的函数就是从这里拿的：
+ * 这里只把沙盘程序算出来的东西原样交出去，不补数、不换数。造地面的办法换了叫法、多要几个数（比如留白的几个数改成从样式里取），
+ * 改的是下面那一句调用，交给它的要是沙盘程序自己用的那几个数。
+ */
 export function realRouteScene(key: string): RealRouteScene {
   const have = builtRoutes.get(key);
   if (have) return have;

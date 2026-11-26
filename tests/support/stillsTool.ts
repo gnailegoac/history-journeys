@@ -10,11 +10,14 @@
 import type { Page } from '@playwright/test';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { contentKey } from '../../src/domain/contentKey';
+import type { StopScene, TableScene } from '../../src/domain/scene';
 import type { StillManifest, StillShape, StillShapeSpec, StillShot } from '../../src/domain/stills';
+import { FAMILIES } from '../../src/stage/families';
+import { familiesOf } from '../../src/stage/three/kit/families';
 import type { StageInsets, StageShot } from '../../src/stage/types';
 import { STILL_MAX_BYTES } from '../content/budgetRules';
 import { pictureKey } from './pictureKey';
-import { PROGRAM_FILES, PROGRAM_FOLDERS, isProgramPath, programKey, type ProgramVersions } from './programKey';
+import { PROGRAM_FILES, PROGRAM_FOLDERS, ROUTE_LEVEL_FILES, isProgramPath, programKey, styleFilesIn, tableFiles, type ProgramVersions, type TableUse } from './programKey';
 
 export { STILL_MAX_BYTES };
 
@@ -311,13 +314,43 @@ function filesUnder(folder: string): string[] {
   return out;
 }
 
-/** 算在程序的记号里的文件，都读进来：“路径 → 字节”。 */
+/**
+ * 算在程序的记号里的文件，都读进来：“路径 → 字节”。各座沙盘的并在一起（共用的，每一种样式的，每一家零件的，全程沙盘才用的）：
+ * 哪一座沙盘算哪些，由 tableFiles 照 tableUse 从里面挑。
+ */
 export function readProgramFiles(): Record<string, Uint8Array> {
-  const paths = [...PROGRAM_FOLDERS.flatMap((folder) => filesUnder(folder)), ...PROGRAM_FILES, ...filesUnder('src/domain/')].filter(isProgramPath);
+  const paths = [...PROGRAM_FOLDERS.flatMap((folder) => filesUnder(folder)), ...PROGRAM_FILES, ...ROUTE_LEVEL_FILES, ...filesUnder('src/domain/')].filter(isProgramPath);
   const files: Record<string, Uint8Array> = {};
   for (const path of paths) {
     if (!fileExists(path)) throw new Error(`算程序的记号要读 ${path}，这个文件不在`);
     files[path] = readFile(path);
+  }
+  return files;
+}
+
+/**
+ * 这座沙盘用的是什么：场景文件里写的样式；场景里写到了哪几家零件的东西；是不是全程沙盘。
+ * 哪几家，和沙盘程序决定下载哪几家是同一个函数、同一张登记表（src/stage/three/kit/families.ts 的 familiesOf，src/stage/families.ts）；
+ * 全程沙盘上没有摆件和点缀，沙盘程序不给它取哪一家（src/stage/three/view.ts），这里也是一家没有。
+ */
+export function tableUse(scene: TableScene): TableUse {
+  const route = scene.level === 'route';
+  return { style: scene.style, route, families: route ? [] : familiesOf(scene as StopScene, FAMILIES).map((entry) => entry.name) };
+}
+
+/**
+ * 这座沙盘的记号要算的文件：“路径 → 字节”。scene 是它的场景文件解析出来的东西，name 是出了错时怎么称呼它（“人物/场景文件的名字”）。
+ * 场景里写的样式要是一个自己的文件也找不到（样式的名字写错了，或者算记号的程序还不认得这种样式），不悄悄算出一个没有样式的记号：停下来说清楚。
+ */
+export function readTableFiles(scene: TableScene, name = '这座沙盘'): Record<string, Uint8Array> {
+  const use = tableUse(scene);
+  const files = tableFiles(readProgramFiles(), use);
+  if (styleFilesIn(Object.keys(files), use.style).length === 0) {
+    throw new Error(
+      `${name}的场景文件里写的样式是“${use.style}”，算记号的时候没有找到这种样式自己的文件，记号算不出来。` +
+        '一种样式的文件，要么在 src/stage/three/style/ 里以它的名字命名的子文件夹里，要么在 tests/support/programKey.ts 的 STYLE_FILES 里它那一行点了名；' +
+        '场景里能写哪几种样式，npm run validate 会说。',
+    );
   }
   return files;
 }
@@ -336,10 +369,36 @@ export function groundKeyOf(baked: { pixels?: { colour?: string; fields?: string
   return contentKey(baked ? `${baked.pixels?.colour ?? ''}${baked.pixels?.fields ?? ''}` : '');
 }
 
-/** tokens.css 里沙盘栏的底色（--color-paper-sunk），小写的 '#rrggbb'。找不到是 null。 */
-export function paneColour(tokensCss: string): string | null {
-  const m = /--color-paper-sunk:\s*(#[0-9a-fA-F]{6})\s*;/.exec(tokensCss);
+/**
+ * tokens.css 里沙盘栏的底色（--color-paper-sunk），小写的 '#rrggbb'。找不到是 null。
+ * 写了 figureId：这位人物自己有一块的（选择符里带着 [data-figure='<人物>']，落在 .stage-pane 上——tokens.css 里说的再添一位人物时的写法），
+ * 读他那一块里的；没有他那一块、或者那一块里没有写这个颜色，读文件里的头一处（现在是苏轼的那一块，没有写人物）。不写 figureId 也是读头一处。
+ * 头一处：去掉注释、去掉写着人物的那几块（每个选择符里都带着 [data-figure…] 的）以后，文件里头一个写着这个颜色的地方。
+ * 别的人物的一块写在前面，也不会被当成头一处；注释里举的例子不算。苏轼读到的还是原来那个颜色。
+ */
+export function paneColour(tokensCss: string, figureId?: string): string | null {
+  const css = tokensCss.replace(/\/\*[\s\S]*?\*\//g, '');
+  const own = figureId === undefined ? null : figurePaneColour(css, figureId);
+  if (own) return own;
+  const unnamed = css.replace(/([^{}]*)\{([^{}]*)\}/g, (block: string, selectors: string) => (selectors.split(',').every((selector) => selector.includes('[data-figure')) ? '' : block));
+  const m = /--color-paper-sunk:\s*(#[0-9a-fA-F]{6})\s*;/.exec(unnamed);
   return m ? m[1].toLowerCase() : null;
+}
+
+/**
+ * 这位人物自己那一块里写的沙盘栏的底色；没有这一块、里面没有写，是 null。css 是去掉了注释的样式表。
+ * 那一块要落在沙盘栏上：选择符的最后一截就是 .stage-pane。写在沙盘栏里面的东西上的（[data-figure='…'] .stage-pane .strip）不是栏的底色。
+ */
+function figurePaneColour(css: string, figureId: string): string | null {
+  const marks = [`[data-figure='${figureId}']`, `[data-figure="${figureId}"]`];
+  const onPane = (selector: string): boolean => /\.stage-pane(?![\w-])/.test(selector.split(/[\s>+~]+/).pop() ?? '');
+  for (const block of css.matchAll(/([^{}]*)\{([^{}]*)\}/g)) {
+    const selectors = block[1].split(',').map((selector) => selector.trim());
+    if (!selectors.some((selector) => marks.some((mark) => selector.includes(mark)) && onPane(selector))) continue;
+    const m = /--color-paper-sunk:\s*(#[0-9a-fA-F]{6})\s*;/.exec(block[2]);
+    if (m) return m[1].toLowerCase();
+  }
+  return null;
 }
 
 /** 浏览器给的颜色（'rgb(235, 227, 211)'）写成 '#ebe3d3'。不是不透明的 rgb 时是 null。 */
@@ -349,16 +408,20 @@ export function hexColour(css: string): string | null {
   return `#${[m[1], m[2], m[3]].map((n) => Number(n).toString(16).padStart(2, '0')).join('')}`;
 }
 
-/** 一座沙盘的定格图是照什么拍的：四个记号，加上沙盘栏的底色。 */
+/**
+ * 一座沙盘的定格图是照什么拍的：四个记号，加上沙盘栏的底色。
+ * route 写 true：这是一座全程沙盘（“旧在哪里”的那句话里要说到全程沙盘才用的那一块）。
+ */
 export interface MadeFromNow {
   madeFrom: StillManifest['madeFrom'];
   background: string | null;
+  route?: boolean;
 }
 
 /** 照磁盘上现在的文件算：这座沙盘的定格图该是照什么拍的。工具拍的时候记下它，测试拿它和清单比。 */
 export function madeFromNow(figureId: string, stopId: string): MadeFromNow {
   const dir = `content/figures/${figureId}`;
-  const scene = JSON.parse(readText(`${dir}/scenes/${stopId}.json`)) as { terrain: { file: string } };
+  const scene = JSON.parse(readText(`${dir}/scenes/${stopId}.json`)) as TableScene;
   const bakedPath = `${dir}/baked/${stopId}.json`;
   const baked = fileExists(bakedPath) ? (JSON.parse(readText(bakedPath)) as { pixels?: { colour?: string; fields?: string } }) : null;
   return {
@@ -366,23 +429,33 @@ export function madeFromNow(figureId: string, stopId: string): MadeFromNow {
       scene: pictureKey(scene),
       terrain: contentKey(readFile(`${dir}/scenes/${scene.terrain.file}`)),
       ground: groundKeyOf(baked),
-      program: programKey(readProgramFiles(), programVersions()),
+      // 这座沙盘用得着的那些文件：共用的，它的样式的，它用到的那几家零件的；全程沙盘另加它才用的那一块
+      program: programKey(readTableFiles(scene, `${figureId}/${stopId}`), programVersions()),
     },
-    background: paneColour(readText('src/styles/tokens.css')),
+    background: paneColour(readText('src/styles/tokens.css'), figureId),
+    route: scene.level === 'route',
   };
 }
 
 // 不带 STILLS_OUT 的 npm run stills 只是试拍（存到 tests/shots/stills-trial/），不动仓库里的图：这里说的是真的往仓库里拍的那一条。
 const COMMAND = '运行 STILLS_OUT=content/figures npm run stills（见 README），再提交。';
 
-/** 五样东西各是什么变了（接在“某某的定格图是旧的：”后面）。 */
+/** 五样东西各是什么变了（接在“某某的定格图是旧的：”后面）。沙盘程序的那一句，全程沙盘另有一种说法（见 programChanged）。 */
 const WHAT_CHANGED = {
   scene: '场景文件里决定画面的部分改过了（镜头、题签指的点、范围、地形、水、摆件、点缀）',
   terrain: '地形文件换过了',
   ground: '先画好的地面重做过了',
-  program: '沙盘程序改过了（src/stage/three、src/stage/ground、src/stage/dev 和 src/domain/scene*.ts 里的文件，拍照的工具，或者 three、Playwright 的版本）',
+  program: '沙盘程序改过了（各座沙盘共用的部分，这座沙盘用的样式，它用到的那几家零件，拍照的工具，或者 three、Playwright 的版本）',
   background: '沙盘栏的底色改了（src/styles/tokens.css 里的 --color-paper-sunk）',
 } as const;
+
+/**
+ * 沙盘程序的记号对不上时说的那半句。记号是一座沙盘一个，括号里说的是这座沙盘的记号里算了哪几样
+ * （各是哪些文件，见 tests/support/programKey.ts）。全程沙盘不用哪一家零件，另有它才用的那一块。
+ */
+function programChanged(route: boolean): string {
+  return route ? '沙盘程序改过了（各座沙盘共用的部分，这座沙盘用的样式，全程沙盘才用的那一块，拍照的工具，或者 three、Playwright 的版本）' : WHAT_CHANGED.program;
+}
 
 /**
  * 存着的定格图旧在哪里：一样一句话，说出是什么变了、该跑哪条命令。空的就是不旧。
@@ -394,7 +467,7 @@ export function staleStills(name: string, manifest: { madeFrom?: Partial<StillMa
   const head = `${name}的定格图是旧的：`;
   const reasons: string[] = [];
   for (const key of ['scene', 'terrain', 'ground', 'program'] as const) {
-    if (manifest.madeFrom[key] !== now.madeFrom[key]) reasons.push(`${head}${WHAT_CHANGED[key]}。${COMMAND}`);
+    if (manifest.madeFrom[key] !== now.madeFrom[key]) reasons.push(`${head}${key === 'program' ? programChanged(now.route === true) : WHAT_CHANGED[key]}。${COMMAND}`);
   }
   if (manifest.made.background?.toLowerCase() !== now.background) reasons.push(`${head}${WHAT_CHANGED.background}。${COMMAND}`);
   return reasons;

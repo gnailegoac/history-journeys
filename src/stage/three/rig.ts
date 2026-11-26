@@ -14,11 +14,11 @@ import type { LngLat } from '../../domain/types';
 import { gateSeats } from '../ground';
 import type { GroundSamplers, Vec2, Vec3 } from '../ground/types';
 import type { StripInput } from '../overlay/types';
+import { wholeStyle } from './style';
 import type { StageInsets } from '../types';
-import type { FigureClass, LightSpec, StageStyle } from './internal';
+import type { FigureClass, LightSpec, StageStyle, StandStyle, TableStyle } from './internal';
 import { equivalentDistance, figureGroups, figureNow, figureTimes, liftClass, type FigureGroup } from './kit/figure';
 import { distSeg } from './kit/util';
-import { STAND_REACH, STAND_REACH_Y } from './table';
 
 // 折算过的远近 D 怎么算在 kit/figure.ts（它不碰 three）；镜头这一边也从这里取，别处说“rig.ts 的 equivalentDistance”就是它。
 export { equivalentDistance };
@@ -258,7 +258,7 @@ export function placeCamera(
   scene: TableScene,
   ground: GroundSamplers,
   coords: FrameCoords,
-  style: StageStyle,
+  style: TableStyle,
   size: { width: number; height: number },
   insets: StageInsets = NO_INSETS,
 ): PlacedCamera {
@@ -282,11 +282,12 @@ export function placeCamera(
 /**
  * 影子罩多大一块：一个方块，half 是半边长（米）。
  * 镜头近，罩得小，影子才细；最小 1250，最大到沙盘对角线的一半再加上装裱那一圈（整块沙盘，连它落在装裱上的影子，都罩得住）。
+ * 装裱那一圈多宽是样式的事：standReachM 是样式里座子最宽的那一圈伸出去多远（StandStyle.reachM）。
  * 中心平常是镜头对准的那一点（出了沙盘就取边上最近的一点）。罩得快有整块沙盘那么大时，中心往沙盘的正中靠，到头时就是正中：
  * 不然离对准的那一点远的那一角落在方块外面，沙盘的边落在装裱上的那一道影子画到半截就断了。
  */
-export function shadowBox(targetXZ: Vec2, distanceM: number, coords: FrameCoords): { centre: Vec2; half: number } {
-  const whole = Math.hypot(coords.x1 - coords.x0, coords.z1 - coords.z0) / 2 + STAND_REACH;
+export function shadowBox(targetXZ: Vec2, distanceM: number, coords: FrameCoords, standReachM: number): { centre: Vec2; half: number } {
+  const whole = Math.hypot(coords.x1 - coords.x0, coords.z1 - coords.z0) / 2 + standReachM;
   const half = MathUtils.clamp(0.56 * distanceM, 1250, whole);
   const toMiddle = MathUtils.smoothstep(half, 0.6 * whole, whole);
   const x = MathUtils.clamp(targetXZ[0], coords.x0, coords.x1);
@@ -459,10 +460,12 @@ function spotOf(strip: SceneStrip, scene: StopScene, ground: GroundSamplers, coo
  * 这几条题签各指着沙盘里的哪一点。D 是折算过的远近：模型跟着 D 放大，题签指着的那一点也跟着抬高、跟着挪。
  * 只跟 D 有关，跟镜头朝哪边没有关系：镜头转的时候不用重算，再投一遍（projectSpots）就行。
  */
-export function stripSpots(strips: SceneStrip[], scene: TableScene, ground: GroundSamplers, coords: FrameCoords, style: StageStyle, D: number): StripSpot[] {
+export function stripSpots(strips: SceneStrip[], scene: TableScene, ground: GroundSamplers, coords: FrameCoords, style: TableStyle, D: number): StripSpot[] {
   if (scene.level === 'route') return strips.map((strip) => routeSpot(strip, scene, ground, coords));
-  const groups = figureGroups(scene, style);
-  return strips.map((strip) => spotOf(strip, scene, ground, coords, style, D, groups));
+  // 站点沙盘要整套样式（模型跟着远近怎么变、题签抬多高）：全程沙盘只取了一半，到不了这里
+  const whole = wholeStyle(style);
+  const groups = figureGroups(scene, whole);
+  return strips.map((strip) => spotOf(strip, scene, ground, coords, whole, D, groups));
 }
 
 /**
@@ -516,7 +519,7 @@ function routePointsOfItem(id: string, scene: RouteScene, coords: FrameCoords): 
  * 没写就是这一节各条题签指着的点。有一处不同：写了 mustShow、又不是看整块沙盘的一节，这一节各条题签指着的点也算进去——
  * 全程沙盘上河的题签指在河上的一点，mustShow 里写不了“这一点”，写河又会把整条河都算进来。
  */
-function routeShowPoints(section: RouteSection, scene: RouteScene, ground: GroundSamplers, coords: FrameCoords): Vec3[] {
+function routeShowPoints(section: RouteSection, scene: RouteScene, ground: GroundSamplers, coords: FrameCoords, style: TableStyle): Vec3[] {
   const strips = section.strips.map((id) => scene.strips.find((s) => s.id === id)).filter((s): s is SceneStrip => s !== undefined);
   const spots = strips.map((strip) => routeSpot(strip, scene, ground, coords).at);
   const mustShow = section.camera.mustShow;
@@ -524,7 +527,7 @@ function routeShowPoints(section: RouteSection, scene: RouteScene, ground: Groun
   const points: Vec3[] = [];
   for (const id of mustShow) {
     if (id === 'frame') {
-      points.push(...framePoints(coords));
+      points.push(...framePoints(coords, style.stand));
       continue;
     }
     for (const p of routePointsOfItem(id, scene, coords)) {
@@ -591,11 +594,12 @@ function rapidsEnds(rapids: SceneRapids, scene: StopScene, coords: FrameCoords):
 /**
  * “整块沙盘”是哪几个点：沙盘的四个角，加上座子最宽那一圈的四个角。
  * 连座子一起算，是因为定稿的样张看整块沙盘时座子是完整的；只算沙盘的四个角，镜头会贴到座子被画面的边切掉。
+ * 座子最宽那一圈伸出去多远、多高是样式的事（stand 是样式的 stand）。
  */
-export function framePoints(coords: FrameCoords): Vec3[] {
+export function framePoints(coords: FrameCoords, stand: Pick<StandStyle, 'reachM' | 'reachY'>): Vec3[] {
   const { x0, x1, z0, z1 } = coords;
-  const r = STAND_REACH;
-  const y = STAND_REACH_Y;
+  const r = stand.reachM;
+  const y = stand.reachY;
   return [
     [x0, 0, z0],
     [x1, 0, z0],
@@ -623,10 +627,16 @@ export function showPoints(
   scene: TableScene,
   ground: GroundSamplers,
   coords: FrameCoords,
-  style: StageStyle,
+  style: TableStyle,
   viewHeightPx: number = REFERENCE_VIEW_HEIGHT_PX,
 ): Vec3[] {
-  if (scene.level === 'route') return routeShowPoints(section as RouteSection, scene, ground, coords);
+  if (scene.level === 'route') return routeShowPoints(section as RouteSection, scene, ground, coords, style);
+  // 站点沙盘要整套样式：全程沙盘只取了一半，到不了这里
+  return stopShowPoints(section, scene, ground, coords, wholeStyle(style), viewHeightPx);
+}
+
+/** 站点沙盘上这一小节画面再窄也要看得见的点（showPoints 的站点沙盘那一半；讲究都写在 showPoints 上面）。 */
+function stopShowPoints(section: SceneSection | RouteSection, scene: StopScene, ground: GroundSamplers, coords: FrameCoords, style: StageStyle, viewHeightPx: number): Vec3[] {
   const D = equivalentDistance(section.camera.distanceM, section.camera.fov ?? DEFAULT_FOV, viewHeightPx);
   const mustShow = section.camera.mustShow;
   if (!mustShow) {
@@ -637,7 +647,7 @@ export function showPoints(
   const points: Vec3[] = [];
   for (const id of mustShow) {
     if (id === 'frame') {
-      points.push(...framePoints(coords));
+      points.push(...framePoints(coords, style.stand));
       continue;
     }
     const lift = liftIn(id, scene, style, D, groups);
@@ -723,7 +733,7 @@ export function screenAnchors(
   scene: TableScene,
   ground: GroundSamplers,
   coords: FrameCoords,
-  style: StageStyle,
+  style: TableStyle,
   D: number,
   camera: Camera,
   size: { width: number; height: number },

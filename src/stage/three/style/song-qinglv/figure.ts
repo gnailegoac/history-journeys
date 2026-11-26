@@ -1,11 +1,11 @@
 // 宋代青绿设色这一种样式里，模型跟着镜头远近怎么变：每一类从多远起不再变小、最多放大几倍、放大到头时留几成、摊开几倍。
-// “远近”都是折算过的远近 D（见 ../kit/figure.ts 的 equivalentDistance）。怎么用这些数也在那个文件里。
+// “远近”都是折算过的远近 D（见 ../../kit/figure.ts 的 equivalentDistance）。怎么用这些数也在那个文件里。
 //
 // 这些数对着电脑上的图片（1440 × 900）调过两轮。竖着拿的平板上沙盘栏加高到屏幕的 56% 以后（768 × 573），
 // 对着那一种画面和横着拿的平板（584 × 768）的图片看过：要看的几样东西都够大，这张表没有再动。
 // holdFromM 是“这样东西本来多大 × 2428 ÷ 想让它在画面上至少多少像素”。括号里是徐州这座沙盘上属于这一类的东西。
 
-import type { FigureStyle } from '../internal';
+import type { FigureStyle } from '../../internal';
 
 export const SONG_QINGLV_FIGURE: FigureStyle = {
   rules: {

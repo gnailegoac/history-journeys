@@ -1,5 +1,6 @@
 // 给全程沙盘的地面上色的工具。从定稿的样张搬来（spikes/art-direction/route/scene/fields.js 的 prepare 和 build 里上色的那一半），
-// 加了类型；数从场景、地面和样式里来，不再从样张的数据文件来。它只是工具：src/ 里没有哪个文件引它，
+// 加了类型；数从场景、地面和样式里来，不再从样张的数据文件来。它是宋代青绿设色（'song-qinglv'）这一种样式的画法：
+// 一种样式一个画法，哪种样式用哪一个，登记在 ./painters.ts。它只是工具：src/ 里没有哪个文件引它，
 // 所以不进任何一块发出去的程序——全程沙盘的地面不在页面上现画，页面只取这里画好的两张图。
 // 谁用它：npm run bake（tests/tools/bake-ground.test.ts）画出来存进 content/；tests/stage/baked-fresh.test.ts 重画一遍，
 // 看存着的是不是还和现在的场景、程序、今天的海岸湖河对得上。只算数，不碰磁盘，不碰浏览器。
@@ -25,7 +26,7 @@
 //   海和湖是这里画进去的（样张是着色器现画的）：混色照样在线性的光里算，画出来和样张是一个颜色；
 //   山的颜色照整理过的地面（平原抹成缓坡以后的）上，不照今天的地形；留白那一步压过的地方照没压以前的上；
 //   每个点自己跳的那一点颗粒不要了（压成 JPEG 就糊了，还白占字节）；只染水色的水上面那几道水纹也不画；
-//   留白的边是场景里写的圈，西边的两条边由地面那边用噪声打散（src/stage/ground/route.ts 的 blankKeep），这里的颜色跟着它；
+//   留白的边是场景里写的圈，西边的两条边由地面那边用噪声打散（src/stage/ground/route.ts 的 blankKeep，数在样式的 route.blank 里），这里的颜色跟着它；
 //   水纹的标记离海岸远一些才有（样张贴着岸边那道白就画）。
 
 import type { RouteScene } from '../../../src/domain/scene';
@@ -33,12 +34,72 @@ import type { FrameCoords } from '../../../src/domain/sceneGeo';
 import type { LngLat } from '../../../src/domain/types';
 import { clamp, fbm, hash2, hex, mix3, smoothstep } from '../../../src/stage/ground/num';
 import { curveInverse } from '../../../src/domain/sceneGeoRoute';
-import { BLANK_BLUR_M, keepAt, routePictureSize } from '../../../src/stage/ground/route';
+import { keepAt, routePictureSize } from '../../../src/stage/ground/route';
 import type { RouteGround } from '../../../src/stage/ground/route';
 import type { Vec2, Vec3 } from '../../../src/stage/ground/types';
-import type { RouteRiverWidth, StageStyle } from '../../../src/stage/three/internal';
+import type { StageStyle } from '../../../src/stage/three/internal';
 import { pickedLakes, pickedLines } from '../../content/routeRules';
 import type { TodayFeature } from '../../content/routeRules';
+
+/** 画河用的粗细分几等：干流、大河、河、小河，和运河。 */
+export type RouteRiverWidth = 'trunk' | 'major' | 'river' | 'minor' | 'canal';
+
+/**
+ * 这个画法自己的数。数都是定稿的样张的（spikes/art-direction/route/scene/ 里 palette.js、fields.js 的 PAINT 和河宽）。
+ * 2026-11-26 以前它们写在样式里（RouteStyle 的 riverKm、colours、bands），随沙盘程序发给读者，可沙盘程序从来不读：搬到了这里，一个数没有改。
+ * riverKm：河画多宽（地上的公里），按场景里写的 weight；canal 是运河。比实际宽得多，远看才是一条河。
+ * colours：站点沙盘的地面颜色（样式的 ground.colours）里没有、或者这里不一样的几种——loess 北方的黄土地，sand 河岸留白，
+ *   shoreInk 留白的地方的海岸线，sea 和 seaDeep 海和湖的浅处、深处，river 照今天画的河，riverSong 示意的河和运河。
+ * bands：山上的分带。比着的数是“比四周低处高出多少米 × relK + 海拔 × hK”，再加一点随机（noise）。
+ *   foot、green、blue、deep：从多少到多少匀着过渡成赭石、石绿、石青、深石青；footK、blueK 是盖上去几成。
+ *   rank：在自己这条山脉里排到多靠前（0 到 1）才上石青；rankCurv 是山脊凸出来的那一点加分。
+ *   steep：坡度从多少到多少匀着出皴。patch：平地上那些淡淡的块盖上去几成。
+ */
+export const SONG_QINGLV_PAINT: {
+  riverKm: Record<RouteRiverWidth, number>;
+  colours: Record<'loess' | 'sand' | 'shoreInk' | 'sea' | 'seaDeep' | 'river' | 'riverSong', string>;
+  bands: {
+    relK: number;
+    hK: number;
+    noise: number;
+    foot: [number, number];
+    footK: number;
+    green: [number, number];
+    blue: [number, number];
+    blueK: number;
+    rank: [number, number];
+    rankCurv: number;
+    deep: [number, number];
+    steep: [number, number];
+    patch: number;
+  };
+} = {
+  riverKm: { trunk: 8, major: 4.6, river: 3.6, minor: 2.8, canal: 1.8 },
+  colours: {
+    loess: '#dcc592',
+    sand: '#ebe1c2',
+    shoreInk: '#a8936a',
+    sea: '#b3ccd0',
+    seaDeep: '#93b6c1',
+    river: '#6f9db2',
+    riverSong: '#93b3bd',
+  },
+  bands: {
+    relK: 1.0,
+    hK: 0.2,
+    noise: 70,
+    foot: [110, 240],
+    footK: 0.6,
+    green: [240, 540],
+    blue: [520, 900],
+    blueK: 0.92,
+    rank: [0.62, 0.92],
+    rankCurv: 1 / 500,
+    deep: [1500, 2600],
+    steep: [0.22, 0.6],
+    patch: 0.24,
+  },
+};
 
 /** 样张的两个尺寸：颜色图一个点合多少公里，高程一格多少公里。样张里按“几个点”“几格”写的数，在这里先换成公里再用。 */
 const TRIAL_KM_PER_POINT = 2001 / 1812;
@@ -379,9 +440,8 @@ export interface RiverPath {
  * 场景里每一条河画成什么线、多宽、用哪种颜色。自己写的线（line）过每一个写出来的点，中间加密成顺滑的（约 6 公里一个点）；
  * 照今天画的（today）是文件里取出来的线。下一步给水路让出河面时也要用这同一份线。
  */
-export function riverPaths(scene: RouteScene, features: TodayFeature[], coords: FrameCoords, style: StageStyle): RiverPath[] {
-  const route = style.route;
-  if (!route) throw new Error(`样式“${scene.style}”没有全程沙盘的那一份`);
+export function riverPaths(scene: RouteScene, features: TodayFeature[], coords: FrameCoords): RiverPath[] {
+  const route = SONG_QINGLV_PAINT;
   const stepM = 6000 / scene.frame.scale;
   return scene.water.rivers.map((river) => {
     const width: RouteRiverWidth = river.kind === 'canal' ? 'canal' : (river.weight ?? 'minor');
@@ -412,8 +472,11 @@ const linear3 = (c: Vec3): Vec3 => [linear(c[0]), linear(c[1]), linear(c[2])];
 /** 给全程沙盘的地面上色。同样的输入画出同样的字节。 */
 export function paintRoute(input: RoutePaintInput): RoutePainted {
   const { scene, coords, ground, features, style } = input;
-  const route = style.route;
-  if (!route) throw new Error(`样式“${scene.style}”没有全程沙盘的那一份`);
+  const route = SONG_QINGLV_PAINT;
+  // 留白的边抹开多宽：和造地面的时候用的是样式里的同一个数
+  const blankEdge = style.route?.blank;
+  if (!blankEdge) throw new Error(`样式“${scene.style}”没有全程沙盘的那一份`);
+  const BLANK_BLUR_M = blankEdge.blurM;
   const { nx, nz, cell } = ground;
   const { w: W, h: H } = routePictureSize(ground);
   const POINTS = (W - 1) / (nx - 1);
@@ -457,7 +520,7 @@ export function paintRoute(input: RoutePaintInput): RoutePainted {
   // 河：照今天画的一层，淡的一层（示意的河、运河）。线还是 riverPaths() 的线，一个点也不挪；只是空着的一头收细
   const riv = new Float32Array(W * H);
   const rivPale = new Float32Array(W * H);
-  const drawn =riverPaths(scene, features, coords, style).flatMap((river) => river.lines.filter((line) => line.length >= 2).map((line) => ({ river, pts: line.map(localToPoint) })));
+  const drawn =riverPaths(scene, features, coords).flatMap((river) => river.lines.filter((line) => line.length >= 2).map((line) => ({ river, pts: line.map(localToPoint) })));
   const joinPts = RIVER_JOIN_KM / kmPerPoint;
   const edgePts = RIVER_EDGE_KM / kmPerPoint;
   const pointAt = (p: Vec2): number => clamp(Math.floor(p[1]), 0, H - 1) * W + clamp(Math.floor(p[0]), 0, W - 1);

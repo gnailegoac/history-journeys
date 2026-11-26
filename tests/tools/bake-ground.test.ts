@@ -34,7 +34,7 @@ import type { StopScene } from '../../src/domain/scene';
 import { buildFields, paintColour, readDem } from '../../src/stage/ground';
 import type { Ground } from '../../src/stage/ground/types';
 import { colourBytes, fieldBytes, groundInputs, groundPictureSize } from '../../src/stage/three/groundPaint';
-import { styleFor } from '../../src/stage/three/style';
+import { styleFor } from '../stage/support/styles';
 import { COLOUR_PSNR_MIN, COLOUR_PSNR_MIN_ROUTE, TABLE_FILES_MAX_BYTES, edgeTooLong, psnrTooLow, tableFiles, withCommas } from '../content/budgetRules';
 import { realScene, realSceneFile, realSceneKeys } from '../stage/support/realScenes';
 import { fixtureScene, fixtureTerrainBytes } from '../support/fixtureScene';

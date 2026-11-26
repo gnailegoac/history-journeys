@@ -10,6 +10,7 @@ import type { RouteScene, StopScene } from '../../src/domain/scene';
 import { routeCoords } from '../../src/domain/sceneGeoRoute';
 import { sectionInfo } from '../../src/domain/sceneText';
 import type { Figure, LngLat } from '../../src/domain/types';
+import { STYLES } from '../../src/stage/styles';
 import { MADE_FILES_PENDING, includePendingFrom, isPending, tablesToMake } from '../support/pendingTables';
 import { fileSize, readBytes } from '../support/readBytes';
 import { toContentFiles, toFileKeys, toFileSizes, toPictureSizes } from './files';
@@ -257,6 +258,10 @@ describe('规则 10 场景文件（全程沙盘）', () => {
 
   it('样式、用了谁的数据', () => {
     expect(looseProblems<{ style: string }>((s) => (s.style = 'tang'))).toEqual(['10 style']);
+    // 有哪几种样式，照样式的登记表（src/stage/styles.ts）：那句话把表里的名字都列出来；表里的每一种都认
+    const said = validateContent(edit<{ style: string }>(ROUTE, (s) => (s.style = 'tang')), SIZES, {}, {}, false).filter((v) => v.rule === 10 && v.field === 'style');
+    expect(said.map((v) => v.problem)).toEqual([`样式“tang”程序里没有；有的是：${STYLES.map((row) => row.id).join('、')}`]);
+    for (const { id } of STYLES) expect(looseProblems<{ style: string }>((s) => (s.style = id))).toEqual([]);
     expect(routeProblems((s) => s.credits.pop())).toEqual(['10 credits']);
     expect(routeProblems((s) => (s.credits[1] = ' '))).toEqual(['10 credits[1]']);
   });

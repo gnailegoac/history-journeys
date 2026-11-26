@@ -10,7 +10,7 @@ import { mountStrips, placeStrips, sideOfSlot } from '../../src/stage/overlay';
 import type { StripInput, StripPlacement, StripSpec } from '../../src/stage/overlay';
 import { PIECE_NAME } from '../../src/stage/overlay/placeAround';
 import { centreShift, equivalentDistance, placeCamera, screenAnchors } from '../../src/stage/three/rig';
-import { styleFor } from '../../src/stage/three/style';
+import { styleFor } from '../stage/support/styles';
 import type { StageInsets } from '../../src/stage/types';
 import { realRouteScene, realScene, realSceneKeys } from '../stage/support/realScenes';
 import { HOME_PANES, STANDARD_PANES } from '../stage/support/standardPanes';

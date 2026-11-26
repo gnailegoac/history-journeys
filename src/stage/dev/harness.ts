@@ -20,7 +20,7 @@ import { loadStopTable } from '../../domain/sceneContent';
 import { sectionInfo } from '../../domain/sceneText';
 import { stopMarks } from '../../domain/stopMarks';
 import { loadStageEngine, stillEngine } from '../index';
-import { styleFor } from '../three/style';
+import { STYLES } from '../styles';
 import type { NamesMode, StageInsets, StageTier, StageViewInfo, StopStageView } from '../types';
 
 const params = new URLSearchParams(location.search);
@@ -63,8 +63,9 @@ if (background !== null) {
 /**
  * 网址上写了 sky=night 和 moon 的话，把这座沙盘的每一小节都改成夜里；写了 sheenmoon 的话，水面的亮照那个高度的月亮算。
  * 要在沙盘摆出来以前做。写得不对就什么也不改，在控制台里说一句。
+ * 样式是照登记表取的（和沙盘摆的时候取到的是同一份）：水面的亮改在它身上，沙盘就照改过的算。
  */
-function tryNight(scene: TableScene): void {
+async function tryNight(scene: TableScene): Promise<void> {
   if (params.get('sky') !== 'night') return;
   const [azimuth, altitude] = (params.get('moon') ?? '').split(',').map(Number);
   if (scene.level === 'route' || !(azimuth >= 0 && azimuth <= 360) || !(altitude > 0 && altitude < 90)) {
@@ -77,7 +78,9 @@ function tryNight(scene: TableScene): void {
   }
   const sheenMoon = Number(params.get('sheenmoon'));
   if (!(sheenMoon > 0)) return;
-  const style = styleFor(scene.style);
+  const row = STYLES.find((entry) => entry.id === scene.style);
+  if (!row) return;
+  const { style } = await row.load();
   const usual = style.light;
   style.light = (sky, moon) => {
     const light = usual(sky, moon);
@@ -186,7 +189,7 @@ async function mount(): Promise<void> {
   }
   // 读内容的程序还只认站点沙盘（它给的类型写的是站点沙盘的场景）：route.json 读出来其实是全程沙盘，在这里认出来
   const scene = table.scene as TableScene;
-  tryNight(scene);
+  await tryNight(scene);
   describeScene = scene;
   headings = scene.sections.map((s) => s.heading);
   if (!headings.includes(current)) current = headings[0] ?? '';

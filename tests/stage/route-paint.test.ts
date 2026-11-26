@@ -9,11 +9,12 @@ import { routeCoords } from '../../src/domain/sceneGeoRoute';
 import type { LngLat } from '../../src/domain/types';
 import { hex } from '../../src/stage/ground/num';
 import { buildRouteGround, keepAt, readRouteDem, routePictureSize } from '../../src/stage/ground/route';
-import { styleFor } from '../../src/stage/three/style';
+import { STYLE_IDS, blankEdgeFor, styleFor } from './support/styles';
 import { readToday } from '../content/routeRules';
 import { readBytes } from '../support/readBytes';
 import { routeBakeParts } from '../tools/route/bakeRoute';
-import { coverage, densify, gauss, paintRoute, riverPaths } from '../tools/route/paint';
+import { SONG_QINGLV_PAINT, coverage, densify, gauss, paintRoute, riverPaths } from '../tools/route/paint';
+import { ROUTE_PAINTERS, routePainterFor, routeRiversFor } from '../tools/route/painters';
 import { realRouteScene, realSceneKeys } from './support/realScenes';
 
 const FIXTURE = 'tests/content/fixtures/good/figures/demo/scenes/';
@@ -24,7 +25,7 @@ function sample() {
   const today = readToday({ today: text(scene.water.todayFile) }, 'today');
   if (!today || 'problem' in today) throw new Error('样本里今天的海岸、湖、河读不出来');
   const coords = routeCoords(scene.frame);
-  const ground = buildRouteGround(scene, readRouteDem(scene.terrain, readBytes(`${FIXTURE}${scene.terrain.file}`)), coords);
+  const ground = buildRouteGround(scene, readRouteDem(scene.terrain, readBytes(`${FIXTURE}${scene.terrain.file}`)), coords, blankEdgeFor(scene.style));
   return { scene, coords, ground, features: today.features, style: styleFor(scene.style) };
 }
 
@@ -62,8 +63,6 @@ describe('栅格小工具', () => {
 describe('在样本上画一遍', () => {
   const S = sample();
   const painted = paintRoute(S);
-  const route = S.style.route;
-  if (!route) throw new Error('样式里没有全程沙盘的那一份');
   const { cell } = S.ground;
   /** 经纬度上这一点落在图上的哪个点。 */
   const at = (p: LngLat): number => {
@@ -91,7 +90,7 @@ describe('在样本上画一遍', () => {
 
   it('海：离岸远的地方是深一点的花青，标着画水纹；岸边发白，不画水纹', () => {
     const far: LngLat = [114.98, 29.0];
-    const deep = hex(route.colours.seaDeep);
+    const deep = hex(SONG_QINGLV_PAINT.colours.seaDeep);
     const got = rgb(far);
     for (let c = 0; c < 3; c++) expect(Math.abs(got[c] - deep[c]), `离岸远的海的颜色 ${got.join(',')}，深的花青是 ${deep.join(',')}`).toBeLessThanOrEqual(3);
     expect(mark(far)).toBeGreaterThan(230);
@@ -131,11 +130,11 @@ describe('在样本上画一遍', () => {
   });
 
   it('河：照今天画的河深，示意的河淡；河有多宽照样式里的公里数；运河最细', () => {
-    const paths = riverPaths(S.scene, S.features, S.coords, S.style);
+    const paths = riverPaths(S.scene, S.features, S.coords);
     expect(paths.map((p) => [p.id, p.pale, p.widthKm])).toEqual([
-      ['long', false, route.riverKm.trunk],
-      ['south-stream', true, route.riverKm.river],
-      ['cut', true, route.riverKm.canal],
+      ['long', false, SONG_QINGLV_PAINT.riverKm.trunk],
+      ['south-stream', true, SONG_QINGLV_PAINT.riverKm.river],
+      ['cut', true, SONG_QINGLV_PAINT.riverKm.canal],
     ]);
     // 自己写的线过每一个写出来的点
     const written = S.scene.water.rivers[1].line ?? [];
@@ -163,10 +162,10 @@ describe('在样本上画一遍', () => {
     };
     const trunk = across([111.85, 29.9]);
     const canal = across([110.3, 29.65]);
-    expect(trunk / 1.13).toBeGreaterThan(route.riverKm.trunk * 0.75);
-    expect(trunk / 1.13).toBeLessThan(route.riverKm.trunk * 1.25);
-    expect(canal / 1.56).toBeGreaterThan(route.riverKm.canal * 0.6);
-    expect(canal / 1.56).toBeLessThan(route.riverKm.canal * 1.6);
+    expect(trunk / 1.13).toBeGreaterThan(SONG_QINGLV_PAINT.riverKm.trunk * 0.75);
+    expect(trunk / 1.13).toBeLessThan(SONG_QINGLV_PAINT.riverKm.trunk * 1.25);
+    expect(canal / 1.56).toBeGreaterThan(SONG_QINGLV_PAINT.riverKm.canal * 0.6);
+    expect(canal / 1.56).toBeLessThan(SONG_QINGLV_PAINT.riverKm.canal * 1.6);
     expect(trunk).toBeGreaterThan(canal * 2);
     // 空着的一头收细：长河东头断在平地上（不接别的河，不在湖里，没到海边），离头十公里的地方不到中段一半宽
     const nearEnd = across([112.4, 29.646]);
@@ -185,6 +184,55 @@ describe('在样本上画一遍', () => {
     for (let d = -30; d < 30; d++) {
       for (let c = 0; c < 3; c++) expect(Math.abs(painted.colour[(k0 + d) * 3 + c] - painted.colour[(k0 + d + 1) * 3 + c])).toBeLessThan(6);
     }
+  });
+});
+
+describe('一种样式一个画法（tests/tools/route/painters.ts）', () => {
+  it('content/ 里每一座全程沙盘写的样式都有画法；有画法的样式都在样式的登记表里；没有画法的样式说得出', () => {
+    const keys = realSceneKeys('route');
+    expect(keys.length).toBeGreaterThan(0);
+    for (const key of keys) {
+      const style = realRouteScene(key).scene.style;
+      expect(Object.keys(ROUTE_PAINTERS), `${key} 的样式“${style}”`).toContain(style);
+      expect(typeof routePainterFor(style)).toBe('function');
+    }
+    for (const style of Object.keys(ROUTE_PAINTERS)) expect(STYLE_IDS, `画法登记的样式“${style}”`).toContain(style);
+    expect(() => routePainterFor('zz-none')).toThrow(/^样式“zz-none”还没有全程沙盘地面的画法（tests\/tools\/route\/painters\.ts）；有画法的是：/);
+    // 对象自己带的名字不算一种样式
+    expect(() => routePainterFor('constructor')).toThrow('还没有全程沙盘地面的画法');
+  });
+
+  it('画在地面上的河也是一种样式一份：宋代青绿设色的就是 paint.ts 的 riverPaths，河宽是它的；没有画法的样式要河的线，说一句就停，不拿别的样式的河宽来顶', () => {
+    // 做岸线的工具（npm run route:bank）和量“沿河的路离河多远”的测试（tests/stage/route-roads.test.ts）照场景里写的样式从这张表里取河的线
+    expect(routeRiversFor('song-qinglv')).toBe(riverPaths);
+    for (const [style, row] of Object.entries(ROUTE_PAINTERS)) {
+      expect(typeof row.paint, style).toBe('function');
+      expect(typeof row.rivers, style).toBe('function');
+      expect(routePainterFor(style)).toBe(row.paint);
+      expect(routeRiversFor(style)).toBe(row.rivers);
+    }
+    const S = sample();
+    expect(routeRiversFor(S.scene.style)(S.scene, S.features, S.coords).map((p) => [p.id, p.widthKm])).toEqual([
+      ['long', SONG_QINGLV_PAINT.riverKm.trunk],
+      ['south-stream', SONG_QINGLV_PAINT.riverKm.river],
+      ['cut', SONG_QINGLV_PAINT.riverKm.canal],
+    ]);
+    // 另一种样式的全程沙盘（名字是编的，没有画法）：要河的线，得到的是一句话，不是宋代青绿设色的河
+    expect(() => routeRiversFor('zz-none')).toThrow(/^样式“zz-none”还没有全程沙盘地面的画法（tests\/tools\/route\/painters\.ts）；有画法的是：/);
+    expect(() => routeRiversFor('constructor')).toThrow('还没有全程沙盘地面的画法');
+  });
+
+  it('宋代青绿设色的画法就是 paint.ts 的那一个；它自己的数原来写在样式里，搬过来一个没有改', () => {
+    expect(routePainterFor('song-qinglv')).toBe(paintRoute);
+    // 搬出来以后，发给读者的样式里没有这三组了
+    const shipped = styleFor('song-qinglv').route as unknown as Record<string, unknown>;
+    for (const name of ['riverKm', 'colours', 'bands']) expect(shipped[name], name).toBeUndefined();
+    // 搬以前写在 src/stage/three/style/songQinglv.ts 的 ROUTE 里的数，一个字不差
+    expect(SONG_QINGLV_PAINT).toEqual({
+      riverKm: { trunk: 8, major: 4.6, river: 3.6, minor: 2.8, canal: 1.8 },
+      colours: { loess: '#dcc592', sand: '#ebe1c2', shoreInk: '#a8936a', sea: '#b3ccd0', seaDeep: '#93b6c1', river: '#6f9db2', riverSong: '#93b3bd' },
+      bands: { relK: 1.0, hK: 0.2, noise: 70, foot: [110, 240], footK: 0.6, green: [240, 540], blue: [520, 900], blueK: 0.92, rank: [0.62, 0.92], rankCurv: 1 / 500, deep: [1500, 2600], steep: [0.22, 0.6], patch: 0.24 },
+    });
   });
 });
 

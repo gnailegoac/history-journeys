@@ -12,9 +12,8 @@
 //   它答“降”，这座沙盘从此不再画，通知页面（onSlow）；评的线、降到哪一档，这里一概不知道。
 //   零件库只通过 buildModels 和 ModelSet 用（按家分块的零件怎么取，另从 kit/families.ts 拿：familiesOf、loadFamilies），题签只通过 mountStrips 和 StripLayer 用。
 
-import { DirectionalLight, Fog, HemisphereLight, MathUtils, PMREMGenerator, PerspectiveCamera, Scene, Vector3, type WebGLRenderer } from 'three';
+import { DirectionalLight, Fog, HemisphereLight, MathUtils, PerspectiveCamera, Scene, Vector3, type WebGLRenderer } from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import type { RouteSection, SceneSection, SceneStrip, TableScene } from '../../domain/scene';
 import type { FrameCoords } from '../../domain/sceneGeo';
 import { coordsOf } from '../../domain/sceneGeoRoute';
@@ -26,7 +25,7 @@ import type { StripInput, StripLayer } from '../overlay/types';
 import type { NamesMode, PiecePlace, RouteTable, StageInsets, StageOptions, StageReadout, StageShot, StageTable, StageTier, StageViewInfo, StopStageView, StopTable } from '../types';
 import { beginGroundPaint, type GroundPaintJob } from './groundPaint';
 import { nextFrame, nextPaint, type Lease, type StageHost } from './host';
-import type { LightSpec, ModelSet, StageStyle } from './internal';
+import type { LightSpec, ModelSet, Stand, StageStyle, TableStyle } from './internal';
 import { buildModels } from './kit';
 import { familiesOf, loadFamilies } from './kit/families';
 import { buildMist, type Mist } from './mist';
@@ -34,8 +33,7 @@ import type { Piece } from './piece';
 import { pixelRatioFor, qualityFor } from './quality';
 import { centreShift, chooseScale, equivalentDistance, lightDim, northDeg, pixelsPerMetre, placeCamera, project, projectSpots, shadowBox, shadowTuning, stripSpots, type StripSpot } from './rig';
 import { Sequencer, mixState, type Glide, type TableState } from './sequencer';
-import { styleFor } from './style';
-import { buildTable, type Stand } from './table';
+import { loadStyle, wholeStyle } from './style';
 import { buildTerrainMesh, type TerrainMesh } from './terrainMesh';
 import { TRIAL_FRAMES, bigEnoughToTry, chooseTier, createGlideMeter, middle, type GlideMeter, type TierMode } from './tier';
 import { buildWater, rippleDense, rippleFor, rippleShare, rippleTurn, widestRiverM, type Water } from './water';
@@ -180,7 +178,11 @@ class ThreeStopView implements StopStageView {
   private readonly loadRoute: RouteLevelLoader;
   private readonly scene: TableScene;
   private readonly coords: FrameCoords;
-  private readonly style: StageStyle;
+  /**
+   * 这座沙盘的样式：造沙盘的时候取到（见 build），造好以前没有。用它的地方都在造好以后。
+   * 全程沙盘只取每一座沙盘都用的那一半；站点沙盘取的是整套，造它地面以上的东西时拿整套的去造（buildStopParts）。
+   */
+  private style!: TableStyle;
   private readonly sequencer: Sequencer;
   private namesMode: NamesMode;
   private insets: StageInsets;
@@ -292,7 +294,6 @@ class ThreeStopView implements StopStageView {
     this.loadRoute = loadRoute ?? (() => Promise.reject(new Error('全程沙盘的程序没有取到，沙盘没能摆出来')));
     this.scene = table.scene;
     this.coords = coordsOf(this.scene);
-    this.style = styleFor(this.scene.style);
     this.namesMode = options.namesMode;
     this.insets = options.insets ?? NO_INSETS;
 
@@ -446,9 +447,11 @@ class ThreeStopView implements StopStageView {
   private setPiece(): boolean {
     const b = this.built;
     const level = this.routeLevel;
+    // 先看造好了没有：样式是造沙盘的时候才取到的
+    if (!b || !level || this.slow || this.scene.level !== 'route') return false;
     const colours = this.style.piece;
     const liftM = this.style.route?.roads.liftM;
-    if (!b || !level || !colours || liftM === undefined || this.slow || this.scene.level !== 'route') return false;
+    if (!colours || liftM === undefined) return false;
     const where = this.pieceTucked ? null : this.pieceAt;
     const foot = where && level.pieceFoot(this.scene, this.coords, b.samplers, liftM, where);
     if (where && !foot) console.warn('[沙盘] 小像要站的地方，沙盘上没有：', where);
@@ -578,12 +581,16 @@ class ThreeStopView implements StopStageView {
 
   private async build(): Promise<void> {
     try {
+      // 这座沙盘的样式是单独的小块程序：一上来就取（这时沙盘程序刚到；它比地形文件早一步上路，和地形文件、全程沙盘那一块一起在路上），
+      // 到造地面以上的东西以前才等它。没取到的缘故留到等它的时候再说；这里先接住，免得成了没人管的错误
+      const styled = loadStyle(this.scene.style, this.scene.level === 'route' ? 'route' : 'stop');
+      styled.catch(() => {});
       // 先让浏览器把页面上“正在摆”的那句话画出来（等两帧：第一帧之后页面才真的画过一次）
       await nextPaint();
       await nextPaint();
       if (this.destroyed) return;
 
-      const { scene, style, host } = this;
+      const { scene, host } = this;
       if (scene.sections.length === 0) throw new Error('场景里一个小节也没有');
 
       // 照哪一档画质摆：页面指定了就照指定的，没指定就用这一次访问到现在还撑得住的最高一档。
@@ -627,9 +634,13 @@ class ThreeStopView implements StopStageView {
       if (!response.ok) throw new Error(`地形文件读不出来（${response.status}）`);
       const bytes = await response.arrayBuffer();
       if (gone()) return;
+      // 样式到了才往下造（它和地形文件是一起在路上的，不多等一个来回）；没取到，这座沙盘摆不出来
+      const style = await styled;
+      if (gone()) return;
+      this.style = style;
 
       // 地面往上的几样：站点沙盘和全程沙盘各有各的造法
-      const parts = starting.kind === 'route' ? await this.buildRouteParts(starting.table, await starting.begun, bytes, lease) : await this.buildStopParts(starting.table, starting.paint, bytes, lease);
+      const parts = starting.kind === 'route' ? await this.buildRouteParts(starting.table, await starting.begun, bytes, lease) : await this.buildStopParts(starting.table, starting.paint, bytes, lease, wholeStyle(style));
       if (!parts) return;
       const { samplers, terrain, water, mist, stand, models } = parts;
       const first = this.sequencer.section;
@@ -642,14 +653,8 @@ class ThreeStopView implements StopStageView {
       world.fog = scene.level === 'route' ? null : fog;
       world.add(terrain.group, water.group, mist.group, models.group, stand.group);
 
-      // 紫檀要一点环境反光；别的材质都是不反光的
-      const pmrem = new PMREMGenerator(renderer);
-      const room = new RoomEnvironment();
-      const environment = pmrem.fromScene(room, 0.04);
-      stand.wood.envMap = environment.texture;
-      pmrem.dispose();
-      room.dispose();
-      this.keep(() => environment.dispose());
+      // 座子上要不要环境反光、要什么样的，是样式的事（宋代青绿设色的紫檀要一点）：在这里让它配上，交回来的函数收场时叫
+      this.keep(stand.reflect(renderer));
 
       // 灯：一盏太阳光（唯一投影的灯），加天光补亮。颜色、方向是样式定的，摆第一节时安上
       const hemi = new HemisphereLight();
@@ -715,8 +720,8 @@ class ThreeStopView implements StopStageView {
    * 站点沙盘地面往上的几样：读高程，整理和挖河，上色，地形板，水面，云气，座子，小模型。
    * 和接进全程沙盘以前是同样的几步、同样的先后，每一段之间让浏览器喘口气。半路这座沙盘不要了，返回 null。
    */
-  private async buildStopParts(table: StopTable, groundPaint: GroundPaintJob, bytes: ArrayBuffer, lease: Lease<HTMLCanvasElement, WebGLRenderer>): Promise<TableParts | null> {
-    const { coords, style } = this;
+  private async buildStopParts(table: StopTable, groundPaint: GroundPaintJob, bytes: ArrayBuffer, lease: Lease<HTMLCanvasElement, WebGLRenderer>, style: StageStyle): Promise<TableParts | null> {
+    const { coords } = this;
     const scene = table.scene;
     const { renderer, quality } = lease;
     const gone = (): boolean => lease.signal.aborted;
@@ -753,7 +758,7 @@ class ThreeStopView implements StopStageView {
 
     const mist = buildMist({ ground, samplers, coords, scene, style, layers: quality.mistLayers });
     this.keep(mist.dispose);
-    const stand = buildTable(coords, style.palette);
+    const stand = style.stand.build(coords, style.palette);
     this.keep(stand.dispose);
     await nextPaint();
     if (gone()) return null;
@@ -786,7 +791,7 @@ class ThreeStopView implements StopStageView {
     const routeStyle = style.route;
     if (!routeStyle) throw new Error(`样式“${scene.style}”还摆不了全程沙盘`);
 
-    const ground = level.buildRouteGround(scene, level.readRouteDem(scene.terrain, bytes), coords);
+    const ground = level.buildRouteGround(scene, level.readRouteDem(scene.terrain, bytes), coords, routeStyle.blank);
     await nextPaint();
     if (gone()) return null;
     const paint = await begun.paint.finish(scene, ground, bytes);
@@ -810,7 +815,7 @@ class ThreeStopView implements StopStageView {
     this.keep(terrain.dispose);
     const water = level.routeWater(terrain.uniforms);
     const mist = level.routeMist();
-    const stand = buildTable(coords, style.palette);
+    const stand = style.stand.build(coords, style.palette);
     this.keep(stand.dispose);
     await nextPaint();
     if (gone()) return null;
@@ -929,7 +934,7 @@ class ThreeStopView implements StopStageView {
       state: { position: pose.position, target: pose.target, fov: pose.fov, levelM, flood, mist: style.mistFor(distanceM) * (('mist' in section ? section.mist : undefined) ?? 1) },
       // 一种样式白天只有一盏灯，夜里一套、方向跟着这一节写的月亮：只看天色，不看镜头朝哪边、离多远
       light: style.light(('sky' in section ? section.sky : undefined) ?? 'day', 'moon' in section ? section.moon : undefined),
-      shadow: shadowBox([pose.target[0], pose.target[2]], distanceM, coords),
+      shadow: shadowBox([pose.target[0], pose.target[2]], distanceM, coords, style.stand.reachM),
     };
   }
 

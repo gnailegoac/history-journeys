@@ -36,7 +36,7 @@ import { CORNER_HALF, CORNER_OUT, THING_BUILDERS, bankSurfaceY } from '../../src
 import type { ThingBuilder } from '../../src/stage/three/kit/things';
 import { FULL_QUALITY, REDUCED_QUALITY } from '../../src/stage/three/quality';
 import { placeCamera } from '../../src/stage/three/rig';
-import { styleFor } from '../../src/stage/three/style';
+import { styleFor } from './support/styles';
 import type { StageInsets } from '../../src/stage/types';
 import { realScene, realSceneKeys } from './support/realScenes';
 import type { RealScene } from './support/realScenes';

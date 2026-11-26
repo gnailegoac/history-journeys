@@ -20,10 +20,12 @@ import type { StripLayer } from '../../src/stage/overlay/types';
 import { sectionStripSpecs } from '../../src/stage/overlay/strips';
 import { roadRuns, segmentCount } from '../../src/stage/roadLines';
 import { createHost } from '../../src/stage/three/host';
+import { STYLES } from '../../src/stage/styles';
+import { provideStyles } from '../../src/stage/three/style';
 import { ROAD_SEGMENT_TRIANGLES } from '../../src/stage/three/routeKit';
 import { DIVE_AIM_SHARE, DIVE_DISTANCE_M } from '../../src/stage/three/routeLevel';
 import { terrainGrid } from '../../src/stage/three/terrainMesh';
-import { styleFor } from '../../src/stage/three/style';
+import { styleFor } from './support/styles';
 import type { BrowserHost, ViewEnv } from '../../src/stage/three/view';
 import type { RouteTable, StageOptions, StageViewInfo, StopStageView } from '../../src/stage/types';
 import { stripTexts } from '../../src/domain/sceneText';
@@ -82,6 +84,8 @@ const baked: NonNullable<RouteTable['ground']> = { colourUrl: 'route.colour.jpg'
 const opened: StopStageView[] = [];
 
 beforeAll(() => {
+  // 样式的登记表是页面那一边取到沙盘程序以后交进来的（src/stage/index.ts）；这里照样交
+  provideStyles(STYLES);
   vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'performance'] });
   vi.stubGlobal('document', fakeDocument());
   vi.stubGlobal('requestAnimationFrame', (run: () => void) => setTimeout(run, FRAME_MS));
@@ -239,6 +243,51 @@ describe(`${KEY} 在沙盘程序里`, () => {
     withLoader = false;
     const bare = await openView(stage(940, 900), baked);
     await expect(until(bare.ready)).rejects.toThrow('全程沙盘的程序没有取到');
+  });
+
+  it('样式那一小块程序没有取到：ready 拒绝，说得出缘故（页面照“没能摆出来”说，读者可以再试一次）；再摆一座，样式重新取一遍，取到了就摆得出来；登记表里没有这种样式也说得出', { timeout: 120_000 }, async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const row = STYLES.find((entry) => entry.id === R.scene.style);
+    if (!row) throw new Error(`${KEY} 的样式不在登记表里`);
+    // 一张假的登记表：同一种样式，取的次数记下来；断着的时候取不到
+    let cut = true;
+    let asked = 0;
+    const counted = [
+      {
+        id: row.id,
+        // 全程沙盘只取样式的一半：整套的那一块它不去要（要了就不通过）
+        load: () => Promise.reject(new Error('全程沙盘去要了整套的样式')),
+        loadRoute: () => {
+          asked++;
+          return cut ? Promise.reject(new Error('样式的程序没有取到（网断了）')) : row.loadRoute();
+        },
+      },
+    ];
+    try {
+      provideStyles(counted);
+      const s = stage(940, 900);
+      const lost = await openView(s, baked);
+      await expect(until(lost.ready)).rejects.toThrow('样式的程序没有取到');
+      expect(asked).toBe(1);
+      // 没摆出来：一帧也没画
+      expect(s.fake.frames.length).toBe(0);
+      lost.destroy();
+      // 网通了，读者点“再试一次”：页面再摆一座，样式重新取一遍（不记着上一回的失败），这一回摆出来了
+      cut = false;
+      const again = stage(940, 900);
+      const view = await openView(again, baked);
+      await until(view.ready);
+      expect(asked).toBe(2);
+      expect(again.fake.frames.length).toBeGreaterThan(0);
+      view.destroy();
+      // 登记表里没有这种样式（交进来的是一张空表）：也是拒绝，话里有样式的名字
+      provideStyles([]);
+      const unknown = await openView(stage(940, 900), baked);
+      await expect(until(unknown.ready)).rejects.toThrow(`样式“${R.scene.style}”的程序没有登记`);
+    } finally {
+      provideStyles(STYLES);
+    }
+    expect(warn.mock.calls.filter((call) => String(call[0]).includes('未处理'))).toEqual([]);
   });
 
   it('潜到一站上空：镜头照钟点挪到那一站上空，先对准、再凑近；题签只留那一站自己的那一条；读者的手打不断它；不算一趟滑动（不量快慢）；换回小节题签都回来', { timeout: 120_000 }, async () => {

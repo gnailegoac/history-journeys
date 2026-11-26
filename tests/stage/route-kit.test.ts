@@ -19,7 +19,7 @@ import { ROAD_STATES, roadRuns, segmentCount } from '../../src/stage/roadLines';
 import type { RoadState } from '../../src/stage/roadLines';
 import { equivalentDistance } from '../../src/stage/three/rig';
 import { ROAD_SEGMENT_TRIANGLES, buildRouteModels } from '../../src/stage/three/routeKit';
-import { styleFor } from '../../src/stage/three/style';
+import { styleFor } from './support/styles';
 import type { StageTier } from '../../src/stage/types';
 import { drawn } from './support/budgets';
 import { realRouteScene, realSceneKeys } from './support/realScenes';

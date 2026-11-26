@@ -3,6 +3,9 @@
 // 就一起搬到这里来了（零件库里面的东西，沙盘程序别的部分不去拿）；FB 只留了座子用得着的那一点（下面的 Quads）。
 // 装裱和座子：地形板四周一圈浅色绫边，外面是紫檀的框和须弥座式的矮座。
 // 样张里留下的一处将就没有动：座子落在案上的影子是按西北来的光画死的。
+// 这个文件是宋代青绿设色这一种样式自己的（2026-11-26 从 src/stage/three/table.ts 整个搬来，造法一行没有动）：装裱和座子长什么样是样式的事，
+// 跟着样式那一小块程序走，别的样式的沙盘不下载它。紫檀要的那一点环境反光原来由 view.ts 配，也搬到了这里（reflect）。
+// 交给沙盘程序的是最下面的 STAND：座子最宽那一圈伸出去多远、多高，和怎么造。
 
 import {
   BoxGeometry,
@@ -14,22 +17,25 @@ import {
   MeshBasicMaterial,
   MeshLambertMaterial,
   MeshStandardMaterial,
+  PMREMGenerator,
   PlaneGeometry,
   RepeatWrapping,
   SRGBColorSpace,
+  type WebGLRenderer,
 } from 'three';
-import type { FrameCoords } from '../../domain/sceneGeo';
-import type { Vec2, Vec3 } from '../ground/types';
-import { disposeTree } from './host';
-import { mulberry32 } from './kit/util';
-import { BLOCK_BASE_Y } from './terrainMesh';
+import type { FrameCoords } from '../../../../domain/sceneGeo';
+import type { Vec2, Vec3 } from '../../../ground/types';
+import { disposeTree, roomScene } from '../../host';
+import type { Stand, StandStyle } from '../../internal';
+import { mulberry32 } from '../../kit/util';
+import { BLOCK_BASE_Y } from '../../terrainMesh';
 
 export const BORDER = 620;
 export const STAND_OUT = 880;
 export const FLOOR_Y = BLOCK_BASE_Y - 600;
 /**
  * 座子最宽的那一圈：比沙盘的边多出多少米，下沿在沙盘里多高（和下面座子的截面是同一组数）。
- * “整块沙盘都要看得见”是连装裱和座子一起算的，rig.ts 的 showPoints 用这两个数。
+ * “整块沙盘都要看得见”是连装裱和座子一起算的，../../rig.ts 的 showPoints 用这两个数（从样式的 stand 里读）。
  */
 export const STAND_REACH = BORDER + 356;
 export const STAND_REACH_Y = BLOCK_BASE_Y - 440;
@@ -161,16 +167,13 @@ function woodTexture(): CanvasTexture {
 /** 紫檀木头上的环境反光，白天的强弱。 */
 const WOOD_SHINE = 0.55;
 
-export interface Stand {
-  group: Group;
-  /** 紫檀的材质：要一点环境反光，由 view.ts 给它配环境贴图。 */
+/** 这种样式的装裱和座子：沙盘程序要的那几样（见 ../../internal.ts 的 Stand），加上紫檀的材质（测试看它的反光）。 */
+export interface SongStand extends Stand {
+  /** 紫檀的材质：要一点环境反光（reflect 给它配环境贴图）。 */
   wood: MeshStandardMaterial;
-  /** 木头上的反光压暗到几成（1 是白天）：反光来自环境贴图，灯暗了它不会跟着暗。 */
-  setDim(dim: number): void;
-  dispose(): void;
 }
 
-export function buildTable(coords: FrameCoords, palette: Record<string, string>): Stand {
+export function buildTable(coords: FrameCoords, palette: Record<string, string>): SongStand {
   const group = new Group();
   const B = BLOCK_BASE_Y;
   const cx = (coords.x0 + coords.x1) / 2;
@@ -284,10 +287,21 @@ export function buildTable(coords: FrameCoords, palette: Record<string, string>)
   shadow.renderOrder = -1;
   group.add(shadow);
 
-  // 环境贴图是 view.ts 配的，也由它放掉；这里先摘下来，免得跟着材质被放掉两次
+  // 环境贴图是 reflect 配的，由它交回去的那个函数放掉（view.ts 留着，收场时叫）；dispose 里先摘下来，免得跟着材质被放掉两次
   return {
     group,
     wood,
+    // 紫檀要一点环境反光；别的材质都是不反光的。这几句原来在 view.ts 造沙盘的地方，先后没有改；
+    // 那间“屋子”向沙盘程序要（../../host.ts 的 roomScene，造的还是 three 的 RoomEnvironment）：样式自己不引 three 的那个文件，缘故写在那边
+    reflect(renderer: WebGLRenderer) {
+      const pmrem = new PMREMGenerator(renderer);
+      const room = roomScene();
+      const environment = pmrem.fromScene(room, 0.04);
+      wood.envMap = environment.texture;
+      pmrem.dispose();
+      room.dispose();
+      return () => environment.dispose();
+    },
     setDim(dim) {
       wood.envMapIntensity = WOOD_SHINE * dim;
     },
@@ -297,3 +311,6 @@ export function buildTable(coords: FrameCoords, palette: Record<string, string>)
     },
   };
 }
+
+/** 这种样式的装裱和座子，交给沙盘程序的那一份（样式的 stand）。 */
+export const STAND: StandStyle = { reachM: STAND_REACH, reachY: STAND_REACH_Y, build: buildTable };

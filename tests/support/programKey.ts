@@ -9,11 +9,12 @@
 //   一家零件自己的          场景里写到了这一家的东西的沙盘才算（哪几家，和沙盘程序决定下载哪几家是同一个函数：familiesOf）。
 //   全程沙盘才用的那一块    只有全程沙盘算。
 // 这样分有它的限度：给样式的类型添一个字段（src/stage/three/internal.ts）、添一种东西（src/domain/sceneKinds.ts）、
-// 在登记样式的地方添一种（src/domain/scene.ts、style/index.ts），改的都是共用的文件——每座沙盘的记号都跟着变，都要重拍一遍
+// 在场景文件的规格里添一种写法（src/domain/scene.ts），改的都是共用的文件——每座沙盘的记号都跟着变，都要重拍一遍
 // （画面没有变的图片不重写，只是清单里的这一个记号换了）。
+// 样式的登记表（src/stage/styles.ts）不在记号里，和零件的登记表一样：它挑的是哪一种样式，那种样式的文件自己在记号里。
 
-import type { SceneStyleId } from '../../src/domain/scene';
 import { contentKey } from '../../src/domain/contentKey';
+import { STYLES } from '../../src/stage/styles';
 
 /** 这几个文件夹里的文件都算（连子文件夹）；不另外点名的都是共用的。路径相对项目的根目录，用“/”分隔。 */
 export const PROGRAM_FOLDERS = ['src/stage/three/', 'src/stage/ground/', 'src/stage/dev/'] as const;
@@ -42,20 +43,19 @@ export const ROUTE_LEVEL_FILES = ['src/stage/ground/route.ts', 'src/stage/roadLi
  */
 export const LEFT_OUT_FILES = ['src/stage/three/piece.ts', 'src/domain/sceneContent.ts'] as const;
 
-/** 样式的文件夹，和里面各种样式共用的文件（按名字取样式的那张表）。 */
+/** 样式的文件夹，和里面各种样式共用的文件（按名字取样式的那个入口：照登记表去取）。 */
 export const STYLE_FOLDER = 'src/stage/three/style/';
 export const STYLE_SHARED_FILES = ['src/stage/three/style/index.ts'] as const;
 
 /**
- * 一种样式自己的文件：直接放在样式的文件夹里的，在这张表里点名（少一种样式，编译通不过）。
- * 表里有哪几行，就是认得哪几种样式：一种样式的文件放进以它的名字命名的子文件夹（style/<样式的名字>/）以后，那里面的不用点名，
- * 照文件夹认——到那时它那一行是空的，行要留着。子文件夹叫别的名字的（几种样式合用的小东西，或者名字写错了一个字），没有哪一种样式认。
+ * 一种样式自己的文件。表里有哪几行，就是认得哪几种样式：行是照样式的登记表（src/stage/styles.ts）来的，登记了一种就有它的一行。
+ * 一种样式的文件都放在以它的名字命名的子文件夹里（style/<样式的名字>/），那里面的不用点名，照文件夹认——所以每一行都是空的，
+ * 行要留着：有这一行，那个文件夹才算一种认得的样式。子文件夹叫别的名字的（几种样式合用的小东西，或者名字写错了一个字），没有哪一种样式认。
+ * 行里也可以点名（直接放在样式的文件夹里的文件归哪一种）：现在没有这样的文件，算记号的几个函数还认这种写法（测试用编出来的表查着）。
  * 样式的文件夹里的每一个文件，要么在共用的单子里，要么正好归一种样式（tests/unit/still-keys.test.ts 查着）；
  * 都不是的先当共用的算（宁可严一点），那一条测试会说该把它写进哪里。
  */
-export const STYLE_FILES: Readonly<Record<SceneStyleId, readonly string[]>> = {
-  'song-qinglv': ['src/stage/three/style/songQinglv.ts', 'src/stage/three/style/songQinglvFigure.ts'],
-};
+export const STYLE_FILES: Readonly<Record<string, readonly string[]>> = Object.fromEntries(STYLES.map((row) => [row.id, []]));
 
 /** 按家分块的零件的文件夹：一家一个文件 families/<这一家>.ts（或者一个文件夹 families/<这一家>/），名字就是登记表里那一家的名字。 */
 export const FAMILY_FOLDER = 'src/stage/three/families/';

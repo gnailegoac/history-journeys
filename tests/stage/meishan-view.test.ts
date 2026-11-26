@@ -19,13 +19,15 @@ import type { StripLayer } from '../../src/stage/overlay/types';
 import { PONTOON } from '../../src/stage/three/families/works';
 import type { GroundPaintJob } from '../../src/stage/three/groundPaint';
 import { createHost } from '../../src/stage/three/host';
+import { STYLES } from '../../src/stage/styles';
+import { provideStyles } from '../../src/stage/three/style';
 import type { KitContext } from '../../src/stage/three/internal';
 import { STEP_HOLD, buildModels } from '../../src/stage/three/kit/assemble';
 import { provideFamilies } from '../../src/stage/three/kit/families';
 import { smoothstep } from '../../src/stage/three/kit/util';
 import { FULL_QUALITY } from '../../src/stage/three/quality';
 import { equivalentDistance, placeCamera } from '../../src/stage/three/rig';
-import { styleFor } from '../../src/stage/three/style';
+import { styleFor } from './support/styles';
 import type { TerrainMesh } from '../../src/stage/three/terrainMesh';
 import { CALM_RANGE, rippleDense, rippleFor, rippleShare, rippleTurn, widestRiverM } from '../../src/stage/three/water';
 import type { StageInsets, StopStageView, StopTable } from '../../src/stage/types';
@@ -94,6 +96,7 @@ beforeAll(() => {
   if (realSceneKeys().includes(KEY)) vi.stubGlobal('fetch', fakeFetch(realSceneFile(KEY).terrainPath));
   // 页面上是取到沙盘程序以后把登记表交进来的（src/stage/index.ts）；这里照样交
   provideFamilies(FAMILIES);
+  provideStyles(STYLES);
 });
 
 afterEach(() => {

@@ -1,5 +1,5 @@
 // 模型跟着镜头远近怎么变，只算数的那一部分（src/stage/three/kit/figure.ts）和样式里那张表
-// （src/stage/three/style/songQinglvFigure.ts）的单元测试。
+// （src/stage/three/style/song-qinglv/figure.ts）的单元测试。
 // 运行：npx vitest run tests/stage/kit-figure.test.ts
 // 不造模型，不算地面，不要浏览器。编的情形用 tests/support/fixtureScene.ts 那座小沙盘；徐州只读它的场景文件。
 //
@@ -16,8 +16,8 @@ import type { SceneDressing, SceneThing, StopScene, ThingKind } from '../../src/
 import { thingParams } from '../../src/domain/sceneParams';
 import type { FigureClass, FigureRule, StageStyle } from '../../src/stage/three/internal';
 import { closeTrees, detailGone, equivalentDistance, figureGroups, figureNow, figureTimes, liftClass, sat } from '../../src/stage/three/kit/figure';
-import { styleFor } from '../../src/stage/three/style';
-import { SONG_QINGLV_FIGURE } from '../../src/stage/three/style/songQinglvFigure';
+import { styleFor } from './support/styles';
+import { SONG_QINGLV_FIGURE } from '../../src/stage/three/style/song-qinglv/figure';
 import { FIXTURE_HEADINGS, fixturePoint, fixtureScene } from '../support/fixtureScene';
 import { realSceneFile } from './support/realScenes';
 
@@ -98,7 +98,7 @@ describe('sat：从 0 平滑地升到 1', () => {
 // ---------------------------------------------------------------- 每一类的倍数
 
 describe('样式里的表', () => {
-  it('沙盘用的就是 songQinglvFigure.ts 里的这一张，十四类一类不少', () => {
+  it('沙盘用的就是这种样式自己的 figure.ts 里的这一张，十四类一类不少', () => {
     expect(style.figure).toBe(SONG_QINGLV_FIGURE);
     expect(Object.keys(RULES).sort()).toEqual([...CLASSES].sort());
   });

@@ -5,7 +5,7 @@
 //   3 沿着一条河走的路（along 写的是它），线上每一点离这条河不超过 15 公里，又不贴到 2 公里以内。
 // 沿线每 2 公里取一个点来查。河可以过（扬州到润州过大江），不算。
 //
-// 第 3 条量的是画在地面上的那条河（tests/tools/route/paint.ts 的 riverPaths：自己写的河是抹顺以后的线，不是直着连的）。
+// 第 3 条量的是画在地面上的那条河（这座沙盘的样式的画法画的那一条，照 tests/tools/route/painters.ts 取；宋代青绿设色的是 tests/tools/route/paint.ts 的 riverPaths：自己写的河是抹顺以后的线，不是直着连的）。
 // 走水路的路是贴着河岸走的线（npm run route:bank 做出来、贴进场景文件的），所以这一条算数。定下来不查的只有三样：
 //   甲 路的两头各 34 公里（路短的是全长的三成）以内不查“不贴到 2 公里以内”：路的两头是城，城在河边上，线要收回到城里
 //     （这两个数是做岸线的工具的，从它那里取）。“不超过 15 公里”照查。
@@ -20,11 +20,10 @@ import { describe, expect, it } from 'vitest';
 import type { RouteScene } from '../../src/domain/scene';
 import type { FrameCoords } from '../../src/domain/sceneGeo';
 import type { LngLat } from '../../src/domain/types';
-import { styleFor } from '../../src/stage/three/style';
 import { pickedLakes, readToday } from '../content/routeRules';
 import type { TodayFeature } from '../content/routeRules';
 import { BANK_TAPER_KM, BANK_TAPER_SHARE } from '../tools/route/bankTool';
-import { riverPaths } from '../tools/route/paint';
+import { routeRiversFor } from '../tools/route/painters';
 import { realRouteScene, realSceneKeys } from './support/realScenes';
 import type { RealRouteScene } from './support/realScenes';
 
@@ -149,7 +148,8 @@ function totalKm(R: RealRouteScene): number {
 function alongRivers(R: RealRouteScene): { lines: string[]; loose: string[]; listed: Set<string>; exceptions: AlongExceptions } {
   const exceptions = ALONG_EXCEPTIONS[R.key] ?? NO_EXCEPTIONS;
   const features = todayOf(R);
-  const paths = riverPaths(R.scene, features, R.coords, styleFor(R.scene.style));
+  // 画在地面上的河照这座沙盘自己的样式的画法取（河画多宽是画法的数）：另一种样式的沙盘量的是它自己的河，没有画法的说一句就停
+  const paths = routeRiversFor(R.scene.style)(R.scene, features, R.coords);
   const lines: string[] = [];
   const loose: string[] = [];
   const listed = new Set<string>();

@@ -19,7 +19,7 @@ import type { StripInput, StripPlacement } from '../../src/stage/overlay';
 import { pieceWhere } from '../../src/stage/pieceWhere';
 import { PIECE_PX, buildPiece } from '../../src/stage/three/piece';
 import { centreShift, equivalentDistance, placeCamera, project, screenAnchors } from '../../src/stage/three/rig';
-import { styleFor } from '../../src/stage/three/style';
+import { styleFor } from './support/styles';
 import type { PiecePlace, StageInsets } from '../../src/stage/types';
 import { sectionAt } from '../../src/timebar/barState';
 import { whereAt } from '../../src/timebar/barWhere';

@@ -25,6 +25,8 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } 
 import type { StripLayer } from '../../src/stage/overlay/types';
 import type { GroundPaintJob } from '../../src/stage/three/groundPaint';
 import { createHost } from '../../src/stage/three/host';
+import { STYLES } from '../../src/stage/styles';
+import { provideStyles } from '../../src/stage/three/style';
 import type { KitContext, ModelSet } from '../../src/stage/three/internal';
 import { MIST_TRIANGLES_PER_LAYER } from '../../src/stage/three/mist';
 import { FULL_QUALITY, REDUCED_QUALITY } from '../../src/stage/three/quality';
@@ -92,6 +94,8 @@ const { scene } = realSceneFile(KEY);
 const headings = scene.sections.map((section) => section.heading);
 
 beforeAll(() => {
+  // 样式的登记表是页面那一边取到沙盘程序以后交进来的（src/stage/index.ts）；这里照样交
+  provideStyles(STYLES);
   vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'performance'] });
   vi.stubGlobal('document', fakeDocument());
   vi.stubGlobal('requestAnimationFrame', (run: () => void) => setTimeout(run, FRAME_MS));

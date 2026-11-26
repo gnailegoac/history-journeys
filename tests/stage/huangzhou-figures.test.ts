@@ -43,7 +43,7 @@ import { meshHeightAt } from '../../src/stage/three/meshHeight';
 import { buildMist } from '../../src/stage/three/mist';
 import { FULL_QUALITY, REDUCED_QUALITY } from '../../src/stage/three/quality';
 import { centreShift, placeCamera, project } from '../../src/stage/three/rig';
-import { styleFor } from '../../src/stage/three/style';
+import { styleFor } from './support/styles';
 import type { Quality } from '../../src/stage/three/internal';
 import { realScene } from './support/realScenes';
 import { STANDARD_PANES } from './support/standardPanes';

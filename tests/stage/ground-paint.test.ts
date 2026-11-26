@@ -15,7 +15,7 @@ import { frameCoords } from '../../src/domain/sceneGeo';
 import { buildFields, groundNormals, paintColour, paintGround, readDem, samplers } from '../../src/stage/ground';
 import { beginGroundPaint, colourBytes, fieldBytes, groundInputs, groundPictureSize } from '../../src/stage/three/groundPaint';
 import type { GroundPaintSource } from '../../src/stage/three/groundPaint';
-import { styleFor } from '../../src/stage/three/style';
+import { styleFor } from './support/styles';
 import { buildTerrainMesh, groundTextures } from '../../src/stage/three/terrainMesh';
 import type { StopTable } from '../../src/stage/types';
 import { fixtureScene, fixtureTerrainBytes } from '../support/fixtureScene';

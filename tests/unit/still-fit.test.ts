@@ -23,7 +23,7 @@ import { chooseScale } from '../../src/stage/scale';
 import { FADE_MS, RETRY_AFTER_MS, createStillEngine } from '../../src/stage/still/engine';
 import { anchorsOnPane, edgeFades, fitStill, pickShape, pictureSize, referenceArea, type StillPane } from '../../src/stage/still/fit';
 import { centreShift, equivalentDistance, northDeg, pixelsPerMetre, placeCamera, screenAnchors } from '../../src/stage/three/rig';
-import { styleFor } from '../../src/stage/three/style';
+import { styleFor } from '../stage/support/styles';
 import type { StageInsets, StageShot, StageViewInfo, StopStageView } from '../../src/stage/types';
 import { realScene, realSceneKeys, type RealScene } from '../stage/support/realScenes';
 import { sectionStrips } from '../stage/support/stripSizes';

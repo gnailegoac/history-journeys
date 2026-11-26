@@ -8,6 +8,7 @@ import { browserParts, createHost, type HostParts } from './host';
 import { createStopView, type BrowserHost, type RouteLevelLoader } from './view';
 
 export { provideFamilies } from './kit/families';
+export { provideStyles } from './style';
 
 /**
  * 全程沙盘那一块程序怎么取。沙盘程序自己不写那一句动态 import（缘故见 view.ts 的 RouteLevelLoader），

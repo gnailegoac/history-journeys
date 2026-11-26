@@ -22,7 +22,7 @@ import { surveyWalls } from '../../src/stage/three/kit/site';
 import { THING_BUILDERS } from '../../src/stage/three/kit/things';
 import { meshHeightAt, terrainGrid, vertexHeightM } from '../../src/stage/three/meshHeight';
 import { FULL_QUALITY } from '../../src/stage/three/quality';
-import { styleFor } from '../../src/stage/three/style';
+import { styleFor } from './support/styles';
 import { MADE_FILES_PENDING } from '../support/pendingTables';
 import { readBytes } from '../support/readBytes';
 import { cellAt, localRing, realScene, realSceneFile, realSceneKeys, wetCell } from './support/realScenes';

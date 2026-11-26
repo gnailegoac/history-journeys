@@ -162,7 +162,7 @@ export type GroundColour =
   /** 青苗的田。 */
   | 'sprout';
 
-/** 地面怎么上色，由时代样式给（src/stage/three/style/）。地面这一边只管照着画。 */
+/** 地面怎么上色，由时代样式给（src/stage/three/style/<样式的名字>/）。地面这一边只管照着画。 */
 export interface GroundStyle {
   /** 颜色，写成 '#rrggbb'。上色只从这里取颜色。 */
   colours: Record<GroundColour, string>;

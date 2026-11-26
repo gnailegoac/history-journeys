@@ -4,11 +4,11 @@
 
 import { routePictureSize } from '../../../src/stage/ground/route';
 import { routeGroundInputs } from '../../../src/stage/three/routeLevel';
-import { styleFor } from '../../../src/stage/three/style';
+import { styleFor } from '../../stage/support/styles';
 import { readToday } from '../../content/routeRules';
 import { realRouteScene } from '../../stage/support/realScenes';
 import { readBytes } from '../../support/readBytes';
-import { paintRoute } from './paint';
+import { routePainterFor } from './painters';
 
 export interface RouteBakeParts {
   /** 地形文件叫什么、它的字节。 */
@@ -36,7 +36,8 @@ export function routeBakeParts(key: string): RouteBakeParts {
     inputs: routeGroundInputs(R.scene, terrainBytes),
     size: routePictureSize(R.ground),
     paint: () => {
-      const painted = paintRoute({ scene: R.scene, coords: R.coords, ground: R.ground, features, style: styleFor(R.scene.style) });
+      // 怎么画照这座沙盘的样式：一种样式一个画法（./painters.ts）
+      const painted = routePainterFor(R.scene.style)({ scene: R.scene, coords: R.coords, ground: R.ground, features, style: styleFor(R.scene.style) });
       return { w: painted.w, h: painted.h, rgb: painted.colour, mask: painted.marks };
     },
   };

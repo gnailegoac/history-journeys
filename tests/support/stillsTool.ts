@@ -348,7 +348,7 @@ export function readTableFiles(scene: TableScene, name = '这座沙盘'): Record
   if (styleFilesIn(Object.keys(files), use.style).length === 0) {
     throw new Error(
       `${name}的场景文件里写的样式是“${use.style}”，算记号的时候没有找到这种样式自己的文件，记号算不出来。` +
-        '一种样式的文件，要么在 src/stage/three/style/ 里以它的名字命名的子文件夹里，要么在 tests/support/programKey.ts 的 STYLE_FILES 里它那一行点了名；' +
+        '一种样式要在样式的登记表（src/stage/styles.ts）里有它的一行，它的文件放在 src/stage/three/style/ 里以它的名字命名的子文件夹里（文件夹的名字和登记的名字一个字不差）；' +
         '场景里能写哪几种样式，npm run validate 会说。',
     );
   }

@@ -31,12 +31,32 @@ export const REGION_BLUR_M = 20_000;
 /** 沙盘四边往里这么多米以内，海拔是零；再往里到 edgeTaperM 慢慢放开（第 3 步）。 */
 export const EDGE_ZERO_M = 6_000;
 /**
- * 留白的圈，边上抹开这么多米，地势才慢慢收平、不留陡坎（第 7 步）。
- * 原来是 20 公里、从 0.25 到 0.92 过渡（约 40 公里宽的一条，跨在圈的边线上）：对着沙盘上的图看，西边的高原在那里成了一道笔直的陡崖。
- * 改成 40 公里、从 0.5 到 0.97 过渡：圈里面整个是平的，地势从边线外面约 75 公里起慢慢收下来，到边线收完。
- * 定稿的样张也是这样收的（它的留白本来就有一百多公里宽的软边，地势比颜色先收平）。
+ * 留白的边怎么收（第 7 步）。这是样式的事：一种样式的全程沙盘一份（RouteStyle.blank），造地面的时候交进来；这个文件里不留哪一座沙盘的数。
+ * blurM：圈的边抹开这么多米，地势才慢慢收平、不留陡坎。
+ * torn：把边打散。不写就不打散：圈是怎么写的，边就照它抹开。
  */
-export const BLANK_BLUR_M = 40_000;
+export interface BlankEdge {
+  blurM: number;
+  torn?: BlankTear;
+}
+
+/**
+ * 留白的边在西边打散：圈是场景里写的直线，照直线切，高原和山地那一头就成了笔直的边。
+ * 所以经线 westOf 以西，一个点算不算在圈里，不照它自己的位置，照它挪开一点以后的位置算；
+ * 挪多少是两层噪声定的，山里的谷底再多挪一些：留白顺着山谷伸进来，山脊留在外面。
+ */
+export interface BlankTear {
+  /** 两条经线（度）：第一条以西整个打散，第二条以东不动，中间匀着过渡。 */
+  westOf: [number, number];
+  /** 往东最多挪多少度、往西最多挪多少度、南北最多挪多少度。 */
+  eastDeg: number;
+  westDeg: number;
+  latDeg: number;
+  /** 抹开以后再打散一遍，最多把那个数挪多少（在边线上；往两头慢慢不挪）。 */
+  again: number;
+  /** 谷底只算到这两条经线之间为止（往东慢慢不算）。 */
+  valleyWestOf: [number, number];
+}
 /** 留白的地方，夸大以后的高度只留这么多。 */
 export const BLANK_KEEP = 0.03;
 
@@ -233,68 +253,55 @@ export function plainSlope(h: Float32Array, land: Uint8Array, recipe: PlainSmoot
   return { k, slope };
 }
 
-/**
- * 留白的边在西边打散：圈是场景里写的直线，照直线切，西边的高原和西南角就成了两道笔直的边。
- * 所以东经 TORN_WEST_OF 以西，一个点算不算在圈里，不照它自己的位置，照它挪开一点以后的位置算；
- * 挪多少是两层噪声定的（定稿的样张就是这样打散西边的，数是它的），山里的谷底再多挪一些：留白顺着山谷伸进来，山脊留在外面。
- * 往东最多挪 TORN_EAST_DEG 度、往西最多 TORN_WEST_DEG 度（所以眉州以东的地势一米也不动）；南北最多 TORN_LAT_DEG 度。
- * 台湾和吕宋的两圈在东边，不动。
- */
-const TORN_WEST_OF: [number, number] = [106.3, 107.7];
-const TORN_EAST_DEG = 0.4;
-const TORN_WEST_DEG = 0.6;
-const TORN_LAT_DEG = 0.6;
-/** 抹开以后再打散一遍，最多把那个数挪多少（在边线上；往两头慢慢不挪）。 */
-const TORN_AGAIN = 0.45;
-/** 谷底只算到这两条经线之间为止（往东慢慢不算）。 */
-const VALLEY_WEST_OF: [number, number] = [105.2, 106.2];
-
 /** 压到 limit 以内，不留平的一段：小的时候几乎不动，大了慢慢贴上去。 */
 const soften1 = (v: number, limit: number): number => limit * Math.tanh(v / limit);
 
 /**
- * 离留白多远，抹开了的：圈里面是 0、外面是 1（西边的两条边先打散，见上），抹开 BLANK_BLUR_M（40 公里）。
- * 0.5 在（打散以后的）边线上；边线以外一百公里上下才正好是 1，以内一百公里上下才正好是 0。
+ * 离留白多远，抹开了的：圈里面是 0、外面是 1（样式写了打散的，边先打散，见 BlankTear），抹开 edge.blurM。
+ * 0.5 在（打散以后的）边线上；抹开 40 公里的话，边线以外一百公里上下才正好是 1，以内一百公里上下才正好是 0。
+ * edge 是这座沙盘的样式里留白的边怎么收（RouteStyle.blank）。
  * heights 是第 1 到 4 步的结果（平原还没有抹）：山里的谷底照它量。
  * 地势照它收平（keepAt），上色的工具照它把颜色淡下去（颜色比地势先淡完）。
  */
-export function blankSoft(scene: RouteScene, heights: Pick<RouteHeights, 'grid' | 'lngLat' | 'h'>): Float32Array {
+export function blankSoft(scene: RouteScene, heights: Pick<RouteHeights, 'grid' | 'lngLat' | 'h'>, edge: BlankEdge): Float32Array {
   const { nx, nz, cell } = heights.grid;
   const n = nx * nz;
   const rings = scene.terrain.recipe.blank.filter((ring) => ring.length >= 3).map(boxed);
   const keep = new Float32Array(n).fill(1);
   if (rings.length === 0) return keep;
   const cellM = cell * scene.frame.scale;
+  const tear = edge.torn;
   // 山里的谷底：比四周六十公里的平均低多少（只算七八百米以上的山里；盆地、平原不算）
   const near = gauss(heights.h, nx, nz, 9000 / cellM);
   const around = gauss(heights.h, nx, nz, 60_000 / cellM);
   for (let k = 0; k < n; k++) {
     let lng = heights.lngLat[k * 2];
     let lat = heights.lngLat[k * 2 + 1];
-    const torn = 1 - smoothstep(TORN_WEST_OF[0], TORN_WEST_OF[1], lng);
-    if (torn > 0) {
-      const valley = clamp((around[k] - near[k]) / 650, 0, 1) * smoothstep(700, 1100, near[k]) * (1 - smoothstep(VALLEY_WEST_OF[0], VALLEY_WEST_OF[1], lng));
+    const torn = tear ? 1 - smoothstep(tear.westOf[0], tear.westOf[1], lng) : 0;
+    if (tear && torn > 0) {
+      const valley = clamp((around[k] - near[k]) / 650, 0, 1) * smoothstep(700, 1100, near[k]) * (1 - smoothstep(tear.valleyWestOf[0], tear.valleyWestOf[1], lng));
       const wn = (fbm(lng * 2.1, lat * 2.1, 3, 301) - 0.5) * 1.5 + (fbm(lng * 0.7 + 9, lat * 0.7, 2, 307) - 0.5) * 2.6;
       const vn = (fbm(lng * 1.9 + 31, lat * 1.9 + 7, 3, 311) - 0.5) * 1.5 + (fbm(lng * 0.6 + 3, lat * 0.6 + 17, 2, 313) - 0.5) * 2.2;
       // 留白往东伸多少度（正的是往东）、往北伸多少度（正的是往北）
       const east = 1.5 * valley - wn;
       const north = 0.9 * valley - vn;
-      lng -= torn * (east > 0 ? soften1(east, TORN_EAST_DEG) : soften1(east, TORN_WEST_DEG));
-      lat -= torn * soften1(north, TORN_LAT_DEG);
+      lng -= torn * (east > 0 ? soften1(east, tear.eastDeg) : soften1(east, tear.westDeg));
+      lat -= torn * soften1(north, tear.latDeg);
     }
     if (within(lng, lat, rings)) keep[k] = 0;
   }
-  const soft = gauss(keep, nx, nz, BLANK_BLUR_M / cellM);
-  // 抹开以后边又顺了，收平的那一道坡成了一条匀匀的带子。西边再打散一遍：坡脚往前往后挪十几公里，七八十公里一个起伏。
+  const soft = gauss(keep, nx, nz, edge.blurM / cellM);
+  if (!tear) return soft;
+  // 抹开以后边又顺了，收平的那一道坡成了一条匀匀的带子。打散的那一头再打散一遍：坡脚往前往后挪十几公里，七八十公里一个起伏。
   // 只动过渡的那一条（乘了 soft × (1 − soft)）：留白里面深处还是 0，离得远的还是 1
   for (let k = 0; k < n; k++) {
     const s = soft[k];
     if (s <= 0 || s >= 1) continue;
     const lng = heights.lngLat[k * 2];
-    const torn = 1 - smoothstep(TORN_WEST_OF[0], TORN_WEST_OF[1], lng);
+    const torn = 1 - smoothstep(tear.westOf[0], tear.westOf[1], lng);
     if (torn <= 0) continue;
     const lat = heights.lngLat[k * 2 + 1];
-    soft[k] = clamp(s + torn * TORN_AGAIN * (fbm(lng * 1.3 + 5, lat * 1.3 + 11, 2, 317) - 0.5) * 4 * s * (1 - s), 0, 1);
+    soft[k] = clamp(s + torn * tear.again * (fbm(lng * 1.3 + 5, lat * 1.3 + 11, 2, 317) - 0.5) * 4 * s * (1 - s), 0, 1);
   }
   return soft;
 }
@@ -306,19 +313,22 @@ export function blankSoft(scene: RouteScene, heights: Pick<RouteHeights, 'grid' 
 export const keepAt = (soft: number): number => BLANK_KEEP + (1 - BLANK_KEEP) * smoothstep(0.5, 0.97, soft);
 
 /** 每个格点上夸大以后的高度留多少：blankSoft 过一遍 keepAt。 */
-export function blankKeep(scene: RouteScene, heights: Pick<RouteHeights, 'grid' | 'lngLat' | 'h'>): Float32Array {
-  return blankSoft(scene, heights).map(keepAt);
+export function blankKeep(scene: RouteScene, heights: Pick<RouteHeights, 'grid' | 'lngLat' | 'h'>, edge: BlankEdge): Float32Array {
+  return blankSoft(scene, heights, edge).map(keepAt);
 }
 
-/** 全程沙盘的地面：七步做完（见这个文件开头）。dem 用 readRouteDem 读，coords 用 coordsOf(scene)。 */
-export function buildRouteGround(scene: RouteScene, dem: Dem, coords: FrameCoords): RouteGround {
+/**
+ * 全程沙盘的地面：七步做完（见这个文件开头）。dem 用 readRouteDem 读，coords 用 coordsOf(scene)；
+ * edge 是这座沙盘的样式里留白的边怎么收（RouteStyle.blank）。
+ */
+export function buildRouteGround(scene: RouteScene, dem: Dem, coords: FrameCoords, edge: BlankEdge): RouteGround {
   const heights = routeHeights(scene, dem, coords);
   const { nx, nz, cell, x0, z0 } = heights.grid;
   const { scale, datumM, relief } = scene.frame;
   // 5 平原抹成缓坡
   const h = smoothPlain(heights.h, heights.land, scene.terrain.recipe, nx, nz, cell * scale);
   // 6 过曲线，除以比例；7 留白的地方压平，再倒算回海拔
-  const blank = blankSoft(scene, heights);
+  const blank = blankSoft(scene, heights, edge);
   const y = new Float32Array(nx * nz);
   for (let k = 0; k < y.length; k++) {
     const keep = keepAt(blank[k]);

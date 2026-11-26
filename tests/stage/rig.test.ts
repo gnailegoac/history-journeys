@@ -46,8 +46,8 @@ import {
   wholeTable,
   type Pose,
 } from '../../src/stage/three/rig';
-import { styleFor } from '../../src/stage/three/style';
-import { STAND_REACH } from '../../src/stage/three/table';
+import { styleFor } from './support/styles';
+import { STAND_REACH, STAND_REACH_Y } from '../../src/stage/three/style/song-qinglv/stand';
 import { narrowChannel, rippleFor } from '../../src/stage/three/water';
 import type { StageInsets } from '../../src/stage/types';
 import { FIXTURE_HEIGHTS, FIXTURE_M, fixturePoint, fixtureScene } from '../support/fixtureScene';
@@ -280,7 +280,7 @@ describe('fitFactor：画面窄了退多远', () => {
 });
 
 describe('centredView：看整块沙盘的一节，沙盘在留出来的那一块里居中', () => {
-  const frame = framePoints(coords);
+  const frame = framePoints(coords, song.stand);
   const whole: SceneCamera = { target: fixturePoint(200, -300), distanceM: 9000, pitch: 48, bearing: 0, fov: 18, mustShow: ['frame'] };
 
   /** 整块沙盘（连座子）在画面上占的那一块，四边各离留出来的那一块的边多少像素。 */
@@ -338,10 +338,12 @@ describe('shadowBox：影子罩多大一块', () => {
   it('镜头在 1150 米时是 1250，在 9600 米时大约 5400', () => {
     // 用徐州那么大的沙盘（11.7 × 9.7 公里）
     const xuzhou = frameCoords({ ...scene.frame, westM: 6300, eastM: 5400, northM: 5400, southM: 4300 });
-    expect(shadowBox([600, 0], 1150, xuzhou).half).toBe(1250);
-    expect(shadowBox([120, 300], 9600, xuzhou).half).toBeCloseTo(5376, 6);
+    expect(shadowBox([600, 0], 1150, xuzhou, song.stand.reachM).half).toBe(1250);
+    expect(shadowBox([120, 300], 9600, xuzhou, song.stand.reachM).half).toBeCloseTo(5376, 6);
     // 看整块沙盘时最大到对角线的一半，再加上装裱那一圈（沙盘的边落在装裱上的影子也要罩住）
-    const whole = shadowBox([-450, -470], 52000, xuzhou);
+    // 装裱那一圈多宽是样式的事：这种样式的数就是它的座子最宽那一圈的数
+    expect([song.stand.reachM, song.stand.reachY]).toEqual([STAND_REACH, STAND_REACH_Y]);
+    const whole = shadowBox([-450, -470], 52000, xuzhou, song.stand.reachM);
     expect(whole.half).toBeCloseTo(Math.hypot(11700, 9700) / 2 + STAND_REACH, 6);
     // 罩到头时中心是沙盘的正中，不是镜头对准的那一点：四个角连装裱都在方块里
     expect(whole.centre[0]).toBeCloseTo((xuzhou.x0 + xuzhou.x1) / 2, 6);
@@ -353,15 +355,15 @@ describe('shadowBox：影子罩多大一块', () => {
       expect(Math.hypot(x - whole.centre[0], z - whole.centre[1])).toBeLessThanOrEqual(whole.half + STAND_REACH * (Math.SQRT2 - 1) + 1e-6);
     }
     // 罩得小的时候中心就是镜头对准的那一点；中间是匀着过去的
-    expect(shadowBox([120, 300], 3000, xuzhou).centre).toEqual([120, 300]);
-    const between = shadowBox([-2000, 1000], 12500, xuzhou).centre;
+    expect(shadowBox([120, 300], 3000, xuzhou, song.stand.reachM).centre).toEqual([120, 300]);
+    const between = shadowBox([-2000, 1000], 12500, xuzhou, song.stand.reachM).centre;
     expect(between[0]).toBeGreaterThan(-2000);
     expect(between[0]).toBeLessThan((xuzhou.x0 + xuzhou.x1) / 2);
   });
 
   it('以镜头对准的那一点为中心；那一点出了沙盘就取边上最近的一点', () => {
-    expect(shadowBox([100, -200], 3000, coords).centre).toEqual([100, -200]);
-    expect(shadowBox([9000, -9000], 3000, coords).centre).toEqual([coords.x1, coords.z0]);
+    expect(shadowBox([100, -200], 3000, coords, song.stand.reachM).centre).toEqual([100, -200]);
+    expect(shadowBox([9000, -9000], 3000, coords, song.stand.reachM).centre).toEqual([coords.x1, coords.z0]);
   });
 });
 
@@ -550,7 +552,7 @@ describe('题签指着的那一点', () => {
 
   it('mustShow 写 frame：整块沙盘，连座子一起算（沙盘的四个角，加上座子最宽那一圈的四个角）', () => {
     const points = showPoints(scene.sections[0], scene, ground, coords, style);
-    expect(points).toEqual(framePoints(coords));
+    expect(points).toEqual(framePoints(coords, style.stand));
     expect(points.slice(0, 4)).toEqual(corners);
     // 座子比沙盘的边宽出一截，在桌面以下
     const stand = points.slice(4);
@@ -891,9 +893,9 @@ describe('shadowTuning：影子的虚实和偏移，按影子罩多大一块来�
   it('徐州七个镜头在定稿画面上罩的那一块：水退以后是贴近看的数，另外六个都是平常的数', () => {
     // shadowBox 的半边长是 0.56 × 镜头的距离，最小 1250
     const xuzhou = frameCoords({ ...scene.frame, westM: 6300, eastM: 5400, northM: 5400, southM: 4300 });
-    expect(shadowTuning(shadowBox([0, 0], 1150, xuzhou).half)).toEqual({ radius: 3, bias: -0.0002, normalBias: 0.6 });
+    expect(shadowTuning(shadowBox([0, 0], 1150, xuzhou, song.stand.reachM).half)).toEqual({ radius: 3, bias: -0.0002, normalBias: 0.6 });
     for (const distanceM of [52000, 10800, 9600, 8800, 13000, 15000]) {
-      const t = shadowTuning(shadowBox([0, 0], distanceM, xuzhou).half);
+      const t = shadowTuning(shadowBox([0, 0], distanceM, xuzhou, song.stand.reachM).half);
       expect(t.radius).toBeCloseTo(2.2, 12);
       expect(t.bias).toBeCloseTo(-0.0006, 12);
       expect(t.normalBias).toBeCloseTo(1.6, 12);

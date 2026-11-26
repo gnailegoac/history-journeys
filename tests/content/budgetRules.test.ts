@@ -31,6 +31,8 @@ import {
   psnrTooLow,
   staticClosure,
   stillTooBig,
+  styleEntry,
+  styleRouteEntry,
   tableFiles,
   verdict,
   withCommas,
@@ -321,6 +323,149 @@ describe('全程沙盘另外的那一块程序', () => {
     const notDynamic = withRoute();
     delete notDynamic[ROUTE_ENTRY].isDynamicEntry;
     expect(report(notDynamic).fails).toEqual(['全程沙盘那一块程序（src/stage/three/routeLevel.ts）在构建清单里没有标成“用到时才下载”']);
+  });
+});
+
+describe('时代样式：一种一块，和沙盘程序加在一起查', () => {
+  /** 和现在的构建一个样子，添上全程沙盘那一块，再添上样式：页面那一边用到时才取它；它静态引入沙盘程序（共用的东西在那边）。名字都是编的。 */
+  function withStyles(ids: string[] = ['style-a']): BuildManifest {
+    const manifest = manifestLikeToday();
+    manifest[ENGINE_ENTRY].dynamicImports = [ROUTE_ENTRY];
+    manifest[ROUTE_ENTRY] = { file: 'assets/routeLevel-g.js', isDynamicEntry: true, imports: [ENGINE_ENTRY, '_lines-h.js'] };
+    manifest['_lines-h.js'] = { file: 'assets/lines-h.js' };
+    for (const id of ids) {
+      manifest[PAGE_ENTRY].dynamicImports = [...(manifest[PAGE_ENTRY].dynamicImports ?? []), styleEntry(id)];
+      manifest[styleEntry(id)] = { file: `assets/${id}-j.js`, isDynamicEntry: true, imports: [ENGINE_ENTRY] };
+    }
+    return manifest;
+  }
+  const WITH_STYLES = { ...TODAY, 'assets/routeLevel-g.js': 2_100, 'assets/lines-h.js': 6_500, 'assets/style-a-j.js': 2_000, 'assets/style-b-j.js': 3_000 };
+  const report = (manifest: BuildManifest, table: Record<string, number> = WITH_STYLES) => programReport(programSizes(manifest, sizesOf(table)), DIST_TODAY);
+  const STOP_ROW = '摆站点沙盘要下载的程序：沙盘程序加上最大的一种时代样式（压缩以后）';
+  const ROUTE_ROW = '摆全程沙盘要下载的程序：沙盘程序加上全程沙盘另外的，再加上最大的一种时代样式（压缩以后）';
+
+  it('一种样式在清单里叫什么：它自己的文件夹里和它同名的那个文件；文件夹里别的文件、别处的文件都不是', () => {
+    expect(styleEntry('song-qinglv')).toBe('src/stage/three/style/song-qinglv/song-qinglv.ts');
+    const manifest = withStyles();
+    manifest['src/stage/three/style/style-a/figure.ts'] = { file: 'assets/figure-k.js', isDynamicEntry: true };
+    manifest['src/stage/three/style/index.ts'] = { file: 'assets/index-l.js' };
+    manifest['src/stage/three/style/style-c/style-d.ts'] = { file: 'assets/style-d-m.js', isDynamicEntry: true };
+    expect(programSizes(manifest, sizesOf(WITH_STYLES)).styles.map((one) => one.id)).toEqual(['style-a']);
+  });
+
+  it('它自己那一块算一组，页面和沙盘程序已经带着的不重复算；沙盘程序、全程沙盘那一组不因为它变大；清单里没有样式时是空的', () => {
+    const sizes = programSizes(withStyles(), sizesOf(WITH_STYLES));
+    expect(sizes.styles).toEqual([{ id: 'style-a', files: ['assets/style-a-j.js'], gzip: 2_000, isDynamic: true, inOthers: false, route: null, routeIsDynamic: true }]);
+    expect(sizes.engine).toEqual({ files: ['assets/engine-b.js', 'assets/strips-c.js'], gzip: 198_600 });
+    expect(sizes.route).toEqual({ files: ['assets/routeLevel-g.js', 'assets/lines-h.js'], gzip: 8_600 });
+    expect(programSizes(manifestLikeToday(), sizesOf(TODAY)).styles).toEqual([]);
+    // 两种：照名字排，各算各的
+    expect(programSizes(withStyles(['style-b', 'style-a']), sizesOf(WITH_STYLES)).styles.map((one) => [one.id, one.gzip])).toEqual([['style-a', 2_000], ['style-b', 3_000]]);
+  });
+
+  it('表里每一种样式一行；摆站点沙盘、摆全程沙盘各一行，都把样式加进去对着沙盘程序的上限查；原来不带样式的那一行换成了带样式的', () => {
+    const found = report(withStyles());
+    expect(found.fails).toEqual([]);
+    expect(found.lines).toEqual([
+      '页面的程序（压缩以后）：84,000 字节，上限 97,000（用了 87%）　assets/index-a.js',
+      '样式表（压缩以后）：4,900 字节，上限 15,000（用了 33%）　assets/index-a.css',
+      '沙盘程序（压缩以后）：198,600 字节，上限 230,000（用了 86%）　assets/engine-b.js、assets/strips-c.js',
+      '时代样式“style-a”的程序（压缩以后）：2,000 字节（没有单独的上限，和沙盘程序加在一起查）　assets/style-a-j.js',
+      `${STOP_ROW}：200,600 字节，上限 230,000（用了 87%）`,
+      '全程沙盘另外的程序（压缩以后）：8,600 字节（没有单独的上限，和沙盘程序加在一起查）　assets/routeLevel-g.js、assets/lines-h.js',
+      `${ROUTE_ROW}：209,200 字节，上限 230,000（用了 91%）`,
+      '整个 dist/：2,000,000 字节，上限 943,718,400（用了 0%）',
+    ]);
+  });
+
+  it('沙盘程序自己没有超，加上样式超了：不合格；正好 230,000 合格。全程沙盘：沙盘程序加上那一块没有超，再加上样式超了，也不合格', () => {
+    const room = ENGINE_GZIP_MAX - 198_600;
+    const over = report(withStyles(), { ...WITH_STYLES, 'assets/style-a-j.js': room + 1, 'assets/lines-h.js': 0, 'assets/routeLevel-g.js': 0 });
+    expect(over.fails).toEqual([`${STOP_ROW}有 230,001 字节，超过了上限 230,000`, `${ROUTE_ROW}有 230,001 字节，超过了上限 230,000`]);
+    const exact = report(withStyles(), { ...WITH_STYLES, 'assets/style-a-j.js': room, 'assets/lines-h.js': 0, 'assets/routeLevel-g.js': 0 });
+    expect(exact.fails).toEqual([]);
+    // 站点沙盘够，全程沙盘不够：只有全程沙盘那一行不合格（207,200 + 样式）
+    const routeOver = report(withStyles(), { ...WITH_STYLES, 'assets/style-a-j.js': ENGINE_GZIP_MAX - 207_200 + 1 });
+    expect(routeOver.fails).toEqual([`${ROUTE_ROW}有 230,001 字节，超过了上限 230,000`]);
+    expect(report(withStyles(), { ...WITH_STYLES, 'assets/style-a-j.js': ENGINE_GZIP_MAX - 207_200 }).fails).toEqual([]);
+  });
+
+  it('有两种样式：照最大的一种查（一座沙盘只下载它自己的那一种，这里不看内容，取最坏的）', () => {
+    const found = report(withStyles(['style-a', 'style-b']));
+    expect(found.fails).toEqual([]);
+    expect(found.lines).toContain('时代样式“style-a”的程序（压缩以后）：2,000 字节（没有单独的上限，和沙盘程序加在一起查）　assets/style-a-j.js');
+    expect(found.lines).toContain('时代样式“style-b”的程序（压缩以后）：3,000 字节（没有单独的上限，和沙盘程序加在一起查）　assets/style-b-j.js');
+    expect(found.lines).toContain(`${STOP_ROW}：201,600 字节，上限 230,000（用了 88%）`);
+    expect(found.lines).toContain(`${ROUTE_ROW}：210,200 字节，上限 230,000（用了 91%）`);
+    // 小的那一种再大也不算数，大的那一种超了才不合格
+    const over = report(withStyles(['style-a', 'style-b']), { ...WITH_STYLES, 'assets/style-b-j.js': ENGINE_GZIP_MAX - 207_200 + 1 });
+    expect(over.fails).toEqual([`${ROUTE_ROW}有 230,001 字节，超过了上限 230,000`]);
+  });
+
+  it('沙盘程序（或者页面、全程沙盘那一块）静态引入了它、它没有标成“用到时才下载”：都不合格', () => {
+    for (const holder of [ENGINE_ENTRY, PAGE_ENTRY, ROUTE_ENTRY]) {
+      const held = withStyles();
+      held[styleEntry('style-a')].imports = [];
+      held[holder].imports = [...(held[holder].imports ?? []), styleEntry('style-a')];
+      const found = report(held);
+      expect(found.fails.filter((line) => line.includes('时代样式“style-a”')), holder).toEqual([
+        '时代样式“style-a”那一块程序（src/stage/three/style/style-a/style-a.ts）成了页面、沙盘程序或者全程沙盘那一块一来就带着的东西：只能用动态 import 取它（src/stage/styles.ts 的登记表）',
+      ]);
+    }
+    const notDynamic = withStyles();
+    delete notDynamic[styleEntry('style-a')].isDynamicEntry;
+    expect(report(notDynamic).fails).toEqual(['时代样式“style-a”那一块程序（src/stage/three/style/style-a/style-a.ts）在构建清单里没有标成“用到时才下载”']);
+  });
+});
+
+describe('时代样式分两半：全程沙盘只取每一座沙盘都用的那一半', () => {
+  /** 和现在的构建一个样子：一种样式，整套的那一块静态引着那一半；页面那一边两块都是用到时才取。名字是编的。 */
+  function withHalves(): BuildManifest {
+    const manifest = manifestLikeToday();
+    manifest[ENGINE_ENTRY].dynamicImports = [ROUTE_ENTRY];
+    manifest[ROUTE_ENTRY] = { file: 'assets/routeLevel-g.js', isDynamicEntry: true, imports: [ENGINE_ENTRY, '_lines-h.js'] };
+    manifest['_lines-h.js'] = { file: 'assets/lines-h.js' };
+    manifest[PAGE_ENTRY].dynamicImports = [...(manifest[PAGE_ENTRY].dynamicImports ?? []), styleEntry('style-a'), styleRouteEntry('style-a')];
+    manifest[styleEntry('style-a')] = { file: 'assets/style-a-j.js', isDynamicEntry: true, imports: [styleRouteEntry('style-a'), ENGINE_ENTRY] };
+    manifest[styleRouteEntry('style-a')] = { file: 'assets/style-a-route-k.js', isDynamicEntry: true, imports: [ENGINE_ENTRY] };
+    return manifest;
+  }
+  const HALVES = { ...TODAY, 'assets/routeLevel-g.js': 2_100, 'assets/lines-h.js': 6_500, 'assets/style-a-j.js': 1_200, 'assets/style-a-route-k.js': 3_800 };
+  const report = (manifest: BuildManifest, table: Record<string, number> = HALVES) => programReport(programSizes(manifest, sizesOf(table)), DIST_TODAY);
+
+  it('那一半在清单里叫什么；整套的一组是两块（站点沙盘都下载），那一半自己一组（全程沙盘只下载它）；那一半不另算成一种样式', () => {
+    expect(styleRouteEntry('song-qinglv')).toBe('src/stage/three/style/song-qinglv/song-qinglv-route.ts');
+    const sizes = programSizes(withHalves(), sizesOf(HALVES));
+    expect(sizes.styles).toEqual([
+      { id: 'style-a', files: ['assets/style-a-j.js', 'assets/style-a-route-k.js'], gzip: 5_000, isDynamic: true, inOthers: false, route: { files: ['assets/style-a-route-k.js'], gzip: 3_800 }, routeIsDynamic: true },
+    ]);
+  });
+
+  it('摆站点沙盘照整套查，摆全程沙盘照那一半查；表里那一半另有一行', () => {
+    const found = report(withHalves());
+    expect(found.fails).toEqual([]);
+    expect(found.lines).toContain('时代样式“style-a”的程序（压缩以后）：5,000 字节（没有单独的上限，和沙盘程序加在一起查）　assets/style-a-j.js、assets/style-a-route-k.js');
+    expect(found.lines).toContain('时代样式“style-a”里全程沙盘取的那一半（压缩以后）：3,800 字节　assets/style-a-route-k.js');
+    expect(found.lines).toContain('摆站点沙盘要下载的程序：沙盘程序加上最大的一种时代样式（压缩以后）：203,600 字节，上限 230,000（用了 89%）');
+    expect(found.lines).toContain('摆全程沙盘要下载的程序：沙盘程序加上全程沙盘另外的，再加上最大的一种时代样式（压缩以后）：211,000 字节，上限 230,000（用了 92%）');
+    // 那一半大到全程沙盘超了：不合格（207,200 + 那一半）；站点沙盘那一行跟着也超
+    const over = report(withHalves(), { ...HALVES, 'assets/style-a-route-k.js': ENGINE_GZIP_MAX - 207_200 + 1 });
+    expect(over.fails).toContain('摆全程沙盘要下载的程序：沙盘程序加上全程沙盘另外的，再加上最大的一种时代样式（压缩以后）有 230,001 字节，超过了上限 230,000');
+    // 站点沙盘才用的那一半再大，全程沙盘那一行不动
+    const stopHeavy = report(withHalves(), { ...HALVES, 'assets/style-a-j.js': 20_000 });
+    expect(stopHeavy.lines).toContain('摆全程沙盘要下载的程序：沙盘程序加上全程沙盘另外的，再加上最大的一种时代样式（压缩以后）：211,000 字节，上限 230,000（用了 92%）');
+  });
+
+  it('那一半没有标成“用到时才下载”、沙盘程序静态引入了那一半：都不合格', () => {
+    const notDynamic = withHalves();
+    delete notDynamic[styleRouteEntry('style-a')].isDynamicEntry;
+    expect(report(notDynamic).fails).toEqual(['时代样式“style-a”里全程沙盘取的那一半（src/stage/three/style/style-a/style-a-route.ts）在构建清单里没有标成“用到时才下载”']);
+    const held = withHalves();
+    held[ENGINE_ENTRY].imports = [...(held[ENGINE_ENTRY].imports ?? []), styleRouteEntry('style-a')];
+    held[styleRouteEntry('style-a')].imports = [];
+    held[styleEntry('style-a')].imports = [styleRouteEntry('style-a')];
+    expect(report(held).fails.filter((line) => line.includes('时代样式“style-a”'))).toHaveLength(1);
+    expect(report(held).fails.join('\n')).toContain('成了页面、沙盘程序或者全程沙盘那一块一来就带着的东西');
   });
 });
 

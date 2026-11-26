@@ -8,6 +8,9 @@
 //   dist/     整个文件夹，不压缩
 // 沙盘程序那一行查的是摆一座站点沙盘要下载的程序。全程沙盘另有一块用到时才下载的程序（src/stage/three/routeLevel.ts），
 // 表里单印一行，再和沙盘程序加在一起对着同一个上限查：上限说的是“摆一座沙盘，读者要下载多少程序”。
+// 时代样式（src/stage/styles.ts 的登记表）也是这样：一种样式是单独的一块，摆写着它的沙盘时才下载，不在沙盘程序里；
+// 每一种单印一行，“沙盘程序加上最大的一种样式”对着同一个上限查。上限的数没有动：样式原来在沙盘程序里，现在单算一块，加回去查。
+// 一种样式分两半：每一座沙盘都用的一半是单独的一块，全程沙盘只下载它；整套的那一块静态引着它，站点沙盘两块都下载。
 // 另外查四件事：沙盘程序不能是页面一打开就下载的东西（页面只许用动态 import 取它）；
 // 沙盘用到的文件（地形文件、先画好的地面、定格图）的网址也不能在页面一打开就下载的那一块里
 //（一座沙盘十几二十个网址，沙盘越多越长：它们在内容的清单那一块里，src/domain/contentLists.ts）；
@@ -18,7 +21,7 @@
 // 字体多大也印出来；构建出来的样式表里没有 Safari 读不懂的那几种写法（查的是构建以后的原文：构建的工具会改写样式表）。
 // 后两件怎么查在 tests/support/builtFonts.ts。
 // 按家分块的零件（src/stage/families.ts）：每一家是单独的一块，场景里写到了才下载。对 content/ 里的每一座沙盘查
-// “沙盘程序加上这座沙盘要下载的那几块”不超过同一个上限；徐州和全程沙盘一家也不下载；沙盘程序还是一个文件
+// “沙盘程序，加上这座沙盘自己的样式，加上这座沙盘要下载的那几块”不超过同一个上限；徐州和全程沙盘一家也不下载；沙盘程序还是一个文件
 //（分块分得不对，打包的工具会把两边共用的东西另拆一块，哪座沙盘都要多下载一个文件）。
 // 还有一件：点开才下载的三段界面程序（凭据里面的东西、讲解员面板里面的东西、“来源”页里面的东西）和摆上全程沙盘才下载的时间轴（src/timebar/）各是单独的一块，
 // 页面一打开就下载的程序只有入口那一个文件——React 的核心没有被打包的工具单拆出去（拆出去的话页面的程序凭空多出约 600 字节）。
@@ -33,7 +36,7 @@ import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { gzipSync } from 'node:zlib';
 import { describe, expect, it } from 'vitest';
 import { createHash } from 'node:crypto';
-import { BAR_ENTRY, ENGINE_ENTRY, ENGINE_GZIP_MAX, LISTS_ENTRY, PAGE_ENTRY, ROUTE_ENTRY, familyEntry, fontReport, programReport, programSizes, staticClosure, withCommas } from '../content/budgetRules';
+import { BAR_ENTRY, ENGINE_ENTRY, ENGINE_GZIP_MAX, LISTS_ENTRY, PAGE_ENTRY, ROUTE_ENTRY, familyEntry, fontReport, programReport, programSizes, staticClosure, styleEntry, styleRouteEntry, withCommas } from '../content/budgetRules';
 import type { BuildManifest, SizeReport } from '../content/budgetRules';
 import { CONTAINER_MAX, CQW_MAX, builtFonts, builtStyleProblems } from '../support/builtFonts';
 import { oldIpadSheet } from '../support/oldIpadSheet';
@@ -41,6 +44,7 @@ import { SHIPPED_FONTS } from '../../src/fonts/shipped';
 import { SOURCES_TEXT } from '../../src/ui/sourcesText';
 import { BAR_TEXT } from '../../src/timebar/barText';
 import { FAMILIES } from '../../src/stage/families';
+import { STYLES } from '../../src/stage/styles';
 import { familyNamesFor } from '../stage/support/kitFamilies';
 import { realRouteScene, realSceneFile, realSceneKeys } from '../stage/support/realScenes';
 import type { BuiltSite, CommittedFont } from '../support/builtFonts';
@@ -119,14 +123,73 @@ describe('全程沙盘另外的那一块程序', () => {
     expect(route.isDynamicEntry, '全程沙盘那一块在清单里没有标成“用到时才下载”').toBe(true);
     expect(staticClosure(manifest, ENGINE_ENTRY), '全程沙盘那一块成了沙盘程序一来就带着的东西').not.toContain(ROUTE_ENTRY);
     expect(staticClosure(manifest, PAGE_ENTRY), '全程沙盘那一块成了页面一打开就下载的东西').not.toContain(ROUTE_ENTRY);
-    // 量到的两个数另印一行，交接的时候抄这里的
+    // 量到的数另印一行，交接的时候抄这里的。2026-11-26 样式从沙盘程序里搬出去以后，这一行原来印的两个数（沙盘程序；沙盘程序加全程沙盘那一块）
+    // 不再是“摆一座沙盘要下载的程序”：少了样式。现在印的两个数都带着样式（有几种样式取最大的一种；站点沙盘是整套，全程沙盘是它只取的那一半），
+    // 下面查的也是这两个数——印出来说的是多少，查的就是多少。按家分块的零件另算，每一座沙盘自己的那一笔账在最后一组里。
     const sizes = programSizes(manifest, gzipOnDisk);
     expect(sizes.route, '量不出全程沙盘另外的程序').not.toBeNull();
     expect(sizes.engine, '量不出沙盘程序').not.toBeNull();
     const engine = sizes.engine?.gzip ?? 0;
     const extra = sizes.route?.gzip ?? 0;
-    console.log(`  摆站点沙盘要下载的程序 ${withCommas(engine)} 字节；摆全程沙盘 ${withCommas(engine)} + ${withCommas(extra)} = ${withCommas(engine + extra)} 字节；上限都是 ${withCommas(ENGINE_GZIP_MAX)}`);
+    expect(sizes.styles.length, '量不出样式').toBeGreaterThan(0);
+    const whole = sizes.styles.reduce((most, one) => Math.max(most, one.gzip), 0);
+    const half = sizes.styles.reduce((most, one) => Math.max(most, one.route ? one.route.gzip : one.gzip), 0);
+    expect(whole).toBeGreaterThan(0);
+    expect(half).toBeGreaterThan(0);
+    console.log(
+      `  摆站点沙盘要下载的程序（不算按家分块的零件）${withCommas(engine)} + 样式 ${withCommas(whole)} = ${withCommas(engine + whole)} 字节；` +
+        `摆全程沙盘 ${withCommas(engine)} + ${withCommas(extra)} + 样式的一半 ${withCommas(half)} = ${withCommas(engine + extra + half)} 字节；上限都是 ${withCommas(ENGINE_GZIP_MAX)}`,
+    );
+    // 原来的那一句还在（不带样式的）；带着样式的两句是新添的，比它严
     expect(engine + extra).toBeLessThanOrEqual(ENGINE_GZIP_MAX);
+    expect(engine + whole).toBeLessThanOrEqual(ENGINE_GZIP_MAX);
+    expect(engine + extra + half).toBeLessThanOrEqual(ENGINE_GZIP_MAX);
+  });
+});
+
+describe('时代样式：一种一块', () => {
+  // 2026-11-26 样式分成两半以前，这一条的名字里是“它另外要下载的只有它自己那一个文件”：那时一种样式一块。现在整套是两块（它自己，和它引的那一半），
+  // 那一半自己还是只有一个文件；别的几样查的没有变。
+  it('登记表里的每一种样式都是单独的一块，用到时才下载；沙盘程序、全程沙盘那一块、页面的程序都不带着它；整套另外要下载的正好是它自己和它引的那一半两个文件，那一半另外要下载的只有它自己那一个文件；沙盘程序和页面的程序各还是一个文件', () => {
+    expect(existsSync(MANIFEST), '没有 dist/.vite/manifest.json：先运行 npm run build').toBe(true);
+    const manifest = readManifest(new TextDecoder().decode(readFileSync(MANIFEST)));
+    expect(STYLES.length).toBeGreaterThan(0);
+    const sizes = programSizes(manifest, gzipOnDisk);
+    const have = new Set([...staticClosure(manifest, PAGE_ENTRY), ...staticClosure(manifest, ENGINE_ENTRY)].map((key) => manifest[key].file));
+    for (const { id } of STYLES) {
+      const key = styleEntry(id);
+      expect(manifest[key], `清单里没有 ${key} 这一项：这种样式的程序被打进了别的块（多半是沙盘程序那一块），或者文件不叫这个名字（src/stage/three/style/<样式的名字>/<样式的名字>.ts）`).toBeDefined();
+      expect(manifest[key].isDynamicEntry, `${key} 在清单里没有标成“用到时才下载”`).toBe(true);
+      for (const entry of [ENGINE_ENTRY, ROUTE_ENTRY, PAGE_ENTRY]) expect(staticClosure(manifest, entry), `${key} 成了 ${entry} 一来就带着的东西`).not.toContain(key);
+      // 每一座沙盘都用的那一半：也是单独的一块，用到时才下载，哪一块都不静态带着它（整套的那一块除外）
+      const halfKey = styleRouteEntry(id);
+      expect(manifest[halfKey], `清单里没有 ${halfKey} 这一项：这种样式没有分出全程沙盘取的那一半，或者文件不叫这个名字`).toBeDefined();
+      expect(manifest[halfKey].isDynamicEntry, `${halfKey} 在清单里没有标成“用到时才下载”`).toBe(true);
+      for (const entry of [ENGINE_ENTRY, ROUTE_ENTRY, PAGE_ENTRY]) expect(staticClosure(manifest, entry), `${halfKey} 成了 ${entry} 一来就带着的东西`).not.toContain(halfKey);
+      const extra = (from: string): string[] => {
+        const files = staticClosure(manifest, from).map((one) => manifest[one].file);
+        return files.filter((file, i) => !have.has(file) && files.indexOf(file) === i);
+      };
+      // 整套另外要下载的正好是两个文件（它自己，和它引的那一半）；那一半另外要下载的只有它自己：和沙盘程序共用的东西留在沙盘程序里，没有另拆一块
+      expect(extra(key), `${key} 另外要下载的文件`).toEqual([manifest[key].file, manifest[halfKey].file]);
+      expect(extra(halfKey), `${halfKey} 另外要下载的文件`).toEqual([manifest[halfKey].file]);
+      // 量大小的那个函数认到的也是它们
+      const measured = sizes.styles.find((one) => one.id === id);
+      expect(measured, `量不出样式“${id}”多大`).toBeDefined();
+      expect(measured?.files).toEqual([manifest[key].file, manifest[halfKey].file]);
+      expect(measured?.route?.files).toEqual([manifest[halfKey].file]);
+      expect(measured?.route?.gzip ?? 0).toBeGreaterThan(0);
+      expect(measured?.route?.gzip ?? 0).toBeLessThan(measured?.gzip ?? 0);
+      expect(measured?.routeIsDynamic).toBe(true);
+      expect(measured?.gzip).toBeGreaterThan(0);
+      expect(measured?.isDynamic).toBe(true);
+      expect(measured?.inOthers).toBe(false);
+    }
+    // 清单里的样式正好是登记表里的那几种
+    expect(sizes.styles.map((one) => one.id).sort()).toEqual(STYLES.map((row) => row.id).sort());
+    // 沙盘程序还是一个文件，页面一打开就下载的程序也还是一个文件（样式的那一句动态 import 写在页面那一边，没有把哪一边拆开）
+    expect(sizes.engine?.files).toEqual([manifest[ENGINE_ENTRY].file]);
+    expect(sizes.page?.files).toEqual([manifest[PAGE_ENTRY].file]);
   });
 });
 
@@ -154,21 +217,36 @@ describe('按家分块的零件：每一座沙盘要下载多少程序', () => {
     expect(programSizes(manifest, gzipOnDisk).engine?.files).toEqual([manifest[ENGINE_ENTRY].file]);
   });
 
-  it(`content/ 里的每一座沙盘：沙盘程序加上它要下载的那几块，不超过 ${withCommas(ENGINE_GZIP_MAX)} 字节；徐州和全程沙盘一家也不下载`, () => {
+  // 2026-11-26 以前的名字是“content/ 里的每一座沙盘：沙盘程序加上它要下载的那几块，不超过 230,000 字节；徐州和全程沙盘一家也不下载”：
+  // 那时样式在沙盘程序里面。现在它是单独的一块，每座沙盘的那一笔账里添上它自己的样式；上限还是那个数。
+  it(`content/ 里的每一座沙盘：沙盘程序加上它自己的样式、加上它要下载的那几块，不超过 ${withCommas(ENGINE_GZIP_MAX)} 字节；徐州和全程沙盘一家也不下载`, () => {
     expect(existsSync(MANIFEST), '没有 dist/.vite/manifest.json：先运行 npm run build').toBe(true);
     const manifest = readManifest(new TextDecoder().decode(readFileSync(MANIFEST)));
     const sizes = programSizes(manifest, gzipOnDisk);
     const engine = sizes.engine?.gzip ?? 0;
     const route = sizes.route?.gzip ?? 0;
     expect(engine).toBeGreaterThan(0);
+    /**
+     * 这座沙盘的场景里写的样式，它要下载的那一部分多大：站点沙盘是整套（两块），全程沙盘只是每一座沙盘都用的那一半。
+     * 清单里量不到它（没有登记，或者被打进了别的块）就不通过。
+     */
+    const styleOf = (key: string, id: string, route = false): number => {
+      const found = sizes.styles.find((one) => one.id === id);
+      expect(found, `${key} 的场景里写的样式“${id}”在构建出来的东西里量不到`).toBeDefined();
+      const gzip = (route ? (found?.route ?? found)?.gzip : found?.gzip) ?? 0;
+      expect(gzip, `${key} 的样式“${id}”量不出大小`).toBeGreaterThan(0);
+      return gzip;
+    };
     const lines: string[] = [];
     const stops = realSceneKeys();
     expect(stops).toContain('su-shi/xuzhou');
     for (const key of stops) {
-      const names = familyNamesFor(realSceneFile(key).scene);
+      const scene = realSceneFile(key).scene;
+      const names = familyNamesFor(scene);
       const each = names.map((name) => ({ name, gzip: familyFiles(manifest, name).reduce((sum, file) => sum + gzipOnDisk(file), 0) }));
-      const total = engine + each.reduce((sum, family) => sum + family.gzip, 0);
-      lines.push(`${key}：沙盘程序 ${withCommas(engine)}${each.map((family) => ` + ${family.name} ${withCommas(family.gzip)}`).join('')} = ${withCommas(total)} 字节${names.length ? '' : '（一家也不下载）'}`);
+      const style = styleOf(key, scene.style);
+      const total = engine + style + each.reduce((sum, family) => sum + family.gzip, 0);
+      lines.push(`${key}：沙盘程序 ${withCommas(engine)} + 样式 ${scene.style} ${withCommas(style)}${each.map((family) => ` + ${family.name} ${withCommas(family.gzip)}`).join('')} = ${withCommas(total)} 字节，离上限 ${withCommas(ENGINE_GZIP_MAX - total)}${names.length ? '' : '（一家也不下载）'}`);
       expect(total, `${key} 要下载的程序超过了上限`).toBeLessThanOrEqual(ENGINE_GZIP_MAX);
       for (const family of each) expect(family.gzip, `${family.name} 这一家量不出大小`).toBeGreaterThan(0);
     }
@@ -179,8 +257,9 @@ describe('按家分块的零件：每一座沙盘要下载多少程序', () => {
       const scene = realRouteScene(key).scene as unknown as Record<string, unknown>;
       expect(scene.things, `${key} 有了摆件`).toBeUndefined();
       expect(scene.dressing, `${key} 有了点缀`).toBeUndefined();
-      lines.push(`${key}：沙盘程序 ${withCommas(engine)} + 全程沙盘那一块 ${withCommas(route)} = ${withCommas(engine + route)} 字节（一家也不下载）`);
-      expect(engine + route).toBeLessThanOrEqual(ENGINE_GZIP_MAX);
+      const style = styleOf(key, realRouteScene(key).scene.style, true);
+      lines.push(`${key}：沙盘程序 ${withCommas(engine)} + 全程沙盘那一块 ${withCommas(route)} + 样式 ${realRouteScene(key).scene.style} 的一半 ${withCommas(style)} = ${withCommas(engine + route + style)} 字节，离上限 ${withCommas(ENGINE_GZIP_MAX - engine - route - style)}（一家也不下载）`);
+      expect(engine + route + style, `${key} 要下载的程序超过了上限`).toBeLessThanOrEqual(ENGINE_GZIP_MAX);
     }
     console.log(['每一座沙盘要下载的程序（压缩以后）', ...lines.map((line) => `  ${line}`), ...FAMILIES.map(({ name, holds }) => `  ${name} 这一家：${holds.join('、')}　${withCommas(familyFiles(manifest, name).reduce((sum, file) => sum + gzipOnDisk(file), 0))} 字节　${manifest[familyEntry(name)].file}`)].join('\n'));
   });

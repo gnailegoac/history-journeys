@@ -23,7 +23,9 @@ import { formatViolation, RULE_NAMES, validateContent as validateAll } from './r
 import type { ContentFiles } from './rules';
 import { SHORE_ABOVE_LOWEST_M, SHORE_UNDER_NORMAL_M } from '../../src/stage/three/families/rock';
 import type { Source } from '../../src/domain/types';
+import { STYLES } from '../../src/stage/styles';
 import { bakedPictureSize, checkBakedGround, checkScene, checkSceneNight, checkSceneShape, checkSceneStrips, checkSectionStills, FAR_STRIP_AT_MAX_M, MADE_FILES_REQUIRED, MOON_ALTITUDE, OUTLINE_SECTIONS, SHORE_ROCKS_NEED_M, STILL_MAX_BYTES, TERRAIN_MAX_BYTES, textWidth, unsureProblem, WORDS_MAX } from './sceneRules';
+import { STYLE_IDS } from './sceneRules';
 import type { Measured } from './sceneRules';
 import type { FileSizes, Violation } from './shape';
 
@@ -373,6 +375,13 @@ describe('规则 10 场景文件', () => {
 
   it('style 不是程序里有的样式', () => {
     expect(looseProblems<{ style: string }>((scene) => (scene.style = 'tang-gold'))).toEqual(['10 style']);
+    // 有哪几种样式，照样式的登记表（src/stage/styles.ts）：那句话把表里的名字都列出来
+    expect(STYLE_IDS).toEqual(STYLES.map((row) => row.id));
+    expect(STYLE_IDS).toContain('song-qinglv');
+    const said = validateAll(edit<{ style: string }>(SCENE, (scene) => (scene.style = 'tang-gold')), SIZES).filter((v) => v.rule === 10 && v.field === 'style');
+    expect(said.map((v) => v.problem)).toEqual([`样式“tang-gold”程序里没有；有的是：${STYLES.map((row) => row.id).join('、')}`]);
+    // 表里的每一种都认
+    for (const id of STYLE_IDS) expect(looseProblems<{ style: string }>((scene) => (scene.style = id))).toEqual([]);
   });
 
   it('credits 一条也没有，或者有一条是空的', () => {

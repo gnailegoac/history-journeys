@@ -7,7 +7,7 @@
 // 大小的上限都在 budgetRules.ts，这里只管照着它查、把话说清楚。
 
 import type { BakedGroundManifest } from '../../src/domain/bakedGround';
-import { SCENE_CLASSES, SCENE_CLASS_LABEL, SCENE_RESERVED_IDS, SCENE_SKIES, SCENE_STYLES } from '../../src/domain/scene';
+import { SCENE_CLASSES, SCENE_CLASS_LABEL, SCENE_RESERVED_IDS, SCENE_SKIES } from '../../src/domain/scene';
 import type { DressingKind, DressingWhere, Grounds, ParamType, Params, SceneClass, SceneDressing, SceneThing, StopScene, TableScene, ThingKind, When } from '../../src/domain/scene';
 import { farEdgePoint, frameCoords } from '../../src/domain/sceneGeo';
 import { coordsOf } from '../../src/domain/sceneGeoRoute';
@@ -17,9 +17,16 @@ import { existsAt, sectionInfo } from '../../src/domain/sceneText';
 import type { StillManifest, StillShape } from '../../src/domain/stills';
 import type { LngLat } from '../../src/domain/types';
 import { gridOf } from '../../src/stage/ground/grid';
+import { STYLES } from '../../src/stage/styles';
 import { COLOUR_PSNR_MIN, COLOUR_PSNR_MIN_ROUTE, PICTURE_EDGE_MAX, STILL_MAX_BYTES, TABLE_FILES_MAX_BYTES, edgeTooLong, kilobytes, megabytes, psnrTooLow, stillTooBig, tableFiles } from './budgetRules';
 import { anything, bool, checkShape, has, list, lngLat, number, numberIn, object, oneOf, optional, readJson, record, strict, tagged, text, union, violation } from './shape';
 import type { ContentFiles, FileSizes, Shape, Violation } from './shape';
+
+/**
+ * 场景文件的 style 能写哪几种（规则 10）：样式的登记表（src/stage/styles.ts）里每一行的名字。
+ * 表里添一行，这里就多认一种；全程沙盘的规则（routeRules.ts）用的也是这一份。
+ */
+export const STYLE_IDS: readonly string[] = STYLES.map((row) => row.id);
 
 /**
  * 地形文件最大多少字节（规则 10）：1.5 MB。和“一座沙盘的文件合计”（规则 17）是同一个数：
@@ -261,7 +268,7 @@ export function checkSceneFile(scene: StopScene, file: string, stop: SceneStop, 
   if (scene.stopId !== stop.id) bad('stopId', `应该和文件名一样（${stop.id}），现在是“${scene.stopId}”`);
   if (stop.status === undefined) bad('', `figure.json 里没有 id 是“${stop.id}”的站，这个场景文件对不上任何一站`);
 
-  if (!(SCENE_STYLES as readonly string[]).includes(scene.style)) bad('style', `样式“${scene.style}”程序里没有；有的是：${SCENE_STYLES.join('、')}`);
+  if (!STYLE_IDS.includes(scene.style)) bad('style', `样式“${scene.style}”程序里没有；有的是：${STYLE_IDS.join('、')}`);
 
   if (scene.credits.length === 0) bad('credits', '至少要写一条：地形用了谁的高程数据，借了谁的河道线');
   scene.credits.forEach((credit, i) => {

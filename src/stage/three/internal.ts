@@ -4,9 +4,10 @@
 // 前一半的三样将就（远近两套模型、按镜头换的灯、只有一档的画质）在第 1 步的后一半都换掉了：
 // 模型只有一套，跟着远近在显卡上变（FigureStyle）；一种样式一盏灯（StageStyle.light）；画质两档（Quality）。
 
-import type { Group } from 'three';
-import type { SceneMoon, SceneSky, SceneStyleId, StopScene, ThingKind } from '../../domain/scene';
+import type { Group, WebGLRenderer } from 'three';
+import type { SceneMoon, SceneSky, StopScene, ThingKind } from '../../domain/scene';
 import type { FrameCoords } from '../../domain/sceneGeo';
+import type { BlankEdge } from '../ground/route';
 import type { Ground, GroundSamplers, GroundStyle, Vec3 } from '../ground/types';
 import type { StageTier } from '../types';
 import type { KitFamily } from './kit/families';
@@ -91,13 +92,10 @@ export interface FigureStyle {
   closeTreesM: [number, number];
 }
 
-/** 全程沙盘画河用的粗细分几等：干流、大河、河、小河，和运河。 */
-export type RouteRiverWidth = 'trunk' | 'major' | 'river' | 'minor' | 'canal';
-
 /**
- * 一种时代样式里，全程沙盘自己的那一份（站点沙盘不看）。
- * 前三样是沙盘程序用的；后面是给地面上色的工具（tests/tools/route/paint.ts）用的：全程沙盘的地面不在页面上现画，
- * 可颜色和分带还是样式的事，所以放在这里，工具从这里读。数都是定稿的样张（spikes/art-direction/route/）的。
+ * 一种时代样式里，全程沙盘自己的那一份（站点沙盘不看）。都是沙盘程序用的。
+ * 全程沙盘的地面不在页面上现画：给地面上色用的数（河画多宽、地面的几种颜色、山上的分带）不在这里，在做图的工具里，
+ * 一种样式一个画法（tests/tools/route/painters.ts）——那些数不随沙盘程序发给读者。数都是定稿的样张（spikes/art-direction/route/）的。
  */
 export interface RouteStyle {
   /** 地形板的网格多少米一格（沙盘里的米）。 */
@@ -106,35 +104,8 @@ export interface RouteStyle {
   reducedSegmentTimes: number;
   /** 海和湖上相邻两道水纹隔多少个页面像素。 */
   ripplePx: number;
-  /** 河画多宽（地上的公里），按场景里写的 weight；canal 是运河。比实际宽得多，远看才是一条河。 */
-  riverKm: Record<RouteRiverWidth, number>;
-  /**
-   * 站点沙盘的地面颜色（ground.colours）里没有、或者这里不一样的几种：
-   * loess 北方的黄土地，sand 河岸留白，shoreInk 留白的地方的海岸线，sea 和 seaDeep 海和湖的浅处、深处，
-   * river 照今天画的河，riverSong 示意的河和运河。
-   */
-  colours: Record<'loess' | 'sand' | 'shoreInk' | 'sea' | 'seaDeep' | 'river' | 'riverSong', string>;
-  /**
-   * 山上的分带。比着的数是“比四周低处高出多少米 × relK + 海拔 × hK”，再加一点随机（noise）。
-   * foot、green、blue、deep：从多少到多少匀着过渡成赭石、石绿、石青、深石青；footK、blueK 是盖上去几成。
-   * rank：在自己这条山脉里排到多靠前（0 到 1）才上石青；rankCurv 是山脊凸出来的那一点加分。
-   * steep：坡度从多少到多少匀着出皴。patch：平地上那些淡淡的块盖上去几成。
-   */
-  bands: {
-    relK: number;
-    hK: number;
-    noise: number;
-    foot: [number, number];
-    footK: number;
-    green: [number, number];
-    blue: [number, number];
-    blueK: number;
-    rank: [number, number];
-    rankCurv: number;
-    deep: [number, number];
-    steep: [number, number];
-    patch: number;
-  };
+  /** 留白（路没到的地方）的边怎么收：抹开多宽，打不打散、怎么打散。造地面的时候交给它（src/stage/ground/route.ts 的 buildRouteGround）。 */
+  blank: BlankEdge;
   /**
    * 路画成什么线（沙盘程序用，src/stage/three/routeKit.ts）。宽度都是页面上的像素，镜头远近都一样宽。
    * lines 是三种路：ink 墨线（全程那一节的每一趟），now 刚走的（到这一站来的），past 走过的（到前面各站去的）。
@@ -167,16 +138,63 @@ export interface PieceStyle {
   cap: string;
 }
 
-/** 一种时代样式：颜色、地面怎么上色、模型跟着远近怎么变、题签抬多高、灯、雾。 */
-export interface StageStyle {
-  id: SceneStyleId;
+/** 造出来的装裱和座子（沙盘四周的一圈边和底下的座）。 */
+export interface Stand {
+  group: Group;
+  /**
+   * 给要环境反光的材质配上反光：摆进沙盘的时候叫一次，用这座沙盘的渲染器。返回的函数放掉配反光时造的东西（收场时叫）。
+   * 哪种材质要反光、要什么样的，是样式的事；不要反光的样式什么也不做，返回一个空函数。
+   */
+  reflect(renderer: WebGLRenderer): () => void;
+  /** 反光压暗到几成（1 是白天）：反光来自环境贴图，灯暗了它不会跟着暗。 */
+  setDim(dim: number): void;
+  dispose(): void;
+}
+
+/** 一种样式的装裱和座子：长什么样、怎么造都在样式自己的那一块程序里，沙盘程序只知道这三样。 */
+export interface StandStyle {
+  /**
+   * 座子最宽的那一圈比沙盘的边多出多少米。“整块沙盘都要看得见”是连装裱和座子一起算的（rig.ts 的 framePoints），
+   * 影子最大罩多大一块也用它（rig.ts 的 shadowBox）。
+   */
+  reachM: number;
+  /** 那一圈的下沿在沙盘里多高（沙盘里的米）。 */
+  reachY: number;
+  /** 照沙盘的范围造出来；颜色从样式的 palette 里取。 */
+  build(coords: FrameCoords, palette: Record<string, string>): Stand;
+}
+
+/**
+ * 一种时代样式里每一座沙盘都用的那一半：灯、雾、云气的浓淡、装裱和座子，全程沙盘的那一份和小像，和哪一层的沙盘都要的几种颜色。
+ * 全程沙盘只取这一半（它不摆小模型，不现画地面）；站点沙盘取整套（StageStyle）。
+ */
+export interface TableStyle {
+  /** 样式的名字：登记表（src/stage/styles.ts）里它那一行的 id，场景文件的 style 写的就是它。 */
+  id: string;
   /**
    * 颜色，名字到 '#rrggbb'。名字照样张 config.js 里的 PAL，一个不改；
    * 样张里没有的夯土色（城墙）叫 rammedEarth。零件库的材质只从这里取颜色。
+   * 只取了一半的样式里只有哪一层都要的几种（水纹、云气、雾、地形板的侧面、装裱和座子的）；整套里是全部。
    */
   palette: Record<string, string>;
+  /** 这种样式的灯。只看天色（夜里再看月亮在哪），不看镜头。 */
+  light(sky: SceneSky, moon?: SceneMoon): LightSpec;
+  /** 远处的雾从多远开始、到多远全白：[近, 远]，米。 */
+  fogFor(distanceM: number): [number, number];
+  /** 山脚的云气浓淡：1 是平常，0 是没有。 */
+  mistFor(distanceM: number): number;
+  /** 全程沙盘自己的那一份。这种样式还摆不了全程沙盘时不写。 */
+  route?: RouteStyle;
+  /** 装裱和座子。 */
+  stand: StandStyle;
+  /** 小像的颜色。它是这位人物的东西，颜色跟着时代样式走，不从页面的样式表里取。这种样式还没有小像时不写。 */
+  piece?: PieceStyle;
+}
+
+/** 一种时代样式，整套：上面那一半，加上站点沙盘才用的——地面怎么上色、模型跟着远近怎么变、题签抬多高。 */
+export interface StageStyle extends TableStyle {
   ground: GroundStyle;
-  /** 模型跟着镜头远近怎么变。表在 src/stage/three/style/<样式>Figure.ts。 */
+  /** 模型跟着镜头远近怎么变。表在这种样式自己的文件夹里（src/stage/three/style/<样式的名字>/figure.ts）。 */
   figure: FigureStyle;
   /**
    * 题签指着一样摆件时，比它脚下的地面抬高多少：沙盘里的米（和 x、z 一个单位，不再乘山高夸大的倍数），
@@ -189,16 +207,6 @@ export interface StageStyle {
    * 墙顶上的棚子也是一种“屋”，可它只有地上的茅屋一半高。
    */
   stripLiftByClass?: Partial<Record<FigureClass, number>>;
-  /** 这种样式的灯。只看天色（夜里再看月亮在哪），不看镜头。 */
-  light(sky: SceneSky, moon?: SceneMoon): LightSpec;
-  /** 远处的雾从多远开始、到多远全白：[近, 远]，米。 */
-  fogFor(distanceM: number): [number, number];
-  /** 山脚的云气浓淡：1 是平常，0 是没有。 */
-  mistFor(distanceM: number): number;
-  /** 全程沙盘自己的那一份。这种样式还摆不了全程沙盘时不写。 */
-  route?: RouteStyle;
-  /** 小像的颜色。它是这位人物的东西，颜色跟着时代样式走，不从页面的样式表里取。这种样式还没有小像时不写。 */
-  piece?: PieceStyle;
 }
 
 /** 零件库造模型时拿到的东西。 */

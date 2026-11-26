@@ -21,7 +21,7 @@ import type { FigureClass } from '../../src/stage/three/internal';
 import { detailGone, equivalentDistance, figureGroups, figureNow, liftClass } from '../../src/stage/three/kit/figure';
 import { placeCamera } from '../../src/stage/three/rig';
 import { CALM_RANGE, rippleFor, rippleShare } from '../../src/stage/three/water';
-import { styleFor } from '../../src/stage/three/style';
+import { styleFor } from './support/styles';
 import type { StageInsets } from '../../src/stage/types';
 import { realScene } from './support/realScenes';
 import { STANDARD_PANES, UPRIGHT_PANES } from './support/standardPanes';

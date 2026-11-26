@@ -9,12 +9,15 @@
 // 留白的地方是平的。最后把写进 terrain.recipe.basis 的那几个数打印出来：那句话里的数只从这里抄。
 
 import { describe, expect, it } from 'vitest';
-import { curve, curveInverse } from '../../src/domain/sceneGeoRoute';
+import type { RouteScene } from '../../src/domain/scene';
+import { curve, curveInverse, routeCoords } from '../../src/domain/sceneGeoRoute';
 import type { LngLat } from '../../src/domain/types';
-import { BLANK_KEEP, blankKeep, plainSlope, routeHeights, routeNormals, smoothPlain } from '../../src/stage/ground/route';
-import type { RouteHeights } from '../../src/stage/ground/route';
+import { BLANK_KEEP, blankKeep, blankSoft, buildRouteGround, keepAt, plainSlope, readRouteDem, routeHeights, routeNormals, smoothPlain } from '../../src/stage/ground/route';
+import type { BlankEdge, RouteHeights } from '../../src/stage/ground/route';
 import { readToday } from '../content/routeRules';
+import { readBytes } from '../support/readBytes';
 import { realRouteScene, realSceneKeys } from './support/realScenes';
+import { blankEdgeFor } from './support/styles';
 import type { RealRouteScene } from './support/realScenes';
 
 /** 定稿样张的投影（spikes/art-direction/route/scene/proj.js）算出来的四个角：西北、东北、西南、东南。 */
@@ -134,7 +137,7 @@ function stages(R: RealRouteScene): { before: RouteHeights; after: Float32Array;
   const before = routeHeights(R.scene, R.dem, R.coords);
   const { nx, nz, cell } = before.grid;
   const after = smoothPlain(before.h, before.land, R.scene.terrain.recipe, nx, nz, cell * R.scene.frame.scale);
-  const made = { before, after, keep: blankKeep(R.scene, before) };
+  const made = { before, after, keep: blankKeep(R.scene, before, blankEdgeFor(R.scene.style)) };
   stagesOf.set(R.key, made);
   return made;
 }
@@ -638,5 +641,60 @@ describe('su-shi/route 的地面：苏轼这一座自己的数和地名', () => 
     const normals = routeNormals(R.ground);
     const k = cellOf(R, [121.5, 21.0]) * 4;
     expect([normals[k], normals[k + 1], normals[k + 2], normals[k + 3]]).toEqual([128, 255, 128, 255]);
+  });
+});
+
+// 留白的边打不打散是样式的事（BlankEdge.torn）：不写就不打散。content/ 里现在每一座全程沙盘的样式都写了打散，
+// “不打散”的那一条路在这里用一种编出来的样式走一遍：只写抹开多宽、不写 torn。场景是校验用的那一份样本（一圈留白在西南角）。
+describe('另一种样式不打散留白的边（编出来的样式，只写抹开多宽）：圈是怎么写的，边就照它抹开', () => {
+  const FIXTURE = 'tests/content/fixtures/good/figures/demo/scenes/';
+  const scene = JSON.parse(new TextDecoder().decode(readBytes(`${FIXTURE}route.json`))) as RouteScene;
+  const coords = routeCoords(scene.frame);
+  const dem = readRouteDem(scene.terrain, readBytes(`${FIXTURE}${scene.terrain.file}`));
+  const heights = routeHeights(scene, dem, coords);
+  /** 编出来的样式的边：抹开两格，不打散。 */
+  const plain: BlankEdge = { blurM: 2 * heights.grid.cell * scene.frame.scale };
+  /** 同样宽，写了打散，可打散的那条经线在整座沙盘的西边：一格也轮不到。 */
+  const tornNowhere: BlankEdge = { ...plain, torn: { westOf: [-179, -178], eastDeg: 0.4, westDeg: 0.6, latDeg: 0.6, again: 0.45, valleyWestOf: [-179, -178] } };
+  /** 同样宽，写了打散，那条经线在整座沙盘的东边：每一格都打散。 */
+  const tornEverywhere: BlankEdge = { ...plain, torn: { westOf: [178, 179], eastDeg: 0.4, westDeg: 0.6, latDeg: 0.6, again: 0.45, valleyWestOf: [178, 179] } };
+
+  it('不写 torn：每一格是 0 到 1 之间的数，圈里面深处压到底、离得远的一点不压，过渡的格子也有；同样的输入算出同样的数', () => {
+    expect(scene.terrain.recipe.blank.length).toBeGreaterThan(0);
+    const soft = blankSoft(scene, heights, plain);
+    expect(soft).toHaveLength(heights.grid.nx * heights.grid.nz);
+    let deep = 0;
+    let open = 0;
+    let between = 0;
+    for (const s of soft) {
+      expect(Number.isFinite(s) && s >= 0 && s <= 1).toBe(true);
+      if (s < 0.02) deep++;
+      else if (s > 0.98) open++;
+      else between++;
+    }
+    console.log(`样本上不打散的留白：压到底的 ${deep} 格，一点不压的 ${open} 格，过渡的 ${between} 格（一共 ${soft.length} 格）`);
+    expect(deep).toBeGreaterThan(0);
+    expect(open).toBeGreaterThan(deep);
+    expect(between).toBeGreaterThan(0);
+    expect(blankSoft(scene, heights, plain)).toEqual(soft);
+  });
+
+  it('不写 torn 和“写了、可一格也轮不到”算出来一格不差；和“每一格都打散”的不一样（打散的那几句真的管着边）', () => {
+    const soft = blankSoft(scene, heights, plain);
+    expect(blankSoft(scene, heights, tornNowhere)).toEqual(soft);
+    const torn = blankSoft(scene, heights, tornEverywhere);
+    let differ = 0;
+    for (let k = 0; k < soft.length; k++) if (torn[k] !== soft[k]) differ++;
+    expect(differ).toBeGreaterThan(0);
+  });
+
+  it('造地面、算高度留多少，交一份不写 torn 的边照样做得出：留白那一张就是上面那一份，高度留多少是它过一遍 keepAt', () => {
+    const soft = blankSoft(scene, heights, plain);
+    const ground = buildRouteGround(scene, dem, coords, plain);
+    expect(ground.blank).toEqual(soft);
+    const keep = blankKeep(scene, heights, plain);
+    expect(keep).toEqual(soft.map(keepAt));
+    // 压到底的地方高度只留 BLANK_KEEP 那么多
+    expect(keep.reduce((least, value) => Math.min(least, value), 1)).toBeCloseTo(BLANK_KEEP, 6);
   });
 });

@@ -25,7 +25,7 @@ import { existsAt } from '../../src/domain/sceneText';
 import type { Vec3 } from '../../src/stage/ground/types';
 import type { StripInput } from '../../src/stage/overlay/types';
 import { centreShift, equivalentDistance, framePoints, placeCamera, project, screenAnchors, wholeTable } from '../../src/stage/three/rig';
-import { styleFor } from '../../src/stage/three/style';
+import { styleFor } from './support/styles';
 import type { StageInsets } from '../../src/stage/types';
 import { realScene, realSceneKeys } from './support/realScenes';
 import type { RealScene } from './support/realScenes';
@@ -193,7 +193,7 @@ describe.each(realSceneKeys())('%s 的镜头', (key) => {
       for (const section of R.scene.sections) {
         if (!wholeTable(section)) continue;
         const view = placed(R, section, pane.size, insets);
-        const at = framePoints(R.coords).map((p) => view.at(p));
+        const at = framePoints(R.coords, styleFor(R.scene.style).stand).map((p) => view.at(p));
         const left = Math.min(...at.map((p) => p.x)) - insets.left;
         const right = pane.size.width - insets.right - Math.max(...at.map((p) => p.x));
         const top = Math.min(...at.map((p) => p.y)) - insets.top;

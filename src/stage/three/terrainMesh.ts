@@ -40,7 +40,7 @@ import { fieldBytes } from './groundPaint';
 import { terrainGrid, vertexHeightM } from './meshHeight';
 import type { GroundPaintSource } from './groundPaint';
 import { disposeTree } from './host';
-import type { StageStyle } from './internal';
+import type { TableStyle } from './internal';
 import { rippleGlsl } from './water';
 
 /** 地形板的底面在沙盘里的高度。 */
@@ -130,7 +130,7 @@ export interface TerrainMeshInput {
   nx: number;
   nz: number;
   coords: FrameCoords;
-  style: StageStyle;
+  style: TableStyle;
   /** 显卡最多支持几倍的各向异性过滤（renderer.capabilities.getMaxAnisotropy()）。 */
   maxAnisotropy: number;
   /** 第二张图标的是什么：fields 是田（不写就是它），ripples 是水纹（全程沙盘）。 */

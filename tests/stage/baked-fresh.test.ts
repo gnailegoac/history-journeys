@@ -22,7 +22,7 @@ import type { Figure } from '../../src/domain/types';
 import { buildFields, paintColour, readDem } from '../../src/stage/ground';
 import type { Ground } from '../../src/stage/ground/types';
 import { colourBytes, fieldBytes, groundInputs } from '../../src/stage/three/groundPaint';
-import { styleFor } from '../../src/stage/three/style';
+import { styleFor } from './support/styles';
 import { fixtureScene, fixtureTerrainBytes } from '../support/fixtureScene';
 import { decodePng } from '../support/png';
 import { readBytes } from '../support/readBytes';

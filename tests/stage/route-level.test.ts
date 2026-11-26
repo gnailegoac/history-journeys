@@ -13,7 +13,7 @@ import { ROUTE_POINTS_PER_CELL, routeNormals, routePictureSize } from '../../src
 import type { GroundPaintSource } from '../../src/stage/three/groundPaint';
 import { buildRouteModels as kitRoads } from '../../src/stage/three/routeKit';
 import { buildRouteModels, routeGroundInputs, routeGroundPaint, routeMist, routeWater } from '../../src/stage/three/routeLevel';
-import { styleFor } from '../../src/stage/three/style';
+import { styleFor } from './support/styles';
 import { buildTerrainMesh, terrainGrid } from '../../src/stage/three/terrainMesh';
 import { rippleGlsl } from '../../src/stage/three/water';
 import type { RouteTable } from '../../src/stage/types';

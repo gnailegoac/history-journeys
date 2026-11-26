@@ -1,7 +1,7 @@
 // 从样张搬来，结构没有动（spikes/art-direction/b/scene/geo.js 的后一半），只加了类型。
 // 贴图都是代码画的。画在一张 canvas 上，所以要有页面（document）才能用；
 // 零件库里只有 materials.ts 调用这里，算形状的程序不碰它。
-// 样张里另有绫边、紫檀两种贴图，是座子用的，在 ../table.ts 里。
+// 样张里另有绫边、紫檀两种贴图，是座子用的，在宋代青绿设色那种样式自己的文件夹里（../style/song-qinglv/stand.ts）。
 
 import * as THREE from 'three';
 import { mulberry32 } from './util';

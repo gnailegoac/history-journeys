@@ -19,7 +19,7 @@ import { placeStrips } from '../../src/stage/overlay';
 import type { StripInput, StripPlacement } from '../../src/stage/overlay';
 import type { Vec3 } from '../../src/stage/ground/types';
 import { centreShift, equivalentDistance, framePoints, placeCamera, project, screenAnchors, wholeTable } from '../../src/stage/three/rig';
-import { styleFor } from '../../src/stage/three/style';
+import { styleFor } from './support/styles';
 import type { StageInsets } from '../../src/stage/types';
 import { LINE_MAX, WORDS_MAX, textWidth } from '../content/sceneRules';
 import { realRouteScene, realSceneKeys } from './support/realScenes';
@@ -288,7 +288,7 @@ describe.each(realSceneKeys('route'))('%s 的镜头', (key) => {
       for (const section of R.scene.sections) {
         if (!wholeTable(section)) continue;
         const { at } = placed(R, section, pane);
-        const corners = framePoints(R.coords).map((p) => at(p));
+        const corners = framePoints(R.coords, styleFor(R.scene.style).stand).map((p) => at(p));
         const { size, insets } = pane;
         const left = Math.min(...corners.map((p) => p.x)) - insets.left;
         const right = size.width - insets.right - Math.max(...corners.map((p) => p.x));
@@ -432,7 +432,7 @@ describe.each(realSceneKeys('route'))('%s 在首页上', (key) => {
       expect(wholeTable(section), '头一节看的是整块沙盘').toBe(true);
       const { written, anchors, at } = placed(R, section, pane);
       anchors.forEach((anchor, i) => expect(inside(anchor, pane), `“${written[i].text}”落在 (${anchor.x.toFixed(0)}, ${anchor.y.toFixed(0)})`).toBe(true));
-      const corners = framePoints(R.coords).map((p) => at(p));
+      const corners = framePoints(R.coords, styleFor(R.scene.style).stand).map((p) => at(p));
       const { size, insets } = pane;
       const left = Math.min(...corners.map((p) => p.x)) - insets.left;
       const right = size.width - insets.right - Math.max(...corners.map((p) => p.x));

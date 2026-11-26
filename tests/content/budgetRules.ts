@@ -44,7 +44,11 @@ export const FONT_FILE_WARN_BYTES = 280 * 1024;
 
 // ---------------------------------------------------------------- 程序自己的下载量
 
-/** 沙盘程序（摆立体的沙盘时才下载的那几块）压缩以后最大多少字节；过了多少提醒一句。 */
+/**
+ * 沙盘程序（摆立体的沙盘时才下载的那几块）压缩以后最大多少字节；过了多少提醒一句。
+ * 这个数说的是“摆一座沙盘，读者要下载多少程序”：沙盘程序，加上这座沙盘自己的时代样式（全程沙盘只算它取的那一半），全程沙盘再加上全程沙盘另外的那一块，
+ * 站点沙盘再加上场景里写到的那几家零件。时代样式原来在沙盘程序里面，2026-11-26 起是单独的一块：数没有动，算进去的东西照旧是这些。
+ */
 export const ENGINE_GZIP_MAX = 230_000;
 export const ENGINE_GZIP_WARN = 215_000;
 /**
@@ -73,6 +77,17 @@ export const ENGINE_ENTRY = 'src/stage/three/engine.ts';
 export const ROUTE_ENTRY = 'src/stage/three/routeLevel.ts';
 /** 按家分块的零件（src/stage/families.ts 的登记表）里叫 name 的那一家，它的程序在构建清单里的名字。 */
 export const familyEntry = (name: string): string => `src/stage/three/families/${name}.ts`;
+/**
+ * 时代样式（src/stage/styles.ts 的登记表）里叫 id 的那一种，它的程序在构建清单里的名字：它自己的文件夹里和它同名的那个文件。
+ * 一种样式是单独的一块，摆写着它的沙盘时才下载；不在沙盘程序里。
+ */
+export const styleEntry = (id: string): string => `src/stage/three/style/${id}/${id}.ts`;
+/**
+ * 一种样式里每一座沙盘都用的那一半在构建清单里的名字。全程沙盘只取这一半（单独的一块）；整套的那一块静态引着它，站点沙盘两块都下载。
+ */
+export const styleRouteEntry = (id: string): string => `src/stage/three/style/${id}/${id}-route.ts`;
+/** 构建清单的一个键是不是一种样式的入口；是的话，第一组是样式的名字。 */
+const STYLE_KEY = /^src\/stage\/three\/style\/([^/]+)\/\1\.ts$/;
 /**
  * 内容的清单那一块在构建清单里叫什么：每位人物的每个文件怎么读（各站的文件、图片、场景文件、两种清单、行迹的出处），
  * 连同沙盘用到的文件（地形文件、先画好的地面、定格图）的网址。页面的程序一开始跑就用动态 import 去要它，但它不能进页面那一块：
@@ -219,6 +234,23 @@ export interface FileGroup {
   gzip: number;
 }
 
+/** 一种时代样式另外要下载的程序。 */
+export interface StyleSize extends FileGroup {
+  /** 样式的名字。 */
+  id: string;
+  /** 它在清单里是不是标着“用到时才下载”。 */
+  isDynamic: boolean;
+  /** 它是不是成了页面、沙盘程序或者全程沙盘那一块一来就带着的东西（它们静态引入了它）：不写着它的沙盘也白下载了它。 */
+  inOthers: boolean;
+  /**
+   * 全程沙盘只取的那一半（styleRouteEntry）：它那一块和它静态引入的各块，页面和沙盘程序已经带着的不重复算。
+   * 这种样式没有分两半时是 null：全程沙盘下载的就是整套。files、gzip 是整套的（站点沙盘下载的），连这一半在内。
+   */
+  route: FileGroup | null;
+  /** 那一半在清单里是不是标着“用到时才下载”（没有分两半时是 true）。 */
+  routeIsDynamic: boolean;
+}
+
 export interface ProgramSizes {
   /** 页面一打开就要下载的程序：入口和它静态引入的各块。清单里没有入口时是 null。 */
   page: FileGroup | null;
@@ -234,6 +266,11 @@ export interface ProgramSizes {
    * 清单里没有这一项时是 null（还没有全程沙盘的程序，或者它被打进了别的块）。
    */
   route: FileGroup | null;
+  /**
+   * 时代样式：清单里有几种就是几项（照名字排），每一种是它那一块和它静态引入的各块，页面和沙盘程序已经带着的不重复算。
+   * 清单里一种也没有时是空的（查真的构建时另有一项管登记表里的每一种在不在）。
+   */
+  styles: StyleSize[];
   /** 全程沙盘那一块在清单里是不是标着“用到时才下载”。 */
   routeIsDynamic: boolean;
   /** 全程沙盘那一块是不是成了沙盘程序一来就带着的东西（沙盘程序静态引入了它）：站点沙盘的页面就白下载了它。 */
@@ -260,11 +297,31 @@ export function programSizes(manifest: BuildManifest, gzipOf: (file: string) => 
   const routeKeys = staticClosure(manifest, ROUTE_ENTRY);
   const routeFiles = unique(routeKeys.filter((key) => !pageKeys.includes(key) && !engineKeys.includes(key)).map((key) => manifest[key].file)).filter((file) => !pageFiles.includes(file) && !engineFiles.includes(file));
 
+  const styles = Object.keys(manifest)
+    .filter((key) => STYLE_KEY.test(key))
+    .sort((a, b) => (a < b ? -1 : a > b ? 1 : 0))
+    .map((key): StyleSize => {
+      const keys = staticClosure(manifest, key);
+      const files = unique(keys.filter((one) => !pageKeys.includes(one) && !engineKeys.includes(one)).map((one) => manifest[one].file)).filter((file) => !pageFiles.includes(file) && !engineFiles.includes(file));
+      const id = STYLE_KEY.exec(key)?.[1] ?? key;
+      const halfKey = styleRouteEntry(id);
+      const halfFiles = unique(staticClosure(manifest, halfKey).filter((one) => !pageKeys.includes(one) && !engineKeys.includes(one)).map((one) => manifest[one].file)).filter((file) => !pageFiles.includes(file) && !engineFiles.includes(file));
+      return {
+        id,
+        ...group(files),
+        isDynamic: manifest[key].isDynamicEntry === true,
+        inOthers: [key, halfKey].some((one) => engineKeys.includes(one) || pageKeys.includes(one) || routeKeys.includes(one)),
+        route: manifest[halfKey] ? group(halfFiles) : null,
+        routeIsDynamic: manifest[halfKey] ? manifest[halfKey].isDynamicEntry === true : true,
+      };
+    });
+
   return {
     page: pageKeys.length > 0 ? group(pageFiles) : null,
     style: group(styleFiles),
     engine: engineKeys.length > 0 ? group(engineFiles) : null,
     route: routeKeys.length > 0 ? group(routeFiles) : null,
+    styles,
     routeIsDynamic: manifest[ROUTE_ENTRY]?.isDynamicEntry === true,
     routeInEngine: engineKeys.includes(ROUTE_ENTRY) || pageKeys.includes(ROUTE_ENTRY),
     engineInPage: pageKeys.includes(ENGINE_ENTRY),
@@ -303,14 +360,30 @@ export function programReport(sizes: ProgramSizes, distBytes: number): SizeRepor
   } else {
     if (!sizes.engineIsDynamic) report.fails.push(`沙盘程序（${ENGINE_ENTRY}）在构建清单里没有标成“用到时才下载”`);
     row('沙盘程序（压缩以后）', sizes.engine.gzip, ENGINE_GZIP_MAX, ENGINE_GZIP_WARN, '字节', sizes.engine.files);
+    // 时代样式：一种一块，各印一行（它自己没有上限）。摆一座沙盘要下载沙盘程序加上它自己的那一种：这里不看内容，照最大的一种查
+    // （content/ 里每一座沙盘照它自己的样式、自己的那几家零件再查一遍，在 tests/build/dist-size.test.ts）。清单里一种也没有时不添这几行
+    const largestStyle = sizes.styles.reduce((most, one) => Math.max(most, one.gzip), 0);
+    // 全程沙盘只取样式的一半（分了两半的样式）：照各种样式的那一半里最大的查；没有分两半的样式，全程沙盘下载的是整套
+    const largestRouteStyle = sizes.styles.reduce((most, one) => Math.max(most, one.route ? one.route.gzip : one.gzip), 0);
+    for (const one of sizes.styles) {
+      if (one.inOthers) report.fails.push(`时代样式“${one.id}”那一块程序（${styleEntry(one.id)}）成了页面、沙盘程序或者全程沙盘那一块一来就带着的东西：只能用动态 import 取它（src/stage/styles.ts 的登记表）`);
+      else if (!one.isDynamic) report.fails.push(`时代样式“${one.id}”那一块程序（${styleEntry(one.id)}）在构建清单里没有标成“用到时才下载”`);
+      report.lines.push(`时代样式“${one.id}”的程序（压缩以后）：${withCommas(one.gzip)} 字节（没有单独的上限，和沙盘程序加在一起查）　${one.files.join('、')}`);
+      if (one.route) {
+        if (!one.routeIsDynamic) report.fails.push(`时代样式“${one.id}”里全程沙盘取的那一半（${styleRouteEntry(one.id)}）在构建清单里没有标成“用到时才下载”`);
+        report.lines.push(`时代样式“${one.id}”里全程沙盘取的那一半（压缩以后）：${withCommas(one.route.gzip)} 字节　${one.route.files.join('、')}`);
+      }
+    }
+    if (sizes.styles.length > 0) row('摆站点沙盘要下载的程序：沙盘程序加上最大的一种时代样式（压缩以后）', sizes.engine.gzip + largestStyle, ENGINE_GZIP_MAX, ENGINE_GZIP_WARN, '字节');
     // 全程沙盘另外的程序：单印一行（它自己没有上限），再和沙盘程序加在一起查——上限说的是“摆一座沙盘，读者要下载多少程序”：
-    // 站点沙盘是沙盘程序，全程沙盘是沙盘程序加上这一块，两样都不能超过同一个数
+    // 站点沙盘是沙盘程序（加上它的样式），全程沙盘是沙盘程序加上这一块（再加上它的样式），两样都不能超过同一个数
     if (sizes.routeInEngine) {
       report.fails.push(`全程沙盘那一块程序（${ROUTE_ENTRY}）成了沙盘程序一来就带着的东西：只能用动态 import 取它（src/stage/index.ts 的 loadStageEngine）`);
     } else if (sizes.route) {
       if (!sizes.routeIsDynamic) report.fails.push(`全程沙盘那一块程序（${ROUTE_ENTRY}）在构建清单里没有标成“用到时才下载”`);
       report.lines.push(`全程沙盘另外的程序（压缩以后）：${withCommas(sizes.route.gzip)} 字节（没有单独的上限，和沙盘程序加在一起查）　${sizes.route.files.join('、')}`);
-      row('摆全程沙盘要下载的程序：沙盘程序加上全程沙盘另外的（压缩以后）', sizes.engine.gzip + sizes.route.gzip, ENGINE_GZIP_MAX, ENGINE_GZIP_WARN, '字节');
+      if (sizes.styles.length > 0) row('摆全程沙盘要下载的程序：沙盘程序加上全程沙盘另外的，再加上最大的一种时代样式（压缩以后）', sizes.engine.gzip + sizes.route.gzip + largestRouteStyle, ENGINE_GZIP_MAX, ENGINE_GZIP_WARN, '字节');
+      else row('摆全程沙盘要下载的程序：沙盘程序加上全程沙盘另外的（压缩以后）', sizes.engine.gzip + sizes.route.gzip, ENGINE_GZIP_MAX, ENGINE_GZIP_WARN, '字节');
     }
   }
 

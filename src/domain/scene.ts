@@ -83,16 +83,13 @@ export const ROUTE_SCENE_ID = 'route';
 
 // ---------------------------------------------------------------- 一座站点沙盘
 
-/** 时代样式。添一种样式要改程序，先添在这里。 */
-export const SCENE_STYLES = ['song-qinglv'] as const; // 宋代青绿设色
-export type SceneStyleId = (typeof SCENE_STYLES)[number];
-
 /** scenes/<站>.json。所有带 id 的东西，id 在整个文件里不重复。 */
 export interface StopScene {
   /** 哪一层的沙盘。站点沙盘可以不写；全程沙盘（RouteScene）必须写 'route'。 */
   level?: 'stop';
   stopId: string;
-  style: SceneStyleId;
+  /** 时代样式的名字。有哪几种，登记在 src/stage/styles.ts：添一种样式在那里添一行，这里不用动（npm run validate 照那张表查）。 */
+  style: string;
   /** 用了谁的数据，页面上要写出来。如“地形：Mapzen 地形瓦片（Terrarium），其中的 SRTM、GMTED2010 高程数据由美国地质调查局（USGS）提供”。至少一条。 */
   credits: string[];
   frame: SceneFrame;
@@ -441,7 +438,8 @@ export interface RouteScene {
   level: 'route';
   /** 写 'route'。这个词不能当站的 id。 */
   stopId: 'route';
-  style: SceneStyleId;
+  /** 时代样式的名字（和站点沙盘的一样，见 StopScene.style）。 */
+  style: string;
   /** 用了谁的数据，至少两条：地形一条，今天的海岸、河、湖一条。 */
   credits: string[];
   /** 依据里的 sourceIds 指的出处（站点沙盘的出处在那一站的 stops/<站>.json 里，全程沙盘没有那个文件）。 */

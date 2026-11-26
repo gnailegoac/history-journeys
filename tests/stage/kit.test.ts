@@ -42,8 +42,8 @@ import type { Bucket, Pass } from '../../src/stage/three/kit/pass';
 import { cornerOffset, insideRing, lineDistance, makeRing, nearestOnRing, ringDistance, ringPath, snapLineToRing, surveyWalls } from '../../src/stage/three/kit/site';
 import { PILE_ABOVE, THING_BUILDERS, bankSurfaceY } from '../../src/stage/three/kit/things';
 import type { ThingBuilder } from '../../src/stage/three/kit/things';
-import { songQinglv } from '../../src/stage/three/style/songQinglv';
-import { SONG_QINGLV_FIGURE } from '../../src/stage/three/style/songQinglvFigure';
+import { style as songQinglv } from '../../src/stage/three/style/song-qinglv/song-qinglv';
+import { SONG_QINGLV_FIGURE } from '../../src/stage/three/style/song-qinglv/figure';
 import { FIXTURE_HEADINGS, FIXTURE_HEIGHTS, FIXTURE_M, fixturePoint, fixtureScene } from '../support/fixtureScene';
 import { flatGround, flatSamplers } from './support/flatGround';
 
@@ -104,6 +104,14 @@ const testStyle: StageStyle = {
   light: () => ({ dir: [-0.66, 0.6, -0.42], sun: 2.6, sunColor: '#fff4e2', hemi: 1.55, sky: '#fffaf0', ground: '#c4b494' }),
   fogFor: () => [40000, 140000],
   mistFor: () => 1,
+  // 装裱和座子是样式自己造的；零件库不造它，这里的测试也用不着：交一个一造就说话的
+  stand: {
+    reachM: 0,
+    reachY: 0,
+    build: () => {
+      throw new Error('零件库的测试不造座子');
+    },
+  },
 };
 
 const FULL: Quality = { tier: 'full', pixelRatioCap: 2, maxDrawPixels: 4_000_000, antialias: true, shadowMapSize: 2048, treeKeep: 1, houseKeep: 1, mistLayers: 3 };

@@ -16,7 +16,7 @@ import type { FamilyEntry } from '../../src/stage/three/kit/families';
 import { THING_BUILDERS } from '../../src/stage/three/kit/things';
 import { meshHeightAt, terrainGrid, vertexHeightM } from '../../src/stage/three/meshHeight';
 import { FULL_QUALITY } from '../../src/stage/three/quality';
-import { styleFor } from '../../src/stage/three/style';
+import { styleFor } from './support/styles';
 import { buildTerrainMesh } from '../../src/stage/three/terrainMesh';
 import { fakeDocument } from './support/fakeRenderer';
 import { familyNamesFor } from './support/kitFamilies';

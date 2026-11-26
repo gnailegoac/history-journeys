@@ -7,14 +7,14 @@
 // 经纬度和沙盘里的米之间只用 src/domain/sceneGeoRoute.ts 换；类别、题签上的字、unsure 这几样的查法
 // 用的是站点沙盘那边的同一份（sceneRules.ts），这里不另写。
 
-import { ROUTE_RESERVED_IDS, ROUTE_SCENE_ID, SCENE_CLASSES, SCENE_CLASS_LABEL, SCENE_STYLES } from '../../src/domain/scene';
+import { ROUTE_RESERVED_IDS, ROUTE_SCENE_ID, SCENE_CLASSES, SCENE_CLASS_LABEL } from '../../src/domain/scene';
 import type { Grounds, RouteScene, SceneClass, TodayPick } from '../../src/domain/scene';
 import type { FrameCoords } from '../../src/domain/sceneGeo';
 import { routeCoords } from '../../src/domain/sceneGeoRoute';
 import { farSayFrom, sectionInfo } from '../../src/domain/sceneText';
 import type { Figure, LngLat } from '../../src/domain/types';
 import { kilobytes, megabytes } from './budgetRules';
-import { CLASS_LIST, GROUNDS, HAN, LINE_MAX, NEEDS_SOURCE, TERRAIN_MAX_BYTES, WORDS_MAX, insideRing, samePoint, textWidth, toLine, unsureProblem } from './sceneRules';
+import { CLASS_LIST, GROUNDS, HAN, LINE_MAX, NEEDS_SOURCE, STYLE_IDS, TERRAIN_MAX_BYTES, WORDS_MAX, insideRing, samePoint, textWidth, toLine, unsureProblem } from './sceneRules';
 import type { XZ } from './sceneRules';
 import { checkShape, has, list, lngLat, lngLatProblem, number, numberIn, oneOf, optional, record, strict, text, violation } from './shape';
 import type { ContentFiles, FileSizes, Shape, Violation } from './shape';
@@ -344,7 +344,7 @@ export function checkRouteFile(scene: RouteScene, file: string, files: ContentFi
   if (!file.endsWith(`/scenes/${ROUTE_SCENE_ID}.json`)) bad('', `全程沙盘的场景文件要叫 ${ROUTE_SCENE_ID}.json（scenes/${ROUTE_SCENE_ID}.json），一位人物只有一个`);
   if (scene.stopId !== ROUTE_SCENE_ID) bad('stopId', `全程沙盘的 stopId 写 ${ROUTE_SCENE_ID}，现在是“${scene.stopId}”`);
 
-  if (!(SCENE_STYLES as readonly string[]).includes(scene.style)) bad('style', `样式“${scene.style}”程序里没有；有的是：${SCENE_STYLES.join('、')}`);
+  if (!STYLE_IDS.includes(scene.style)) bad('style', `样式“${scene.style}”程序里没有；有的是：${STYLE_IDS.join('、')}`);
 
   if (scene.credits.length < 2) bad('credits', `至少要写两条：地形用了谁的高程数据，今天的海岸、河、湖用了谁的数据；现在是 ${scene.credits.length} 条`);
   scene.credits.forEach((credit, i) => {

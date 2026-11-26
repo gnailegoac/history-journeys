@@ -19,7 +19,7 @@ import { Batch } from '../../src/stage/three/kit/geo';
 import type { Pass } from '../../src/stage/three/kit/pass';
 import { surveyWalls } from '../../src/stage/three/kit/site';
 import { bankSurfaceY } from '../../src/stage/three/kit/things';
-import { styleFor } from '../../src/stage/three/style';
+import { styleFor } from './support/styles';
 import { cellAt, localRing, realScene, wetCell } from './support/realScenes';
 
 const KEY = 'su-shi/xuzhou';

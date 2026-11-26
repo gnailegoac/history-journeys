@@ -17,8 +17,7 @@ import type { RouteGround } from '../../../src/stage/ground/route';
 import { roadRuns } from '../../../src/stage/roadLines';
 import { buildPiece } from '../../../src/stage/three/piece';
 import { buildRouteModels } from '../../../src/stage/three/routeKit';
-import { styleFor } from '../../../src/stage/three/style';
-import { buildTable } from '../../../src/stage/three/table';
+import { styleFor } from './styles';
 import type { StageTier } from '../../../src/stage/types';
 import { realRouteScene, realSceneFile, realSceneKeys } from './realScenes';
 import type { WitnessStroke } from './witness';
@@ -37,7 +36,8 @@ function sceneOf(key: string): TableScene {
 /** key 这座沙盘的座子（装裱和座子），照它的场景写的范围和样式造。要先有一个假的 document（贴图是画在画布上的）。 */
 export async function standOf(key: string): Promise<Built> {
   const scene = sceneOf(key);
-  const stand = buildTable(coordsOf(scene), styleFor(scene.style).palette);
+  const style = styleFor(scene.style);
+  const stand = style.stand.build(coordsOf(scene), style.palette);
   return { root: stand.group, dispose: () => stand.dispose() };
 }
 

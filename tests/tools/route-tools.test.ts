@@ -37,15 +37,15 @@ import { contentKey } from '../../src/domain/contentKey';
 import type { RouteScene } from '../../src/domain/scene';
 import { routeCoords } from '../../src/domain/sceneGeoRoute';
 import { buildRouteGround, readRouteDem } from '../../src/stage/ground/route';
-import { styleFor } from '../../src/stage/three/style';
 import { readToday } from '../content/routeRules';
+import { blankEdgeFor } from '../stage/support/styles';
 import { decodePng, encodeRgbPng } from '../support/png';
 import { BANK_TAPER_KM, bankLine, bankOfWay, chaikin, dense, lineText, simplify, stitch } from './route/bankTool';
 import type { Km } from './route/bankTool';
 import { ROUTE_SCENE_FILE, ROUTE_TOOL_FIGURES, routeToolFigure, scenesFolder } from './route/figures';
 import type { RouteToolFigure } from './route/figures';
 import { MAP_POINTS_PER_CELL, drawRouteMap, lineKm, waySolid } from './route/mapTool';
-import { riverPaths } from './route/paint';
+import { routeRiversFor } from './route/painters';
 import { gridOf, insideTrial, lambertConic, landMask, latOf, lngOf, readTerrain, readTrialDem, resampleTerrain, terrainBytes, trialHeightAt } from './route/terrainTool';
 import type { LatLngGrid, LngLat } from './route/terrainTool';
 import { THIN_KM, bytesByKind, clipLineToBox, closeRing, insideRing, landRings, positionName, restoreShrunk, ringCentre, signedArea, thin, todayFeatures, todayProblems, todayText } from './route/todayTool';
@@ -268,7 +268,7 @@ function routeMapOf(dir: string): { map: ReturnType<typeof drawRouteMap>; scene:
   const coords = routeCoords(scene.frame);
   const bytes = read(scene.terrain.file);
   const dem = readRouteDem(scene.terrain, bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer);
-  return { map: drawRouteMap(scene, today.features, coords, buildRouteGround(scene, dem, coords)), scene };
+  return { map: drawRouteMap(scene, today.features, coords, buildRouteGround(scene, dem, coords, blankEdgeFor(scene.style))), scene };
 }
 
 describe.skipIf(MODE !== 'map')('全程沙盘的检查图（npm run route:map）', () => {
@@ -300,7 +300,8 @@ describe.skipIf(MODE !== 'bank')('走水路的路贴着河岸走的线（npm run
     const today = readToday({ today: read(scene.water.todayFile) }, 'today');
     if (!today || 'problem' in today) throw new Error(`${scenes}${scene.water.todayFile} 读不出来`);
     const coords = routeCoords(scene.frame);
-    const paths = riverPaths(scene, today.features, coords, styleFor(scene.style));
+    // 河的线照这座沙盘自己的样式的画法取（tests/tools/route/painters.ts）：别的样式的沙盘不拿宋代青绿设色的河宽来做岸线，没有画法的说一句就停
+    const paths = routeRiversFor(scene.style)(scene, today.features, coords);
     const rivers = new Set(scene.water.rivers.map((river) => river.id));
     const asked = env.WAY;
     if (asked && !scene.roads.ways.some((way) => way.id === asked)) throw new Error(`WAY 写的“${asked}”不是场景里的一条路`);

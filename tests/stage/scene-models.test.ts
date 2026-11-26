@@ -8,7 +8,7 @@
 //   水面    定数（src/stage/three/water.ts）；水位高过平时、又有水漫不进去的地方时，多一片。
 //   云气    一层一片，两个三角形（src/stage/three/mist.ts）。
 //   座子    绫边 2 + 紫檀框 11 段 × 4 边 × 2 + 嵌线 4 × 2 + 四只脚 4 × 12 + 案上的影子 2 = 148
-//           （src/stage/three/table.ts 自己照形状算的数；tests/stage/view.test.ts 拿造出来的座子核对过）。
+//           （src/stage/three/style/song-qinglv/stand.ts 自己照形状算的数；tests/stage/view.test.ts 拿造出来的座子核对过）。
 // 模型只有一套，镜头远了近了只是大小变；交给显卡的三角形数只在两处跟着远近变：远了成批摆的苔点只画次序在前面的，
 // 镜头贴近才有的那几棵细做的树不贴近时不画（收掉的细处、缩没了的民居照样交给显卡，照样算数）。
 // 所以每一节把折算过的远近 D 从 1 公里到 130 公里每次远 5% 扫一遍（哪种画面、读者怎么拉镜头都在这里面），
@@ -27,8 +27,8 @@ import { PILE_ABOVE, THING_BUILDERS, bankSurfaceY } from '../../src/stage/three/
 import { meshHeightAt } from '../../src/stage/three/meshHeight';
 import { MIST_TRIANGLES_PER_LAYER } from '../../src/stage/three/mist';
 import { FULL_QUALITY, REDUCED_QUALITY } from '../../src/stage/three/quality';
-import { styleFor } from '../../src/stage/three/style';
-import { STAND_TRIANGLES } from '../../src/stage/three/table';
+import { styleFor } from './support/styles';
+import { STAND_TRIANGLES } from '../../src/stage/three/style/song-qinglv/stand';
 import { terrainGrid } from '../../src/stage/three/terrainMesh';
 import { DRY_WATER_TRIANGLES, WATER_TRIANGLES } from '../../src/stage/three/water';
 import { TRIANGLES_MAX, TRIANGLES_WARN, sweepDistances } from './support/budgets';

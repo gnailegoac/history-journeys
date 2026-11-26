@@ -19,7 +19,7 @@ import type { SceneSection, SceneStrip } from '../../src/domain/scene';
 import { placeStrips } from '../../src/stage/overlay';
 import type { StripInput, StripPlacement } from '../../src/stage/overlay';
 import { centreShift, equivalentDistance, placeCamera, poseAt, screenAnchors } from '../../src/stage/three/rig';
-import { styleFor } from '../../src/stage/three/style';
+import { styleFor } from './support/styles';
 import type { StageInsets } from '../../src/stage/types';
 import { realScene, realSceneKeys } from './support/realScenes';
 import type { RealScene } from './support/realScenes';

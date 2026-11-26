@@ -13,6 +13,7 @@
 // 画布和渲染器怎么造是交进来的（HostParts），所以这一套先后在 Node 里也能测（tests/stage/host.test.ts）。
 
 import { Material, Mesh, NoToneMapping, PCFShadowMap, SRGBColorSpace, Texture, WebGLRenderer, type Object3D } from 'three';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import type { Quality } from './internal';
 import { FULL_QUALITY } from './quality';
 import { createTierMemory, type TierMemory } from './tier';
@@ -243,6 +244,16 @@ export function disposeTree(root: Object3D): void {
     for (const m of Array.isArray(material) ? material : [material]) materials.add(m);
   });
   for (const material of materials) disposeMaterial(material);
+}
+
+/**
+ * 配环境反光用的那间“屋子”（three 自带的 RoomEnvironment）：一种样式的座子要一点环境反光时来要，用完自己放掉。
+ * 写成沙盘程序里的一个函数，样式那一小块来叫，不让样式自己去引 three 的那个文件：两种样式各自引它的话，
+ * 打包的工具会把它另拆成一小块，每一种样式的沙盘都要多下载一个文件——添一种样式就改了已有的沙盘要下载的东西。
+ * 也不能写成“转手交出去”（export { RoomEnvironment } from …）：那样打包出来沙盘程序不再是它自己的一块（tests/build/dist-size.test.ts 会说）。
+ */
+export function roomScene(): RoomEnvironment {
+  return new RoomEnvironment();
 }
 
 // ---------------------------------------------------------------- 浏览器里的那一套

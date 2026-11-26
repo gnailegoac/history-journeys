@@ -16,6 +16,7 @@ import type { Dem, Ground, GroundSamplers, Vec2 } from '../../../src/stage/groun
 import type { KitFamily } from '../../../src/stage/three/kit/families';
 import type { Figure } from '../../../src/domain/types';
 import { kitFor } from './kitFamilies';
+import { blankEdgeFor } from './styles';
 import { readBytes } from '../../support/readBytes';
 
 /** 一位人物的资料（content/figures/<人物>/figure.json），照磁盘上的文件：哪几站有自己的沙盘写在里面。 */
@@ -113,7 +114,8 @@ export function realRouteScene(key: string): RealRouteScene {
   if (scene.level !== 'route') throw new Error(`${key} 是站点沙盘：这里只取全程沙盘`);
   const coords = coordsOf(scene);
   const dem = readRouteDem(scene.terrain, readBytes(`${dir}/${scene.terrain.file}`));
-  const ground = buildRouteGround(scene, dem, coords);
+  // 留白的边怎么收是样式的事：交给它的就是这座沙盘的样式里的那一份，和沙盘程序摆的时候交的一样（src/stage/three/view.ts 的 buildRouteParts）
+  const ground = buildRouteGround(scene, dem, coords, blankEdgeFor(scene.style));
   const made: RealRouteScene = { key, scene, coords, headings: scene.sections.map((s) => s.heading), dem, ground, samplers: routeSamplers(ground), todayPath: `${dir}/${scene.water.todayFile}` };
   builtRoutes.set(key, made);
   return made;

@@ -8,7 +8,7 @@ import { STANDARD_PANES } from './support/standardPanes';
 import { placeCamera } from '../../src/stage/three/rig';
 import { DIVE_AIM_SHARE, DIVE_DISTANCE_M, diveEnd, divePath } from '../../src/stage/three/routeLevel';
 import { Sequencer, mixState, type TableState } from '../../src/stage/three/sequencer';
-import { styleFor } from '../../src/stage/three/style';
+import { styleFor } from './support/styles';
 import type { Vec3 } from '../../src/stage/ground/types';
 import { realFigure, realRouteScene } from './support/realScenes';
 

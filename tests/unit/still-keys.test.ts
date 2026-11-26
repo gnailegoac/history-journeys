@@ -10,7 +10,7 @@ import { deflateSync } from 'node:zlib';
 import { describe, expect, it } from 'vitest';
 import packageJson from '../../package.json';
 import { contentKey } from '../../src/domain/contentKey';
-import { SCENE_STYLES } from '../../src/domain/scene';
+import { STYLES } from '../../src/stage/styles';
 import type { RouteScene, StopScene, TableScene } from '../../src/domain/scene';
 import { loadStopTable } from '../../src/domain/sceneContent';
 import type { StillManifest } from '../../src/domain/stills';
@@ -284,7 +284,7 @@ describe('沙盘程序和拍照工具的记号（programKey）', () => {
     for (const path of [
       'src/stage/three/view.ts',
       'src/stage/three/kit/things.ts',
-      'src/stage/three/style/songQinglv.ts',
+      'src/stage/three/style/song-qinglv/song-qinglv.ts',
       'src/stage/ground/paint.ts',
       'src/stage/dev/harness.ts',
       'src/stage/scale.ts',
@@ -329,7 +329,6 @@ describe('沙盘程序和拍照工具的记号（programKey）', () => {
     for (const path of [
       'src/stage/three/view.ts',
       'src/stage/three/internal.ts',
-      'src/stage/three/table.ts',
       'src/stage/three/kit/things.ts',
       'src/stage/three/kit/families.ts',
       'src/stage/three/style/index.ts',
@@ -349,9 +348,15 @@ describe('沙盘程序和拍照工具的记号（programKey）', () => {
       'playwright.stills.config.ts',
     ]) {
       expect(programPart(path), path).toEqual({ part: 'shared' });
+      // 单子里写的都是真有的文件（2026-11-26 以前这里还列着 src/stage/three/table.ts：它搬进了样式的文件夹，路径不在了，照路径的字认还是“共用的”，一直通过）
+      expect(fileExists(path), `${path} 这个文件不在了`).toBe(true);
     }
-    expect(programPart('src/stage/three/style/songQinglv.ts')).toEqual({ part: 'style', style: 'song-qinglv' });
-    expect(programPart('src/stage/three/style/songQinglvFigure.ts')).toEqual({ part: 'style', style: 'song-qinglv' });
+    // 宋代青绿设色自己的四个文件：整套的入口，每一座沙盘都用的那一半，模型跟着远近怎么变的表，装裱和座子（原来是共用的 src/stage/three/table.ts）
+    for (const name of ['song-qinglv.ts', 'song-qinglv-route.ts', 'figure.ts', 'stand.ts']) {
+      const path = `src/stage/three/style/song-qinglv/${name}`;
+      expect(programPart(path), path).toEqual({ part: 'style', style: 'song-qinglv' });
+      expect(fileExists(path), `${path} 这个文件不在了`).toBe(true);
+    }
     for (const family of ['rock', 'plants', 'works']) expect(programPart(`src/stage/three/families/${family}.ts`), family).toEqual({ part: 'family', family });
     for (const path of ['src/stage/ground/route.ts', 'src/stage/roadLines.ts', 'src/stage/three/routeKit.ts', 'src/stage/three/routeLevel.ts']) expect(programPart(path), path).toEqual({ part: 'route' });
     // 几张单子，一个字不差
@@ -361,7 +366,8 @@ describe('沙盘程序和拍照工具的记号（programKey）', () => {
     expect(LEFT_OUT_FILES).toEqual(['src/stage/three/piece.ts', 'src/domain/sceneContent.ts']);
     expect(STYLE_FOLDER).toBe('src/stage/three/style/');
     expect(STYLE_SHARED_FILES).toEqual(['src/stage/three/style/index.ts']);
-    expect(STYLE_FILES).toEqual({ 'song-qinglv': ['src/stage/three/style/songQinglv.ts', 'src/stage/three/style/songQinglvFigure.ts'] });
+    // 他的样式的文件搬进了以它的名字命名的文件夹：这一行是空的，行留着（有这一行，那个文件夹才算一种认得的样式）
+    expect(STYLE_FILES).toEqual({ 'song-qinglv': [] });
     expect(FAMILY_FOLDER).toBe('src/stage/three/families/');
   });
 
@@ -377,7 +383,7 @@ describe('沙盘程序和拍照工具的记号（programKey）', () => {
         'src/stage/three/view.ts',
         'src/stage/three/rig.ts',
         'src/stage/three/kit/figure.ts',
-        'src/stage/three/style/songQinglv.ts',
+        'src/stage/three/style/song-qinglv/song-qinglv.ts',
         'src/stage/ground/paint.ts',
         'src/stage/dev/harness.ts',
         'src/stage/scale.ts',
@@ -550,19 +556,23 @@ describe('磁盘上的文件各归哪一类：样式、零件、全程沙盘才�
       if (!shared && claimed.length === 0) {
         problems.push(
           `${path} 既不在共用的单子里（STYLE_SHARED_FILES），也没有哪一种样式认它，现在是当各座沙盘共用的算的：` +
-            '几种样式合用的，写进 tests/support/programKey.ts 的 STYLE_SHARED_FILES；一种样式自己的，在 STYLE_FILES 里它那种样式的一行添上它，' +
-            `或者把它放进以那种样式的名字命名的子文件夹（认得的样式是：${Object.keys(STYLE_FILES).join('、')}；子文件夹叫别的名字的不算哪一种样式的）`,
+            '几种样式合用的，写进 tests/support/programKey.ts 的 STYLE_SHARED_FILES；一种样式自己的，放进以那种样式的名字命名的子文件夹——' +
+            '那种样式要在样式的登记表（src/stage/styles.ts）里有它的一行，还没有就先在那里添一行，文件夹的名字和登记的名字一个字不差' +
+            `（登记了的样式是：${Object.keys(STYLE_FILES).join('、')}；子文件夹叫别的名字的不算哪一种样式的）`,
         );
       }
       if (claimed.length > 1) problems.push(`${path} 有两种以上的样式认它（${claimed.join('、')}）：一个文件只能归一种样式；几种样式共用的写进 STYLE_SHARED_FILES`);
     }
     for (const path of [...STYLE_SHARED_FILES, ...Object.values(STYLE_FILES).flat()]) if (!fileExists(path)) problems.push(`单子里写着 ${path}，这个文件不在`);
     expect(problems).toEqual([]);
-    // 表里有哪几行，就是认得哪几种样式：正好是场景里能写的那几种
-    expect(Object.keys(STYLE_FILES).sort()).toEqual([...SCENE_STYLES].sort());
+    // 表里有哪几行，就是认得哪几种样式：正好是场景里能写的那几种——样式的登记表（src/stage/styles.ts）里的每一行
+    const registered = STYLES.map((row) => row.id);
+    expect(registered.length).toBeGreaterThan(0);
+    expect(new Set(registered).size).toBe(registered.length);
+    expect(Object.keys(STYLE_FILES).sort()).toEqual([...registered].sort());
     const onDisk = under(STYLE_FOLDER);
-    for (const id of SCENE_STYLES) {
-      expect(styleFilesIn(onDisk, id).length, `样式“${id}”自己的文件一个也没有找到：它的文件要在 STYLE_FILES 里它那一行点名，或者放在 ${STYLE_FOLDER}${id}/ 里（文件夹的名字要一个字不差）`).toBeGreaterThan(0);
+    for (const id of registered) {
+      expect(styleFilesIn(onDisk, id).length, `样式“${id}”在样式的登记表（src/stage/styles.ts）里有一行，它自己的文件却一个也没有找到：它的文件要放在 ${STYLE_FOLDER}${id}/ 里（文件夹的名字和登记的名字要一个字不差）`).toBeGreaterThan(0);
       expect(onDisk.filter((path) => stylesClaiming(path).includes(id))).toEqual(styleFilesIn(onDisk, id));
       // 以它的名字命名的子文件夹里的文件归它
       expect(stylesClaiming(`${STYLE_FOLDER}${id}/look.ts`), id).toEqual([id]);
@@ -652,6 +662,9 @@ describe('磁盘上的文件各归哪一类：样式、零件、全程沙盘才�
     'src/stage/still/engine.ts',
     'src/stage/still/fit.ts',
     'src/stage/still/index.ts',
+    // 样式的登记表（2026-11-26 添的，样式搬出沙盘程序的时候）：它只说哪一种样式从哪里取，和零件的登记表（families.ts）一样；
+    // 取来的那种样式的文件自己在这座沙盘的记号里（照文件夹认），登记表改了哪一行指的文件，那些文件的记号跟着变
+    'src/stage/styles.ts',
     'src/stage/support.ts',
     'src/styles/still.css',
   ];
@@ -790,7 +803,10 @@ describe('content/ 里每一座沙盘：它的记号里算的文件，和读内�
   it.each(tables)('$figureId/$stopId：场景里的样式要是换成一种算记号的程序不认得的，不悄悄算出一个没有样式文件的记号：停下来，说是哪座沙盘、哪种样式、文件该放在哪', { timeout: 60_000 }, ({ figureId, stopId, scene }) => {
     const unknown = { ...scene, style: 'zz-unknown' } as unknown as TableScene;
     expect(() => readTableFiles(unknown, `${figureId}/${stopId}`)).toThrow(`${figureId}/${stopId}的场景文件里写的样式是“zz-unknown”，算记号的时候没有找到这种样式自己的文件，记号算不出来。`);
-    expect(() => readTableFiles(unknown)).toThrow(/^这座沙盘的场景文件里写的样式是“zz-unknown”.+src\/stage\/three\/style\/.+tests\/support\/programKey\.ts 的 STYLE_FILES.+npm run validate 会说。$/);
+    // 文件该放在哪：先说样式的登记表（一种样式是登记了才认的），再说它的文件夹。2026-11-26 以前这一句叫人去 tests/support/programKey.ts 的 STYLE_FILES 里点名：
+    // 那张表现在是照登记表算出来的，没有地方可写——照那一句做的人找不到下手的地方
+    expect(() => readTableFiles(unknown)).toThrow(/^这座沙盘的场景文件里写的样式是“zz-unknown”.+样式的登记表（src\/stage\/styles\.ts）.+src\/stage\/three\/style\/.+npm run validate 会说。$/);
+    expect(() => readTableFiles(unknown)).not.toThrow(/STYLE_FILES/);
     // 真的那一份照常算得出来
     expect(Object.keys(readTableFiles(scene, `${figureId}/${stopId}`)).length).toBeGreaterThan(0);
   });

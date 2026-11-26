@@ -33,12 +33,14 @@ import { stripTexts } from '../../src/domain/sceneText';
 import type { StripLayer } from '../../src/stage/overlay/types';
 import type { GroundPaintJob, GroundPaintSource } from '../../src/stage/three/groundPaint';
 import { FULL_QUALITY, createHost } from '../../src/stage/three/host';
+import { STYLES } from '../../src/stage/styles';
+import { provideStyles } from '../../src/stage/three/style';
 import type { KitContext, ModelSet } from '../../src/stage/three/internal';
 import { type KitFamily, provideFamilies } from '../../src/stage/three/kit/families';
 import { MIST_TRIANGLES_PER_LAYER } from '../../src/stage/three/mist';
 import { centredView, equivalentDistance, northDeg, pixelsPerMetre, placeCamera, poseAt, poseOn, screenAnchors, shadowBox, shadowTuning, showPoints } from '../../src/stage/three/rig';
-import { styleFor } from '../../src/stage/three/style';
-import { STAND_TRIANGLES } from '../../src/stage/three/table';
+import { styleFor } from './support/styles';
+import { STAND_TRIANGLES } from '../../src/stage/three/style/song-qinglv/stand';
 import { CALM_RANGE, rippleFor } from '../../src/stage/three/water';
 import type { TerrainMesh, TerrainMeshInput } from '../../src/stage/three/terrainMesh';
 import type { StageInsets, StageViewInfo, StopStageView, StopTable } from '../../src/stage/types';
@@ -138,6 +140,8 @@ const wheel = (deltaY: number): Record<string, unknown> => ({ deltaY, deltaMode:
 const opened: StopStageView[] = [];
 
 beforeAll(() => {
+  // 样式的登记表是页面那一边取到沙盘程序以后交进来的（src/stage/index.ts）；这里照样交
+  provideStyles(STYLES);
   const { terrainPath } = realSceneFile(KEY);
   const fetcher = fakeFetch(terrainPath);
   vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'performance'] });
@@ -350,7 +354,7 @@ describe('沙盘自己的几条规矩（零件库、上色、地形板是假的�
       for (let i = 0; i < 3; i++) expect(frame.sun[i]).toBeCloseTo(light.dir[i] / length, 9);
       // 影子罩的那一块：以镜头对准的那一点为中心，大小跟着镜头的远近
       const placed = placeCamera(section, scene, R.samplers, R.coords, style, { width: 880, height: 900 });
-      const box = shadowBox([placed.pose.target[0], placed.pose.target[2]], placed.distanceM, R.coords);
+      const box = shadowBox([placed.pose.target[0], placed.pose.target[2]], placed.distanceM, R.coords, style.stand.reachM);
       expect(frame.shadowHalf).toBeCloseTo(box.half, 6);
       expect(frame.shadowCentre[0]).toBeCloseTo(box.centre[0], 6);
       expect(frame.shadowCentre[1]).toBeCloseTo(box.centre[1], 6);

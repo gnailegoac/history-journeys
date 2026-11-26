@@ -44,7 +44,7 @@ import { plantTrees } from '../../src/stage/three/kit/trees';
 import { meshHeightAt } from '../../src/stage/three/meshHeight';
 import { FULL_QUALITY } from '../../src/stage/three/quality';
 import { centreShift, placeCamera, project, screenAnchors } from '../../src/stage/three/rig';
-import { styleFor } from '../../src/stage/three/style';
+import { styleFor } from './support/styles';
 import { CALM_RANGE, rippleFor, rippleShare } from '../../src/stage/three/water';
 import { placeStrips, sideOfSlot } from '../../src/stage/overlay';
 import { realScene, realSceneKeys } from './support/realScenes';

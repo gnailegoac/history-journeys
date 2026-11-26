@@ -4,7 +4,8 @@
 // 全程沙盘另有两样，都直接从数据里读，不经 sceneRegister()（那个函数跟着页面一打开就下载的程序走，这里的字点开才下载）：
 //   五类后面的“记号”一栏：小像（场景文件最外面的 piece，不在五类里）；
 //   最后的一段：这位人物的行迹照哪些书和文章排的——手写的那一份行迹（itinerary.json）里的 sources，一条出处印一次，连着“读了什么”。
-//   那一份里只有 sources 这一个字段打进这一块程序（tests/build/dist-size.test.ts 查着）。
+//   那一份里只有 sources 这一个字段进网站，每位人物的是他自己的一小块，不打在这一块程序里（tests/build/dist-size.test.ts 查着）：
+//   读者在人物页上点开“凭据”，页面把这位人物的那一小块和这一段程序一起取来（Provenance.tsx），从 itinerary 交进来。
 
 import { useMemo } from 'react';
 import { sceneRegister } from '../domain';
@@ -12,28 +13,18 @@ import type { SceneRegister as Register, Source, TableScene } from '../domain';
 import type { ItinerarySource } from '../domain/itinerary';
 import { REGISTER_TEXT } from './foldText';
 
-/** 每位人物手写的那一份行迹里的出处（import: 'sources'：别的字段——每一段、考证的话——不进网站）。 */
-const ITINERARY_SOURCES = import.meta.glob<ItinerarySource[]>('/content/figures/*/itinerary.json', { import: 'sources', eager: true });
-
-/**
- * 现在看的这位人物的行迹的出处，一条出处只留头一次。
- * 是哪位人物从地址里读（“#/人物”，全程沙盘的凭据只在人物页上）：这一块程序不引 src/app 里的东西（引了，打包的时候 React 会被单拆出去）。
- */
-export function itinerarySources(hash: string): ItinerarySource[] {
-  return onceEach(ITINERARY_SOURCES[`/content/figures/${/^#\/([^/?#]+)/.exec(hash)?.[1]}/itinerary.json`] ?? []);
-}
-
 /** 一条出处（cite）只留头一次。 */
 export function onceEach(all: ItinerarySource[]): ItinerarySource[] {
   return all.filter((source, i) => all.findIndex((other) => other.cite === source.cite) === i);
 }
 
-export function SceneRegister({ scene, sources }: { scene: TableScene; sources: Source[] }) {
+/** itinerary：这位人物的行迹的出处，照文件里的先后（人物页上那一行才有；一站的页面上是空的）。只有全程沙盘的凭据印它。 */
+export function SceneRegister({ scene, sources, itinerary }: { scene: TableScene; sources: Source[]; itinerary: ItinerarySource[] }) {
   const register = useMemo(() => registerOf(scene, sources), [scene, sources]);
   if (!register) return null;
   const groups = register.groups.filter((group) => group.entries.length > 0);
   const piece = scene.level === 'route' ? scene.piece : undefined;
-  const read = scene.level === 'route' ? itinerarySources(window.location.hash) : [];
+  const read = scene.level === 'route' ? onceEach(itinerary) : [];
 
   return (
     <>

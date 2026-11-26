@@ -4,26 +4,21 @@
 //
 // 场景文件只用 import.meta.glob<StopScene>(...) 读，不直接 import 那个 JSON
 // （直接 import 时坐标会被当成 number[]，对不上 LngLat）；两份清单也是这样读。
-// 地形文件、先画好的地面、定格图的网址打包时就知道，但是不带在页面一打开就下载的那一块里
-// （一座沙盘十几二十个网址，沙盘越多越长）：它们在 sceneFileUrls.ts 里，这里用动态 import 取，
-// 打开人物页或者一站时才下载，和场景文件、清单一起取，不排队。文件本身仍然是用到时才下载。
+// 有哪些场景文件、哪些清单，地形文件、先画好的地面、定格图的网址，打包时就知道，但是不带在页面一打开就下载的那一块里
+// （一座沙盘十几二十个文件，沙盘越多越长）：它们在 contentLists.ts 里，是另一小块，页面的程序一开始跑就去要（content.ts 的 loadLists），
+// 这里先等它到，再照它去取场景文件和清单。文件本身仍然是用到时才下载。
 //
 // 工具做的两样可以没有：还没做的沙盘照样摆得出来（地面打开时现画，没有定格图）。清单在、它写的图片却不齐时，
 // 这一样就当作没有——宁可不用，也不拿半套去用。它们齐不齐、对不对得上，由 npm run validate 的规则 17、18 管。
 
 import type { RouteTable, StopTable } from '../stage/types';
 import type { BakedGroundManifest } from './bakedGround';
+import { loadLists } from './content';
 import type { StopScene, TableScene } from './scene';
 import type { StillManifest } from './stills';
+import type { Figure } from './types';
 
 const ROOT = '/content/figures';
-
-const sceneFiles = import.meta.glob<StopScene>('/content/figures/*/scenes/*.json', { import: 'default' });
-const stillManifests = import.meta.glob<StillManifest>('/content/figures/*/stills/*.json', { import: 'default' });
-const bakedManifests = import.meta.glob<BakedGroundManifest>('/content/figures/*/baked/*.json', { import: 'default' });
-
-/** 文件的网址那三张表（地形文件、先画好的地面、stills/ 里的图片）。第一次叫它时才下载；没取到的话，下一次叫它再取。 */
-const loadFileUrls = () => import('./sceneFileUrls');
 
 /**
  * 从一张“路径 → 怎么读”的表里马上去读这一项（没有这一项就什么也不读），返回只有这一项的表：
@@ -53,11 +48,12 @@ export interface MadeFiles {
 }
 
 /**
- * 这一站有没有场景文件。不用等：有哪些场景文件，程序打包的时候就知道了。
+ * 这一站有没有自己的沙盘。不用等：figure.json 里这一站写着（table），读到人物就知道了；它和 scenes/ 里的文件
+ * 对不对得上，由 npm run validate 的规则 3 管。
  * 页面用它决定沙盘栏一上来放什么：有，摆这一站的沙盘；没有，摆全程沙盘上到这一站去的来路。
  */
-export function hasStopTable(figureId: string, stopId: string): boolean {
-  return `${ROOT}/${figureId}/scenes/${stopId}.json` in sceneFiles;
+export function hasStopTable(figure: Figure, stopId: string): boolean {
+  return figure.stops.some((stop) => stop.id === stopId && stop.table === true);
 }
 
 /**
@@ -65,20 +61,20 @@ export function hasStopTable(figureId: string, stopId: string): boolean {
  * 这一站还没有场景文件、或者场景写的地形文件不在时返回 null。
  */
 export async function loadStopTable(figureId: string, stopId: string): Promise<StopTableContent | null> {
-  // 没有场景文件的站，什么也不用取
-  if (!hasStopTable(figureId, stopId)) return null;
+  const lists = await loadLists();
   const dir = `${ROOT}/${figureId}`;
-  // 四样一起去取，不排队：场景，两份清单，网址的那三张表。网址到了，就能照场景和清单挑出这一站要的那几个
-  const scenes = started(sceneFiles, `${dir}/scenes/${stopId}.json`);
-  const baked = started(bakedManifests, `${dir}/baked/${stopId}.json`);
-  const stills = started(stillManifests, `${dir}/stills/${stopId}.json`);
-  const urls = await loadFileUrls();
-  const terrains = Object.fromEntries(Object.entries(urls.terrain).map(([path, url]) => [path, () => Promise.resolve(url)]));
-  return pickStopTable(scenes, terrains, figureId, stopId, { bakedManifests: baked, bakedUrls: urls.baked, stillManifests: stills, stillUrls: urls.stills });
+  // 没有场景文件的站，什么也不用取
+  if (!(`${dir}/scenes/${stopId}.json` in lists.scenes)) return null;
+  // 三样一起去取，不排队：场景，两份清单。网址的那三张表和清单是一块儿到的，照场景和清单就能挑出这一站要的那几个
+  const scenes = started(lists.scenes, `${dir}/scenes/${stopId}.json`);
+  const baked = started(lists.bakedManifests, `${dir}/baked/${stopId}.json`);
+  const stills = started(lists.stillManifests, `${dir}/stills/${stopId}.json`);
+  const terrains = Object.fromEntries(Object.entries(lists.terrain).map(([path, url]) => [path, () => Promise.resolve(url)]));
+  return pickStopTable(scenes, terrains, figureId, stopId, { bakedManifests: baked, bakedUrls: lists.baked, stillManifests: stills, stillUrls: lists.stills });
 }
 
 /**
- * 从几张“路径 → 怎么读”的表里读出一站的沙盘（loadStopTable 用的就是它，那几张表是打包时列出来的）。
+ * 从几张“路径 → 怎么读”的表里读出一站的沙盘（loadStopTable 用的就是它，那几张表是打包时列出来的，在 contentLists.ts 里）。
  * 单拿出来，是为了不靠磁盘上真有一份缺了地形文件、缺了一张图的沙盘，也测得到这些情形。
  */
 export async function pickStopTable(
@@ -152,7 +148,8 @@ export type RouteTableContent = Pick<RouteTable, 'scene' | 'terrainUrl' | 'groun
  * 这位人物还没有全程沙盘、那个文件写的不是全程沙盘、或者它写的地形文件不在时返回 null。
  */
 export async function loadRouteTable(figureId: string): Promise<RouteTableContent | null> {
-  return routeTableOf(await loadStopTable(figureId, 'route'), `${ROOT}/${figureId}/baked/route.json` in bakedManifests);
+  const [found, lists] = await Promise.all([loadStopTable(figureId, 'route'), loadLists()]);
+  return routeTableOf(found, `${ROOT}/${figureId}/baked/route.json` in lists.bakedManifests);
 }
 
 /**

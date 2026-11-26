@@ -2,7 +2,7 @@
 // 这一站有沙盘时，它还盯着读者读到了哪一小节，报给上面，沙盘的镜头跟着走。
 // 正文还没写、可是有自己的沙盘的一站：正文的位置上是一句话和一张单子“沙盘上看的几处”，按哪一行沙盘就摆哪一处；下面是沙盘的凭据。
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { figureHref, sourcesHref } from '../app/router';
 import { useLoaded } from '../app/useLoaded';
 import type { Loaded } from '../app/useLoaded';
@@ -28,6 +28,10 @@ interface Props {
   section: string | null;
   /** 读者读到了另一小节（小节标题）；正文还没写的一站上，是读者在单子里按了另一处。 */
   onSection: (section: string) => void;
+  /** 读者在沙盘栏里点“再试一次”的次数：正文没读出来的时候，每点一次，正文也重读一遍。 */
+  again: number;
+  /** 正文没读出来的是哪一站（这一站的 id）；读出来了、还在读、还没写，是 null。 */
+  onLost: (stopId: string | null) => void;
 }
 
 /** 把焦点放到沙盘栏上；下一步 Tab 就到它的第一个按钮。 */
@@ -35,8 +39,17 @@ function toStage(): void {
   document.querySelector<HTMLElement>('.stage-pane')?.focus();
 }
 
-export function StopPage({ figure, stop, table, road, section, onSection }: Props) {
-  const content = useLoaded(`${figure.id}/${stop.id}`, () => loadStop(figure.id, stop.id));
+export function StopPage({ figure, stop, table, road, section, onSection, again, onLost }: Props) {
+  // round 是正文读的第几回。写好了的一站，正文和沙盘都要先等内容的清单那一小块：它没取到，两样都读不出来，读者在沙盘栏里点“再试一次”，
+  // 没读出来的正文跟着重读一遍（读出来了的不动）。
+  const [round, setRound] = useState(again);
+  // 还没写的一站没有正文文件（figure.json 里它的 status 是 outline，规则 3 管着两边一致）：不去读，也不等那一小块，
+  // “这一站的正文还没写。”一上来就在，网怎么样都是这一句。
+  const content = useLoaded(`${figure.id}/${stop.id}#${round}`, () => (stop.status === 'complete' ? loadStop(figure.id, stop.id) : Promise.resolve(null)));
+  if (content.state === 'error' && round !== again) setRound(again);
+  // 正文没读出来：报给上面，沙盘栏摆不出来时的那一句就不说“正文可以照常读”。画出来以前就报，那一句不会先说错一下。
+  const lost = content.state === 'error';
+  useLayoutEffect(() => onLost(lost ? stop.id : null), [lost, onLost, stop.id]);
   const { index, prev, next } = neighbours(figure, stop.id);
   const written = content.state === 'ready' && content.value !== null ? content.value : null;
   const scene = table.state === 'ready' && table.value ? table.value.scene : null;

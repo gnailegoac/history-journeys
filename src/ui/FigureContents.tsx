@@ -55,7 +55,7 @@ export function FigureContents({ figure, route }: { figure: Figure; route: Route
       </section>
 
       {/* 全程沙盘的凭据：和站点页上是同一个组件，这里只有“沙盘上的东西”一栏，出处是全程沙盘自己的。 */}
-      {route && <Provenance content={{ provenance: [], sources: route.sources }} scene={route} />}
+      {route && <Provenance content={{ provenance: [], sources: route.sources }} scene={route} figureId={figure.id} />}
 
       {/* 目录完了：一道短短的细线（样式表画的），下面是通到“来源”页的链接。 */}
       <div className="stop-nav">

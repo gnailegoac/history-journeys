@@ -5,6 +5,8 @@
 
 import { describe, expect, it, vi } from 'vitest';
 import type { BakedGroundManifest } from '../../src/domain/bakedGround';
+import { loadLists } from '../../src/domain/content';
+import { ROUTE_SCENE_ID } from '../../src/domain/scene';
 import type { StopScene } from '../../src/domain/scene';
 import { hasStopTable, loadRouteTable, loadStopTable, pickStopTable, routeTableOf } from '../../src/domain/sceneContent';
 import type { MadeFiles } from '../../src/domain/sceneContent';
@@ -33,14 +35,18 @@ const scenesOnDisk = [...paths].flatMap((path) => {
   return match ? [{ figureId: match[1], stopId: match[2], path }] : [];
 });
 
+// hasStopTable 2026-11-25 起不看“有哪些场景文件”的那张清单（它不在页面一打开就下载的那一块里了），看的是 figure.json 里
+// 这一站写没写 table；所以交给它的是读出来的人物，不是人物的 id。答的话没有变：下面还是拿它和磁盘上有没有场景文件对。
 describe('hasStopTable', () => {
+  const suShi = figuresOnDisk.find((figure) => figure.id === 'su-shi')!;
+
   it('不用等就知道一站有没有场景文件：磁盘上有的说有，没有的说没有', () => {
-    expect(hasStopTable('su-shi', 'xuzhou')).toBe(true);
+    expect(hasStopTable(suShi, 'xuzhou')).toBe(true);
     let without = 0;
     for (const figure of figuresOnDisk) {
       for (const stop of figure.stops) {
         const there = paths.has(`${ROOT}/${figure.id}/scenes/${stop.id}.json`);
-        expect(hasStopTable(figure.id, stop.id), `${figure.id}/${stop.id}`).toBe(there);
+        expect(hasStopTable(figure, stop.id), `${figure.id}/${stop.id}`).toBe(there);
         if (!there) without += 1;
       }
     }
@@ -48,16 +54,53 @@ describe('hasStopTable', () => {
   });
 
   it('没有这位人物、没有这一站、地形文件，都不算', () => {
-    expect(hasStopTable('no-such-figure', 'xuzhou')).toBe(false);
-    expect(hasStopTable('su-shi', 'no-such-stop')).toBe(false);
-    expect(hasStopTable('su-shi', 'xuzhou.terrain')).toBe(false);
+    // “没有这位人物”：手里没有他的 figure.json，也就没有哪一站写着 table——一站也没有的人物，问哪一站都是没有
+    expect(hasStopTable({ ...suShi, id: 'no-such-figure', stops: [] }, 'xuzhou')).toBe(false);
+    expect(hasStopTable(suShi, 'no-such-stop')).toBe(false);
+    expect(hasStopTable(suShi, 'xuzhou.terrain')).toBe(false);
+    // 全程沙盘的场景文件（scenes/route.json）不是哪一站的
+    expect(hasStopTable(suShi, ROUTE_SCENE_ID)).toBe(false);
+    // 只认写着 true 的
+    expect(hasStopTable({ ...suShi, stops: suShi.stops.map((stop) => ({ ...stop, table: false })) }, 'xuzhou')).toBe(false);
   });
 
   it('说有的站，loadStopTable 读得出来（地形文件也在）', async () => {
+    let stops = 0;
     for (const { figureId, stopId } of scenesOnDisk) {
-      expect(hasStopTable(figureId, stopId)).toBe(true);
+      // 全程沙盘的场景文件不是哪一站的，不问 hasStopTable；它读不读得出来照样查
+      if (stopId !== ROUTE_SCENE_ID) {
+        expect(hasStopTable(figuresOnDisk.find((figure) => figure.id === figureId)!, stopId), `${figureId}/${stopId}`).toBe(true);
+        stops += 1;
+      }
       expect(await loadStopTable(figureId, stopId), `${figureId}/${stopId}`).not.toBeNull();
     }
+    expect(stops, '至少要有一座站点沙盘，这一条才测得到').toBeGreaterThan(0);
+  });
+});
+
+describe('内容的清单（loadLists）：每位人物的每个文件怎么读，在另一小块里', () => {
+  it('七张“路径 → 怎么读”的表和三张网址的表，正好是磁盘上的那些文件，一个不多、一个不少', async () => {
+    const lists = await loadLists();
+    const onDisk = (pattern: RegExp): string[] => [...paths].filter((path) => pattern.test(path)).sort();
+    const keys = (table: Record<string, unknown>): string[] => Object.keys(table).sort();
+    expect(keys(lists.stopJson)).toEqual(onDisk(/^\/content\/figures\/[^/]+\/stops\/[^/]+\.json$/));
+    expect(keys(lists.stopBody)).toEqual(onDisk(/^\/content\/figures\/[^/]+\/stops\/[^/]+\.md$/));
+    expect(keys(lists.images)).toEqual(onDisk(/^\/content\/figures\/[^/]+\/images\/[^/]+$/));
+    expect(keys(lists.scenes)).toEqual(onDisk(/^\/content\/figures\/[^/]+\/scenes\/[^/]+\.json$/));
+    expect(keys(lists.stillManifests)).toEqual(onDisk(/^\/content\/figures\/[^/]+\/stills\/[^/]+\.json$/));
+    expect(keys(lists.bakedManifests)).toEqual(onDisk(/^\/content\/figures\/[^/]+\/baked\/[^/]+\.json$/));
+    expect(keys(lists.itinerarySources)).toEqual(onDisk(/^\/content\/figures\/[^/]+\/itinerary\.json$/));
+    expect(keys(lists.terrain)).toEqual(onDisk(/^\/content\/figures\/[^/]+\/scenes\/[^/]+\.terrain\.bin$/));
+    expect(keys(lists.baked)).toEqual(onDisk(/^\/content\/figures\/[^/]+\/baked\/[^/]+\.(jpg|png)$/));
+    expect(keys(lists.stills)).toEqual(onDisk(/^\/content\/figures\/[^/]+\/stills\/[^/]+\.(jpg|jpeg|png|webp|svg)$/));
+    // 每一张都不是空的（content/ 里有一位写了两站、有四座沙盘的人物）
+    for (const table of [lists.stopJson, lists.stopBody, lists.images, lists.scenes, lists.stillManifests, lists.bakedManifests, lists.itinerarySources, lists.terrain, lists.baked, lists.stills]) {
+      expect(Object.keys(table).length).toBeGreaterThan(0);
+    }
+  });
+
+  it('叫几次给的都是同一份', async () => {
+    expect(await loadLists()).toBe(await loadLists());
   });
 });
 

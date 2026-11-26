@@ -1,9 +1,10 @@
-// 读取内容的单元测试：loadFigureCards、loadFigure、loadStop，对着真实的 content/ 目录。
+// 读取内容的单元测试：loadFigureCards、loadFigure、loadStop、loadItinerarySources，对着真实的 content/ 目录。
 // 这里只管“读得对不对”；内容本身合不合规格由 npm run validate 管。
 
 import { describe, expect, it } from 'vitest';
 import { parseBody } from '../../src/domain/body';
-import { loadFigure, loadFigureCards, loadStop } from '../../src/domain/content';
+import { loadFigure, loadFigureCards, loadItinerarySources, loadStop } from '../../src/domain/content';
+import type { ItinerarySource } from '../../src/domain/itinerary';
 import type { Figure, FigureCard, StopExtras } from '../../src/domain/types';
 
 const ROOT = '/content/figures';
@@ -139,6 +140,23 @@ describe('loadStop', () => {
     expect(await loadStop('no-such-figure', 'no-such-stop')).toBeNull();
     for (const figureId of figureIdsOnDisk) expect(await loadStop(figureId, 'no-such-stop')).toBeNull();
     for (const { stopId } of writtenStops()) expect(await loadStop('no-such-figure', stopId)).toBeNull();
+  });
+});
+
+describe('loadItinerarySources', () => {
+  it('有行迹的人物：读出来的就是手写的那一份（itinerary.json）里的 sources，一条不多、一条不少，先后不变', async () => {
+    const withItinerary = figureIdsOnDisk.filter((id) => paths.has(`${ROOT}/${id}/itinerary.json`));
+    expect(withItinerary.length).toBeGreaterThan(0);
+    for (const id of withItinerary) {
+      const hand = json<{ sources: ItinerarySource[] }>(`${ROOT}/${id}/itinerary.json`);
+      expect(hand.sources.length).toBeGreaterThan(0);
+      expect(await loadItinerarySources(id), id).toEqual(hand.sources);
+    }
+  });
+
+  it('没有这位人物、还没有行迹的人物：空的', async () => {
+    expect(await loadItinerarySources('no-such-figure')).toEqual([]);
+    for (const id of figureIdsOnDisk.filter((figureId) => !paths.has(`${ROOT}/${figureId}/itinerary.json`))) expect(await loadItinerarySources(id), id).toEqual([]);
   });
 });
 

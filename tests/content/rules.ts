@@ -14,7 +14,7 @@ import { validateItinerary } from './itineraryRules';
 import { checkRouteScene, checkRouteShape, checkStopPlaces, isRouteLevel } from './routeRules';
 import { checkBakedGround, checkScene, checkSceneShape, checkSectionStills, MADE_FILES_REQUIRED } from './sceneRules';
 import type { FileKeys, Measured, MeasuredPictures, SceneStop } from './sceneRules';
-import { anything, bool, checkShape, has, list, lngLatProblem, number, object, oneOf, readJson, text, violation } from './shape';
+import { anything, bool, checkShape, has, list, lngLatProblem, number, object, oneOf, optional, readJson, text, violation } from './shape';
 import type { ContentFiles, FileSizes, PictureSizes, Violation } from './shape';
 
 export { lngLatProblem };
@@ -155,7 +155,7 @@ export function validateFigure(
   if (RESERVED_FIGURE_IDS.includes(figureId)) {
     out.push(violation(0, file, 'id', `“${figureId}”不能做人物的 id（文件夹也不能叫这个名字）：地址 #/${figureId} 是网站自己的一页（“来源”页），换一个`));
   }
-  figure.stops.forEach((stop, i) => out.push(...duplicateIds(stop.localPlaces, file, `stops[${i}].localPlaces`)));
+  figure.stops.forEach((stop, i) => out.push(...duplicateIds(stop.localPlaces ?? [], file, `stops[${i}].localPlaces`)));
   out.push(...checkCoordinates(figure, file));
   out.push(...checkRoute(figure, file));
   out.push(...checkStopFiles(figure, files, dir));
@@ -242,29 +242,32 @@ function sceneStop(files: ContentFiles, dir: string, figure: Figure, stopId: str
   return { id: stopId, status: figure.stops.find((stop) => stop.id === stopId)?.status, headings, sourceIds };
 }
 
-/** 规则 1 坐标：[经度, 纬度]，经度在 −180 到 180 之间，纬度在 −90 到 90 之间。 */
+/**
+ * 规则 1 坐标：[经度, 纬度]，经度在 −180 到 180 之间，纬度在 −90 到 90 之间。
+ * 停用的那几个字段（overview、localPlaces、legs）可以不写；写了的，里面的坐标照旧查。
+ */
 export function checkCoordinates(figure: Figure, file: string): Violation[] {
   const out: Violation[] = [];
   const check = (value: unknown, field: string) => {
     const problem = lngLatProblem(value);
     if (problem) out.push(violation(1, file, field, problem));
   };
-  check(figure.overview.center, 'overview.center');
+  if (figure.overview) check(figure.overview.center, 'overview.center');
   figure.stops.forEach((stop, i) => {
     check(stop.place.lngLat, `stops[${i}].place.lngLat`);
-    stop.localPlaces.forEach((place, j) => check(place.lngLat, `stops[${i}].localPlaces[${j}].lngLat`));
+    (stop.localPlaces ?? []).forEach((place, j) => check(place.lngLat, `stops[${i}].localPlaces[${j}].lngLat`));
   });
-  figure.legs.forEach((leg, i) => leg.via.forEach((point, j) => check(point.lngLat, `legs[${i}].via[${j}].lngLat`)));
+  (figure.legs ?? []).forEach((leg, i) => leg.via.forEach((point, j) => check(point.lngLat, `legs[${i}].via[${j}].lngLat`)));
   return out;
 }
 
 /**
  * 规则 2 站点与轨迹：站的 id 不重复，也不能叫 route（scenes/route.json、baked/route.*、stills/route-* 是全程沙盘的文件）；
- * legs 比 stops 少一个，并且依次首尾相连。
+ * 写了 legs 的（停用的字段，可以不写），legs 比 stops 少一个，并且依次首尾相连。
  */
 export function checkRoute(figure: Figure, file: string): Violation[] {
   const out: Violation[] = [];
-  const { stops, legs } = figure;
+  const { stops } = figure;
   stops.forEach((stop, i) => {
     const first = stops.findIndex((s) => s.id === stop.id);
     if (first < i) out.push(violation(2, file, `stops[${i}].id`, `站的 id“${stop.id}”和第 ${first + 1} 站重复了`));
@@ -272,6 +275,9 @@ export function checkRoute(figure: Figure, file: string): Violation[] {
       out.push(violation(2, file, `stops[${i}].id`, `“${ROUTE_SCENE_ID}”不能做站的 id：scenes/${ROUTE_SCENE_ID}.json 是全程沙盘的场景文件，先画好的地面和定格图也用这个名字；换一个`));
     }
   });
+  // 没有写 legs 的人物：后半句没有可查的
+  const legs = figure.legs;
+  if (legs === undefined) return out;
   const expected = Math.max(0, stops.length - 1);
   if (legs.length !== expected) {
     out.push(violation(2, file, 'legs', `有 ${stops.length} 站，应该有 ${expected} 段路，现在是 ${legs.length} 段`));
@@ -287,9 +293,23 @@ export function checkRoute(figure: Figure, file: string): Violation[] {
   return out;
 }
 
-/** 规则 3 文件齐全：complete 的站同时有 .md 和 .json；outline 的站两个都没有。 */
+/**
+ * 规则 3 文件齐全：complete 的站同时有 .md 和 .json；outline 的站两个都没有。
+ * 写了 "table": true 的站有 scenes/<站>.json；有 scenes/<站>.json 的站写了 "table": true（两头都查：
+ * 页面照 figure.json 里的这个字段决定沙盘栏先摆什么，不去看有哪些文件）。对不上任何一站的场景文件由规则 10 报。
+ */
 export function checkStopFiles(figure: Figure, files: ContentFiles, dir: string): Violation[] {
   const out: Violation[] = [];
+  figure.stops.forEach((stop, i) => {
+    const scene = `${dir}/scenes/${stop.id}.json`;
+    const says = stop.table === true;
+    if (says && !has(files, scene)) {
+      out.push(violation(3, `${dir}/figure.json`, `stops[${i}].table`, `“${stop.shortTitle}”这一站写了有自己的沙盘（"table": true），但没有场景文件 scenes/${stop.id}.json；沙盘还没做就不写这个字段`));
+    }
+    if (!says && has(files, scene)) {
+      out.push(violation(3, `${dir}/figure.json`, `stops[${i}].table`, `“${stop.shortTitle}”这一站有场景文件 scenes/${stop.id}.json，这里要写上 "table": true：页面照这个字段决定沙盘栏先摆这一站自己的沙盘`));
+    }
+  });
   for (const stop of figure.stops) {
     for (const ext of ['md', 'json']) {
       const path = `${dir}/stops/${stop.id}.${ext}`;
@@ -527,7 +547,8 @@ const FIGURE = object({
   years: text,
   tagline: text,
   intro: list(text),
-  overview: object({ center: coordinate, distanceKm: number }),
+  // 停用的四个字段（overview，每一站的 camera、localPlaces，legs）可以不写；写了的照这里的样子查
+  overview: optional(object({ center: coordinate, distanceKm: number })),
   stops: list(
     object({
       id: text,
@@ -536,13 +557,15 @@ const FIGURE = object({
       years: text,
       age: text,
       place: PLACE,
-      camera: object({ distanceKm: number, pitch: number, bearing: number }),
+      camera: optional(object({ distanceKm: number, pitch: number, bearing: number })),
       summary: text,
       status: oneOf(['complete', 'outline']),
-      localPlaces: list(PLACE),
+      // 这一站有自己的沙盘：写 true；没有的不写（和 scenes/ 里的文件对不对得上，规则 3 查）
+      table: optional(bool),
+      localPlaces: optional(list(PLACE)),
     }),
   ),
-  legs: list(object({ from: text, to: text, via: list(object({ name: text, lngLat: coordinate })) })),
+  legs: optional(list(object({ from: text, to: text, via: list(object({ name: text, lngLat: coordinate })) }))),
 });
 
 const EXTRAS = object({

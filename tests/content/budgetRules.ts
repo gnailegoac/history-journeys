@@ -73,8 +73,13 @@ export const ENGINE_ENTRY = 'src/stage/three/engine.ts';
 export const ROUTE_ENTRY = 'src/stage/three/routeLevel.ts';
 /** 按家分块的零件（src/stage/families.ts 的登记表）里叫 name 的那一家，它的程序在构建清单里的名字。 */
 export const familyEntry = (name: string): string => `src/stage/three/families/${name}.ts`;
-/** 沙盘用到的文件（地形文件、先画好的地面、定格图）的网址那一块在清单里叫什么。它要用到时才下载，不能进页面那一块。 */
-export const FILE_URLS_ENTRY = 'src/domain/sceneFileUrls.ts';
+/**
+ * 内容的清单那一块在构建清单里叫什么：每位人物的每个文件怎么读（各站的文件、图片、场景文件、两种清单、行迹的出处），
+ * 连同沙盘用到的文件（地形文件、先画好的地面、定格图）的网址。页面的程序一开始跑就用动态 import 去要它，但它不能进页面那一块：
+ * 页面那一块里只留首页的卡片和每位人物的 figure.json（一位人物一项）。
+ * 2026-11-25 以前这一块里只有网址，叫 src/domain/sceneFileUrls.ts；多大由 check:size 印出来，没有单独的上限。
+ */
+export const LISTS_ENTRY = 'src/domain/contentLists.ts';
 /**
  * 时间轴的那一段程序（src/timebar/）在清单里叫什么。栏里摆上全程沙盘才用动态 import 取它（src/ui/StagePane.tsx），不能进页面那一块。
  * 它多大由 check:size 印出来，没有单独的上限。

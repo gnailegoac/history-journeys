@@ -33,7 +33,7 @@ import type { Figure } from '../../src/domain/types';
 import { readBytes } from '../support/readBytes';
 import { drawn } from './support/budgets';
 import { fakeCanvas, fakeDocument, fakeFetch, fakeHostParts, fakeRenderer, fakeStrips, trianglesUnder } from './support/fakeRenderer';
-import { realRouteScene } from './support/realScenes';
+import { realFigure, realRouteScene } from './support/realScenes';
 
 /** 查的是苏轼的全程沙盘：三角形数、先画好的地面的清单、行迹都是他的。写着名字取，不取“排在最前面的那一座”。 */
 const KEY = 'su-shi/route';
@@ -242,7 +242,7 @@ describe(`${KEY} 在沙盘程序里`, () => {
   });
 
   it('潜到一站上空：镜头照钟点挪到那一站上空，先对准、再凑近；题签只留那一站自己的那一条；读者的手打不断它；不算一趟滑动（不量快慢）；换回小节题签都回来', { timeout: 120_000 }, async () => {
-    const stop = R.scene.sections.find((section) => section.stop && hasStopTable(FIGURE, section.stop))?.stop;
+    const stop = R.scene.sections.find((section) => section.stop && hasStopTable(realFigure(FIGURE), section.stop))?.stop;
     if (!stop) throw new Error('这位人物没有哪一站有自己的沙盘');
     const place = R.scene.places.find((p) => p.stops?.includes(stop));
     if (!place) throw new Error('沙盘上没有这一站的地名点');
@@ -453,7 +453,7 @@ describe(`${KEY} 上的小像（placePiece）`, () => {
   });
 
   it('潜到一站上空：他不在那一站就收起来，在那一站就留着；回来再摆出来', { timeout: 120_000 }, async () => {
-    const stop = R.scene.sections.find((section) => section.stop && hasStopTable(FIGURE, section.stop))?.stop;
+    const stop = R.scene.sections.find((section) => section.stop && hasStopTable(realFigure(FIGURE), section.stop))?.stop;
     if (!stop) throw new Error('这位人物没有哪一站有自己的沙盘');
     const home = R.scene.places.find((p) => p.stops?.includes(stop));
     if (!home) throw new Error('沙盘上没有这一站的地名点');
@@ -611,7 +611,7 @@ describe(`${KEY} 上的小像（placePiece）`, () => {
     expect(avoids(from).every((a) => a === undefined)).toBe(true);
 
     // 潜的时候收起来了：不给
-    const stop = R.scene.sections.find((section) => section.stop && hasStopTable(FIGURE, section.stop))?.stop;
+    const stop = R.scene.sections.find((section) => section.stop && hasStopTable(realFigure(FIGURE), section.stop))?.stop;
     const home = R.scene.places.find((p) => stop && p.stops?.includes(stop));
     if (!stop || !home || !view.dive) throw new Error('这位人物没有哪一站有自己的沙盘');
     place(view, { on: 'place', place: towns.find((id) => id !== home.id) as string });
@@ -706,7 +706,7 @@ describe(`${KEY} 上的小像（placePiece）`, () => {
     await until(view.showSection(R.headings[0], { animate: false }));
     await frames(2);
     expect(ids()).toEqual([...plain, PIECE_NAME]);
-    const stop = R.scene.sections.find((section) => section.stop && hasStopTable(FIGURE, section.stop))?.stop;
+    const stop = R.scene.sections.find((section) => section.stop && hasStopTable(realFigure(FIGURE), section.stop))?.stop;
     if (!stop || !view.dive) throw new Error('这位人物没有哪一站有自己的沙盘');
     expect(await until(view.dive(stop, 600))).toBe(true);
     expect(ids()).not.toContain(PIECE_NAME);

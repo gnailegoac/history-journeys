@@ -40,6 +40,7 @@
       },
       "summary": "他和弟弟跟着父亲走陆路到汴京赶考，考中进士后母亲去世，回乡守丧；服满后全家坐船出三峡，再到汴京。",
       "status": "outline",
+      "table": true,
       "localPlaces": []
     },
     {
@@ -112,6 +113,7 @@
       },
       "summary": "他到徐州做知州，几个月后黄河决口，大水围住了城，他带人筑堤守城，一个多月后水才退。",
       "status": "complete",
+      "table": true,
       "localPlaces": [
         {
           "id": "ximatai",
@@ -215,6 +217,7 @@
       },
       "summary": "他被贬到黄州，住了四年多，在城东的坡地上种田，自号东坡居士，写了前后两篇《赤壁赋》。",
       "status": "complete",
+      "table": true,
       "localPlaces": [
         {
           "id": "chibi",

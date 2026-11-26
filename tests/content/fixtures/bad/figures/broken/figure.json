@@ -17,6 +17,7 @@
       "camera": { "distanceKm": 30, "pitch": 60, "bearing": 0 },
       "summary": "正文太短，小注、原文、图片、凭据都有错。",
       "status": "complete",
+      "table": true,
       "localPlaces": [
         { "id": "x", "ancient": "东门", "modern": "东门旧址", "lngLat": [200, 10] },
         { "id": "y", "ancient": "西门", "modern": "西门旧址", "lngLat": [110] }
@@ -32,6 +33,7 @@
       "camera": { "distanceKm": 30, "pitch": 60, "bearing": 0 },
       "summary": "（待填）",
       "status": "outline",
+      "table": true,
       "localPlaces": []
     },
     {

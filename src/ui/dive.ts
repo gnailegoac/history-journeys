@@ -5,7 +5,7 @@
 // 这里不碰沙盘栏的组件，窗口也是交进来的：在 Node 里就能查（tests/unit/dive.test.ts）。
 
 import { parseHash } from '../app/router';
-import { hasStopTable, loadStopTable } from '../domain';
+import { loadStopTable } from '../domain';
 import { DIVE_GUARD_MS, DIVE_MS } from './diveClock';
 
 export { DIVE_GUARD_MS, DIVE_MS };
@@ -40,19 +40,22 @@ const plain = (event: DiveClick): boolean => !(event.defaultPrevented || event.b
  * 这一下要不要潜：要就返回潜到哪一站、链接上的地址。
  * 要潜的只有一种：平常的一点（左键或者手指、回车，没按着别的键），点在通到同一位人物、有自己的沙盘的一站的站内链接上，
  * 而且栏里的全程沙盘摆好了、没收起来、系统没说要少动、开关开着。
+ * own 说一站有没有自己的沙盘（figure.json 里写的；沙盘栏照各站的印答，不用等）。
  */
-export function diveStop(event: DiveClick, figureId: string, pane: DivePane): { stop: string; hash: string } | null {
+export function diveStop(event: DiveClick, figureId: string, pane: DivePane, own: (stop: string) => boolean): { stop: string; hash: string } | null {
   if (!pane.on || !pane.ready || pane.tucked || pane.calm) return null;
   if (!plain(event)) return null;
   const hash = linkHash(event);
   if (hash === null) return null;
   const to = parseHash(hash);
-  return to.page === 'stop' && to.figureId === figureId && hasStopTable(figureId, to.stopId) ? { stop: to.stopId, hash } : null;
+  return to.page === 'stop' && to.figureId === figureId && own(to.stopId) ? { stop: to.stopId, hash } : null;
 }
 
 /** 沙盘栏那一边要做的几样。 */
 export interface DiveHost {
   pane(): DivePane;
+  /** 这一站有没有自己的沙盘（照这一站的印上写的 own）。 */
+  own(stop: string): boolean;
   /** 叫沙盘潜到这一站上空；栏里没有会潜的沙盘是 null。 */
   dive(stop: string, ms: number): Promise<boolean> | null;
   /** 正在往哪一站潜（写在栏的 data-stage-dive 上）；null 是不潜了。 */
@@ -122,7 +125,7 @@ export function watchDives(figureId: string, host: DiveHost, win: DiveWindow = w
       else if (hash !== null) drop();
       return;
     }
-    const to = diveStop(event, figureId, host.pane());
+    const to = diveStop(event, figureId, host.pane(), host.own);
     const done = to && host.dive(to.stop, DIVE_MS);
     if (!to || !done) return;
     event.preventDefault();

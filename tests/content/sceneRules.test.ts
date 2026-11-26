@@ -127,6 +127,7 @@ const OUTLINE_STOP_STATUS = (JSON.parse(GOOD['figures/demo/figure.json']) as { s
 /**
  * 合格样本里那座沙盘，挪到还没写的一站（pass）上：这一站没有 stops/pass.json，
  * 出处从 stops/river.json 原样抄进场景文件自己的 sources。change 在这以后再改一处。
+ * 这一站有了场景文件，figure.json 里它也就写上 "table": true（2026-11-25 起规则 3 两头都查；不写的话每一条都多报这一处）。
  */
 function outlineFiles(change: (scene: StopScene) => void = () => {}): ContentFiles {
   const scene = goodScene();
@@ -134,7 +135,9 @@ function outlineFiles(change: (scene: StopScene) => void = () => {}): ContentFil
   scene.terrain.file = 'pass.terrain.bin';
   scene.sources = (JSON.parse(GOOD[STOP]) as { sources: Source[] }).sources;
   change(scene);
-  return { ...GOOD, [OUTLINE_SCENE]: JSON.stringify(scene), 'figures/demo/scenes/pass.terrain.bin': '' };
+  const figure = JSON.parse(GOOD['figures/demo/figure.json']) as { stops: { id: string; table?: boolean }[] };
+  for (const stop of figure.stops) if (stop.id === 'pass') stop.table = true;
+  return { ...GOOD, 'figures/demo/figure.json': JSON.stringify(figure), [OUTLINE_SCENE]: JSON.stringify(scene), 'figures/demo/scenes/pass.terrain.bin': '' };
 }
 
 /** 那一站的场景文件查出来的全部问题，写成“规则号 字段”。别的文件有问题也算进来，写全。 */

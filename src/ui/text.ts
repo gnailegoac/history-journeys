@@ -34,7 +34,7 @@ export const VIEWS_HEADING = '沙盘上看的几处';
 
 /**
  * 沙盘栏上的话。给读者的只说发生了什么、还能做什么；技术上的原因写在控制台里。
- * failed、unsupported、slow 三句末尾的“正文可以照常读”，在没有正文的一站上不说（StagePane.tsx 的 say）：
+ * failed、unsupported、slow 三句末尾的“正文可以照常读”，在没有正文的一站上、正文这一次没读出来的一站上不说（StagePane.tsx 的 say）：
  * 那三句都要写成“，正文可以照常读。”或者“。正文可以照常读。”收尾，去掉以后还是一句完整的话。
  */
 export const STAGE_TEXT = {

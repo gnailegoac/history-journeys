@@ -137,6 +137,16 @@ describe('两份样本', () => {
     expect(validateContent(noStills, SIZES, PICTURES, KEYS, true, [...PENDING, 'demo/river'])).toEqual([]);
   });
 
+  it('有全程沙盘、还没有行迹的人物（合格的样本就是这样一位）：哪一条规则也不要他有行迹；反过来，没有全程沙盘却有行迹的，规则 22 报', () => {
+    expect(Object.keys(GOOD)).toContain(ROUTE);
+    expect(Object.keys(GOOD).filter((path) => path.includes('itinerary'))).toEqual([]);
+    expect(all(GOOD)).toEqual([]);
+    // 反过来的那一头是查的：拿掉全程沙盘、添上一份行迹
+    const { [ROUTE]: _route, ...bare } = GOOD;
+    const found = all({ ...bare, 'figures/demo/itinerary.json': '{}' });
+    expect(found).toContain('22 figures/demo/itinerary.json');
+  });
+
   it('规则 16：卡片标了可以点进去的人物要有 scenes/route.json；没标的不要求', () => {
     expect(all(GOOD).filter((line) => line.startsWith('16 '))).toEqual([]);
     // 拿掉全程沙盘的场景文件：正好报这一处（地形文件和“今天的海岸、湖、河”还在，没有人读它们）
@@ -559,7 +569,7 @@ describe('规则 14 小节（全程沙盘）', () => {
   it('figure.json 里添了一站，场景没跟上：小节、路、地名点各报一处', () => {
     const files = edit<Figure>(FIGURE, (figure) => {
       figure.stops.push({ ...figure.stops[2], id: 'island', place: { ...figure.stops[2].place, id: 'island' } });
-      figure.legs.push({ from: 'port', to: 'island', via: [] });
+      figure.legs!.push({ from: 'port', to: 'island', via: [] });
     });
     expect(all(files)).toEqual([`13 ${ROUTE} › roads.journeys`, `14 ${ROUTE} › sections`, `15 ${ROUTE} › places`]);
   });
@@ -754,8 +764,8 @@ describe('规则 2：站的 id 不能叫 route', () => {
   it('route 是全程沙盘的文件名', () => {
     const files = edit<Figure>(FIGURE, (figure) => {
       figure.stops[1].id = 'route';
-      figure.legs[0].to = 'route';
-      figure.legs[1].from = 'route';
+      figure.legs![0].to = 'route';
+      figure.legs![1].from = 'route';
     });
     const found = all(files).filter((line) => line.startsWith('2 '));
     expect(found).toEqual([`2 ${FIGURE} › stops[1].id`]);

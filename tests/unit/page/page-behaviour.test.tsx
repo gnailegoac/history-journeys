@@ -22,9 +22,9 @@ import { stopMarks, stripTexts } from '../../../src/domain';
 import type { Figure, RouteScene, StopScene } from '../../../src/domain';
 import type { Itinerary, ItinerarySource } from '../../../src/domain/itinerary';
 import { SCENE_CLASSES, SCENE_CLASS_LABEL } from '../../../src/domain/scene';
-import { itinerarySources, onceEach } from '../../../src/ui/SceneRegister';
+import { onceEach } from '../../../src/ui/SceneRegister';
 import { REGISTER_TEXT } from '../../../src/ui/foldText';
-import { SITE_TITLE } from '../../../src/ui/text';
+import { SITE_TITLE, STAGE_TEXT } from '../../../src/ui/text';
 import { pickSection, readingLine, remainingScroll } from '../../../src/ui/useReadingSection';
 import { readBytes } from '../../support/readBytes';
 import { installMiniDom, MiniElement } from './miniDom';
@@ -60,7 +60,8 @@ vi.mock('../../../src/domain/sceneContent', async (original) => {
   const gone = (stopId: string): boolean => (flags.__noTable as Set<string>).has(stopId);
   return {
     ...actual,
-    hasStopTable: (figureId: string, stopId: string) => flags.__standIn === stopId || (!gone(stopId) && actual.hasStopTable(figureId, stopId)),
+    // 2026-11-25 起页面问的是读出来的人物（figure.json 里这一站写没写 table），不是人物的 id；这里拿走、借来的办法没有变
+    hasStopTable: (asked: Figure, stopId: string) => flags.__standIn === stopId || (!gone(stopId) && actual.hasStopTable(asked, stopId)),
     loadStopTable: async (figureId: string, stopId: string) => {
       if (flags.__tableGate) await flags.__tableGate;
       if (flags.__tableFails > 0) {
@@ -83,7 +84,11 @@ vi.mock('../../../src/domain/content', async (original) => {
   const actual = await original<typeof import('../../../src/domain/content')>();
   return {
     ...actual,
-    loadStop: (figureId: string, stopId: string) => ((globalThis as any).__textFails ? Promise.reject(new Error('正文这一次没读出来')) : actual.loadStop(figureId, stopId)),
+    loadStop: (figureId: string, stopId: string) => {
+      // g.__textReads 数正文读了几回（查“读出来了的正文不重读”用）
+      (globalThis as any).__textReads = ((globalThis as any).__textReads ?? 0) + 1;
+      return (globalThis as any).__textFails ? Promise.reject(new Error('正文这一次没读出来')) : actual.loadStop(figureId, stopId);
+    },
   };
 });
 
@@ -93,6 +98,7 @@ const { FigureLayout } = await import('../../../src/ui/FigureLayout');
 const { FigureContents } = await import('../../../src/ui/FigureContents');
 const { useOnDemand } = await import('../../../src/app/useLoaded');
 const { resetFakeVisit } = await import('../../../src/ui/dev/fakeStage');
+const { loadItinerarySources } = await import('../../../src/domain/content');
 
 const scene = JSON.parse(new TextDecoder().decode(readBytes('content/figures/su-shi/scenes/xuzhou.json'))) as StopScene;
 const headings = scene.sections.map((s) => s.heading);
@@ -119,6 +125,8 @@ g.__standInSources = standInSources;
 const LEAF_FIRST = '这一站的正文还没写。';
 const LEAF_REST = '按下面的一行，沙盘就换到那一处；各处的时间写在每一行里，不一定都在上面这几年里。';
 const BARE_FAILED = '沙盘没能摆出来。';
+/** 写好了的一站、正文读出来了的时候，沙盘摆不出来说的那一句。 */
+const WRITTEN_FAILED = '沙盘没能摆出来，正文可以照常读。';
 const BARE_UNSUPPORTED = '这个浏览器画不出立体的沙盘。换一个新一点的浏览器，或者把手机、平板的系统升级以后再来看。';
 const BARE_SLOW = '立体的沙盘在这台设备上太慢，先不摆了。';
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -220,8 +228,9 @@ describe('整个版面 + 真的内容 + 沙盘的替身', () => {
 
   it('全程沙盘的凭据：四类以后有“记号”一栏，里面是小像；最后是行迹的出处，一条印一次', { timeout: 30_000 }, async () => {
     const itinerary = JSON.parse(new TextDecoder().decode(readBytes('content/figures/su-shi/itinerary.json'))) as Itinerary;
-    // 是哪位人物，凭据里面的那一块程序从地址里读：真的页面上人物页的地址是 #/su-shi
-    win.location.hash = '#/su-shi';
+    // 是哪位人物，人物页把他的 id 交给凭据那一行，他的行迹的出处和凭据里面的那一段程序一起取
+    //（2026-11-25 以前是那一段程序自己从地址里读，每位人物的出处都打在它里面）。地址上写的是什么不要紧：这里故意不写人物
+    win.location.hash = '#/';
     const page = await mount('?stage=fake', null);
     await setFold(page.q('details.provenance')!, true);
     await waitFor(() => page.q('.scene-register') !== null);
@@ -252,11 +261,19 @@ describe('整个版面 + 真的内容 + 沙盘的替身', () => {
     // 一条印一次：同一条出处写了两回的，只留头一回；地址里不是哪位有行迹的人物，一条也没有
     const twice: ItinerarySource[] = [itinerary.sources[0], itinerary.sources[1], { ...itinerary.sources[0], id: 'again', read: '又读了一遍' }];
     expect(onceEach(twice)).toEqual([itinerary.sources[0], itinerary.sources[1]]);
-    expect(itinerarySources('#/su-shi')).toEqual(once);
-    expect(itinerarySources('#/su-shi/xuzhou')).toEqual(once);
-    expect(itinerarySources('#/')).toEqual([]);
-    expect(itinerarySources('#/sources')).toEqual([]);
+    // 取来的是这位人物的那一份，照文件里的先后；不是哪位有行迹的人物（没有这位人物，“来源”页的名字），一条也没有
+    expect(await loadItinerarySources('su-shi')).toEqual(itinerary.sources);
+    expect(onceEach(await loadItinerarySources('su-shi'))).toEqual(once);
+    expect(await loadItinerarySources('no-such-figure')).toEqual([]);
+    expect(await loadItinerarySources('sources')).toEqual([]);
     await page.unmount();
+    // 一站的页面上，凭据里是这一站自己的沙盘：不印行迹的出处（地址写成这一站的也一样）
+    win.location.hash = '#/su-shi/xuzhou';
+    const stop = await mount('?stage=fake', 'xuzhou');
+    await setFold(stop.q('details.provenance')!, true);
+    await waitFor(() => stop.q('.scene-register') !== null);
+    expect(stop.all('.itinerary-sources')).toHaveLength(0);
+    await stop.unmount();
     win.location.hash = '';
   });
 
@@ -1187,6 +1204,179 @@ describe('整个版面 + 真的内容 + 沙盘的替身', () => {
       await page.unmount();
     } finally {
       g.__textFails = false;
+    }
+  });
+
+  // 2026-11-25 起，一站的沙盘和正文都要先等“内容的清单”那一小块（src/domain/contentLists.ts）：它没取到，两样一起读不出来。
+  // 这里把这个结果装出来（沙盘的数据、正文各读不出来一次）；真的那一小块在浏览器里取不到、取得慢，在 tests/e2e/lists-chunk.spec.ts 里查。
+  it('写好了的一站（徐州），沙盘和正文这一次都没读出来：沙盘栏一句话和“再试一次”，正文那一栏说“这一站的正文没能读出来。”；按“再试一次”，沙盘摆出来，没读出来的正文也重读出来了', { timeout: 30_000 }, async () => {
+    g.__textFails = true;
+    g.__tableFails = 1;
+    try {
+      const page = await mount('?stage=fake', 'xuzhou');
+      await waitFor(() => attr(page.q('.stop-page'), 'data-stop-scene') === 'failed' && page.all('.stop-page .quiet').length === 1);
+      expect(attr(page.pane(), 'data-stage-state')).toBe('failed');
+      expect(page.q('.stage-retry')?.textContent).toBe('再试一次');
+      expect(attr(page.q('.stop-page'), 'data-stop-text')).toBe('none');
+      expect(page.all('.stop-page .quiet').map((line) => line.textContent)).toEqual(['这一站的正文没能读出来。']);
+      expect(page.all('.text-section')).toHaveLength(0);
+      // 正文没读出来，沙盘栏的那一句就不说“正文可以照常读”（两栏不说相反的话）
+      expect(page.q('.stage-message p')?.textContent).toBe(BARE_FAILED);
+      // 这一回都读得出来了
+      g.__textFails = false;
+      await act(async () => page.q('.stage-retry')!.click());
+      await waitFor(() => attr(page.pane(), 'data-stage-state') === 'ready' && attr(page.q('.stop-page'), 'data-stop-text') === 'written');
+      expect(attr(page.q('.stop-page'), 'data-stop-scene')).toBe('yes');
+      expect(page.all('.text-section').map((el) => attr(el, 'data-section'))).toEqual(headings);
+      expect(page.all('.stop-page .quiet').map((line) => line.textContent)).not.toContain('这一站的正文没能读出来。');
+      await page.unmount();
+    } finally {
+      g.__textFails = false;
+      g.__tableFails = 0;
+    }
+  });
+
+  it('写好了的一站（徐州），只有沙盘这一次没读出来：正文照常；按“再试一次”，沙盘摆出来，读出来了的正文不重读', { timeout: 30_000 }, async () => {
+    g.__tableFails = 1;
+    try {
+      const page = await mount('?stage=fake', 'xuzhou');
+      await waitFor(() => attr(page.q('.stop-page'), 'data-stop-scene') === 'failed' && attr(page.q('.stop-page'), 'data-stop-text') === 'written');
+      expect(attr(page.pane(), 'data-stage-state')).toBe('failed');
+      // 正文读出来了：沙盘栏的那一句照旧带着“正文可以照常读”
+      expect(page.q('.stage-message p')?.textContent).toBe(WRITTEN_FAILED);
+      const reads = g.__textReads as number;
+      const first = page.q('.text-section');
+      expect(first).not.toBeNull();
+      await act(async () => page.q('.stage-retry')!.click());
+      await waitFor(() => attr(page.pane(), 'data-stage-state') === 'ready');
+      await settle(60);
+      expect(g.__textReads).toBe(reads);
+      // 正文那一栏没有换过：还是原来的那几节，不是重读以后新摆上的
+      expect(page.q('.text-section')).toBe(first);
+      expect(attr(page.q('.stop-page'), 'data-stop-text')).toBe('written');
+      await page.unmount();
+    } finally {
+      g.__tableFails = 0;
+    }
+  });
+
+  it('写好了的一站（徐州），正文没读出来、沙盘读出来了：沙盘栏里没有“再试一次”，正文也不自己一遍一遍重读，那一句一直在', { timeout: 30_000 }, async () => {
+    g.__textFails = true;
+    try {
+      const page = await mount('?stage=fake', 'xuzhou');
+      await waitFor(() => attr(page.pane(), 'data-stage-state') === 'ready' && page.all('.stop-page .quiet').length === 1);
+      const reads = g.__textReads as number;
+      expect(page.q('.stage-retry')).toBeNull();
+      await settle(200);
+      expect(g.__textReads).toBe(reads);
+      expect(page.all('.stop-page .quiet').map((line) => line.textContent)).toEqual(['这一站的正文没能读出来。']);
+      await page.unmount();
+    } finally {
+      g.__textFails = false;
+    }
+  });
+
+  // “再试一次”有两个：这一站自己的沙盘没读出来的那一个（上面三条，徐州），和摆着全程沙盘的一站上全程沙盘没读出来的那一个。
+  // 后一个也要带着没读出来的正文重读。写好了、没有自己的沙盘的一站，content/ 里现在没有：用黄州（它的沙盘在这个文件里拿走了）。
+  it('写好了、没有自己的沙盘的一站（黄州，沙盘拿走了），全程沙盘和正文这一次都没读出来：沙盘栏说“沙盘没能摆出来。”和“再试一次”，不说“正文可以照常读”；按“再试一次”，全程沙盘摆出来，没读出来的正文也重读出来了', { timeout: 30_000 }, async () => {
+    g.__textFails = true;
+    g.__routeFails = 1;
+    try {
+      const page = await mount('?stage=fake', 'huangzhou');
+      expect(figure.stops.find((stop) => stop.id === 'huangzhou')?.status).toBe('complete');
+      await waitFor(() => attr(page.pane(), 'data-stage-state') === 'failed' && page.all('.stop-page .quiet').length === 1);
+      expect(page.all('.stop-page .quiet').map((line) => line.textContent)).toEqual(['这一站的正文没能读出来。']);
+      expect(attr(page.q('.stop-page'), 'data-stop-text')).toBe('none');
+      expect(page.q('.stage-message p')?.textContent).toBe(BARE_FAILED);
+      expect(page.q('.stage-retry')?.textContent).toBe('再试一次');
+      const reads = g.__textReads as number;
+      // 这一回都读得出来了
+      g.__textFails = false;
+      await act(async () => page.q('.stage-retry')!.click());
+      await waitFor(() => attr(page.pane(), 'data-stage-state') === 'ready' && attr(page.q('.stop-page'), 'data-stop-text') === 'written');
+      expect(attr(page.pane(), 'data-stage-level')).toBe('route');
+      expect(attr(page.pane(), 'data-stage-section')).toBe(roadOf('huangzhou'));
+      expect(g.__textReads).toBe(reads + 1);
+      expect(page.all('.text-section').length).toBeGreaterThan(0);
+      expect(page.all('.stop-page .quiet').map((line) => line.textContent)).not.toContain('这一站的正文没能读出来。');
+      // 正文在了：按钮下面那一行话照写好了的一站
+      expect(page.q('.stage-notice p')?.textContent).toBe('这一站的沙盘还没做好，沙盘上是到这一站的来路。');
+      await page.unmount();
+    } finally {
+      g.__textFails = false;
+      g.__routeFails = 0;
+    }
+  });
+
+  it('写好了的一站（徐州），正文没读出来，沙盘又起不来、浏览器画不了、设备太慢：沙盘栏的三句话都不说“正文可以照常读”；正文读出来了的时候照旧说', { timeout: 60_000 }, async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const info = vi.spyOn(console, 'info').mockImplementation(() => {});
+    try {
+      for (const [search, state, bare, whole] of [
+        ['?stage=fake-fail', 'failed', BARE_FAILED, STAGE_TEXT.failed],
+        ['?stage=fake-unsupported', 'unsupported', BARE_UNSUPPORTED, STAGE_TEXT.unsupported],
+        ['?stage=fake&slow=start2', 'slow', BARE_SLOW, STAGE_TEXT.slow],
+      ] as const) {
+        // 带着句尾的那一句是程序里写着的原句，比短的那一句只多句尾的“正文可以照常读”
+        expect(whole.endsWith('正文可以照常读。'), search).toBe(true);
+        expect(whole.startsWith(bare.slice(0, -1)), search).toBe(true);
+        for (const textFails of [true, false]) {
+          resetFakeVisit();
+          g.__textFails = textFails;
+          // 用沙盘的替身、不写 sectionstills：当作这座沙盘没有定格图，栏里只有一句话（带着图片的时候说的是另外的话，不在这里查）
+          const page = await mount(search, 'xuzhou');
+          await waitFor(() => attr(page.pane(), 'data-stage-state') === state && attr(page.q('.stop-page'), 'data-stop-text') === (textFails ? 'none' : 'written') && page.q('.stage-message p') !== null);
+          if (textFails) await waitFor(() => page.all('.stop-page .quiet').length === 1);
+          expect(page.q('.stage-message p')?.textContent, `${search} ${textFails}`).toBe(textFails ? bare : whole);
+          await page.unmount();
+        }
+      }
+    } finally {
+      resetFakeVisit();
+      g.__textFails = false;
+      warn.mockRestore();
+      info.mockRestore();
+    }
+  });
+
+  // 还没写的一站没有正文文件：页面不去读它，也不等“内容的清单”那一小块。那一小块没取到的时候（这里装成：正文、沙盘的数据都读不出来），
+  // 正文那一栏照旧是“这一站的正文还没写。”——不是“没能读出来”，也不是“正文加载中…”。真的那一小块断掉、压住，在 tests/e2e/lists-chunk.spec.ts 里查。
+  it('还没写的一站（没有自己的沙盘的；有自己的沙盘的替身）：正文一回也不去读；沙盘的数据没读出来的时候，正文那一栏还是“这一站的正文还没写。”；再试一次，沙盘摆出来，后半句回来', { timeout: 30_000 }, async () => {
+    g.__textFails = true;
+    const reads = (g.__textReads ?? 0) as number;
+    try {
+      // 没有自己的沙盘的一站：全程沙盘这一次没读出来
+      g.__routeFails = 1;
+      const bare = await mount('?stage=fake', BARE);
+      expect(figure.stops.find((stop) => stop.id === BARE)?.status).toBe('outline');
+      expect(attr(bare.pane(), 'data-stage-state')).toBe('failed');
+      expect(bare.all('.stop-page .quiet').map((line) => line.textContent)).toEqual([LEAF_FIRST]);
+      expect(attr(bare.q('.stop-page'), 'data-stop-text')).toBe('none');
+      expect(bare.q('.stage-message p')?.textContent).toBe(BARE_FAILED);
+      await act(async () => bare.q('.stage-retry')!.click());
+      await waitFor(() => attr(bare.pane(), 'data-stage-state') === 'ready');
+      expect(bare.all('.stop-page .quiet').map((line) => line.textContent)).toEqual([LEAF_FIRST + '沙盘上是到这一站的来路。']);
+      await bare.unmount();
+
+      // 有自己的沙盘的一站（替身）：它自己的沙盘这一次没读出来
+      g.__standIn = STAND_IN;
+      g.__tableFails = 1;
+      const own = await mount('?stage=fake', STAND_IN);
+      expect(attr(own.pane(), 'data-stage-state')).toBe('failed');
+      expect(own.all('.stop-page .quiet').map((line) => line.textContent)).toEqual([LEAF_FIRST]);
+      expect(own.q('.stage-message p')?.textContent).toBe(BARE_FAILED);
+      await act(async () => own.q('.stage-retry')!.click());
+      await waitFor(() => own.q('.views') !== null && attr(own.pane(), 'data-stage-state') === 'ready');
+      expect(own.q('.not-written')?.textContent).toBe(LEAF_FIRST + LEAF_REST);
+      await own.unmount();
+
+      // 两站都没有去读正文：一回也没有
+      expect((g.__textReads ?? 0) as number).toBe(reads);
+    } finally {
+      g.__textFails = false;
+      g.__routeFails = 0;
+      g.__tableFails = 0;
+      g.__standIn = null;
     }
   });
 

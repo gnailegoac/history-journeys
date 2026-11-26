@@ -5,12 +5,14 @@ import type { Figure } from './types';
 /**
  * 全程沙盘上一站的印：label 是印上的字（第几站：一到八）；href 是这一站的网址；written 是正文写好了没有
  *（写好了是实心的印，没写的只有一道边）；title 是读屏软件念的那一句。
+ * own 是这一站有自己的沙盘（figure.json 里这一站写的 table）：在全程沙盘上按通到这样一站的链接，镜头先潜下去再换页（src/ui/dive.ts）。
  */
 export interface StopMark {
   label: string;
   href: string;
   written: boolean;
   title: string;
+  own?: boolean;
 }
 
 /**
@@ -22,7 +24,7 @@ export function stopMarks(figure: Figure, hrefOf: (stopId: string) => string): R
   figure.stops.forEach((stop, i) => {
     const label = '一二三四五六七八九十'[i] ?? String(i + 1);
     const written = stop.status === 'complete';
-    out[stop.id] = { label, href: hrefOf(stop.id), written, title: `第${label}站，${stop.title}${written ? '' : '，还没写'}` };
+    out[stop.id] = { label, href: hrefOf(stop.id), written, title: `第${label}站，${stop.title}${written ? '' : '，还没写'}`, own: stop.table === true };
   });
   return out;
 }

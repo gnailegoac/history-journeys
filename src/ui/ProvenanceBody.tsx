@@ -3,6 +3,7 @@
 // 这一段程序不随页面一打开就下载：读者点开“凭据”才取（Provenance.tsx）。
 
 import type { StopContent, TableScene } from '../domain';
+import type { ItinerarySource } from '../domain/itinerary';
 import { SceneRegister } from './SceneRegister';
 import { BASIS_LABEL } from './foldText';
 
@@ -10,9 +11,11 @@ interface Props {
   content: Pick<StopContent, 'provenance' | 'sources'>;
   /** 这一站的沙盘的场景（人物页上是全程沙盘的）；没有沙盘时为 null。 */
   scene: TableScene | null;
+  /** 这位人物的行迹的出处（人物页上那一行才有，和这一段程序一起取来的）；一站的页面上是空的。 */
+  read: ItinerarySource[];
 }
 
-export function ProvenanceBody({ content, scene }: Props) {
+export function ProvenanceBody({ content, scene, read }: Props) {
   const cites = new Map(content.sources.map((source) => [source.id, source.cite]));
 
   return (
@@ -44,7 +47,7 @@ export function ProvenanceBody({ content, scene }: Props) {
           </ul>
         </section>
       ))}
-      {scene && <SceneRegister scene={scene} sources={content.sources} />}
+      {scene && <SceneRegister scene={scene} sources={content.sources} itinerary={read} />}
     </>
   );
 }

@@ -1,15 +1,21 @@
 // 读取 content/ 目录里的内容。加一位人物只加内容文件，这里不用改。
+// 页面一打开就下载的那一块里只有两张清单：首页的卡片，每位人物的 figure.json（一位人物一项）。
+// 每位人物别的文件列在另一小块里（contentLists.ts），用 loadLists 取。
 
 import { annotate, parseBody } from './body';
-import type { Figure, FigureCard, StopContent, StopExtras } from './types';
+import type { ItinerarySource } from './itinerary';
+import type { Figure, FigureCard, StopContent } from './types';
 
 const ROOT = '/content/figures';
 
 const cardFiles = import.meta.glob<FigureCard[]>('/content/figures/index.json', { import: 'default' });
 const figureFiles = import.meta.glob<Figure>('/content/figures/*/figure.json', { import: 'default' });
-const stopJsonFiles = import.meta.glob<StopExtras>('/content/figures/*/stops/*.json', { import: 'default' });
-const stopBodyFiles = import.meta.glob<string>('/content/figures/*/stops/*.md', { query: '?raw', import: 'default' });
-const imageFiles = import.meta.glob<string>('/content/figures/*/images/*', { query: '?url', import: 'default' });
+
+/**
+ * 内容的清单（每位人物的每个文件怎么读，和沙盘用到的文件的网址）。第一次叫它时才下载；正在取、取到了的，再叫给的是同一份；
+ * 没取到的话，下一次叫它再取。页面的程序一开始跑就叫一次（src/main.tsx），读一站、读一座沙盘的时候它多半已经到了。
+ */
+export const loadLists = () => import('./contentLists');
 
 /** 首页的人物卡片，按时代先后排列。 */
 export async function loadFigureCards(): Promise<FigureCard[]> {
@@ -26,8 +32,9 @@ export async function loadFigure(figureId: string): Promise<Figure | null> {
 
 /** 一站的完整内容；这一站还没写（没有正文文件）时返回 null。 */
 export async function loadStop(figureId: string, stopId: string): Promise<StopContent | null> {
-  const loadJson = stopJsonFiles[`${ROOT}/${figureId}/stops/${stopId}.json`];
-  const loadBody = stopBodyFiles[`${ROOT}/${figureId}/stops/${stopId}.md`];
+  const lists = await loadLists();
+  const loadJson = lists.stopJson[`${ROOT}/${figureId}/stops/${stopId}.json`];
+  const loadBody = lists.stopBody[`${ROOT}/${figureId}/stops/${stopId}.md`];
   if (!loadJson || !loadBody) return null;
   const [extras, body] = await Promise.all([loadJson(), loadBody()]);
   const { sections } = annotate(parseBody(body), extras.notes);
@@ -35,9 +42,15 @@ export async function loadStop(figureId: string, stopId: string): Promise<StopCo
   const imageUrls: Record<string, string> = {};
   await Promise.all(
     extras.images.map(async (image) => {
-      const loadUrl = imageFiles[`${ROOT}/${figureId}/images/${image.file}`];
+      const loadUrl = lists.images[`${ROOT}/${figureId}/images/${image.file}`];
       if (loadUrl) imageUrls[image.file] = await loadUrl();
     }),
   );
   return { ...extras, sections, imageUrls };
+}
+
+/** 这位人物的行迹的出处（手写的那一份行迹里的 sources，照文件里的先后）；这位人物没有行迹时是空的。 */
+export async function loadItinerarySources(figureId: string): Promise<ItinerarySource[]> {
+  const load = (await loadLists()).itinerarySources[`${ROOT}/${figureId}/itinerary.json`];
+  return load ? await load() : [];
 }

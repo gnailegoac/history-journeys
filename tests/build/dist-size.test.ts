@@ -10,7 +10,10 @@
 // 表里单印一行，再和沙盘程序加在一起对着同一个上限查：上限说的是“摆一座沙盘，读者要下载多少程序”。
 // 另外查四件事：沙盘程序不能是页面一打开就下载的东西（页面只许用动态 import 取它）；
 // 沙盘用到的文件（地形文件、先画好的地面、定格图）的网址也不能在页面一打开就下载的那一块里
-//（一座沙盘十几二十个网址，沙盘越多越长：它们单独一块，打开人物页或者一站时才下载）；
+//（一座沙盘十几二十个网址，沙盘越多越长：它们在内容的清单那一块里，src/domain/contentLists.ts）；
+// 页面一打开就下载的那一块里，内容文件只列两种——首页的卡片，每位人物的 figure.json（一位人物一项）；
+// 每位人物别的文件（各站的文件、图片、场景文件、两种清单、行迹的出处）都列在内容的清单那一块里：
+// 加一位人物，页面那一块只多一项，他有多少文件都长在那一块里（2026-11-25 起；以前一个文件在页面那一块里一项）；
 // 随站的字体带得对不对（dist/ 里正好是放进仓库的那四个文件，index.html 预先声明的和样式表里写的是同一个文件），
 // 字体多大也印出来；构建出来的样式表里没有 Safari 读不懂的那几种写法（查的是构建以后的原文：构建的工具会改写样式表）。
 // 后两件怎么查在 tests/support/builtFonts.ts。
@@ -30,7 +33,7 @@ import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { gzipSync } from 'node:zlib';
 import { describe, expect, it } from 'vitest';
 import { createHash } from 'node:crypto';
-import { BAR_ENTRY, ENGINE_ENTRY, ENGINE_GZIP_MAX, FILE_URLS_ENTRY, PAGE_ENTRY, ROUTE_ENTRY, familyEntry, fontReport, programReport, programSizes, staticClosure, withCommas } from '../content/budgetRules';
+import { BAR_ENTRY, ENGINE_ENTRY, ENGINE_GZIP_MAX, LISTS_ENTRY, PAGE_ENTRY, ROUTE_ENTRY, familyEntry, fontReport, programReport, programSizes, staticClosure, withCommas } from '../content/budgetRules';
 import type { BuildManifest, SizeReport } from '../content/budgetRules';
 import { CONTAINER_MAX, CQW_MAX, builtFonts, builtStyleProblems } from '../support/builtFonts';
 import { oldIpadSheet } from '../support/oldIpadSheet';
@@ -184,20 +187,77 @@ describe('按家分块的零件：每一座沙盘要下载多少程序', () => {
 });
 
 describe('沙盘用到的文件的网址', () => {
-  it('单独一块，用到时才下载；页面一打开就下载的程序里一个也没有', () => {
+  // 2026-11-25 以前的名字是“单独一块，用到时才下载；页面一打开就下载的程序里一个也没有”：那时网址自己是一块（sceneFileUrls.ts），
+  // 读一座沙盘时才去要。现在它们在内容的清单那一块里，页面的程序一开始跑就去要；查的几样没有变。
+  it('在内容的清单那一块里，那一块是页面用动态 import 取的、不在页面的程序里；页面一打开就下载的程序里一个网址也没有', () => {
     expect(existsSync(MANIFEST), '没有 dist/.vite/manifest.json：先运行 npm run build').toBe(true);
     const manifest = readManifest(new TextDecoder().decode(readFileSync(MANIFEST)));
-    const urls = manifest[FILE_URLS_ENTRY];
-    expect(urls, `清单里没有 ${FILE_URLS_ENTRY} 这一项：它被打进了别的块，或者挪了地方（挪了就改 tests/content/budgetRules.ts 的 FILE_URLS_ENTRY）`).toBeDefined();
-    expect(urls.isDynamicEntry, '网址那一块在清单里没有标成“用到时才下载”').toBe(true);
+    const urls = manifest[LISTS_ENTRY];
+    expect(urls, `清单里没有 ${LISTS_ENTRY} 这一项：它被打进了别的块，或者挪了地方（挪了就改 tests/content/budgetRules.ts 的 LISTS_ENTRY）`).toBeDefined();
+    expect(urls.isDynamicEntry, '内容的清单那一块在构建清单里没有标成“用到时才下载”（用动态 import 取）').toBe(true);
     const pageKeys = staticClosure(manifest, PAGE_ENTRY);
-    expect(pageKeys, '网址那一块成了页面一打开就下载的东西').not.toContain(FILE_URLS_ENTRY);
+    expect(pageKeys, '内容的清单那一块成了页面一打开就下载的东西').not.toContain(LISTS_ENTRY);
     // 它里面写着网址的文件：content/ 里有沙盘的话，至少有一个地形文件
     const files = (urls.assets ?? []).map((file) => file.slice(file.lastIndexOf('/') + 1));
     expect(files.length).toBeGreaterThan(0);
+    expect(files.some((file) => /\.terrain-[^.]+\.bin$/.test(file)), '那一块里没有地形文件的网址').toBe(true);
     const page = pageKeys.map((key) => new TextDecoder().decode(readFileSync(new URL(manifest[key].file, DIST)))).join(' ');
     expect(files.filter((file) => page.includes(file)), '这几个文件的网址出现在页面一打开就下载的程序里').toEqual([]);
-    console.log(`  沙盘用到的文件的网址（压缩以后）：${withCommas(gzipOnDisk(urls.file))} 字节，${files.length} 个网址，用到时才下载　${urls.file}`);
+    console.log(`  内容的清单那一块（压缩以后）：${withCommas(gzipOnDisk(urls.file))} 字节，里面有 ${files.length} 个网址；页面的程序一开始跑就去要　${urls.file}`);
+  });
+});
+
+describe('内容的清单', () => {
+  /** 构建清单里 content/ 下面的各项（内容文件各自的那一小块，和图片、地形文件），连同构建出来的文件名（不带文件夹）。 */
+  const contentItems = (manifest: BuildManifest): { key: string; name: string }[] =>
+    Object.keys(manifest)
+      .filter((key) => key.startsWith('content/'))
+      .sort()
+      .map((key) => ({ key, name: manifest[key].file.slice(manifest[key].file.lastIndexOf('/') + 1) }));
+  const read = (file: string): string => new TextDecoder().decode(readFileSync(new URL(file, DIST)));
+
+  it('页面一打开就下载的程序里，内容文件只列着两种：首页的卡片，每位人物的 figure.json（一位人物一项）；别的一个也没有', () => {
+    expect(existsSync(MANIFEST), '没有 dist/.vite/manifest.json：先运行 npm run build').toBe(true);
+    const manifest = readManifest(new TextDecoder().decode(readFileSync(MANIFEST)));
+    const page = staticClosure(manifest, PAGE_ENTRY).map((key) => read(manifest[key].file)).join(' ');
+    const figures = Object.keys(import.meta.glob('/content/figures/*/figure.json')).map((path) => path.slice(1));
+    expect(figures.length).toBeGreaterThan(0);
+    const items = contentItems(manifest);
+    expect(items.length).toBeGreaterThan(figures.length + 1);
+    const named = items.filter((item) => page.includes(item.name)).map((item) => item.key);
+    expect(named, '页面一打开就下载的程序里列着的内容文件').toEqual(['content/figures/index.json', ...figures].sort());
+    console.log(`  页面的程序里列着 ${named.length} 个内容文件（首页的卡片，${figures.length} 位人物的 figure.json）；content/ 里一共 ${items.length} 项`);
+  });
+
+  it('每位人物别的文件——各站的 .json 和正文、图片、场景文件、两种清单、行迹的出处——都列在内容的清单那一块里，是用到时才下载的一小块', () => {
+    const manifest = readManifest(new TextDecoder().decode(readFileSync(MANIFEST)));
+    const lists = read(manifest[LISTS_ENTRY].file);
+    const globbed = [
+      ...Object.keys(import.meta.glob('/content/figures/*/stops/*.json')),
+      ...Object.keys(import.meta.glob('/content/figures/*/stops/*.md')).map((path) => `${path}?raw`),
+      ...Object.keys(import.meta.glob('/content/figures/*/images/*')).map((path) => `${path}?url`),
+      ...Object.keys(import.meta.glob('/content/figures/*/scenes/*.json')),
+      ...Object.keys(import.meta.glob('/content/figures/*/stills/*.json')),
+      ...Object.keys(import.meta.glob('/content/figures/*/baked/*.json')),
+      ...Object.keys(import.meta.glob('/content/figures/*/itinerary.json')),
+    ].map((path) => path.slice(1));
+    expect(globbed.length).toBeGreaterThan(10);
+    for (const key of globbed) {
+      const item = manifest[key];
+      expect(item, `构建清单里没有 ${key} 这一项`).toBeDefined();
+      expect(item.isDynamicEntry, `${key} 在构建清单里没有标成“用到时才下载”`).toBe(true);
+      expect(lists.includes(item.file.slice(item.file.lastIndexOf('/') + 1)), `${key} 的那一小块（${item.file}）没有列在内容的清单那一块里`).toBe(true);
+    }
+    // 人物的 figure.json、首页的卡片不在这一块里列着：它们是页面自己列的
+    for (const key of ['content/figures/index.json', ...Object.keys(import.meta.glob('/content/figures/*/figure.json')).map((path) => path.slice(1))]) {
+      const name = manifest[key].file.slice(manifest[key].file.lastIndexOf('/') + 1);
+      expect(lists.includes(name), `${key} 列在了内容的清单那一块里`).toBe(false);
+    }
+    // 它另外要下载的只有它自己那一个文件（它引的是页面的程序里取文件的那个小函数，页面的程序没有因此被拆成两个文件：最后一组查着）
+    const have = new Set(staticClosure(manifest, PAGE_ENTRY).map((key) => manifest[key].file));
+    const files = staticClosure(manifest, LISTS_ENTRY).map((key) => manifest[key].file);
+    expect(files.filter((file, i) => !have.has(file) && files.indexOf(file) === i)).toEqual([manifest[LISTS_ENTRY].file]);
+    expect(manifest[LISTS_ENTRY].css ?? []).toEqual([]);
   });
 });
 
@@ -242,13 +302,17 @@ describe('时间轴的那一块', () => {
 });
 
 describe('手写的那一份行迹', () => {
-  it('手写的那一份行迹不在页面的程序里，也不在时间轴的那一块里；凭据点开才下载的那一块里只有它的出处', () => {
+  // 2026-11-25 以前的名字是“手写的那一份行迹不在页面的程序里，也不在时间轴的那一块里；凭据点开才下载的那一块里只有它的出处”：
+  // 那时每位人物的出处都打在凭据的那一块里。现在每位人物的出处是他自己的一小块（读者在他的人物页上点开凭据才取），
+  // 凭据的那一块里一条也没有；“只有 sources 一个字段进网站”照旧查，查的是那一小块。
+  it('手写的那一份行迹不在页面的程序里，不在时间轴的那一块里，也不在凭据点开才下载的那一块里；每位人物的出处是他自己的一小块，里面只有出处', () => {
     expect(existsSync(MANIFEST), '没有 dist/.vite/manifest.json：先运行 npm run build').toBe(true);
     const manifest = readManifest(new TextDecoder().decode(readFileSync(MANIFEST)));
     const read = (file: string): string => new TextDecoder().decode(readFileSync(new URL(file, DIST)));
     const page = staticClosure(manifest, PAGE_ENTRY).map((key) => read(manifest[key].file)).join(' ');
     const bar = read(manifest[BAR_ENTRY].file);
     const fold = read(manifest['src/ui/ProvenanceBody.tsx'].file);
+    const lists = read(manifest[LISTS_ENTRY].file);
     interface Hand {
       about: unknown;
       sources: { cite: string; read: string }[];
@@ -262,24 +326,35 @@ describe('手写的那一份行迹', () => {
     const written = (text: string): string => JSON.stringify(text).slice(1, -1);
     for (const [path, hand] of hands) {
       const made = new TextDecoder().decode(readFileSync(new URL(`../..${path.replace('itinerary.json', 'itinerary.bar.json')}`, import.meta.url)));
-      // 出处：每一条的写法和“读了什么”都在凭据的那一块里；“读了什么”只在那一块里
+      // 这位人物的出处自己的那一小块：用到时才下载，只有内容的清单那一块里列着它（页面的程序里没有它的名字）
+      const item = manifest[path.slice(1)];
+      expect(item, `构建清单里没有 ${path.slice(1)} 这一项：这位人物的出处没有成为单独的一小块`).toBeDefined();
+      expect(item.isDynamicEntry, `${path} 的出处那一小块没有标成“用到时才下载”`).toBe(true);
+      const name = item.file.slice(item.file.lastIndexOf('/') + 1);
+      expect(lists.includes(name), `${path} 的出处那一小块没有列在内容的清单那一块里`).toBe(true);
+      expect(page.includes(name), `${path} 的出处那一小块列在了页面一打开就下载的程序里`).toBe(false);
+      const own = read(item.file);
+      // 出处：每一条的写法和“读了什么”都在他自己的那一小块里；“读了什么”只在那一小块里
       expect(hand.sources.length).toBeGreaterThan(0);
       for (const source of hand.sources) {
-        expect(fold.includes(written(source.cite)), `${path} 的出处“${source.cite}”不在凭据点开才下载的那一块里`).toBe(true);
-        expect(fold.includes(written(source.read)), `${path} 的“${source.read}”不在凭据点开才下载的那一块里`).toBe(true);
+        expect(own.includes(written(source.cite)), `${path} 的出处“${source.cite}”不在这位人物的出处那一小块里`).toBe(true);
+        expect(own.includes(written(source.read)), `${path} 的“${source.read}”不在这位人物的出处那一小块里`).toBe(true);
         if (source.read.length < 8) continue;
         expect(page.includes(written(source.read)), `${path} 的“${source.read}”出现在页面一打开就下载的程序里`).toBe(false);
         expect(bar.includes(written(source.read)), `${path} 的“${source.read}”出现在时间轴的那一块里`).toBe(false);
+        expect(fold.includes(written(source.read)), `${path} 的“${source.read}”出现在凭据点开才下载的那一块里：每位人物的出处该在他自己的那一小块里`).toBe(false);
+        expect(lists.includes(written(source.read)), `${path} 的“${source.read}”出现在内容的清单那一块里`).toBe(false);
       }
-      // 别的字段：说明这份文件怎么写的那几段（about），每一段、路上每一处考证的话（note）——时间轴用的那一份里没有的，三块里都没有
+      // 别的字段：说明这份文件怎么写的那几段（about），每一段、路上每一处考证的话（note）——时间轴用的那一份里没有的，哪一块里都没有
       const rest = [...strings(hand.about), ...hand.stretches.flatMap((stretch) => [stretch.note, ...(stretch.waypoints ?? []).map((point) => point.note)])]
         .filter((text): text is string => typeof text === 'string' && text.length >= 12 && !made.includes(written(text)));
       expect(rest.length, `${path}：about 和 note 里够长的话`).toBeGreaterThan(20);
       for (const text of rest) {
-        for (const [name, chunk] of [['页面一打开就下载的程序', page], ['时间轴的那一块', bar], ['凭据点开才下载的那一块', fold]] as const) {
-          expect(chunk.includes(written(text)), `${path} 里的“${text.slice(0, 30)}…”出现在${name}里：只有 sources 一个字段该进网站`).toBe(false);
+        for (const [where, chunk] of [['页面一打开就下载的程序', page], ['时间轴的那一块', bar], ['凭据点开才下载的那一块', fold], ['这位人物的出处那一小块', own], ['内容的清单那一块', lists]] as const) {
+          expect(chunk.includes(written(text)), `${path} 里的“${text.slice(0, 30)}…”出现在${where}里：只有 sources 一个字段该进网站`).toBe(false);
         }
       }
+      console.log(`  ${path.slice(1)} 的出处那一小块（压缩以后）：${withCommas(gzipOnDisk(item.file))} 字节，${hand.sources.length} 条，读者在这位人物的人物页上点开凭据才下载　${item.file}`);
     }
   });
 });

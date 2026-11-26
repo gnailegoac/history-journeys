@@ -70,10 +70,12 @@ describe('两份样本', () => {
   it('出错的样本里，前十五条规则和格式都查出了问题（规则 16 在 routeRules.test.ts 里查）', () => {
     const rules = new Set(validateContent(BAD).map((v) => v.rule));
     expect([...rules].sort((a, b) => a - b)).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]);
-    // 人物页那张定格图的三处（文件不在、alt 和 note 没填）跟着 routeStill 一起拿掉了：原来 120 处
-    expect(validateContent(BAD)).toHaveLength(117);
-    // 其中格式和前九条的（两个场景文件的格式、坐标和占位算在里面）：
-    expect(validateContent(BAD).filter((v) => v.rule <= 9)).toHaveLength(56);
+    // 人物页那张定格图的三处（文件不在、alt 和 note 没填）跟着 routeStill 一起拿掉了：原来 120 处，拿掉以后 117 处。
+    // 2026-11-25 规则 3 多了一句（table 和场景文件两头对得上），样本里两头各添了一处：119 处
+    expect(validateContent(BAD)).toHaveLength(119);
+    // 其中格式和前九条的（两个场景文件的格式、坐标和占位算在里面）：原来 56 处，加上规则 3 新添的两处
+    expect(validateContent(BAD).filter((v) => v.rule <= 9)).toHaveLength(58);
+    expect(validateContent(BAD).filter((v) => v.rule === 3 && v.field.endsWith('.table'))).toHaveLength(2);
   });
 });
 
@@ -137,22 +139,60 @@ describe('格式：文件读得出来，字段齐全，id 对得上', () => {
     expect(all(without(FIGURE))).toEqual(['0 figures/index.json › [0].available', '0 figures/demo/figure.json']);
   });
 
+  // 2026-11-25 起 overview 可以不写（停用的字段，见下一条），“缺字段”换成缺一个还必须写的（tagline）；
+  // overview 写了的照旧查：里面缺了 distanceKm 照样指出来。别的几处同原来一样。
   it('figure.json 缺字段、字段类型不对时，逐个指出来', () => {
     const broken = edit<Record<string, unknown>>(FIGURE, (figure) => {
       const stops = figure.stops as Record<string, unknown>[];
-      delete figure.overview;
+      delete figure.tagline;
+      delete (figure.overview as Record<string, unknown>).distanceKm;
       figure.intro = '只有一段，忘了写成列表';
       stops[0].status = 'done';
       (stops[0].camera as Record<string, unknown>).pitch = '60';
       delete (stops[1].place as Record<string, unknown>).modern;
     });
     expect(all(broken)).toEqual([
+      '0 figures/demo/figure.json › tagline',
       '0 figures/demo/figure.json › intro',
-      '0 figures/demo/figure.json › overview',
+      '0 figures/demo/figure.json › overview.distanceKm',
       '0 figures/demo/figure.json › stops[0].camera.pitch',
       '0 figures/demo/figure.json › stops[0].status',
       '0 figures/demo/figure.json › stops[1].place.modern',
     ]);
+  });
+
+  it('停用的四个字段（overview，每一站的 camera 和 localPlaces，legs）可以不写：一个一个去掉、四个都去掉，一处问题也没有；写了的样子不对照旧指出来', () => {
+    const bare = (drop: (figure: Record<string, unknown>, stops: Record<string, unknown>[]) => void): ContentFiles =>
+      edit<Record<string, unknown>>(FIGURE, (figure) => drop(figure, figure.stops as Record<string, unknown>[]));
+    expect(all(bare((figure) => delete figure.overview))).toEqual([]);
+    expect(all(bare((figure) => delete figure.legs))).toEqual([]);
+    expect(all(bare((_, stops) => stops.forEach((stop) => delete stop.camera)))).toEqual([]);
+    expect(all(bare((_, stops) => stops.forEach((stop) => delete stop.localPlaces)))).toEqual([]);
+    const none = bare((figure, stops) => {
+      delete figure.overview;
+      delete figure.legs;
+      for (const stop of stops) {
+        delete stop.camera;
+        delete stop.localPlaces;
+      }
+    });
+    expect(Object.keys(JSON.parse(none[FIGURE]) as object)).toEqual(['id', 'name', 'era', 'years', 'tagline', 'intro', 'stops']);
+    expect(all(none)).toEqual([]);
+    // 合格的样本里这四个字段都写着：下面各条（格式、规则 1、规则 2）查的就是“写了的照旧查”
+    const good = goodFigure();
+    expect(good.overview).toBeDefined();
+    expect(good.legs).toBeDefined();
+    expect(good.stops.every((stop) => stop.camera !== undefined && stop.localPlaces !== undefined)).toBe(true);
+    // 写了，样子不对：列表写成了一句话、一组字段写成了一个数
+    expect(all(bare((figure) => (figure.legs = '两段路')))).toEqual(['0 figures/demo/figure.json › legs']);
+    expect(all(bare((figure) => (figure.overview = 500)))).toEqual(['0 figures/demo/figure.json › overview']);
+    expect(all(bare((_, stops) => (stops[1].localPlaces = {})))).toEqual(['0 figures/demo/figure.json › stops[1].localPlaces']);
+    expect(all(bare((_, stops) => (stops[2].camera = [30, 60, 0])))).toEqual(['0 figures/demo/figure.json › stops[2].camera']);
+  });
+
+  it('table（这一站有自己的沙盘）可以不写；写了要是 true 或 false', () => {
+    expect(all(edit<Record<string, unknown>>(FIGURE, (figure) => ((figure.stops as Record<string, unknown>[])[1].table = '有')))).toEqual(['0 figures/demo/figure.json › stops[1].table']);
+    expect(all(editFigure((figure) => (figure.stops[1].table = false)))).toEqual([]);
   });
 
   it('figure.json 的 id 和文件夹名不一样', () => {
@@ -160,7 +200,7 @@ describe('格式：文件读得出来，字段齐全，id 对得上', () => {
   });
 
   it('同一站里两个地点的 id 一样', () => {
-    const files = editFigure((figure) => (figure.stops[0].localPlaces[1].id = 'lock'));
+    const files = editFigure((figure) => (figure.stops[0].localPlaces![1].id = 'lock'));
     expect(all(files)).toEqual(['0 figures/demo/figure.json › stops[0].localPlaces[1].id']);
   });
 
@@ -213,12 +253,12 @@ describe('规则 1 坐标', () => {
   });
 
   it('四处坐标都查：总览、站、站内地点、途经点', () => {
-    expect(all(editFigure((f) => (f.overview.center = [181, 30])))).toEqual(['1 figures/demo/figure.json › overview.center']);
+    expect(all(editFigure((f) => (f.overview!.center = [181, 30])))).toEqual(['1 figures/demo/figure.json › overview.center']);
     expect(all(editFigure((f) => (f.stops[1].place.lngLat = [111.5, -90.5])))).toEqual(['1 figures/demo/figure.json › stops[1].place.lngLat']);
-    expect(all(editFigure((f) => (f.stops[0].localPlaces[1].lngLat = [-180.1, 30])))).toEqual([
+    expect(all(editFigure((f) => (f.stops[0].localPlaces![1].lngLat = [-180.1, 30])))).toEqual([
       '1 figures/demo/figure.json › stops[0].localPlaces[1].lngLat',
     ]);
-    expect(all(editFigure((f) => (f.legs[0].via[0].lngLat = [111.2, 91])))).toEqual(['1 figures/demo/figure.json › legs[0].via[0].lngLat']);
+    expect(all(editFigure((f) => (f.legs![0].via[0].lngLat = [111.2, 91])))).toEqual(['1 figures/demo/figure.json › legs[0].via[0].lngLat']);
   });
 
   it('范围的边界值算合格', () => {
@@ -257,25 +297,25 @@ describe('规则 2 站点与轨迹', () => {
   it('站的 id 重复', () => {
     const figure = goodFigure();
     figure.stops[2].id = 'river';
-    figure.legs[1].to = 'river';
+    figure.legs![1].to = 'river';
     expect(fields(figure)).toEqual(['stops[2].id']);
   });
 
   it('路少一段、多一段', () => {
     const fewer = goodFigure();
-    fewer.legs.pop();
+    fewer.legs!.pop();
     expect(fields(fewer)).toEqual(['legs']);
     const more = goodFigure();
-    more.legs.push({ from: 'port', to: 'river', via: [] });
+    more.legs!.push({ from: 'port', to: 'river', via: [] });
     expect(fields(more)).toEqual(['legs']);
   });
 
   it('路没有依次首尾相连', () => {
     const wrongFrom = goodFigure();
-    wrongFrom.legs[1].from = 'river';
+    wrongFrom.legs![1].from = 'river';
     expect(fields(wrongFrom)).toEqual(['legs[1].from']);
     const swapped = goodFigure();
-    swapped.legs.reverse();
+    swapped.legs!.reverse();
     expect(fields(swapped)).toEqual(['legs[0].from', 'legs[0].to', 'legs[1].from', 'legs[1].to']);
   });
 
@@ -287,8 +327,17 @@ describe('规则 2 站点与轨迹', () => {
     expect(fields({ ...goodFigure(), stops: [], legs: [] })).toEqual([]);
   });
 
+  it('没有写 legs 的人物（停用的字段可以不写）：后半句没有可查的；前半句照旧查', () => {
+    const { legs: _legs, ...bare } = goodFigure();
+    expect(fields(bare)).toEqual([]);
+    const twice: Figure = { ...bare, stops: bare.stops.map((stop, i) => (i === 2 ? { ...stop, id: 'river' } : stop)) };
+    expect(fields(twice)).toEqual(['stops[2].id']);
+    const named: Figure = { ...bare, stops: bare.stops.map((stop, i) => (i === 1 ? { ...stop, id: 'route' } : stop)) };
+    expect(fields(named)).toEqual(['stops[1].id']);
+  });
+
   it('在整份内容里也查得到', () => {
-    expect(all(editFigure((f) => (f.legs[1].from = 'river')))).toEqual(['2 figures/demo/figure.json › legs[1].from']);
+    expect(all(editFigure((f) => (f.legs![1].from = 'river')))).toEqual(['2 figures/demo/figure.json › legs[1].from']);
   });
 });
 
@@ -297,8 +346,44 @@ describe('规则 3 文件齐全', () => {
     expect(flagged(GOOD, 3)).toEqual([]);
   });
 
-  it('出错的样本：outline 的站有正文文件；complete 的站缺 .json；多出一个对不上的文件', () => {
-    expect(flagged(BAD, 3)).toEqual(['figures/broken/stops/b.md', 'figures/broken/stops/c.json', 'figures/broken/stops/orphan.json']);
+  // 2026-11-25 起规则 3 多了一句（table 和场景文件两头对得上），出错的样本里两头各添了一处，排在前面
+  it('出错的样本：outline 的站有正文文件；complete 的站缺 .json；多出一个对不上的文件；写了 table 的站没有场景文件；有场景文件的站没写 table', () => {
+    expect(flagged(BAD, 3)).toEqual([
+      'figures/broken/figure.json › stops[1].table',
+      'figures/broken/figure.json › stops[2].table',
+      'figures/broken/stops/b.md',
+      'figures/broken/stops/c.json',
+      'figures/broken/stops/orphan.json',
+    ]);
+    // 样本里：甲地写了、也有场景文件（不报）；乙地写了、没有场景文件；丙地有场景文件、没写
+    const stops = (JSON.parse(BAD['figures/broken/figure.json']) as Figure).stops;
+    expect(stops.map((stop) => [stop.id, stop.table === true, 'figures/broken/scenes/' + stop.id + '.json' in BAD])).toEqual([
+      ['a', true, true],
+      ['b', true, false],
+      ['c', false, true],
+    ]);
+  });
+
+  it('这一站有没有自己的沙盘（table）和 scenes/ 里的文件两头对得上：写了没有文件、有文件没写，各报在 figure.json 的这一站上', () => {
+    // 合格的样本：长河写了，也有场景文件；另外两站没写，也没有
+    const good = goodFigure();
+    expect(good.stops.map((stop) => [stop.id, stop.table === true, `figures/demo/scenes/${stop.id}.json` in GOOD])).toEqual([
+      ['river', true, true],
+      ['pass', false, false],
+      ['port', false, false],
+    ]);
+    // 有场景文件，没写（去掉了字段、写成了 false）
+    expect(all(editFigure((figure) => delete figure.stops[0].table))).toEqual(['3 figures/demo/figure.json › stops[0].table']);
+    expect(all(editFigure((figure) => (figure.stops[0].table = false)))).toEqual(['3 figures/demo/figure.json › stops[0].table']);
+    // 写了，没有场景文件
+    expect(all(editFigure((figure) => (figure.stops[1].table = true)))).toEqual(['3 figures/demo/figure.json › stops[1].table']);
+    expect(flagged(without('figures/demo/scenes/river.json'), 3)).toEqual(['figures/demo/figure.json › stops[0].table']);
+    // 这一句说的话点得出是哪一站、哪个文件
+    const says = validateContent(editFigure((figure) => (figure.stops[1].table = true))).map(formatViolation);
+    expect(says).toHaveLength(1);
+    expect(says[0]).toContain('【规则 3 文件齐全】content/figures/demo/figure.json › stops[1].table');
+    expect(says[0]).toContain('scenes/pass.json');
+    // 全程沙盘的场景文件（scenes/route.json）不是哪一站的：有它不要求谁写 table（带着全程沙盘的整份样本在 routeRules.test.ts 里是合格的）
   });
 
   it('complete 的站缺 .md 或缺 .json', () => {

@@ -107,6 +107,8 @@ interface Props {
    * 一站的正文还没写：沙盘摆不出来时的那几句不说“正文可以照常读”；它自己的沙盘上，中间的按钮写“回到这一处”。
    */
   written?: boolean;
+  /** 这一站的正文写好了，可是这一次没读出来：沙盘摆不出来时的那几句也不说“正文可以照常读”，别的照写好了的一站。 */
+  textLost?: boolean;
   /** 沙盘的数据没读出来，读者点了“再试一次”。 */
   onReloadTable: () => void;
 }
@@ -114,10 +116,10 @@ interface Props {
 /** 人物页上没有“这一站自己的沙盘”。 */
 const NO_OWN: Loaded<StopTable | null> = { state: 'ready', value: null };
 
-/** 沙盘摆不出来时的一句话。没有正文的一站（bare）不说句尾的“正文可以照常读”：那一页上没有正文。 */
+/** 沙盘摆不出来时的一句话。没有正文的一站（bare）不说句尾的“正文可以照常读”：那一页上没有正文。正文这一次没读出来的一站也不说。 */
 const say = (text: string, bare: boolean): string => (bare ? text.replace(/[，。]正文可以照常读/, '') : text);
 
-export function StagePane({ onStopPage, table, section, route, stopId, marks, written, onReloadTable }: Props) {
+export function StagePane({ onStopPage, table, section, route, stopId, marks, written, textLost, onReloadTable }: Props) {
   // 古名还是今名、收没收起、立体的沙盘摆不摆，换一站也留着（只记到这一次访问结束，不存到别处）。
   const [namesMode, setNamesMode] = useState<NamesMode>('ancient');
   const [folded, setFolded] = useState(false);
@@ -130,6 +132,8 @@ export function StagePane({ onStopPage, table, section, route, stopId, marks, wr
   const source: Loaded<StageTable | null> = own.state === 'ready' && !own.value ? route : own;
   // 正在读的是一站，它的正文还没写。
   const bare = onStopPage && !written;
+  // 摆不出来时的那几句说不说“正文可以照常读”：没有正文的一站不说，正文这一次没读出来的一站也不说。
+  const noText = bare || !!textLost;
 
   // 沙盘的数据还在读：也是过了一会儿还没有画面才说“正在摆”。从哪一刻等起的记下来，沙盘接着数，不从头数。
   const reading = source.state === 'loading';
@@ -166,7 +170,7 @@ export function StagePane({ onStopPage, table, section, route, stopId, marks, wr
     return (
       <Pane state="failed" picture="none">
         <Says>
-          <Message text={say(STAGE_TEXT.failed, bare)} action={STAGE_TEXT.retry} onAction={onReloadTable} keepFocus={keepFocus} />
+          <Message text={say(STAGE_TEXT.failed, noText)} action={STAGE_TEXT.retry} onAction={onReloadTable} keepFocus={keepFocus} />
         </Says>
       </Pane>
     );
@@ -193,7 +197,7 @@ export function StagePane({ onStopPage, table, section, route, stopId, marks, wr
       table={found}
       section={whole ? (road ?? null) : section}
       resetLabel={!whole ? (bare ? STAGE_TEXT.resetHere : STAGE_TEXT.reset) : onStopPage ? STAGE_TEXT.resetRoad : STAGE_TEXT.resetWhole}
-      bare={bare}
+      bare={noText}
       bar={!onStopPage}
       marks={marks}
       standing={whole && onStopPage && written ? STAGE_TEXT.roadNotice : null}
@@ -354,7 +358,7 @@ interface TableProps {
   section: string | null;
   /** 中间那个按钮上的字：回到这一节，回到这一处，回到全程，回到这一段。 */
   resetLabel: string;
-  /** 正在读的一站没有正文：摆不出来时的那一句不说“正文可以照常读”。 */
+  /** 正在读的一站没有正文，或者正文这一次没读出来：摆不出来时的那一句不说“正文可以照常读”。 */
   bare: boolean;
   /** 这一栏带着时间轴（人物页和首页：摆的是全程沙盘）。 */
   bar: boolean;
@@ -872,6 +876,7 @@ function TableStage({ table, section, resetLabel, bare, bar, marks, standing, na
         calm: window.matchMedia('(prefers-reduced-motion: reduce)').matches,
         on: divesHere(),
       }),
+      own: (stop) => marks?.[stop]?.own === true,
       dive: (stop, ms) => tableSlot.current.view?.dive?.(stop, ms) ?? null,
       mark: setDiving,
       preload: (stop) => preloadStop(figureId, stop, pane.current ? getComputedStyle(pane.current).getPropertyValue('--stage-shape').trim() : ''),
@@ -879,7 +884,7 @@ function TableStage({ table, section, resetLabel, bare, bar, marks, standing, na
     });
     hurryDive.current = watch.hurry;
     return watch.end;
-  }, [table, tuckedAway, follow]);
+  }, [table, marks, tuckedAway, follow]);
 
   // 有一张图片取不到，这一栏就先当没有图片（见 giveUpStills）。那多半是网断了一下，不该从此一张图片也不放：
   // 读者读到另一小节的时候，或者浏览器说网又通了，再放一次；还是取不到，照旧收起来，等下一回。浏览器明说断着网的时候不试。

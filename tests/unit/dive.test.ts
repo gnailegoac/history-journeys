@@ -4,7 +4,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { figureHref, homeHref, sourcesHref, stopHref } from '../../src/app/router';
-import { hasStopTable, loadFigure } from '../../src/domain';
+import { hasStopTable, loadFigure, stopMarks } from '../../src/domain';
 import { readBytes } from '../support/readBytes';
 import { DIVE_GUARD_MS, DIVE_MS, cameByDive, diveStop, watchDives, type DiveClick, type DiveHost, type DivePane, type DiveWindow } from '../../src/ui/dive';
 
@@ -12,8 +12,10 @@ const FIGURE = 'su-shi';
 const figure = await loadFigure(FIGURE);
 if (!figure) throw new Error('没有这位人物');
 /** 有自己的沙盘的一站，和没有的一站：从真的内容里找。 */
-const OWN = figure.stops.find((s) => hasStopTable(FIGURE, s.id))?.id ?? '';
-const BARE = figure.stops.find((s) => !hasStopTable(FIGURE, s.id))?.id ?? '';
+const OWN = figure.stops.find((s) => hasStopTable(figure, s.id))?.id ?? '';
+const BARE = figure.stops.find((s) => !hasStopTable(figure, s.id))?.id ?? '';
+/** 沙盘栏那一边答“这一站有没有自己的沙盘”：照真的内容（figure.json 里各站写的）。 */
+const own = (stop: string): boolean => hasStopTable(figure, stop);
 
 const READY: DivePane = { ready: true, tucked: false, calm: false, on: true };
 
@@ -42,32 +44,35 @@ describe('这一下要不要潜（diveStop）', () => {
   it('内容里真的有一站有自己的沙盘、有一站没有', () => {
     expect(OWN).not.toBe('');
     expect(BARE).not.toBe('');
+    // 沙盘栏手里是各站的印（stopMarks），它照印上的 own 答：每一站的 own 和 hasStopTable 说的一样
+    const marks = stopMarks(figure, (id) => stopHref(FIGURE, id));
+    expect(figure.stops.map((stop) => [stop.id, marks[stop.id].own])).toEqual(figure.stops.map((stop) => [stop.id, hasStopTable(figure, stop.id)]));
   });
 
   it('平常的一点，点在通到有自己的沙盘的一站的链接上：潜，地址就是链接上写的', () => {
     const href = stopHref(FIGURE, OWN);
-    expect(diveStop(click(href), FIGURE, READY)).toEqual({ stop: OWN, hash: href });
+    expect(diveStop(click(href), FIGURE, READY, own)).toEqual({ stop: OWN, hash: href });
     // 点在链接里面的字上也一样（印、地名、“下一站”里的字）
-    expect(diveStop(click(href, { inner: true }), FIGURE, READY)).toEqual({ stop: OWN, hash: href });
+    expect(diveStop(click(href, { inner: true }), FIGURE, READY, own)).toEqual({ stop: OWN, hash: href });
   });
 
   it('别的链接都不潜：没有自己的沙盘的一站、人物页、首页、来源、别的人物的一站、站外的链接、不是链接', () => {
     for (const href of [stopHref(FIGURE, BARE), figureHref(FIGURE), homeHref, sourcesHref, stopHref('someone-else', OWN), `https://example.org/${stopHref(FIGURE, OWN)}`, null]) {
-      expect(diveStop(click(href), FIGURE, READY), String(href)).toBeNull();
+      expect(diveStop(click(href), FIGURE, READY, own), String(href)).toBeNull();
     }
   });
 
   it('按着别的键、不是左键、已经有人拦下了、链接写了要在别处打开：不潜', () => {
     const href = stopHref(FIGURE, OWN);
     for (const more of [{ ctrlKey: true }, { metaKey: true }, { shiftKey: true }, { altKey: true }, { button: 1 }, { button: 2 }, { defaultPrevented: true }, { linkTarget: '_blank' }]) {
-      expect(diveStop(click(href, more), FIGURE, READY), JSON.stringify(more)).toBeNull();
+      expect(diveStop(click(href, more), FIGURE, READY, own), JSON.stringify(more)).toBeNull();
     }
   });
 
   it('栏里的全程沙盘没摆好（或者放的是图片、是不会潜的沙盘）、收起来了、系统说要少动、开关关着：不潜', () => {
     const href = stopHref(FIGURE, OWN);
     for (const pane of [{ ready: false }, { tucked: true }, { calm: true }, { on: false }]) {
-      expect(diveStop(click(href), FIGURE, { ...READY, ...pane }), JSON.stringify(pane)).toBeNull();
+      expect(diveStop(click(href), FIGURE, { ...READY, ...pane }, own), JSON.stringify(pane)).toBeNull();
     }
   });
 });
@@ -89,6 +94,7 @@ function rig(pane: DivePane = READY) {
   let canDive = true;
   const host: DiveHost = {
     pane: () => pane,
+    own,
     dive(stop, ms) {
       calls.push(`dive ${stop} ${ms}`);
       if (!canDive) return null;

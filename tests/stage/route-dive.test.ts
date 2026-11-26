@@ -10,7 +10,7 @@ import { DIVE_AIM_SHARE, DIVE_DISTANCE_M, diveEnd, divePath } from '../../src/st
 import { Sequencer, mixState, type TableState } from '../../src/stage/three/sequencer';
 import { styleFor } from '../../src/stage/three/style';
 import type { Vec3 } from '../../src/stage/ground/types';
-import { realRouteScene } from './support/realScenes';
+import { realFigure, realRouteScene } from './support/realScenes';
 
 /** 查的是苏轼的全程沙盘（潜的是他有自己的沙盘的那几站）。写着名字取，不取“排在最前面的那一座”。 */
 const KEY = 'su-shi/route';
@@ -20,7 +20,7 @@ const style = styleFor(R.scene.style);
 const pane = STANDARD_PANES[0];
 
 /** 这位人物有自己的沙盘的站（潜的就是这几站）。 */
-const OWN = R.scene.sections.flatMap((s) => (s.stop && hasStopTable(FIGURE, s.stop) ? [s.stop] : []));
+const OWN = R.scene.sections.flatMap((s) => (s.stop && hasStopTable(realFigure(FIGURE), s.stop) ? [s.stop] : []));
 
 const dist = (a: Vec3, b: Vec3): number => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
 

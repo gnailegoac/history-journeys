@@ -60,11 +60,11 @@ function Loaded({ figure, stopId }: { figure: Figure; stopId: string | null }) {
   const stopKey = stop ? stop.id : null;
 
   // 这一站的沙盘：场景和地形文件的网址；做过先画好的地面、每一小节的定格图的，读取的时候一并带了上来，原样交给沙盘栏。
-  // 还没有场景文件的站是 null，这一点不用等就知道，沙盘栏一上来就摆全程沙盘。
+  // 没有自己的沙盘的站是 null，这一点不用等就知道（figure.json 里写着），沙盘栏一上来就摆全程沙盘。
   // attempt 是读者点“再试一次”的次数：没读出来时，每点一次重读一遍。
   const [attempt, setAttempt] = useState(0);
   const tableKey = stopKey ? `${figureId}/${stopKey}` : '';
-  const hasTable = stopKey !== null && hasStopTable(figureId, stopKey);
+  const hasTable = stopKey !== null && hasStopTable(figure, stopKey);
   const loaded = useLoaded(`${tableKey}#${attempt}`, () => (stopKey && hasTable ? loadStopTable(figureId, stopKey) : Promise.resolve(null)));
   const table = useMemo<LoadedValue<StopTable | null>>(() => {
     if (!hasTable) return NO_TABLE;
@@ -97,6 +97,8 @@ function Loaded({ figure, stopId }: { figure: Figure; stopId: string | null }) {
     [stopKey],
   );
   const section = reading && reading.stopId === stopKey ? reading.section : null;
+  // 正文没读出来的是哪一站（文字栏报上来的）：沙盘栏摆不出来时的那一句不说“正文可以照常读”。
+  const [lost, setLost] = useState<string | null>(null);
 
   return (
     <div className="figure-layout">
@@ -113,7 +115,7 @@ function Loaded({ figure, stopId }: { figure: Figure; stopId: string | null }) {
           </nav>
 
           {!stopId && <FigureContents figure={figure} route={routeScene} />}
-          {stopId && stop && <StopPage key={stop.id} figure={figure} stop={stop} table={table} road={road} section={section} onSection={onSection} />}
+          {stopId && stop && <StopPage key={stop.id} figure={figure} stop={stop} table={table} road={road} section={section} onSection={onSection} again={attempt + again} onLost={setLost} />}
           {stopId && !stop && <MissingStop figure={figure} />}
         </div>
       </main>
@@ -126,6 +128,7 @@ function Loaded({ figure, stopId }: { figure: Figure; stopId: string | null }) {
         stopId={stopKey}
         marks={marks}
         written={stop?.status === 'complete'}
+        textLost={stopKey !== null && lost === stopKey}
         onReloadTable={reloadTable}
       />
     </div>

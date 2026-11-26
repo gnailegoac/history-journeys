@@ -14,8 +14,14 @@ import { buildRouteGround, readRouteDem, routeSamplers } from '../../../src/stag
 import type { RouteGround } from '../../../src/stage/ground/route';
 import type { Dem, Ground, GroundSamplers, Vec2 } from '../../../src/stage/ground/types';
 import type { KitFamily } from '../../../src/stage/three/kit/families';
+import type { Figure } from '../../../src/domain/types';
 import { kitFor } from './kitFamilies';
 import { readBytes } from '../../support/readBytes';
+
+/** 一位人物的资料（content/figures/<人物>/figure.json），照磁盘上的文件：哪几站有自己的沙盘写在里面。 */
+export function realFigure(figureId: string): Figure {
+  return JSON.parse(new TextDecoder().decode(readBytes(`content/figures/${figureId}/figure.json`))) as Figure;
+}
 
 /** 场景文件只用 import.meta.glob 读（和 src/domain/sceneContent.ts 一样），不直接 import 那个 JSON。两层的沙盘都在里面。 */
 const sceneFiles = import.meta.glob<TableScene>('/content/figures/*/scenes/*.json', { import: 'default', eager: true });

@@ -536,6 +536,9 @@ class StillStopView implements StopStageView {
     const shown = this.shown;
     const pane = this.pane();
     if (!this.stripsUp || !shown || !this.fit || !pane) return;
-    this.strips.place(anchorsOnPane(shown.shot.anchors, this.fit, pane), { width: pane.width, height: pane.height }, this.insets);
+    const { shot } = shown;
+    // 平着的纸条（另一种题签）摆在地面的边里面：四个角是那一层照清单里记的镜头和场景的范围算的（竖着的纸条的那一层没有这一样，什么也不交）
+    const ground = this.strips.ground?.(this.scene.frame, shot.pose, this.manifest.shapes[shot.shape], this.fit);
+    this.strips.place(anchorsOnPane(shot.anchors, this.fit, pane), { width: pane.width, height: pane.height }, this.insets, { ground });
   }
 }

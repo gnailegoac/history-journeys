@@ -171,6 +171,10 @@
         160.6,
         20.4
       ],
+      "stops": [
+        "bing",
+        "ding"
+      ],
       "class": "today",
       "basis": "照编出来的今天的地图上的位置。",
       "sourceIds": [
@@ -247,6 +251,20 @@
       "sourceIds": [
         "m2"
       ]
+    },
+    {
+      "id": "p-massif",
+      "name": "西岭",
+      "at": [
+        158.5,
+        19.7
+      ],
+      "class": "today",
+      "basis": "照编出来的今天的地图上的位置。",
+      "sourceIds": [
+        "m2"
+      ],
+      "area": true
     }
   ],
   "strips": [
@@ -292,6 +310,26 @@
         162.3,
         20.7
       ]
+    },
+    {
+      "id": "s-yi",
+      "text": "乙渡",
+      "of": "p-yi"
+    },
+    {
+      "id": "s-ji",
+      "text": "己岛",
+      "of": "p-ji"
+    },
+    {
+      "id": "s-wuzhuang",
+      "text": "戊庄",
+      "of": "p-wu"
+    },
+    {
+      "id": "s-massif",
+      "text": "西岭",
+      "of": "p-massif"
     }
   ],
   "far": [],
@@ -592,9 +630,12 @@
         "s-jia",
         "s-bing",
         "s-ding",
+        "s-yi",
         "s-zi",
         "s-wu",
-        "s-sea"
+        "s-sea",
+        "s-ji",
+        "s-massif"
       ],
       "explain": [
         "recipe",
@@ -662,7 +703,9 @@
       },
       "strips": [
         "s-ding",
-        "s-wu"
+        "s-wu",
+        "s-wuzhuang",
+        "s-massif"
       ],
       "explain": [
         "j-lake"

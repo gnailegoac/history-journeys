@@ -17,6 +17,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } 
 import type { BakedGroundManifest } from '../../src/domain/bakedGround';
 import type { ItineraryBar } from '../../src/domain/itinerary';
 import type { StripLayer } from '../../src/stage/overlay/types';
+import { stillGround } from '../../src/stage/overlay/slips';
 import { sectionStripSpecs } from '../../src/stage/overlay/strips';
 import { roadRuns, segmentCount } from '../../src/stage/roadLines';
 import { createHost } from '../../src/stage/three/host';
@@ -190,6 +191,68 @@ describe(`${KEY} 在沙盘程序里`, () => {
     expect(strips.specs().map((spec) => spec.id)).toEqual(R.scene.sections[0].strips);
     expect(strips.specs()).toEqual(sectionStripSpecs(R.scene, R.headings[0], stripTexts(R.scene, R.headings[0], 'ancient')));
     expect(strips.specs().some((spec) => spec.seals)).toBe(false);
+  });
+
+  it('地面的四个角：题签层是平着的纸条的那一种（带着 ground）时，每一帧都交给它，就是沙盘的四个角在平的桌面那么高投到画面上的地方；竖着的纸条的那一层一次也不交', { timeout: 120_000 }, async () => {
+    // 竖着的纸条的那一层（平常的假题签层，没有 ground）：摆了很多次，没有一次带着四个角
+    const plain = stage(940, 900);
+    const first = await openView(plain, baked);
+    await until(first.ready);
+    expect(strips.places.length).toBeGreaterThan(0);
+    expect(strips.places.some((p) => 'ground' in p)).toBe(false);
+    first.destroy();
+
+    // 平着的纸条的那一层：每一次都带着四个角
+    strips = fakeStrips(stillGround);
+    const s = stage(940, 900);
+    const view = await openView(s, baked);
+    await until(view.ready);
+    expect(strips.places.length).toBeGreaterThan(0);
+    for (const p of strips.places) expect(p.ground, '这一次没有交地面的四个角').toHaveLength(4);
+    const shot = view.readout().shot;
+    if (!shot) throw new Error('读数里没有这个画面的底细');
+    // 这四个角：照这个画面的镜头另算一遍（定格图那一边的算法，src/stage/overlay/slips.ts 的 stillGround），差不到百分之一个像素
+    const { size, insets } = shot;
+    const again = stillGround(R.scene.frame, shot.pose, { pane: [size.width, size.height], insets: [insets.top, insets.right, insets.bottom, insets.left], extra: 0 }, { left: 0, top: 0, width: size.width, height: size.height });
+    if (!again) throw new Error('照这个画面的镜头另算：地面有一个角在镜头背后');
+    const handed = strips.places[strips.places.length - 1].ground ?? [];
+    handed.forEach((corner, i) => {
+      expect(Math.abs(corner.x - again[i].x), `第 ${i + 1} 个角的横向`).toBeLessThan(0.01);
+      expect(Math.abs(corner.y - again[i].y), `第 ${i + 1} 个角的竖向`).toBeLessThan(0.01);
+    });
+    // 看全程的那一节，四个角都在画面里，围着题签指的每一点：西北、东北在上，东南、西南在下，上窄下宽
+    const [nw, ne, se, sw] = handed;
+    expect(nw.x).toBeLessThan(ne.x);
+    expect(sw.x).toBeLessThan(se.x);
+    expect(nw.y).toBeLessThan(sw.y);
+    expect(ne.x - nw.x).toBeLessThan(se.x - sw.x);
+    for (const anchor of shot.anchors) {
+      expect(anchor.x, anchor.id).toBeGreaterThan(Math.min(nw.x, sw.x));
+      expect(anchor.x, anchor.id).toBeLessThan(Math.max(ne.x, se.x));
+      expect(anchor.y, anchor.id).toBeGreaterThan(Math.min(nw.y, ne.y));
+      expect(anchor.y, anchor.id).toBeLessThan(Math.max(sw.y, se.y));
+    }
+
+    // 读者的手按着转沙盘：照“手还在动”摆的那几帧也带着四个角，而且是镜头动过以后的那四个角（不是按下以前的那一份）；
+    // 手放开以后重摆的那一次也带着
+    const from = strips.places.length;
+    const mouse = (x: number, y: number): Record<string, unknown> => ({ pointerId: 1, pointerType: 'mouse', button: 0, clientX: x, clientY: y, pageX: x, pageY: y });
+    s.el.fire('pointerdown', mouse(400, 400));
+    s.doc.fire('pointermove', mouse(440, 405));
+    await vi.advanceTimersByTimeAsync(FRAME_MS * 2);
+    s.doc.fire('pointermove', mouse(480, 410));
+    await vi.advanceTimersByTimeAsync(FRAME_MS * 2);
+    const down = strips.places.slice(from);
+    expect(down.length).toBeGreaterThan(0);
+    expect(down.every((p) => p.moving)).toBe(true);
+    for (const p of down) expect(p.ground, '手还在动的这一帧没有交地面的四个角').toHaveLength(4);
+    expect(down[down.length - 1].ground).not.toEqual(handed);
+    s.doc.fire('pointerup', mouse(480, 410));
+    await vi.advanceTimersByTimeAsync(FRAME_MS * 2);
+    const up = strips.places.slice(from + down.length);
+    expect(up.length).toBeGreaterThan(0);
+    expect(up[up.length - 1].moving).toBe(false);
+    for (const p of up) expect(p.ground, '手放开以后的这一帧没有交地面的四个角').toHaveLength(4);
   });
 
   it('交了每一站的印：是站的地名带着印，一站一方；这一节讲的那一站的印 here 是 true；换成今天的名字，印不变', { timeout: 120_000 }, async () => {

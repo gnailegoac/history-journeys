@@ -757,7 +757,7 @@ function TableStage({ table, section, resetLabel, bare, bar, marks, standing, na
         cannotDraw('no-webgl2');
         return;
       }
-      const engine = await pickStageEngine();
+      const engine = await pickStageEngine(table.scene.style);
       if (cancelled || !host.current) return;
       // 读者自己要的是减配的一档；地址里指定了哪一档就是哪一档；都没有，由沙盘程序自己挑。
       const wanted: StageTier | undefined = asked ? 'reduced' : urlTier === 'full' || urlTier === 'reduced' ? urlTier : undefined;

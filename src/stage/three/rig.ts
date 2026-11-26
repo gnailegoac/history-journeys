@@ -685,6 +685,27 @@ export function project(point: Vec3, camera: Camera, size: { width: number; heig
 }
 
 /**
+ * 地面的四个角落在画面的哪里（CSS 像素）：沙盘的四个角，在平的桌面那么高（y 是 0；不是座子的角），照绕一圈的先后（西北、东北、东南、西南）。
+ * 平着的纸条（另一种题签）摆在这四个角围成的那一块里面（src/stage/overlay/slips.ts）。有一个角到了镜头背后（读者把镜头推得很近）就不给：
+ * 那时四个角围不成一块，题签层不查这一条。调用之前镜头的矩阵要是新的（见 project）。
+ */
+export function groundCorners(coords: FrameCoords, camera: Camera, size: { width: number; height: number }): { x: number; y: number }[] | undefined {
+  const out: { x: number; y: number }[] = [];
+  for (const [x, z] of [
+    [coords.x0, coords.z0],
+    [coords.x1, coords.z0],
+    [coords.x1, coords.z1],
+    [coords.x0, coords.z1],
+  ]) {
+    const v = new Vector3(x, 0, z).project(camera);
+    // 在镜头背后的点投出来深度大于 1
+    if (!(v.z <= 1)) return undefined;
+    out.push({ x: (v.x * 0.5 + 0.5) * size.width, y: (-v.y * 0.5 + 0.5) * size.height });
+  }
+  return out;
+}
+
+/**
  * 画面上从沙盘中间朝 at 这一点（沙盘边上的一点）去的方向，长度为 1：远处的题签朝这一边摆，不往沙盘里摆。
  * 做法是把沙盘的中间和这一点都投到画面上，看从前一个到后一个朝哪边。贴近了看沙盘边上时，沙盘的中间可能在镜头背后，
  * 投出来是反的：那就沿这条线往 at 靠，靠到镜头前面再投（同一条线，方向不变）。at 自己在镜头背后、或者两点投到一处时没有方向。

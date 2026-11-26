@@ -36,7 +36,7 @@ import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { gzipSync } from 'node:zlib';
 import { describe, expect, it } from 'vitest';
 import { createHash } from 'node:crypto';
-import { BAR_ENTRY, ENGINE_ENTRY, ENGINE_GZIP_MAX, LISTS_ENTRY, PAGE_ENTRY, ROUTE_ENTRY, familyEntry, fontReport, programReport, programSizes, staticClosure, styleEntry, styleRouteEntry, withCommas } from '../content/budgetRules';
+import { BAR_ENTRY, ENGINE_ENTRY, ENGINE_GZIP_MAX, LISTS_ENTRY, PAGE_ENTRY, ROUTE_ENTRY, SLIPS_ENTRY, familyEntry, fontReport, programReport, programSizes, staticClosure, styleEntry, styleRouteEntry, withCommas } from '../content/budgetRules';
 import type { BuildManifest, SizeReport } from '../content/budgetRules';
 import { CONTAINER_MAX, CQW_MAX, builtFonts, builtStyleProblems } from '../support/builtFonts';
 import { oldIpadSheet } from '../support/oldIpadSheet';
@@ -356,7 +356,34 @@ describe('时间轴的那一块', () => {
     expect(bar.css ?? [], '时间轴的那一块自己带了样式表：它的样式写在页面的样式表里（src/styles/timebar.css，由 StagePane.tsx 引）').toEqual([]);
     console.log(`  时间轴的那一块（压缩以后）：${withCommas(gzipOnDisk(bar.file))} 字节（没有单独的上限），栏里摆上全程沙盘才下载　${bar.file}`);
   });
+});
 
+describe('另一种题签（平着的纸条）的那一块', () => {
+  it('单独一块，写了这一种题签的沙盘才下载；页面的程序、沙盘程序、全程沙盘那一块都不带着它，它自己什么也不引；页面的程序还是一个文件；多大印出来（没有单独的上限）', () => {
+    expect(existsSync(MANIFEST), '没有 dist/.vite/manifest.json：先运行 npm run build').toBe(true);
+    const manifest = readManifest(new TextDecoder().decode(readFileSync(MANIFEST)));
+    const read = (file: string): string => new TextDecoder().decode(readFileSync(new URL(file, DIST)));
+    const slips = manifest[SLIPS_ENTRY];
+    expect(slips, `清单里没有 ${SLIPS_ENTRY} 这一项：它被打进了别的块（多半是页面那一块），或者挪了地方（挪了就改 tests/content/budgetRules.ts 的 SLIPS_ENTRY）`).toBeDefined();
+    expect(slips.isDynamicEntry, '平着的纸条的那一块在清单里没有标成“用到时才下载”').toBe(true);
+    for (const entry of [PAGE_ENTRY, ENGINE_ENTRY, ROUTE_ENTRY]) expect(staticClosure(manifest, entry), `平着的纸条的那一块成了 ${entry} 一来就带着的东西`).not.toContain(SLIPS_ENTRY);
+    // 它自己什么也不引（连页面的程序也不引）：要下载的只有它这一个文件；它引了页面里的文件的话，打包的工具会把那个文件从页面的程序里单拆出去
+    expect(staticClosure(manifest, SLIPS_ENTRY)).toEqual([SLIPS_ENTRY]);
+    expect(slips.css ?? [], '平着的纸条的那一块自己带了样式表：它的样式写在页面的样式表里（src/styles/stage.css 末尾）').toEqual([]);
+    // 页面一打开就下载的程序还是一个文件
+    expect(staticClosure(manifest, PAGE_ENTRY).filter((key) => manifest[key].file.endsWith('.js'))).toEqual([PAGE_ENTRY]);
+    // 平着的纸条的东西（它的类名、它的摆法里的缘故）只在这一块里：读竖着的纸条的沙盘的人，页面的程序、沙盘程序、全程沙盘那一块里都没有它们
+    const chunk = read(slips.file);
+    for (const word of ['strip-slip', 'strip-disc', 'strip-name']) {
+      expect(chunk, `平着的纸条的那一块里没有 ${word}`).toContain(word);
+      for (const entry of [PAGE_ENTRY, ENGINE_ENTRY, ROUTE_ENTRY]) expect(read(manifest[entry].file).includes(word), `${entry} 的那一块里有 ${word}`).toBe(false);
+    }
+    console.log(`  平着的纸条（另一种题签）的那一块（压缩以后）：${withCommas(gzipOnDisk(slips.file))} 字节（没有单独的上限），写了这一种题签的沙盘才下载　${slips.file}`);
+  });
+});
+
+// 时间轴的那一块的后一条（和上面那一组同名：这一条的名字照旧）
+describe('时间轴的那一块', () => {
   it('时间轴上固定的字在时间轴的那一块里，不在页面的程序里；每位人物时间轴用的那一份行迹也只在那一块里', () => {
     expect(existsSync(MANIFEST), '没有 dist/.vite/manifest.json：先运行 npm run build').toBe(true);
     const manifest = readManifest(new TextDecoder().decode(readFileSync(MANIFEST)));

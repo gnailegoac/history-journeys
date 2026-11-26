@@ -16,7 +16,7 @@
 //   ?tier=full | reduced | still   完整的一档、减配的一档、只放图片
 
 import { loadRouteTable } from '../domain';
-import { loadStageEngine, probeWebgl, stillEngine } from '../stage';
+import { loadStageEngine, loadStillEngine, probeWebgl } from '../stage';
 import type { RouteTable, StageEngine, StageTable, StageTier } from '../stage/types';
 
 function query(name: string): string | null {
@@ -38,13 +38,14 @@ export function canDrawStage(): boolean {
   return probeWebgl().webgl2;
 }
 
-export async function pickStageEngine(): Promise<StageEngine> {
+/** style 是要摆的那座沙盘的样式：它的题签是另一种的话（样式的登记表里写的），那一小块程序跟着沙盘程序一起取。替身不看它。 */
+export async function pickStageEngine(style?: string): Promise<StageEngine> {
   const choice = fakeStageChoice();
   if (choice !== null) {
     const { createFakeStageEngine } = await import('./dev/fakeStage');
     return createFakeStageEngine({ fail: choice === 'fake-fail', unsupported: choice === 'fake-unsupported' });
   }
-  return loadStageEngine();
+  return loadStageEngine(style);
 }
 
 /**
@@ -61,7 +62,7 @@ export function pickStillEngine(table: StageTable): (() => Promise<StageEngine>)
     };
   }
   if (fakeStageChoice() !== null || !table.stills) return null;
-  return () => Promise.resolve(stillEngine);
+  return () => loadStillEngine(table.scene.style);
 }
 
 /** 这位人物的全程沙盘；还没有（或者地址里写了 ?route=none）时是 null。 */

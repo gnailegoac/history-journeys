@@ -3,8 +3,9 @@
 // 全是编的：东经 160 度、北纬 20 度的海上的一段海岸和一个小岛；城用天干起名（甲城、乙渡、丙港……），河和湖用地支（子河、午湖）。
 // 它里面有苏轼的那一座没有的几样：一站分两段讲（甲城），一趟路里陆路和水路相接，船走在水上（roads.boats 写 on），
 // 有记载的水路和只知道两头的水路，一条海路，一条没有写走哪条水的水路，看一站的小节画的是那几年走的路（roads.stopShows 写 stop-years），
+// 一个算在两站名下的地方（乙渡：题签上两个站号的印），一片名字没有点的山（西岭：地名点写了 area），头一节里九条名字（另一种题签——平着的纸条——就在它上面试），
 // 地面照量到的样子（recipe 是 as-measured），一圈离路、离地名点都在六十公里以外的留白。
-// 用它的测试：tests/stage/made-up-route.test.ts（经 tests/stage/support/madeUpRoute.ts）。
+// 用它的测试：tests/stage/made-up-route.test.ts、tests/stage/made-up-labels.test.ts（经 tests/stage/support/madeUpRoute.ts）。
 // 那四个文件不手改。要改，改这个脚本，在项目的根目录里重做一遍：
 //   node tests/content/fixtures/made-up/make-fixture.mjs tests/content/fixtures/made-up/figures/traveller
 // 同样的脚本写出同样的字节。这个脚本不随 npm test 跑，也不进读者的构建。
@@ -125,12 +126,15 @@ const scene = {
   },
   places: [
     place('p-jia', '甲城', JIA, ['jia']),
-    place('p-yi', '乙渡', YI),
+    // 乙渡算在两站名下（去丙港、去丁镇都从这里起）：它的题签上有两个站号的印
+    place('p-yi', '乙渡', YI, ['bing', 'ding']),
     place('p-bing', '丙港', BING, ['bing']),
     place('p-ding', '丁镇', DING, ['ding']),
     place('p-wu', '戊庄', WU),
     place('p-ji', '己岛', JI),
     place('p-xin', '辛集', XIN),
+    // 西南的那一片山：名字指的是一片地方，没有点（area）；at 是名字摆在哪（离留白的圈、离测试里挪过去的那两圈都远）
+    { ...place('p-massif', '西岭', [158.5, 19.7]), area: true },
   ],
   strips: [
     { id: 's-jia', text: '甲城', of: 'p-jia' },
@@ -139,6 +143,11 @@ const scene = {
     { id: 's-zi', text: '子河', of: 'zi', at: [159.7, 20.85] },
     { id: 's-wu', text: '午湖', of: 'wu', at: [159.55, 19.25] },
     { id: 's-sea', text: '海', of: 'coast', at: [162.3, 20.7] },
+    // 下面几条是给题签添的（另一种题签要在一个画面里摆九条名字）：一个算在两站名下的地方，一个岛上的镇，一个湖边的庄，一道没有点的岭
+    { id: 's-yi', text: '乙渡', of: 'p-yi' },
+    { id: 's-ji', text: '己岛', of: 'p-ji' },
+    { id: 's-wuzhuang', text: '戊庄', of: 'p-wu' },
+    { id: 's-massif', text: '西岭', of: 'p-massif' },
   ],
   far: [],
   roads: {
@@ -181,12 +190,12 @@ const scene = {
       date: '编的元年到五年',
       line: '编出来的旅人走过的三站。实线是他写到过的路，虚线只知道两头。',
       camera: { target: [160, 20], distanceM: 40000, pitch: 40, bearing: 0, fov: 18, closest: 0.75, mustShow: ['frame'] },
-      strips: ['s-jia', 's-bing', 's-ding', 's-zi', 's-wu', 's-sea'],
+      strips: ['s-jia', 's-bing', 's-ding', 's-yi', 's-zi', 's-wu', 's-sea', 's-ji', 's-massif'],
       explain: ['recipe', 'coast'],
     },
     { heading: '甲城那几年', date: '编的元年到三年', line: '住在甲城的两段日子里走的路。', camera: camera([159.3, 20.9], 17000), strips: ['s-jia', 's-zi'], explain: ['j-arrive'], stop: 'jia' },
     { heading: '丙港那几年', date: '编的二年', line: '下子河到丙港，又出海到己岛。', camera: camera([161.4, 20.2], 16000), strips: ['s-bing', 's-zi', 's-sea'], explain: ['j-down', 'levels'], stop: 'bing' },
-    { heading: '丁镇那几年', date: '编的五年', line: '到丁镇，坐船过午湖。', camera: camera([159.8, 19.5], 16000), strips: ['s-ding', 's-wu'], explain: ['j-lake'], stop: 'ding' },
+    { heading: '丁镇那几年', date: '编的五年', line: '到丁镇，坐船过午湖。', camera: camera([159.8, 19.5], 16000), strips: ['s-ding', 's-wu', 's-wuzhuang', 's-massif'], explain: ['j-lake'], stop: 'ding' },
   ],
   notDrawn: [],
 };

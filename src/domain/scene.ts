@@ -597,6 +597,11 @@ export interface RouteWash extends Grounds {
 export interface RoutePlace extends ScenePlace {
   /** 这个地方是哪几站（figure.json 里站的 id，按先后）。写了的，它的题签脚上有站号的印，点了进那一站。 */
   stops?: string[];
+  /**
+   * 这个名字没有点：它指的是一片地方（一座山脉、一个国、一个岛），at 只是名字摆在哪。只能写 true，不要就不写；写了它的不能又写 stops。
+   * 只是交给题签的一个记号（./sceneText.ts 的 stripTexts）：平着的纸条看它（没有圆点、没有引线），竖着的纸条不看。
+   */
+  area?: true;
 }
 
 export interface SceneRoads {

@@ -5,7 +5,9 @@
 //   船走在水上（roads.boats 写 on），有一条船走的路没有写走的是哪条水；
 //   看一站的小节画的是这一站那几年走的路（roads.stopShows 写 stop-years）；
 //   地面照量到的样子（recipe 是 as-measured）；留白的一圈离路、离地名点六十公里以上。
-// 人名、地名都是编的（甲城、乙渡、丙港、丁镇、戊庄、己岛、辛集，子河、午湖），在东经 160 度、北纬 20 度的海上。
+// 人名、地名都是编的（甲城、乙渡、丙港、丁镇、戊庄、己岛、辛集、西岭，子河、午湖），在东经 160 度、北纬 20 度的海上。
+// 题签的另一种——平着的纸条——也在它上面试（../made-up-labels.test.ts）：乙渡算在两站名下（两个站号的印），西岭是没有点的名字，头一节九条名字；
+// 它的样式那一行写了 labels: 'slip'（./madeUpStyle.ts）。
 // 那个文件夹里的四个文件是一个小脚本写出来的，不手改：要改，改 tests/content/fixtures/made-up/make-fixture.mjs 再重做一遍（怎么跑写在它开头）。
 
 import type { RouteScene } from '../../../src/domain/scene';

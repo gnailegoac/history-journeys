@@ -93,6 +93,8 @@ export interface StripText {
    * 题签脚上照它一站盖一方写着站号的印。不是站的地方、站点沙盘上的题签，没有这一项。
    */
   stops?: string[];
+  /** 全程沙盘上才有：这条题签指的地名点写了 area（这个名字没有点，指的是一片地方）。没写的没有这一项。 */
+  area?: true;
 }
 
 /** 题签指着它们就是水名的东西：站点沙盘上是河和急滩；全程沙盘上是河、湖、只染水色的水，和海（coast）。 */
@@ -115,8 +117,9 @@ export function stripTexts(scene: TableScene, heading: string, names: NamesMode)
     const strip = scene.strips.find((s) => s.id === id);
     if (!strip || out.some((done) => done.id === id)) continue;
     const text = names === 'modern' && strip.modern ? strip.modern : strip.text;
-    const stops = places.find((place) => place.id === strip.of)?.stops;
-    out.push({ id, text, tone: water.has(strip.of) ? 'water' : far.has(strip.of) ? 'far' : 'place', ...(stops?.length ? { stops } : {}) });
+    const place = places.find((item) => item.id === strip.of);
+    const stops = place?.stops;
+    out.push({ id, text, tone: water.has(strip.of) ? 'water' : far.has(strip.of) ? 'far' : 'place', ...(stops?.length ? { stops } : {}), ...(place?.area ? { area: true } : {}) });
   }
   return out;
 }

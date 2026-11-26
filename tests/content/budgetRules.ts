@@ -55,8 +55,10 @@ export const ENGINE_GZIP_WARN = 215_000;
  * 页面的程序（一打开就下载的那几块）压缩以后最大多少字节；过了多少提醒一句。
  * 上限原来是 95,000。2026-11-23 加“从全程沙盘潜到一站自己的沙盘”时量到 95,340 字节，照事先定的规矩挪到
  * “量到的数加 1,500、往上取到整五百”，就是 97,000（缘故和量到的数在 docs/technical-plan.md 第七节）。
+ * 2026-11-26 给题签添“是哪一种”时又挪了一次，还是那条规矩：页面的程序里只留了接另一种题签的那几行（它自己是用到时才下载的一小块），
+ * 量到 97,088 字节（上一次发布是 96,858，多了 230），加 1,500、往上取到整五百，就是 99,000。提醒的线没有动。
  */
-export const PAGE_GZIP_MAX = 97_000;
+export const PAGE_GZIP_MAX = 99_000;
 export const PAGE_GZIP_WARN = 90_000;
 /** 样式表压缩以后最大多少字节；过了多少提醒一句。 */
 export const STYLE_GZIP_MAX = 15_000;
@@ -100,6 +102,11 @@ export const LISTS_ENTRY = 'src/domain/contentLists.ts';
  * 它多大由 check:size 印出来，没有单独的上限。
  */
 export const BAR_ENTRY = 'src/timebar/TimeBar.tsx';
+/**
+ * 另一种题签（平着的纸条）的那一小块程序在清单里叫什么。样式的登记表里写了 labels: 'slip' 的沙盘才用动态 import 取它（src/stage/index.ts），
+ * 不能进页面那一块，也不在沙盘程序、全程沙盘那一块里。它多大由 check:size 印出来，没有单独的上限。
+ */
+export const SLIPS_ENTRY = 'src/stage/overlay/slips.ts';
 
 // ---------------------------------------------------------------- 一个数查下来怎么样
 

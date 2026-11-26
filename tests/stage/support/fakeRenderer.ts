@@ -347,12 +347,18 @@ export interface FakeStrips {
   log: string[];
   /** 最近一次换上的那批题签。 */
   specs(): StripSpec[];
-  /** 每一次 place 收到的东西；moving 是这一次说没说“读者的手还在动”；avoid 是这一次给的不许压的那几块（没给就是 undefined）。 */
-  places: { anchors: StripInput['anchors']; size: StripInput['size']; insets: StageInsets; moving: boolean; avoid: StripInput['avoid'] }[];
+  /**
+   * 每一次 place 收到的东西；moving 是这一次说没说“读者的手还在动”；avoid 是这一次给的不许压的那几块（没给就是 undefined）；
+   * ground 是这一次给的地面的四个角（没给就是 undefined）。
+   */
+  places: { anchors: StripInput['anchors']; size: StripInput['size']; insets: StageInsets; moving: boolean; avoid: StripInput['avoid']; ground?: StripInput['ground'] }[];
 }
 
-/** 假的题签层：什么也不摆，只记下沙盘叫它做了什么。 */
-export function fakeStrips(): FakeStrips {
+/**
+ * 假的题签层：什么也不摆，只记下沙盘叫它做了什么。
+ * ground 交了的话，这一层就带着那一样（StripLayer.ground）：平着的纸条的那一层才有它，沙盘程序看到它才把地面的四个角交过来。
+ */
+export function fakeStrips(ground?: StripLayer['ground']): FakeStrips {
   const log: string[] = [];
   const places: FakeStrips['places'] = [];
   let specs: StripSpec[] = [];
@@ -366,7 +372,7 @@ export function fakeStrips(): FakeStrips {
         log.push(`set ${strips.map((s) => s.text).join(',')}`);
       },
       place(anchors, size, insets, opts) {
-        places.push({ anchors, size: { ...size }, insets: { ...insets }, moving: opts?.moving === true, avoid: opts?.avoid?.map((box) => ({ ...box })) });
+        places.push({ anchors, size: { ...size }, insets: { ...insets }, moving: opts?.moving === true, avoid: opts?.avoid?.map((box) => ({ ...box })), ...(opts?.ground ? { ground: opts.ground.map((p) => ({ ...p })) } : {}) });
         if (log[log.length - 1] !== 'place') log.push('place');
       },
       hide() {
@@ -380,6 +386,7 @@ export function fakeStrips(): FakeStrips {
       destroy() {
         log.push('destroy');
       },
+      ...(ground ? { ground } : {}),
     }),
   };
 }

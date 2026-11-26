@@ -22,10 +22,12 @@ import type { StripInput, StripLayer } from '../../src/stage/overlay/types';
 import { chooseScale } from '../../src/stage/scale';
 import { FADE_MS, RETRY_AFTER_MS, createStillEngine } from '../../src/stage/still/engine';
 import { anchorsOnPane, edgeFades, fitStill, pickShape, pictureSize, referenceArea, type StillPane } from '../../src/stage/still/fit';
-import { centreShift, equivalentDistance, northDeg, pixelsPerMetre, placeCamera, screenAnchors } from '../../src/stage/three/rig';
+import { stillGround } from '../../src/stage/overlay/slips';
+import { centreShift, equivalentDistance, groundCorners, northDeg, pixelsPerMetre, placeCamera, screenAnchors } from '../../src/stage/three/rig';
 import { styleFor } from '../stage/support/styles';
 import type { StageInsets, StageShot, StageViewInfo, StopStageView } from '../../src/stage/types';
-import { realScene, realSceneKeys, type RealScene } from '../stage/support/realScenes';
+import { realRouteScene, realScene, realSceneKeys, type RealScene } from '../stage/support/realScenes';
+import { ROUTE_PANES, STANDARD_PANES, type StandardPane } from '../stage/support/standardPanes';
 import { sectionStrips } from '../stage/support/stripSizes';
 import { FIXTURE_HEADINGS } from '../support/fixtureScene';
 import { FIXTURE_SHAPES, fixtureStillTable, fixtureStillUrl } from '../support/stills-fixture';
@@ -36,12 +38,15 @@ import { SHOT_CAMERA, shapeSpec, shotInsets, shotViewport, stillFile, stillFromS
 
 type StripCall =
   | { op: 'set'; ids: string[]; texts: string[]; sides: (string | undefined)[] }
-  | { op: 'place'; anchors: StripInput['anchors']; size: { width: number; height: number }; insets: StageInsets }
+  | { op: 'place'; anchors: StripInput['anchors']; size: { width: number; height: number }; insets: StageInsets; ground?: StripInput['ground'] }
   | { op: 'hide' }
   | { op: 'destroy' };
 
-/** 每挂一层题签记一份。（vi.mock 会被挪到所有引入的前面，所以这份记录要用 vi.hoisted 先备好。） */
-const stripLayers = vi.hoisted(() => ({ logs: [] as unknown[][] }));
+/**
+ * 每挂一层题签记一份。（vi.mock 会被挪到所有引入的前面，所以这份记录要用 vi.hoisted 先备好。）
+ * ground 平常是 null：假的那一层是竖着的纸条的那一种（没有 StripLayer.ground）。交了一个函数，挂出来的那一层就带着它——平着的纸条的那一层才有。
+ */
+const stripLayers = vi.hoisted(() => ({ logs: [] as unknown[][], ground: null as StripLayer['ground'] | null }));
 
 vi.mock('../../src/stage/overlay', async (original) => ({
   ...(await original<typeof import('../../src/stage/overlay')>()),
@@ -52,8 +57,8 @@ vi.mock('../../src/stage/overlay', async (original) => ({
       set(strips) {
         log.push({ op: 'set', ids: strips.map((s) => s.id), texts: strips.map((s) => s.text), sides: strips.map((s) => s.side) });
       },
-      place(anchors, size, insets) {
-        log.push({ op: 'place', anchors: anchors.map((a) => ({ ...a })), size: { ...size }, insets: { ...insets } });
+      place(anchors, size, insets, opts) {
+        log.push({ op: 'place', anchors: anchors.map((a) => ({ ...a })), size: { ...size }, insets: { ...insets }, ...(opts?.ground ? { ground: opts.ground.map((p) => ({ ...p })) } : {}) });
       },
       hide() {
         log.push({ op: 'hide' });
@@ -62,6 +67,7 @@ vi.mock('../../src/stage/overlay', async (original) => ({
       destroy() {
         log.push({ op: 'destroy' });
       },
+      ...(stripLayers.ground ? { ground: stripLayers.ground } : {}),
     };
   },
 }));
@@ -759,6 +765,39 @@ describe('定格图的沙盘（engine.ts）', () => {
     expect(lastOf(log, 'set')!.texts).toEqual(['样市', '远镇']);
   });
 
+  it('地面的四个角：题签层是平着的纸条的那一种（带着 ground）时，每一次摆题签都交给它——照清单里这张图记的镜头、这种形状和场景的范围算的，跟着图摆进栏里；竖着的纸条的那一层一次也不交', async () => {
+    // 平常的假题签层（没有 ground）：摆了，没有带四个角
+    const plain = mount();
+    await plain.view.ready;
+    const first = lastOf(plain.log, 'place');
+    expect(first).toBeDefined();
+    expect(plain.log.filter((call) => call.op === 'place').some((call) => 'ground' in call)).toBe(false);
+    plain.view.destroy();
+
+    // 带着 ground 的那一层：交给它的四个角，就是照它自己的算法、拿清单和场景里的东西算出来的那四个
+    stripLayers.ground = stillGround;
+    try {
+      const table = fixtureStillTable();
+      const { view, log } = mount();
+      await view.ready;
+      const places = log.filter((call): call is Extract<StripCall, { op: 'place' }> => call.op === 'place');
+      expect(places.length).toBeGreaterThan(0);
+      for (const call of places) expect(call.ground, '这一次没有交地面的四个角').toHaveLength(4);
+      const manifest = table.stills!.manifest;
+      const shot = manifest.stills.find((still) => still.section === FIXTURE_HEADINGS[0] && still.shape === 'wide')!;
+      const fit = fitStill(shot, manifest.shapes.wide, manifest.made, WIDE_PANE);
+      expect(places[places.length - 1].ground).toEqual(stillGround(table.scene.frame, shot.pose, manifest.shapes.wide, fit));
+      // 换一节：四个角跟着那一节的图换
+      await view.showSection(SECOND, { animate: false });
+      const second = manifest.stills.find((still) => still.section === SECOND && still.shape === 'wide')!;
+      const fitSecond = fitStill(second, manifest.shapes.wide, manifest.made, WIDE_PANE, table.scene.sections.find((s) => s.heading === SECOND)?.camera.closest);
+      expect(lastOf(log, 'place')!.ground).toEqual(stillGround(table.scene.frame, second.pose, manifest.shapes.wide, fitSecond));
+      view.destroy();
+    } finally {
+      stripLayers.ground = null;
+    }
+  });
+
   it('排法换了（窄屏转成宽屏）：换成另一种形状的那一张，题签重摆', async () => {
     const { view, images, pane: p, log } = mount({ width: 768, height: 573, shape: 'narrow', options: { insets: insetsOf(54, 131) } });
     await view.ready;
@@ -1009,3 +1048,124 @@ describe('定格图的沙盘（engine.ts）', () => {
     view.destroy();
   });
 });
+
+// ---------------------------------------------------------------- 四  地面的四个角（平着的纸条摆在它们围成的那一块里面）
+
+// 立体的沙盘每一帧把地面的四个角投到画面上交给题签层（src/stage/three/rig.ts 的 groundCorners）。定格图那一边没有沙盘程序：
+// 照清单里记的镜头（pose）、这张图照哪种窗口拍的、场景的范围自己算（src/stage/overlay/slips.ts 的 stillGround），再照这张图现在摆在哪换到栏里。
+// 这里拿 content/ 里真的清单（四座沙盘、58 张图）查：每一张图摆进每一种标准的沙盘栏，定格图那一边算出来的四个角，
+// 和沙盘程序的投法（three 的镜头摆在清单里记的那个位置，用 groundCorners 投，再跟着这张图一起摆进栏里）差多少。上限 2 像素。
+// 比的是“这张图里的地面的四个角”：图是拍好的，摆进别的栏只是挪和缩放，角跟着图走。立体的沙盘在那种栏上自己摆镜头的话，画面本来就和图差一点
+// （题签指着的点差多少在上面第二组里查，上限 12 像素）；四个角同那样的画面差多少只印出来，不设上限。
+describe('地面的四个角：定格图那一边照清单算的，和沙盘程序投的一样', () => {
+  const CORNER_LIMIT_PX = 2;
+  const figureFiles = import.meta.glob<{ id: string }>('/content/figures/*/figure.json', { import: 'default', eager: true });
+  const tables = Object.keys(realManifests)
+    .map((path) => /^\/content\/figures\/([^/]+)\/stills\/([^/]+)\.json$/.exec(path))
+    .filter((m): m is RegExpExecArray => m !== null)
+    .map((m) => ({ key: `${m[1]}/${m[2]}`, manifest: realManifests[m[0]] }));
+
+  /** 一座沙盘的场景、范围、取高度的函数（站点沙盘、全程沙盘都认）。 */
+  const sceneOf = (key: string) => (key.endsWith('/route') ? realRouteScene(key) : realScene(key));
+  /** 一种标准的沙盘栏用宽的那张还是窄的那张（页面说的排法：窗口 960 像素以上宽、而且横着才是宽的）。 */
+  const shapeOn = (pane: StandardPane): StillShape => (pane.window.width >= 960 && pane.window.width > pane.window.height ? 'wide' : 'narrow');
+
+  it('content/ 里有清单的沙盘是四座，一共 58 张图（这一组查的就是它们）', () => {
+    expect(Object.keys(figureFiles).length).toBeGreaterThan(0);
+    expect(tables.map((t) => t.key).sort()).toEqual(['su-shi/huangzhou', 'su-shi/meishan', 'su-shi/route', 'su-shi/xuzhou']);
+    expect(tables.reduce((sum, t) => sum + t.manifest.stills.length, 0)).toBe(58);
+  });
+
+  it.each(tables)(`$key：每一张图、每一种标准的沙盘栏，四个角和沙盘程序的投法差不到 ${CORNER_LIMIT_PX} 像素（最多差多少印出来）`, ({ key, manifest }) => {
+    const R = sceneOf(key);
+    const panes: StandardPane[] = key.endsWith('/route') ? [...STANDARD_PANES, ...ROUTE_PANES] : [...STANDARD_PANES];
+    let worst = 0;
+    let worstAt = '';
+    let checked = 0;
+    let behind = 0;
+    let worstLive = 0;
+    let worstLiveAt = '';
+    for (const still of manifest.stills) {
+      const spec = manifest.shapes[still.shape];
+      const size = pictureSize(spec);
+      // 沙盘程序的投法：镜头摆在清单里记的位置，画面是整张图那么大，中心挪到留出来的那一块中间
+      const camera = new PerspectiveCamera(still.pose.fov, size.width / size.height, 60, 400000);
+      camera.position.set(...still.pose.position);
+      camera.lookAt(...still.pose.target);
+      const [shiftX, shiftY] = centreShift(shotInsets(spec));
+      if (shiftX || shiftY) camera.setViewOffset(size.width, size.height, -shiftX, -shiftY, size.width, size.height);
+      camera.updateProjectionMatrix();
+      camera.updateMatrixWorld(true);
+      // 近看一处的小节，地面有一个角在镜头背后：沙盘程序那一回不交四个角（undefined），定格图那一边也要不给
+      const inPicture = groundCorners(R.coords, camera, size);
+      if (!inPicture) behind += 1;
+      const section = (R.scene.sections as { heading: string; camera: { closest?: number } }[]).find((s) => s.heading === still.section);
+      for (const pane of panes) {
+        if (shapeOn(pane) !== still.shape) continue;
+        const stillPane: StillPane = { width: pane.size.width, height: pane.size.height, insets: pane.insets };
+        const fit = fitStill(still, spec, manifest.made, stillPane, section?.camera.closest);
+        const mine = stillGround(R.scene.frame, still.pose, spec, fit);
+        expect(mine === undefined, `${still.file} 在 ${pane.name} 上：两边给不给四个角不一样`).toBe(inPicture === undefined);
+        if (!mine || !inPicture) continue;
+        expect(mine).toHaveLength(4);
+        inPicture.forEach((corner, i) => {
+          const x = fit.left + (corner.x / size.width) * fit.width;
+          const y = fit.top + (corner.y / size.height) * fit.height;
+          const d = Math.hypot(mine[i].x - x, mine[i].y - y);
+          checked += 1;
+          if (d > worst) {
+            worst = d;
+            worstAt = `${still.file} 在 ${pane.name} 上的第 ${i + 1} 个角`;
+          }
+        });
+        // 只印出来：立体的沙盘在这种栏上自己摆镜头，四个角落在哪，和这张图里的差多少
+        const full = R.scene.sections.find((s) => s.heading === still.section);
+        if (full) {
+          const live = liveCorners(R, full as SceneSection, pane.size, pane.insets);
+          live?.forEach((corner, i) => {
+            const d = Math.hypot(mine[i].x - corner.x, mine[i].y - corner.y);
+            if (d > worstLive) {
+              worstLive = d;
+              worstLiveAt = `${still.file} 在 ${pane.name} 上的第 ${i + 1} 个角`;
+            }
+          });
+        }
+      }
+    }
+    console.log(`${key} 地面的四个角：${manifest.stills.length} 张图里有 ${behind} 张地面有一个角在镜头背后（两边都不给）；查了 ${checked} 个角，定格图那一边和沙盘程序的投法最多差 ${worst.toFixed(4)} 像素（${worstAt}）；同立体的沙盘在那种栏上自己摆出来的画面最多差 ${worstLive.toFixed(1)} 像素（${worstLiveAt}；不设上限）`);
+    expect(checked).toBeGreaterThan(0);
+    expect(worst, worstAt).toBeLessThan(CORNER_LIMIT_PX);
+  });
+
+  it('查得出毛病：镜头的视角改一度、留的空改 20 像素、比例忘了除，四个角就差出 2 像素以上', () => {
+    const { key, manifest } = tables.find((t) => t.key.endsWith('/route')) ?? tables[0];
+    const R = sceneOf(key);
+    const still = manifest.stills[0];
+    const spec = manifest.shapes[still.shape];
+    const size = pictureSize(spec);
+    const whole = { left: 0, top: 0, width: size.width, height: size.height };
+    const right = stillGround(R.scene.frame, still.pose, spec, whole);
+    if (!right) throw new Error(`${still.file}：地面有一个角在镜头背后，这一条查不了`);
+    const off = (other: { x: number; y: number }[] | undefined): number => Math.max(...(other ?? []).map((p, i) => Math.hypot(p.x - right[i].x, p.y - right[i].y)));
+    // 镜头掉过头去（从对准的那一点的另一边看）：四个角到了背后，不给
+    expect(stillGround(R.scene.frame, { ...still.pose, target: [still.pose.position[0] * 2 - still.pose.target[0], still.pose.position[1] * 2 - still.pose.target[1], still.pose.position[2] * 2 - still.pose.target[2]] }, spec, whole)).toBeUndefined();
+    expect(off(stillGround(R.scene.frame, { ...still.pose, fov: still.pose.fov + 1 }, spec, whole))).toBeGreaterThan(CORNER_LIMIT_PX);
+    expect(off(stillGround(R.scene.frame, still.pose, { ...spec, insets: [spec.insets[0] + 20, spec.insets[1], spec.insets[2], spec.insets[3]] }, whole))).toBeGreaterThan(CORNER_LIMIT_PX);
+    const frame = R.scene.frame as { westM: number; eastM: number; northM: number; southM: number; scale?: number };
+    if (frame.scale !== undefined) expect(off(stillGround({ ...frame, scale: frame.scale * 1.01 }, still.pose, spec, whole))).toBeGreaterThan(CORNER_LIMIT_PX);
+  });
+});
+
+/** 立体的沙盘在这么大的画面上摆这一节，地面的四个角落在画面的哪里（和 view.ts 每一帧交给题签层的是同一个函数）。 */
+function liveCorners(R: { scene: RealScene['scene'] | RouteScene; coords: RealScene['coords']; samplers: RealScene['samplers'] }, section: SceneSection, size: { width: number; height: number }, insets: StageInsets): { x: number; y: number }[] | undefined {
+  const style = styleFor(R.scene.style);
+  const placed = placeCamera(section, R.scene, R.samplers, R.coords, style, size, insets);
+  const camera = new PerspectiveCamera(placed.pose.fov, size.width / size.height, Math.max(60, placed.distanceM * 0.1), placed.distanceM * 3 + 30000);
+  camera.position.set(...placed.pose.position);
+  camera.lookAt(...placed.pose.target);
+  const [shiftX, shiftY] = centreShift(insets);
+  if (shiftX || shiftY) camera.setViewOffset(size.width, size.height, -shiftX, -shiftY, size.width, size.height);
+  camera.updateProjectionMatrix();
+  camera.updateMatrixWorld(true);
+  return groundCorners(R.coords, camera, size);
+}

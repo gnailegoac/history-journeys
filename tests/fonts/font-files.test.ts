@@ -457,7 +457,7 @@ describe('源文件里的写法', () => {
       'x.css | color-mix | color: color-mix(in srgb, red, blue) × 1',
       "x.css | content | content: '+' × 1",
       'x.css | font | font: bold 1rem serif × 1',
-      // 人物的字体记号不是随站的楷体打头
+      // 人物的字体记号不是网站自己带的题签用的字（随站的楷体、读正文的宋体）打头
       "x.css | font-family | --figure-font: 'Yanlu Sans', serif × 1",
       'x.css | font-family | --font-kai: … × 1',
       // :root 上的宋体记号不是随站的宋体打头
@@ -512,6 +512,19 @@ describe('源文件里的写法', () => {
       'x.css | text-decoration | text-decoration: underline dotted var(--color-accent) × 1',
       'x.css | text-wrap | text-wrap: balance × 1',
     ]);
+  });
+
+  it('人物的字体记号：打头的是网站自己带的题签用的字——随站的楷体，或者读正文的宋体（平着的纸条用它）；别的字体打头的查得出来；tokens.css 里不写人物的那一块还是楷体打头', () => {
+    // 另一位人物的一块（编的）：宋体打头，查不出毛病；设备上的宋体、随站的黑体打头的，各是一处
+    const blocks = `
+      [data-figure='made-up'] .stage-pane { --figure-font: 'Yanlu Song', 'Songti SC', serif; --figure-line: rgb(0 0 0 / 0.5); }
+      [data-figure='other'] .stage-pane { --figure-font: 'Songti SC', serif; }
+      [data-figure='third'] .stage-pane { --figure-font: 'Yanlu Sans', sans-serif; }
+    `;
+    expect(tally(scanStyle('x.css', blocks)).filter((line) => line.includes('| font-family |'))).toEqual(["x.css | font-family | --figure-font: 'Songti SC', serif × 1", "x.css | font-family | --figure-font: 'Yanlu Sans', sans-serif × 1"]);
+    // 苏轼用的那一块（tokens.css 里不写人物的 .stage-pane）：题签是竖着的纸条，字还是随站的楷体打头
+    const written = /\n\.stage-pane \{[^}]*--figure-font:\s*([^;]+);/.exec(text('src/styles/tokens.css'))?.[1] ?? '';
+    expect(written.startsWith("'Yanlu Kai'"), written).toBe(true);
   });
 
   it('样式表里每一句 @media：照窗口的宽窄分版面的都带着“横着”（竖着拿的大平板够宽，可它是上下排的版面），没有老平板不认的写法', () => {

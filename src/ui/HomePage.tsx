@@ -29,7 +29,7 @@ export function HomePage() {
   }, []);
 
   return (
-    <div className="figure-layout home-layout">
+    <div className="figure-layout home-layout" data-figure={id || undefined}>
       <main className="reading home">
         <div className="reading-inner">
           <header className="home-head">

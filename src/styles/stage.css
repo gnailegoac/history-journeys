@@ -1127,3 +1127,120 @@
   top: -1px;
   bottom: -27px;
 }
+
+/* ---------------------------------------------------------------- 平着的纸条（另一种题签） */
+
+/* 样式的登记表里写了 labels: 'slip' 的沙盘，题签那一层上记着 data-kind='slip'（src/stage/overlay/slips.ts 造的），下面的规则都照这一层挑：
+   认的是题签是哪一种，不认是哪位人物。上面竖着的纸条的规则一条没有动，也管不到这里（类名是另外的三个）。
+   一条平着的纸条（.strip-slip）里，站的号码是名字前头的圆（.strip-disc，一站一个，通到那一站的链接），名字自己包一层（.strip-name）：
+   素纸只垫在名字下面，四边一道一像素、半透的细线（颜色是人物那一套里的 --figure-line；没有写的时候是半透的墨色）。
+   字从人物的 --figure-font 取（这一种题签用的是读正文的宋体），水的名字用 --figure-water。
+   多大是算好的，Node 里摆题签的测试照同样的数算（tests/stage/support/stripSizes.ts 的 slipSize；tests/unit/page/slip-discs.test.ts 对着这里查）：
+     大的（栏宽 584px 起）：字 17px，字距 0.06em，上垫 0.24em、右 0.42em、下 0.3em、左 0.46em，加一圈 1px 的边 → 高 28，宽 18.02 × 字数 + 17；
+       一个圆 19px、右边空 2px → 再加 21；两个圆之间再空 1px；
+     小的（栏不到 584px 宽）：字 14px → 高 24，宽 14.84 × 字数 + 14；一个圆 16px → 加 18；
+     没有点的名字（一座山脉、一个国、一片海：元素上记着 data-area）字距拉到 0.22em、右垫 0.3em → 17px 时宽 20.74 × 字数 + 15。
+   圆按得到的地方比它大：44px 高；单独一个是 44px 见方；两个并排，头一个从它左边 12.5px 起、到两个圆的正中间，后一个从正中间起、到名字那一块为止
+   （不盖着名字：按在名字上的哪里，都是头一站）。
+   是站的地名，它指的那一点（圆点上记着 data-stop）是印的颜色；别的点照上面的规则是墨色，大小都不变。 */
+[data-kind='slip'] .strip-slip {
+  color: var(--figure-ink, #28231f);
+  font-family: var(--figure-font, 'Songti SC', 'Noto Serif CJK SC', 'SimSun', serif);
+  font-size: 17px;
+  line-height: 1;
+}
+
+[data-kind='slip'] .strip-slip.has-seals {
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+[data-kind='slip'] .strip-name {
+  padding: 0.24em 0.42em 0.3em 0.46em;
+  border: 1px solid var(--figure-line, rgb(40 35 31 / 0.5));
+  background-color: var(--figure-strip, #faf5e7);
+  letter-spacing: 0.06em;
+}
+
+[data-kind='slip'] .strip-slip[data-area] .strip-name {
+  padding-right: 0.3em;
+  letter-spacing: 0.22em;
+}
+
+/* 水名。 */
+[data-kind='slip'] .strip-slip[data-tone='water'] {
+  color: var(--figure-water, #3e6072);
+}
+
+/* 沙盘外面的远处：那一道细线是虚线。 */
+[data-kind='slip'] .strip-slip[data-tone='far'] .strip-name {
+  border-style: dashed;
+}
+
+/* 站的号码：圆。写好了的站是实心的，还没写的只有一圈边；这一小节讲的那一站，外面多一圈墨线（隔着一圈纸色）。 */
+[data-kind='slip'] .strip-disc {
+  position: relative;
+  flex: none;
+  width: 19px;
+  height: 19px;
+  margin-right: 2px;
+  border-radius: 50%;
+  background-color: var(--figure-strip, #faf5e7);
+  box-shadow: inset 0 0 0 1.5px var(--figure-mark, #b03a2a);
+  color: var(--figure-mark, #b03a2a);
+  font-size: 13px;
+  line-height: 19px;
+  letter-spacing: 0;
+  text-align: center;
+  text-decoration: none;
+}
+
+[data-kind='slip'] .strip-disc + .strip-disc {
+  margin-left: 1px;
+}
+
+[data-kind='slip'] .strip-disc[data-filled='true'] {
+  background-color: var(--figure-mark, #b03a2a);
+  color: var(--figure-strip, #faf5e7);
+}
+
+[data-kind='slip'] .strip-disc[data-here='true'] {
+  box-shadow: inset 0 0 0 1.5px var(--figure-mark, #b03a2a), 0 0 0 1px var(--figure-strip, #faf5e7), 0 0 0 2px var(--figure-ink, #28231f);
+}
+
+[data-kind='slip'] .strip-disc::after {
+  content: '';
+  position: absolute;
+  inset: -12.5px;
+}
+
+[data-kind='slip'] .strip-disc + .strip-disc::after {
+  right: -2px;
+  left: -1.5px;
+}
+
+/* 是站的地名：那一点是印的颜色。 */
+[data-kind='slip'] .strip-leaders circle[data-stop] {
+  fill: var(--figure-mark, #b03a2a);
+}
+
+/* 栏窄时小一号。 */
+.stage-pane:not(.is-wide) [data-kind='slip'] .strip-slip {
+  font-size: 14px;
+}
+
+.stage-pane:not(.is-wide) [data-kind='slip'] .strip-disc {
+  width: 16px;
+  height: 16px;
+  font-size: 11px;
+  line-height: 16px;
+}
+
+.stage-pane:not(.is-wide) [data-kind='slip'] .strip-disc::after {
+  inset: -14px;
+}
+
+.stage-pane:not(.is-wide) [data-kind='slip'] .strip-disc + .strip-disc::after {
+  right: -2px;
+  left: -1.5px;
+}

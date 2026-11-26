@@ -16,7 +16,9 @@ import { describe, expect, it } from 'vitest';
 import type { NamesMode, RouteSection, SceneStrip } from '../../src/domain/scene';
 import { NOTE_BRIEF_MAX, NOTE_SHORT_MAX, sectionInfo, stripTexts } from '../../src/domain/sceneText';
 import { placeStrips } from '../../src/stage/overlay';
-import type { StripInput, StripPlacement } from '../../src/stage/overlay';
+import type { LabelKind, StripInput, StripPlacement } from '../../src/stage/overlay';
+import { placeSlips } from '../../src/stage/overlay/slips';
+import { labelKind } from '../../src/stage/styles';
 import type { Vec3 } from '../../src/stage/ground/types';
 import { centreShift, equivalentDistance, framePoints, placeCamera, project, screenAnchors, wholeTable } from '../../src/stage/three/rig';
 import { styleFor } from './support/styles';
@@ -148,10 +150,23 @@ function faults(input: StripInput, result: StripPlacement[], pane: Pane, text: (
 }
 
 /**
- * 站名站到别的站那一边去了：两个站的题签差不多一样高（中心上下差不到 90 像素），左右的先后却和它们指的两个点相反
+ * 这座沙盘的题签照哪一套摆法摆：题签是哪一种，照它的样式从登记表查（src/stage/styles.ts）。竖着的纸条是 placeStrips；
+ * 平着的纸条是它自己的那一套（src/stage/overlay/slips.ts 的 placeSlips）。题签多大也是照这一种算的（./support/stripSizes.ts 的 routeSectionStrips）。
+ */
+const placeLabels = (R: RealRouteScene, input: StripInput): StripPlacement[] => (labelKind(R.scene.style) === 'slip' ? placeSlips : placeStrips)(input);
+
+/**
+ * 两条题签的中心上下差不到这么多像素，算“差不多一样高”（下面查站名左右站没站反用的）。这是题签有多高定的数，一种题签一个：
+ * 竖着的纸条 90——那是竖着的纸条的数：带印的站名有七十到九十几像素高，上下差不到 90 像素的两条在画面上看着就是并排的；
+ * 平着的纸条只有 28 像素高，上下差不到 28 像素的两条才算并排。
+ */
+const SAME_ROW_PX: Record<LabelKind, number> = { strip: 90, slip: 28 };
+
+/**
+ * 站名站到别的站那一边去了：两个站的题签差不多一样高（中心上下差不到 row 像素：竖着的纸条是 90，见 SAME_ROW_PX），左右的先后却和它们指的两个点相反
  *（两个点、两条题签左右都差 12 像素以上才算）。孩子会把名字读到另一站头上去。sealed 是带着站号的印的那几条（就是站名）。
  */
-function wrongSides(input: StripInput, result: StripPlacement[], sealed: Set<string>, text: (id: string) => string): string[] {
+function wrongSides(input: StripInput, result: StripPlacement[], sealed: Set<string>, text: (id: string) => string, row: number): string[] {
   const stops = result.flatMap((p, i) => (!p.hidden && sealed.has(p.id) ? [{ p, dot: input.anchors[i] }] : []));
   const found: string[] = [];
   for (let i = 0; i < stops.length; i++) {
@@ -160,7 +175,7 @@ function wrongSides(input: StripInput, result: StripPlacement[], sealed: Set<str
       const b = stops[j];
       const dots = a.dot.x - b.dot.x;
       const strips = a.p.x - b.p.x;
-      if (Math.abs(a.p.y - b.p.y) < 90 && Math.abs(dots) > 12 && Math.abs(strips) > 12 && Math.sign(dots) !== Math.sign(strips)) found.push(`“${text(a.p.id)}”和“${text(b.p.id)}”左右站反了`);
+      if (Math.abs(a.p.y - b.p.y) < row && Math.abs(dots) > 12 && Math.abs(strips) > 12 && Math.sign(dots) !== Math.sign(strips)) found.push(`“${text(a.p.id)}”和“${text(b.p.id)}”左右站反了`);
     }
   }
   return found;
@@ -342,7 +357,7 @@ describe.each(realSceneKeys('route'))('%s 的题签', (key) => {
       for (const section of R.scene.sections) {
         const { input, text } = arranged(R, section, pane, names);
         expect(input.strips.map((s) => s.id), section.heading).toEqual(section.strips);
-        const result = placeStrips(input);
+        const result = placeLabels(R, input);
         for (const p of result) if (p.hidden) problems.push(`${section.heading}：“${text(p.id)}”${p.why === 'room' ? '摆不下' : '指的那一点不在画面里'}`);
         for (const fault of faults(input, result, pane, text)) problems.push(`${section.heading}：${fault}`);
       }
@@ -354,7 +369,7 @@ describe.each(realSceneKeys('route'))('%s 的题签', (key) => {
       const long: string[] = [];
       for (const section of R.scene.sections) {
         const { input, text } = arranged(R, section, pane, names);
-        for (const p of placeStrips(input)) {
+        for (const p of placeLabels(R, input)) {
           if (!p.hidden && leaderPx(p) > ROUTE_LEADER_MAX_PX) long.push(`${section.heading}：“${text(p.id)}”的引线 ${leaderPx(p).toFixed(0)} 像素`);
         }
       }
@@ -372,7 +387,7 @@ describe.each(realSceneKeys('route'))('%s 的题签', (key) => {
         const longest: string[] = [];
         for (const section of R.scene.sections) {
           const { input, text } = arranged(R, section, pane, names);
-          const result = placeStrips(input);
+          const result = placeLabels(R, input);
           asked += input.strips.length;
           shown += result.filter((p) => !p.hidden).length;
           const worst = result.reduce((best, p) => (leaderPx(p) > leaderPx(best) ? p : best), result[0]);
@@ -405,7 +420,7 @@ describe.each(realSceneKeys('route'))('%s 的题签', (key) => {
       const lines: string[] = [];
       for (const section of R.scene.sections) {
         const { input, text } = arranged(R, section, pane, names);
-        const result = placeStrips(input);
+        const result = placeLabels(R, input);
         for (const p of result) if (p.hidden) problems.push(`${section.heading}：“${text(p.id)}”${p.why === 'room' ? '摆不下' : '指的那一点不在画面里'}`);
         const worst = result.reduce((best, p) => (leaderPx(p) > leaderPx(best) ? p : best), result[0]);
         lines.push(`${section.heading} ${leaderPx(worst).toFixed(0)}（${text(worst.id)}）`);
@@ -428,7 +443,7 @@ describe.each(realSceneKeys('route'))('%s 在首页上', (key) => {
       for (const section of R.scene.sections) {
         const { input, text } = arranged(R, section, pane, names);
         expect(input.strips.map((s) => s.id), section.heading).toEqual(section.strips);
-        const result = placeStrips(input);
+        const result = placeLabels(R, input);
         for (const p of result) if (p.hidden) problems.push(`${section.heading}：“${text(p.id)}”${p.why === 'room' ? '摆不下' : '指的那一点不在画面里'}`);
         for (const fault of faults(input, result, pane, text)) problems.push(`${section.heading}：${fault}`);
         for (const p of result) if (!p.hidden && leaderPx(p) > ROUTE_LEADER_MAX_PX) problems.push(`${section.heading}：“${text(p.id)}”的引线 ${leaderPx(p).toFixed(0)} 像素`);
@@ -480,7 +495,7 @@ describe.each(realSceneKeys('route'))('%s：“全程”那一节的站名', (ke
       const R = realRouteScene(key);
       const section = R.scene.sections[0];
       const { input, text } = arranged(R, section, pane, names);
-      const result = placeStrips(input);
+      const result = placeLabels(R, input);
       const sealed = new Set(stripTexts(R.scene, section.heading, names).flatMap((t) => (t.stops?.length ? [t.id] : [])));
       // 有带着印的站名（这一座是几站，写着名字的那一组查；每一站都有印，在“站号的印”那一组查）
       expect(sealed.size, '头一节里要有带着印的站名').toBeGreaterThan(0);
@@ -488,7 +503,7 @@ describe.each(realSceneKeys('route'))('%s：“全程”那一节的站名', (ke
       for (const p of result) if (p.hidden) problems.push(`“${text(p.id)}”${p.why === 'room' ? '摆不下' : '指的那一点不在画面里'}`);
       problems.push(...faults(input, result, pane, text));
       for (const p of result) if (!p.hidden && leaderPx(p) > ROUTE_LEADER_MAX_PX) problems.push(`“${text(p.id)}”的引线 ${leaderPx(p).toFixed(0)} 像素`);
-      problems.push(...wrongSides(input, result, sealed, text));
+      problems.push(...wrongSides(input, result, sealed, text, SAME_ROW_PX[labelKind(R.scene.style)]));
       expect(problems).toEqual([]);
     });
   });
@@ -512,7 +527,7 @@ describe.each(realSceneKeys('route'))('%s：“全程”那一节的站名', (ke
     const lines = WHOLE_VIEW.map((pane) => {
       const cells = NAMES.map((names) => {
         const { input, text } = arranged(R, section, pane, names);
-        const result = placeStrips(input);
+        const result = placeLabels(R, input);
         const worst = result.reduce((best, p) => (leaderPx(p) > leaderPx(best) ? p : best), result[0]);
         return `${leaderPx(worst).toFixed(0)}（${text(worst.id)}）`;
       });

@@ -8,7 +8,7 @@ import type { FrameCoords } from '../../src/domain/sceneGeo';
 import type { GroundSamplers } from '../../src/stage/ground/types';
 import { mountStrips, placeStrips, sideOfSlot } from '../../src/stage/overlay';
 import type { StripInput, StripPlacement, StripSpec } from '../../src/stage/overlay';
-import { PIECE_NAME } from '../../src/stage/overlay/placeAround';
+import { PIECE_NAME, aroundPiece } from '../../src/stage/overlay/placeAround';
 import { centreShift, equivalentDistance, placeCamera, screenAnchors } from '../../src/stage/three/rig';
 import { styleFor } from '../stage/support/styles';
 import type { StageInsets } from '../../src/stage/types';
@@ -1609,6 +1609,45 @@ describe('沙盘上另有东西占着画面的一块（avoid：全程沙盘上�
       expect(tables.length).toBeGreaterThanOrEqual(4);
       for (const key of tables) expect(all.some((x) => x.at.startsWith(`${key} `) && x.input.strips.length > 0), key).toBe(true);
       console.log(`不给 avoid 和给空的 avoid：${tables.length} 座沙盘，${all.length} 个画面，${placements} 条题签，摆出来的一个数不差`);
+    },
+    60_000,
+  );
+
+  it(
+    '不给 ground、给了 ground，不给 area、每一条都写上 area：竖着的纸条的摆法摆出来的和原来一个数不差（四座沙盘、每一种标准的画面、古今两种名字）；让开小像的那一个不交摆法、交 placeStrips 也一样',
+    () => {
+      // 这两样是给另一种题签（平着的纸条）添的：地面的四个角，和“这个名字没有点”。竖着的纸条的摆法不看它们
+      const all = everyRealInput();
+      let placements = 0;
+      for (const { at: where, input: given } of all) {
+        expect('ground' in given, where).toBe(false);
+        expect(given.strips.some((s) => 'area' in s), where).toBe(false);
+        const plain = placeStrips(given);
+        placements += plain.length;
+        const { width, height } = given.size;
+        // 一块很小的地面（画面正中的四十像素见方）：要是摆法看了它，没有一条摆得进去
+        const small = [
+          { x: width / 2 - 20, y: height / 2 - 20 },
+          { x: width / 2 + 20, y: height / 2 - 20 },
+          { x: width / 2 + 20, y: height / 2 + 20 },
+          { x: width / 2 - 20, y: height / 2 + 20 },
+        ];
+        const everyArea = given.strips.map((s) => ({ ...s, area: true }));
+        expect(placeStrips({ ...given, ground: small }), `${where}：给了 ground`).toEqual(plain);
+        expect(placeStrips({ ...given, ground: undefined }), `${where}：ground 写成 undefined`).toEqual(plain);
+        expect(placeStrips({ ...given, strips: everyArea }), `${where}：每一条都写上 area`).toEqual(plain);
+        expect(placeStrips({ ...given, strips: everyArea, ground: small }, plain), `${where}：接着上一次摆`).toEqual(placeStrips(given, plain));
+        expect(placeStrips({ ...given, strips: everyArea, ground: small }, plain, { moving: true }), `${where}：手还按着`).toEqual(placeStrips(given, plain, { moving: true }));
+        // 让开小像的那一个：它多接的那一样（拿哪一套摆法去让）不给，和给 placeStrips，摆出来的一样；给了 ground 也一样
+        const stand: AvoidBox = { x0: width / 2 - 10, y0: height / 2 - 36, x1: width / 2 + 10, y1: height / 2 + 8 };
+        const around = aroundPiece()({ ...given, avoid: [stand] });
+        expect((aroundPiece() as (...args: [...Parameters<typeof placeStrips>, typeof placeStrips]) => StripPlacement[])({ ...given, avoid: [stand] }, undefined, undefined, placeStrips), `${where}：让开小像，交 placeStrips`).toEqual(around);
+        expect(aroundPiece()({ ...given, avoid: [stand], ground: small }), `${where}：让开小像，给了 ground`).toEqual(around);
+      }
+      const tables = [...realSceneKeys(), ...realSceneKeys('route')];
+      expect(tables.length).toBeGreaterThanOrEqual(4);
+      for (const key of tables) expect(all.some((x) => x.at.startsWith(`${key} `) && x.input.strips.length > 0), key).toBe(true);
+      console.log(`不给和给了 ground、area：${tables.length} 座沙盘，${all.length} 个画面，${placements} 条题签，摆出来的一个数不差`);
     },
     60_000,
   );

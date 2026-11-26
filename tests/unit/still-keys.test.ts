@@ -658,6 +658,9 @@ describe('磁盘上的文件各归哪一类：样式、零件、全程沙盘才�
     'src/stage/index.ts',
     'src/stage/overlay/index.ts',
     'src/stage/overlay/placeStrips.ts',
+    // 另一种题签（平着的纸条）的那一小块（2026-11-26 添的）：同这个文件夹里别的几个一样是题签的事——题签是页面上的字，拍的时候藏着，
+    // 图里没有它们；清单里记的只是每条题签指着的那一点，那一点是沙盘程序投的，不是它算的
+    'src/stage/overlay/slips.ts',
     'src/stage/overlay/strips.ts',
     'src/stage/still/engine.ts',
     'src/stage/still/fit.ts',

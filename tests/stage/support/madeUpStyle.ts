@@ -6,7 +6,7 @@
 // 这个文件交出来的 style 就是那一半，写法和登记表里一行的 loadRoute 取到的文件一样。
 
 import type { RoadLineNow, RoadPattern, RouteStyle, TableStyle } from '../../../src/stage/three/internal';
-import type { StyleEntry } from '../../../src/stage/three/style';
+import type { StyleRow } from '../../../src/stage/styles';
 import { style as borrowed } from '../../../src/stage/three/style/song-qinglv/song-qinglv-route';
 
 export const MADE_UP_STYLE_ID = 'made-up-lines';
@@ -87,11 +87,16 @@ const ROUTE: RouteStyle = {
 /** 这种编出来的样式里每一座沙盘都用的那一半（它只有这一半）。 */
 export const style: TableStyle = { ...borrowed, id: MADE_UP_STYLE_ID, route: ROUTE };
 
-/** 交给沙盘程序的单子：只有这一种。它没有站点沙盘才用的那一半，取整套的拒绝。 */
-export const MADE_UP_STYLES: readonly StyleEntry[] = [
+/**
+ * 交给沙盘程序的单子：只有这一种。它没有站点沙盘才用的那一半，取整套的拒绝。
+ * 这一行的写法和登记表里的一行一样（src/stage/styles.ts 的 StyleRow）：它写了 labels: 'slip'——写着这种样式的沙盘，题签是平着的纸条。
+ * 要问“这座编出来的沙盘的题签是哪一种”，把这张单子交给 labelKind(样式的名字, MADE_UP_STYLES)，和页面查登记表是同一个函数。
+ */
+export const MADE_UP_STYLES: readonly StyleRow[] = [
   {
     id: MADE_UP_STYLE_ID,
     load: () => Promise.reject(new Error(`样式“${MADE_UP_STYLE_ID}”是测试里编出来的，只有全程沙盘用的那一半`)),
     loadRoute: () => Promise.resolve({ style }),
+    labels: 'slip',
   },
 ];

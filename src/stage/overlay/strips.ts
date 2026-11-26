@@ -15,9 +15,21 @@ import type { TableScene } from '../../domain/scene';
 import type { StripText } from '../../domain/sceneText';
 import type { StageInsets, StopMark } from '../types';
 import { placeStrips } from './placeStrips';
-import type { StripInput, StripLayer, StripPlacement, StripSeal, StripSpec } from './types';
+import type { LabelKitMaker, StripInput, StripLayer, StripPlacement, StripPlacer, StripSeal, StripSpec } from './types';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
+
+/**
+ * 另一种题签（平着的纸条，./slips.ts，写了这一种的沙盘才下载）是页面那一边取来、记在容器上的（src/stage/index.ts）：
+ * 挂在这个容器里的那一层题签就照它造、照它摆。root 是那一层的元素（它在上面记下自己是哪一种，样式表照着挑）。
+ * 没有记的容器（竖着的纸条的沙盘从来不记），下面的每一处都照原来的走。
+ * 记了就不收回——靠的是一个容器从头到尾只摆一座沙盘：沙盘栏换一座沙盘就换一个容器（src/ui/StagePane.tsx 里那一层的 key 是沙盘的 key）。
+ * 哪一天要在同一个容器里先后摆两座题签不是一种的沙盘，这里得添“收回”（竖着的纸条的沙盘摆之前把记的拿掉）。
+ */
+const kits = new WeakMap<HTMLElement, LabelKitMaker>();
+export function labelsIn(container: HTMLElement, kit: LabelKitMaker): void {
+  kits.set(container, kit);
+}
 
 /** 空心的圈：半径，和两层的样子（底下一圈纸色的衬边，深色的地面上也看得见；上面一圈墨色的线）。颜色和实心的点用同样的两个。 */
 const RING_RADIUS = '4.2';
@@ -79,6 +91,8 @@ export function sectionStripSpecs(scene: TableScene, heading: string, texts: Str
       if (mark) seals.push({ stop, label: mark.label, href: mark.href, filled: mark.written, here: stop === here, title: mark.title });
     }
     if (seals.length > 0) spec.seals = seals;
+    // 地名点写了“这个名字没有点”的，和指着海的名字，指的是一片地方，不是一点（平着的纸条才看这一项，见 ./types.ts 的 StripSpec.area）
+    if (t.area || written?.of === 'coast') spec.area = true;
     return spec;
   });
 }
@@ -87,12 +101,15 @@ export function sectionStripSpecs(scene: TableScene, heading: string, texts: Str
  * 在沙盘的容器里挂一层题签。只往 container 里面添东西，destroy 时把自己添的都拿走。
  * place 是算位置的函数：不给就是 placeStrips；全程沙盘交进来的是“小像停着的时候只挪碰着他的那几条”的那一个（./placeAround.ts）。
  */
-export function mountStrips(container: HTMLElement, place: typeof placeStrips = placeStrips): StripLayer {
+export function mountStrips(container: HTMLElement, place: StripPlacer = placeStrips): StripLayer {
   const doc = container.ownerDocument;
 
   const root = doc.createElement('div');
   root.className = 'strips';
   root.style.cssText = 'position:absolute;inset:0;overflow:hidden;pointer-events:none';
+  // 这个容器记着另一种题签的：照它造、照它摆（摆法套在交进来的那一个外面）
+  const kit = kits.get(container)?.(root);
+  if (kit) place = kit.place(place);
 
   const svg = doc.createElementNS(SVG_NS, 'svg');
   svg.setAttribute('class', 'strip-leaders');
@@ -110,12 +127,13 @@ export function mountStrips(container: HTMLElement, place: typeof placeStrips = 
 
   let items: Item[] = [];
   // 上一次 place 给的位置。换一批题签、重新量大小以后，先照它摆。
-  let last: { anchors: StripInput['anchors']; size: StripInput['size']; insets: StageInsets; moving: boolean; avoid?: StripInput['avoid'] } | null = null;
+  let last: { anchors: StripInput['anchors']; size: StripInput['size']; insets: StageInsets; moving: boolean; avoid?: StripInput['avoid']; ground?: StripInput['ground'] } | null = null;
   let placements: StripPlacement[] | undefined;
   // hide() 之后、下一次 place 之前。
   let concealed = false;
 
-  function make(spec: StripSpec): Item {
+  /** 竖着的纸条的元素。 */
+  function strip(spec: StripSpec): HTMLDivElement {
     const el = doc.createElement('div');
     el.className = 'strip';
     el.dataset.stripId = spec.id;
@@ -139,7 +157,10 @@ export function mountStrips(container: HTMLElement, place: typeof placeStrips = 
         el.append(a);
       }
     }
+    return el;
+  }
 
+  function make(spec: StripSpec): Item {
     const under = doc.createElementNS(SVG_NS, 'path');
     under.style.cssText = LEADER_UNDER_STYLE;
     under.style.display = 'none';
@@ -171,6 +192,7 @@ export function mountStrips(container: HTMLElement, place: typeof placeStrips = 
       ring.append(circle);
     }
 
+    const el = kit ? kit.make(doc, spec, dot) : strip(spec);
     svg.append(under, line, halo, arrow, dot, ring);
     root.append(el);
     return { spec, el, under, line, dot, arrow, halo, ring, w: 0, h: 0 };
@@ -269,7 +291,7 @@ export function mountStrips(container: HTMLElement, place: typeof placeStrips = 
     if (!last) return;
     // 传进来的先后就是要紧的先后。
     const strips = items.map((item, rank) => ({ id: item.spec.id, w: item.w, h: item.h, rank, side: item.spec.side, lean: item.spec.lean }));
-    const placed = place({ strips, anchors: last.anchors, size: last.size, insets: last.insets, avoid: last.avoid }, placements, { moving: last.moving });
+    const placed = place({ strips, anchors: last.anchors, size: last.size, insets: last.insets, avoid: last.avoid, ground: last.ground }, placements, { moving: last.moving });
     placements = placed;
     items.forEach((item, i) => show(item, placed[i]));
   }
@@ -310,7 +332,8 @@ export function mountStrips(container: HTMLElement, place: typeof placeStrips = 
       // 画面大小变了，题签的字号可能跟着变，重新量一遍。
       if (last && (last.size.width !== size.width || last.size.height !== size.height)) measure();
       // 不许压的那几块（小像）也抄一份：换古今名字、重新量大小以后照它再摆
-      last = { anchors: anchors.map(copyAnchor), size: { ...size }, insets: { ...insets }, moving: opts?.moving === true, avoid: opts?.avoid?.map((box) => ({ ...box })) };
+      // 地面的四个角不抄：交的人每一次都交新的一份
+      last = { anchors: anchors.map(copyAnchor), size: { ...size }, insets: { ...insets }, moving: opts?.moving === true, avoid: opts?.avoid?.map((box) => ({ ...box })), ground: opts?.ground };
       concealed = false;
       arrange();
     },
@@ -326,6 +349,8 @@ export function mountStrips(container: HTMLElement, place: typeof placeStrips = 
       measure();
       if (!concealed) arrange();
     },
+
+    ground: kit?.ground,
 
     destroy() {
       root.remove();

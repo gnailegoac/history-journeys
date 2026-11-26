@@ -16,7 +16,7 @@ import type { Figure, LngLat } from '../../src/domain/types';
 import { kilobytes, megabytes } from './budgetRules';
 import { CLASS_LIST, GROUNDS, HAN, LINE_MAX, NEEDS_SOURCE, STYLE_IDS, TERRAIN_MAX_BYTES, WORDS_MAX, insideRing, samePoint, textWidth, toLine, unsureProblem } from './sceneRules';
 import type { XZ } from './sceneRules';
-import { checkShape, has, list, lngLat, lngLatProblem, number, numberIn, oneOf, optional, record, strict, tagged, text, violation } from './shape';
+import { bool, checkShape, has, list, lngLat, lngLatProblem, number, numberIn, oneOf, optional, record, strict, tagged, text, violation } from './shape';
 import type { ContentFiles, FileSizes, Shape, Violation } from './shape';
 
 /** 一节最多摆几条题签（规则 15）。站点沙盘是六条。 */
@@ -129,7 +129,7 @@ const ROUTE: Shape = strict({
     lakes: list(strict({ ...GROUNDS, id: text, name: text, today: list(PICK), except: optional(strict({ ...GROUNDS, id: text, name: text, area: RING })) })),
     washes: list(strict({ ...GROUNDS, id: text, name: text, areas: list(RING) })),
   }),
-  places: list(strict({ ...GROUNDS, id: text, name: text, at: lngLat, stops: optional(list(text)) })),
+  places: list(strict({ ...GROUNDS, id: text, name: text, at: lngLat, stops: optional(list(text)), area: optional(bool) })),
   strips: list(strict({ id: text, text, modern: optional(text), of: text, at: optional(lngLat), side: optional(oneOf(['above', 'below', 'left', 'right'])) })),
   far: list(strict({ ...GROUNDS, id: text, name: text, at: lngLat, gloss: optional(text) })),
   roads: strict({
@@ -678,7 +678,8 @@ function wayRef(written: string): { id: string; reversed: boolean } {
  * 最后一点不重复第一点；只染水色的水至少一圈；
  * 一截路至少两个点；along 指的是场景里的一条河或一个湖；每一截路都有哪一趟走到；
  * 一趟路至少一截、写了时间，每一截至少一截路，写的路都找得到；一趟路里后一截路的头接着前一截路的尾（差不到 1 公里）；
- * 每一趟路到的那一站是 figure.json 里有的，每一站至少有一趟路；地名点的 stops 写的都是 figure.json 里有的站。
+ * 每一趟路到的那一站是 figure.json 里有的，每一站至少有一趟路；地名点的 stops 写的都是 figure.json 里有的站；
+ * 地名点的 area（这个名字没有点）只能写 true，写了它的不能又写 stops。
  */
 export function checkRouteParts(scene: RouteScene, file: string, stops: string[]): Violation[] {
   const out: Violation[] = [];
@@ -741,6 +742,10 @@ export function checkRouteParts(scene: RouteScene, file: string, stops: string[]
       if (!stops.includes(stop)) bad(`places[${i}].stops[${j}]`, `地名点“${place.id}”写的站“${stop}”在 figure.json 里找不到`);
       else if (place.stops !== undefined && place.stops.indexOf(stop) < j) bad(`places[${i}].stops[${j}]`, `地名点“${place.id}”的 stops 里“${stop}”写了不止一次`);
     });
+    // 这个名字没有点（area）：只能写 true；是站的地方不能写（它的题签要指着那一点）
+    const area: unknown = place.area;
+    if (area !== undefined && area !== true) bad(`places[${i}].area`, `地名点“${place.id}”的 area 只能写 true（这个名字指的是一片地方，没有点）；不要这个记号就不写这个字段`);
+    else if (area === true && place.stops !== undefined) bad(`places[${i}].area`, `地名点“${place.id}”写了 area（这个名字没有点），又写了 stops：一站是一个地方，它的题签要指着那一点；两样只能写一样`);
   });
 
   // 路

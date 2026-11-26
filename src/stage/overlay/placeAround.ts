@@ -30,7 +30,7 @@
 // 不然挪过的几条会带着新位置去占别人的地方。所以这里造出来的是一个带着记性的函数，一层题签用一个。
 
 import { placeStrips } from './placeStrips';
-import type { StripInput, StripPlacement } from './types';
+import type { StripInput, StripPlacement, YieldingPlacer } from './types';
 
 type Box = NonNullable<StripInput['avoid']>[number];
 type Line = readonly [number, number, number, number];
@@ -89,11 +89,16 @@ export const SLOTS = [...Array(400).keys()].sort((a, b) => order(a) - order(b));
 /** 一条摆好的题签的引线多长（像素）；没有引线是 0。 */
 const reach = (p: StripPlacement): number => (p.leader ? Math.hypot(p.leader[2] - p.leader[0], p.leader[3] - p.leader[1]) : 0);
 
-/** 造一个“让开小像”的摆法（一层题签用一个）。没有给 avoid 的时候，它摆出来的就是 placeStrips 摆出来的。 */
-export function aroundPiece(): StripPlacer {
+/**
+ * 造一个“让开小像”的摆法（一层题签用一个）。没有给 avoid 的时候，它摆出来的就是 placeStrips 摆出来的。
+ * 造出来的函数可以多接一样（第四个）：place，拿哪一套摆法去让。不给就是 placeStrips，同原来一个数不差；
+ * 另一种题签（平着的纸条，./slips.ts）把它自己的摆法交进来，上面说的每一步就都照那一套摆。
+ * 它身上带着 yields 这个记号（./types.ts 的 YieldingPlacer）：另一种题签靠这个记号认出它，别的摆法它一律换成自己的。
+ */
+export function aroundPiece(): YieldingPlacer {
   /** 上一回照“没有小像”摆出来的那一份。 */
   let without: StripPlacement[] | undefined;
-  return (input, prev, opts) => {
+  const around = (input: StripInput, prev?: StripPlacement[], opts?: { moving?: boolean }, place: StripPlacer = placeStrips): StripPlacement[] => {
     const boxes = input.avoid ?? [];
     /** 引线落在他身上的那一截不画。 */
     const trim = (p: StripPlacement): StripPlacement => {
@@ -106,7 +111,7 @@ export function aroundPiece(): StripPlacer {
     const self = last?.id === PIECE_NAME ? last : undefined;
     const strips = self ? input.strips.slice(0, -1) : input.strips;
     // 题签层说“没有上一回”（刚换了一批、镜头刚滑到）：这里也从头摆
-    const base = placeStrips({ ...input, strips, avoid: undefined }, prev && (without ?? prev), opts);
+    const base = place({ ...input, strips, avoid: undefined }, prev && (without ?? prev), opts);
     without = base;
     if (boxes.length === 0) return self ? [...base, { id: PIECE_NAME, x: 0, y: 0, hidden: true, leader: null, why: 'unseen' }] : base;
     // 手真的还在动沙盘的时候，碰着他的也不重新挑：上一回挪到的号还空着就留在那里，不然先留在第一步的地方
@@ -115,7 +120,7 @@ export function aroundPiece(): StripPlacer {
     const aside = (avoid: Box[], max = LEADER_MAX_PX): { out: StripPlacement[]; far: boolean; stuck: boolean } => {
       const hit = base.map((p, i) => !!p.leader && avoid.some((box) => touches(p.x, p.y, strips[i].w, strips[i].h, p.leader as Line, box)));
       const first = strips.map((strip, i) => (hit[i] ? strip : { ...strip, rank: strip.rank - FIRST }));
-      const again = hit.includes(true) ? placeStrips({ ...input, strips: first, avoid }, base.flatMap((p, i) => (hit[i] ? kept(p.id) : [p])), { moving: true }) : base;
+      const again = hit.includes(true) ? place({ ...input, strips: first, avoid }, base.flatMap((p, i) => (hit[i] ? kept(p.id) : [p])), { moving: true }) : base;
       // 找不到位置的留在原处
       const out = again.map((p, i) => (hit[i] && p.hidden ? base[i] : p));
       return { out, far: out.some((p, i) => hit[i] && reach(p) > max), stuck: again.some((p, i) => hit[i] && p.hidden) };
@@ -146,7 +151,7 @@ export function aroundPiece(): StripPlacer {
       };
       // 他自己的名字：别的都带着号、排在前头，留在原处；它在剩下的地方里挑
       const rest = { ...input, strips: [...strips.map((strip) => ({ ...strip, rank: strip.rank - FIRST })), self] };
-      const after = placeStrips(rest, [...out, ...kept(PIECE_NAME)], { moving: true });
+      const after = place(rest, [...out, ...kept(PIECE_NAME)], { moving: true });
       const mine = trim(after[strips.length]);
       /**
        * 照先后一个号一个号地试：它站得上去、离他近、不挨着别的地名点，摆出来的一份又算数的，头一个就是。
@@ -154,7 +159,7 @@ export function aroundPiece(): StripPlacer {
        */
       const seek = (first?: boolean): StripPlacement[] | false | undefined => {
         for (const slot of SLOTS) {
-          const q = trim(placeStrips(first ? lead : rest, [...(first ? [] : out), { ...mine, slot }], { moving: true })[strips.length]);
+          const q = trim(place(first ? lead : rest, [...(first ? [] : out), { ...mine, slot }], { moving: true })[strips.length]);
           const all = near(q) && !shy(q) && (first ? beside(q) : [...out.map(trim), q]);
           if (all) return all;
         }
@@ -171,6 +176,7 @@ export function aroundPiece(): StripPlacer {
       far = true;
     }
     // 整个重摆：每一条都躲着他重新挑
-    return (far ? placeStrips(lead, opts?.moving ? prev : undefined, opts) : out).map(trim);
+    return (far ? place(lead, opts?.moving ? prev : undefined, opts) : out).map(trim);
   };
+  return Object.assign(around, { yields: true as const });
 }

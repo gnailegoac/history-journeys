@@ -30,9 +30,10 @@ export function FigureLayout({ figureId, stopId }: Props) {
   const figure = useLoaded(figureId, () => loadFigure(figureId));
 
   if (figure.state === 'loading') {
-    // 两栏的壳，沙盘栏空着（只有它的底色）：从首页潜过来的时候，画面刚淡进沙盘栏的底色里，不能换成没有沙盘栏的一页闪一下
+    // 两栏的壳，沙盘栏空着（只有它的底色）：从首页潜过来的时候，画面刚淡进沙盘栏的底色里，不能换成没有沙盘栏的一页闪一下。
+    // 版面的元素上记着是哪位人物（data-figure）：人物自己的那一套记号可以照它单写一块（tokens.css 末尾）；壳上也记，底色才不闪
     return (
-      <div className="figure-layout">
+      <div className="figure-layout" data-figure={figureId}>
         <main className="reading">
           <div className="reading-inner">
             <p className="quiet">加载中…</p>
@@ -101,7 +102,7 @@ function Loaded({ figure, stopId }: { figure: Figure; stopId: string | null }) {
   const [lost, setLost] = useState<string | null>(null);
 
   return (
-    <div className="figure-layout">
+    <div className="figure-layout" data-figure={figureId}>
       <main className="reading">
         <div className="reading-inner">
           <nav className="crumbs" aria-label="位置">

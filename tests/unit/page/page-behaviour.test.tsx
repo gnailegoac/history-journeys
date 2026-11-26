@@ -178,6 +178,35 @@ async function mount(search: string, stopId: string | null) {
 }
 
 describe('整个版面 + 真的内容 + 沙盘的替身', () => {
+  it('版面的元素上记着是哪位人物（data-figure）：人物还在读的那个两栏的壳上就有，读出来以后的那一页上也有；记在沙盘栏外面的那一层上', { timeout: 30_000 }, async () => {
+    win.location.search = '?stage=fake';
+    const container = doc.createElement('div');
+    doc.body.appendChild(container);
+    const root = createRoot(container as any);
+    // 不等：这一下摆出来的是人物还在读的壳（读是异步的，这时候还没有回来）
+    void act(() => {
+      root.render(<FigureLayout figureId="su-shi" stopId={null} />);
+    });
+    // 壳上写了什么先记下来，等页面摆好了再一起查：这一条通不过的时候也照样等它摆好、拿走，不留一页给后面的测试
+    const shell = container.querySelector('.figure-layout');
+    const loading = shell?.querySelector('.quiet')?.textContent;
+    const onShell = attr(shell, 'data-figure');
+    await waitFor(() => {
+      const state = container.querySelector('.stage-pane')?.getAttribute('data-stage-state');
+      return state != null && state !== 'loading';
+    });
+    const layout = container.querySelector('.figure-layout');
+    const listed = layout?.querySelector('.stop-item') != null;
+    const onPage = attr(layout, 'data-figure');
+    const onPane = container.querySelector('.stage-pane')?.hasAttribute('data-figure');
+    await act(async () => root.unmount());
+    expect(loading).toBe('加载中…');
+    expect(onShell).toBe('su-shi');
+    expect(listed).toBe(true);
+    expect(onPage).toBe('su-shi');
+    expect(onPane).toBe(false);
+  });
+
   it('人物页：沙盘栏里摆着全程沙盘，看的是头一节；中间的按钮写“回到全程”；站的题签带着印，印通到那一站；今名换题签上的字；目录下面一行凭据', { timeout: 30_000 }, async () => {
     const page = await mount('?stage=fake', null);
     expect(attr(page.pane(), 'data-stage-state')).toBe('ready');

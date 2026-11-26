@@ -137,6 +137,9 @@ describe('首页', () => {
     const pane = page.q('.stage-pane')!;
     expect(page.all('.stage-pane')).toHaveLength(1);
     expect(pane.localName).toBe('section');
+    // 版面的元素上记着沙盘是哪位人物的（data-figure：人物自己的那一套记号照它单写一块），记在沙盘栏外面的那一层上，不在沙盘栏自己身上
+    expect(attr(page.q('.figure-layout'), 'data-figure')).toBe(figure.id);
+    expect(pane.hasAttribute('data-figure')).toBe(false);
     expect(attr(pane, 'data-stage-level')).toBe('route');
     expect(attr(pane, 'data-stage-section')).toBe(route.sections[0].heading);
     expect(attr(page.q('.stage-caption'), 'data-section')).toBe(route.sections[0].heading);

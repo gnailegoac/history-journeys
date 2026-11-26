@@ -31,7 +31,7 @@ import { familiesOf, loadFamilies } from './kit/families';
 import { buildMist, type Mist } from './mist';
 import type { Piece } from './piece';
 import { pixelRatioFor, qualityFor } from './quality';
-import { centreShift, chooseScale, equivalentDistance, lightDim, northDeg, pixelsPerMetre, placeCamera, project, projectSpots, shadowBox, shadowTuning, stripSpots, type StripSpot } from './rig';
+import { centreShift, chooseScale, equivalentDistance, groundCorners, lightDim, northDeg, pixelsPerMetre, placeCamera, project, projectSpots, shadowBox, shadowTuning, stripSpots, type StripSpot } from './rig';
 import { Sequencer, mixState, type Glide, type TableState } from './sequencer';
 import { loadStyle, wholeStyle } from './style';
 import { buildTerrainMesh, type TerrainMesh } from './terrainMesh';
@@ -1419,11 +1419,13 @@ class ThreeStopView implements StopStageView {
       if (on && this.pieceName && this.routeLevel) anchors.push({ id: this.routeLevel.PIECE_NAME, x: on.x, y: on.y, visible: true });
       // 读者的手还按着：题签留在原来的位置上，不重新挑（转一下换十几次位置，看上去是在闪）。刚换的一批还没摆过，照常摆
       // 潜到一站上空的路上也一样：留着的那一条不换位置
+      // 平着的纸条（另一种题签）摆在地面的边里面：这一帧地面的四个角落在画面的哪里，告诉题签层。竖着的纸条的那一层不要它（没有 ground），不算
+      const ground = b.strips.ground && groundCorners(this.coords, camera, size);
       if ((this.handDown || this.diving) && !this.stripsFresh) {
-        b.strips.place(anchors, size, this.insets, { moving: true, avoid });
+        b.strips.place(anchors, size, this.insets, { moving: true, avoid, ground });
         if (this.handDown) this.heldStrips = true;
       } else {
-        b.strips.place(anchors, size, this.insets, { avoid });
+        b.strips.place(anchors, size, this.insets, { avoid, ground });
       }
       this.stripsFresh = false;
     }

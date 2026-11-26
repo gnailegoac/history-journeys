@@ -122,11 +122,15 @@ const FONT_TOKENS = ['--font-song', '--font-sans'];
 const familyAllowed = (value: string, strips: boolean): boolean => /^var\(--font-(song|sans)\)$/.test(value) || value === 'inherit' || (strips && /^var\(--figure-font,/.test(value));
 /** 设备自带的黑体一类：只许出现在 :root 上 --font-sans 这一个记号的值里。 */
 const SANS_WORDS = ['system-ui', 'sans-serif', 'PingFang', 'YaHei'];
-/** 三个字体记号的值各是哪一套随站的字体打头（工具写进字体文件里的名字，src/fonts/fonts.css）。 */
-const FONT_STARTS: [string, string][] = [
-  ['--font-sans', 'Yanlu Sans'],
-  ['--font-song', 'Yanlu Song'],
-  ['--figure-font', 'Yanlu Kai'],
+/**
+ * 三个字体记号的值各是哪一套随站的字体打头（工具写进字体文件里的名字，src/fonts/fonts.css）。
+ * 人物的字体记号（--figure-font）是题签上的字：打头的要是网站自己带的一套字——随站的楷体（竖着的纸条；tokens.css 里不写人物的那一块现在是它，
+ * tests/fonts/font-files.test.ts 另有一条钉着），或者读正文的宋体（平着的纸条用它）。原来这里只认楷体。
+ */
+const FONT_STARTS: [string, string[]][] = [
+  ['--font-sans', ['Yanlu Sans']],
+  ['--font-song', ['Yanlu Song']],
+  ['--figure-font', ['Yanlu Kai', 'Yanlu Song']],
 ];
 
 /** 一条规则的选择器，一个一个分开（括号里的逗号不算）。 */
@@ -250,7 +254,8 @@ function seamFindings(declarations: Declaration[], add: (rule: string, what: str
  *   font-style    不是 normal 的；哪里写了 italic、oblique
  *   font          简写（只许 font: inherit）
  *   font-family   不是两个记号的（题签的规则里是人物自己的那一个）；别的 --font-… 记号；--font-sans、--font-song 写在了 :root 以外；
- *                 三个字体记号的值不是随站的那一套打头（--font-sans 是 'Yanlu Sans'，--font-song 是 'Yanlu Song'，--figure-font 是 'Yanlu Kai'）
+ *                 三个字体记号的值不是随站的那一套打头（--font-sans 是 'Yanlu Sans'，--font-song 是 'Yanlu Song'，
+ *                 --figure-font 是网站自己带的题签用的字：'Yanlu Kai' 或者 'Yanlu Song'）
  *   sans          system-ui、sans-serif、PingFang、YaHei 这几个词写在了 :root 上的 --font-sans 的值以外
  *   seam          框架的规则读了人物的记号，题签的规则读了框架的记号，人物的记号写在了沙盘栏以外，人物的那一块里写了框架的记号，
  *                 题签和别的东西写在了同一条规则里（见 seamFindings）
@@ -286,7 +291,7 @@ export function scanStyle(file: string, css: string): Finding[] {
     if (property.startsWith('--font-') && !FONT_TOKENS.includes(property)) add('font-family', `${property}: …`);
     // 框架的两个字体记号只在 :root 上写一次；三个字体记号的值都得是随站的那一套打头
     if (FONT_TOKENS.includes(property) && selector !== ':root') add('font-family', `${selector} { ${property}: … }`);
-    for (const [token, family] of FONT_STARTS) if (property === token && (selector === ':root' || token === '--figure-font') && !value.startsWith(`'${family}'`)) add('font-family', line);
+    for (const [mark, families] of FONT_STARTS) if (property === mark && (selector === ':root' || mark === '--figure-font') && !families.some((family) => value.startsWith(`'${family}'`))) add('font-family', line);
     if (property === 'font-family') lastFamily.set(rule, { selector, value });
     if (property === 'font-weight') lastWeight.set(rule, { selector, value });
     if (property === '--font-sans' && selector === ':root') sansValue += ` ${value}`;

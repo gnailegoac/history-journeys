@@ -88,14 +88,22 @@ const ROUTE: RouteStyle = {
 export const style: TableStyle = { ...borrowed, id: MADE_UP_STYLE_ID, route: ROUTE };
 
 /**
- * 交给沙盘程序的单子：只有这一种。它没有站点沙盘才用的那一半，取整套的拒绝。
+ * 同一种编出来的样式，座子另写了“最宽的那一圈的上沿多高”（StandStyle.reachTopY）：给“镜头把整只匣子——框的上沿和落在下面的那一道边——都放进画面”作证。
+ * 座子本身还是借来的那一只（它没有比沙盘面高的框）；这里要的只是交给镜头的那三个数，上沿的高是编的。别的和 style 是同一份。
+ */
+export const RAIL_TOP_Y = 420;
+export const styleWithRail: TableStyle = { ...style, stand: { ...style.stand, reachTopY: RAIL_TOP_Y } };
+
+/**
+ * 交给沙盘程序的单子：只有这一种。它是一种只有全程沙盘用的样式：这一行没有 load（没有站点沙盘才用的那一半，没有整套可取）——
+ * 登记表里的一行可以这样写（src/stage/three/style/index.ts 的 StyleEntry），这一行就是给它作证的：照这张单子给站点沙盘取它，取的那一处说一句就停；
+ * 测试的那张现成的表（./styles.ts 的 loadStyles）取到的是它仅有的那一半；校验不让站点沙盘写它。
  * 这一行的写法和登记表里的一行一样（src/stage/styles.ts 的 StyleRow）：它写了 labels: 'slip'——写着这种样式的沙盘，题签是平着的纸条。
  * 要问“这座编出来的沙盘的题签是哪一种”，把这张单子交给 labelKind(样式的名字, MADE_UP_STYLES)，和页面查登记表是同一个函数。
  */
 export const MADE_UP_STYLES: readonly StyleRow[] = [
   {
     id: MADE_UP_STYLE_ID,
-    load: () => Promise.reject(new Error(`样式“${MADE_UP_STYLE_ID}”是测试里编出来的，只有全程沙盘用的那一半`)),
     loadRoute: () => Promise.resolve({ style }),
     labels: 'slip',
   },

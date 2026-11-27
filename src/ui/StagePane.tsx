@@ -24,6 +24,9 @@
 // 有沙盘的一站，这一栏里叠着两层（见 TableStage）：下面是每一小节的图片（定格图，src/stage/still），上面是立体的沙盘。
 // 图片先出来；立体的沙盘摆好了盖上去，图片就拿走。立体的沙盘摆不了（浏览器画不了、设备太慢、没摆出来、画面断了）时，
 // 图片留下来跟着读到的小节换，按钮下面多一行话说明缘故。这座沙盘没有图片、或者图片取不到，就和以前一样只留一句话。
+// 题签是另一种（平着的纸条）的沙盘，图片不等题签那一小块程序：图片先放，题签到了由放图片的那一座自己摆上去；那一小块没取到，
+// 放着图片、立体的沙盘又摆不了的那几种状态都照 failed 说（“沙盘没能摆出来，这里先放图片。”），按钮是“再试一次”，点了图片那一层重挂、重新取
+//（见 TableStage 里的 unnamed）。竖着的纸条的沙盘没有这一条路。
 //
 // 沙盘旁边的字（时间、题记、一句如实的说明、远处）不经过沙盘，由这里用 sectionInfo() 从场景数据生成：
 // 有画面的时候，上面那一张画面最新的一次 showSection() 完成时才换；没有画面的时候，跟着读到的小节换。
@@ -49,7 +52,7 @@ import { Waiting } from './Waiting';
 import { cameByDive, preloadStop, watchDives } from './dive';
 import { fitScale } from './scale';
 import { canDrawStage, divesHere, pickStageEngine, pickStillEngine, pickTier, wantsReadout } from './stageEngineSource';
-import { STAGE_TEXT, stageDebugLine } from './text';
+import { STAGE_TEXT, roadTail, stageDebugLine } from './text';
 import '../styles/stage.css';
 import '../styles/timebar.css';
 
@@ -200,7 +203,7 @@ export function StagePane({ onStopPage, table, section, route, stopId, marks, wr
       bare={noText}
       bar={!onStopPage}
       marks={marks}
-      standing={whole && onStopPage && written ? STAGE_TEXT.roadNotice : null}
+      standing={found.kind === 'route' && onStopPage && written ? STAGE_TEXT.roadNotice + roadTail(found.scene.roads.stopShows === 'stop-years') : null}
       namesMode={namesMode}
       onNamesMode={setNamesMode}
       folded={folded}
@@ -421,7 +424,15 @@ function TableStage({ table, section, resetLabel, bare, bar, marks, standing, na
 
   // 第几次摆立体的沙盘：加一就重摆一遍。
   const [build, setBuild] = useState(0);
-  const [phase, setPhase] = useState<Phase>(picturesOnly ? 'slow' : 'loading');
+  // 立体的沙盘到了哪一步（栏上写的、话里说的是下面的 phase：图片上的题签没取到的时候另算）。
+  const [built, setPhase] = useState<Phase>(picturesOnly ? 'slow' : 'loading');
+  // 题签是另一种（平着的纸条）的沙盘，图片先放、题签那一小块程序后到（见 src/stage/index.ts 的 loadStillEngine）。
+  // unnamed：那一小块没取到，图片上没有题签。labelTry：读者为它点“再试一次”的次数——图片那一层重挂一遍，重新去取。
+  // 竖着的纸条的沙盘（苏轼的四座）上这两样从头到尾不动。
+  const [unnamed, setUnnamed] = useState(false);
+  const [labelTry, setLabelTry] = useState(0);
+  // 图片那一层挂过几回带着晚到的题签的（只认最近一回的结果）。
+  const labelRun = useRef(0);
   // 立体的沙盘显出来了（摆好了，或者嫌慢、还留在原处等图片）。
   const [tableUp, setTableUp] = useState(false);
   // 立体的沙盘正盖着图片慢慢显出来。
@@ -462,7 +473,10 @@ function TableStage({ table, section, resetLabel, bare, bar, marks, standing, na
   const goalRef = useRef(goal);
 
   // 立体的沙盘摆不了了（不是正在摆，也不是摆好了）。
-  const forGood = phase !== 'loading' && phase !== 'ready';
+  const forGood = built !== 'loading' && built !== 'ready';
+  // 这一栏现在是哪一种状态。立体的沙盘摆不了、放着图片，而图片上的题签没取到（unnamed）：不管是为什么放的图片（设备慢、只放图片、浏览器画不了），
+  // 都照“沙盘没能摆出来”说，按钮是“再试一次”——没有名字的图片不能当成一座摆好的沙盘交给读者，也不说“太慢”：慢不是缘故。
+  const phase: Phase = unnamed && forGood ? 'failed' : built;
   // 这一栏里有没有放画面的那一块（连同它上面的那一排按钮）：正在摆、摆好了，或者有图片可放。
   const area = !forGood || !stillsOff;
   // 要不要图片那一层：有图片可放，而且立体的沙盘还没有稳稳地盖在上面。
@@ -602,6 +616,18 @@ function TableStage({ table, section, resetLabel, bare, bar, marks, standing, na
         const made = engine.create(stillHost.current, table, { namesMode: names.current, reducedMotion, section: first, insets, marks });
         view = made;
         Object.assign(slot, { view: made, requested: first, arrived: first, info: null, insets });
+        // 题签晚到的那一座（平着的纸条的沙盘才有 named）：到了、没取到，各记一笔。后来又挂过一层的，前一层的结果不算；
+        // 图片也没取到、这一层已经收掉的，照样记（那时候说的是“没能摆出来”，不是“太慢”）。
+        // 重挂的那一下不先把“没取到”抹掉：读者点了“再试一次”，结果出来以前还是那一句、那个按钮，再没取到的话不会先换成平常的那一句又换回来。
+        if (made.named) {
+          const run = ++labelRun.current;
+          void made.named
+            .then(
+              () => false,
+              () => true,
+            )
+            .then((lost) => run === labelRun.current && setUnnamed(lost));
+        }
 
         unsubscribe.push(
           made.onViewChange((info) => {
@@ -645,7 +671,7 @@ function TableStage({ table, section, resetLabel, bare, bar, marks, standing, na
       setStillUp(false);
       setStillShown(null);
     };
-  }, [table, marks, stillSource, stillWanted, readInsets, showViewInfo, keepFocus]);
+  }, [table, marks, stillSource, stillWanted, labelTry, readInsets, showViewInfo, keepFocus]);
 
   // 摆立体的沙盘。沙盘程序用到时才加载。build 加一、读者的选择变了，就把手上的这一座关掉，从头再来一遍。
   useEffect(() => {
@@ -980,6 +1006,11 @@ function TableStage({ table, section, resetLabel, bare, bar, marks, standing, na
   const rebuild = () => {
     keepFocus.current = true;
     setBuild((count) => count + 1);
+    // 图片上的题签没取到的那一回：图片那一层也重挂一遍（连图片一起再放一次），题签那一小块程序重新去取
+    if (unnamed) {
+      setStillsOff(!stillSource);
+      setLabelTry((count) => count + 1);
+    }
   };
   const tryTable = () => {
     keepFocus.current = true;

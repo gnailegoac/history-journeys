@@ -80,10 +80,10 @@ export function readTrialDem(jsonText: string, bytes: Uint8Array): TrialDem {
   const { cols, rows, cellKm, widthKm, heightKm, maxM } = j;
   const pr = j.projection ?? {};
   const { lat1, lat2, lng0, lat0, R } = pr;
-  if (![cols, rows, cellKm, widthKm, heightKm, maxM, lat1, lat2, lng0, lat0, R].every(isNumber)) throw new Error('样张的 dem.json 里格子或者投影的数不全');
+  if (![cols, rows, cellKm, widthKm, heightKm, maxM, lat1, lat2, lng0, lat0, R].every(isNumber)) throw new Error('源数据的 dem.json 里格子或者投影的数不全');
   const [c, r, cell, w, h] = [cols, rows, cellKm, widthKm, heightKm] as number[];
-  if ((c - 1) * cell !== w || (r - 1) * cell !== h) throw new Error(`样张的 dem.json：${c} 列 × ${r} 行、每格 ${cell} 公里，和宽 ${w}、高 ${h} 公里对不上`);
-  if (bytes.length !== c * r * 2) throw new Error(`样张的 dem.bin 应该是 ${c * r * 2} 字节（${c} 列 × ${r} 行 × 2），实际是 ${bytes.length} 字节`);
+  if ((c - 1) * cell !== w || (r - 1) * cell !== h) throw new Error(`源数据的 dem.json：${c} 列 × ${r} 行、每格 ${cell} 公里，和宽 ${w}、高 ${h} 公里对不上`);
+  if (bytes.length !== c * r * 2) throw new Error(`源数据的 dem.bin 应该是 ${c * r * 2} 字节（${c} 列 × ${r} 行 × 2），实际是 ${bytes.length} 字节`);
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
   const heights = new Int16Array(c * r);
   for (let i = 0; i < heights.length; i++) heights[i] = view.getInt16(i * 2, true);

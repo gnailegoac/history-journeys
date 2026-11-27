@@ -113,6 +113,8 @@ function rgbOf(colour: string): [number, number, number] | null {
 
 class StillStopView implements StopStageView {
   readonly ready: Promise<void>;
+  /** 题签晚到的那一座才有（见 ../types.ts 的 StageView.named）。 */
+  readonly named?: Promise<void>;
 
   private readonly container: HTMLElement;
   private readonly scene: TableScene;
@@ -130,7 +132,11 @@ class StillStopView implements StopStageView {
   /** 两张叠着的图片：一张摆着现在的，另一张用来取下一张。 */
   private readonly imgs: [HTMLImageElement, HTMLImageElement];
   private readonly fades: Record<(typeof SIDES)[number], HTMLDivElement>;
-  private readonly strips: StripLayer;
+  /**
+   * 题签那一层。题签晚到的沙盘上（StageOptions.labels 写了的：平着的纸条，那一小块程序还在路上），到了才挂；
+   * 在那以前、没取到的时候没有这一层：图片照摆，上面不摆题签。
+   */
+  private strips: StripLayer | undefined;
   /** 先取好的后一节的图片：留着它，浏览器才不会把取到一半的丢掉。 */
   private readonly spares = new Map<string, HTMLImageElement>();
 
@@ -213,7 +219,17 @@ class StillStopView implements StopStageView {
     };
     this.fades = { left: fade('left'), right: fade('right'), top: fade('top'), bottom: fade('bottom') };
     container.append(this.wrapper);
-    this.strips = mountStrips(container);
+    if (options.labels) {
+      // 题签是另一种、那一小块程序还在路上：到了（已经记在容器上）才挂题签层，把现在这一节的题签摆上去——正在淡入的那一张淡完自己会摆。
+      // 没取到：named 拒绝，这一层一直不挂（不拿竖着的纸条去顶），图片照旧放着。
+      this.named = options.labels.then(() => {
+        if (this.destroyed) return;
+        this.strips = mountStrips(container);
+        if (this.stripsUp) this.showStrips();
+      });
+      // 页面没有接住失败时，不让浏览器再报一次“未处理的错误”
+      this.named.catch(() => {});
+    } else this.strips = mountStrips(container);
 
     this.hint = this.readHint();
     this.seenSize = this.size();
@@ -298,7 +314,7 @@ class StillStopView implements StopStageView {
     // 还在路上的取图、淡入，回来时一看数变了就什么也不做
     this.runs += 1;
     this.wrapper.remove();
-    this.strips.destroy();
+    this.strips?.destroy();
     this.spares.clear();
     this.viewListeners.clear();
     this.lostListeners.clear();
@@ -346,7 +362,7 @@ class StillStopView implements StopStageView {
 
     // 换上去。第一张、页面说了不要动画、读者设了“减少动态效果”的，直接换；别的淡入
     const fade = animate && this.shown !== null && this.readySettled && !this.reducedMotion;
-    this.strips.hide();
+    this.strips?.hide();
     this.stripsUp = false;
     const outgoing = this.imgs[this.top];
     this.top = this.top === 0 ? 1 : 0;
@@ -526,8 +542,8 @@ class StillStopView implements StopStageView {
       console.warn('[定格图] 这一小节的题签没能摆出来', error);
     }
     // 先藏着换，再摆：不让新的字在旧的位置上闪一下
-    this.strips.hide();
-    this.strips.set(specs);
+    this.strips?.hide();
+    this.strips?.set(specs);
     this.stripsUp = true;
     this.placeStrips();
   }
@@ -538,7 +554,7 @@ class StillStopView implements StopStageView {
     if (!this.stripsUp || !shown || !this.fit || !pane) return;
     const { shot } = shown;
     // 平着的纸条（另一种题签）摆在地面的边里面：四个角是那一层照清单里记的镜头和场景的范围算的（竖着的纸条的那一层没有这一样，什么也不交）
-    const ground = this.strips.ground?.(this.scene.frame, shot.pose, this.manifest.shapes[shot.shape], this.fit);
-    this.strips.place(anchorsOnPane(shot.anchors, this.fit, pane), { width: pane.width, height: pane.height }, this.insets, { ground });
+    const ground = this.strips?.ground?.(this.scene.frame, shot.pose, this.manifest.shapes[shot.shape], this.fit);
+    this.strips?.place(anchorsOnPane(shot.anchors, this.fit, pane), { width: pane.width, height: pane.height }, this.insets, { ground });
   }
 }

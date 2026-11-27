@@ -27,7 +27,7 @@ import { LINE_MAX, WORDS_MAX, textWidth } from '../content/sceneRules';
 import { realRouteScene, realSceneKeys } from './support/realScenes';
 import type { RealRouteScene } from './support/realScenes';
 import { NOTICE_HEAD_PX, NOTICE_ROW_TOP, ROUTE_HOME_PANES, ROUTE_NOTICE_ROW_TOP, ROUTE_PANES, ROUTE_UPRIGHT_PANES, STANDARD_PANES, UPRIGHT_PANES } from './support/standardPanes';
-import { ownJourneysTold, ownRoadsHeldInPane } from './support/routeFacts';
+import { ROUTE_CAMERA_NEAREST_DEFAULT_M, ROUTE_CAMERA_NEAREST_M, camerasTooNear, journeysWithNotesPrinted, ownJourneysTold, ownRoadsHeldInPane, routeCameraNearestM, schematicWherePointed } from './support/routeFacts';
 import { routeSectionStrips, stripSize } from './support/stripSizes';
 
 interface Pane {
@@ -63,8 +63,8 @@ const TRIAL_PANE: Pane = { name: '880 × 900', size: { width: 880, height: 900 }
 
 /** 全程沙盘上一条引线最长多少像素。 */
 const ROUTE_LEADER_MAX_PX = 48;
-/** 镜头最近多少米（沙盘里的米）：再近，先画好的地面一个点就有两个像素以上了。 */
-const ROUTE_DISTANCE_MIN = 15_000;
+// 镜头最近多少米（沙盘里的米）是一座沙盘一个数，在旁边的一张小表里（./support/routeFacts.ts 的 ROUTE_CAMERA_NEAREST_M：管的是
+// 先画好的地面近看有多粗；苏轼的是 15,000，表里没有的沙盘照 15,000 查）。2026-11-26 以前这里是一个常数 ROUTE_DISTANCE_MIN = 15_000，每一座都照它查。
 const NAMES: NamesMode[] = ['ancient', 'modern'];
 
 /** 这几个数和 placeStrips.ts 里的一样。 */
@@ -271,16 +271,24 @@ function schematicParts(R: RealRouteScene, upTo: number): number {
 // 哪条题签多高）在文件最后写着它名字的那一组里：添一位人物，不拿他的沙盘去对苏轼的数。
 
 describe.each(realSceneKeys('route'))('%s 的镜头', (key) => {
-  it('每一节：朝北、不转；不比 15000 米近（看整块沙盘的一节除外，它由 closest 管）；视角是 18 度', () => {
+  // 2026-11-26 以前这一条的名字是“每一节：朝北、不转；不比 15000 米近（看整块沙盘的一节除外，它由 closest 管）；视角是 18 度”，
+  // 每一座都照 15,000 查。现在那个数一座沙盘一个，从旁边的表里读；苏轼的还是 15,000（写着他名字的那一组另守着），表里没有的也照 15,000。
+  it('每一节：朝北、不转；不比这座沙盘自己的那个数近（./support/routeFacts.ts 的表：苏轼的是 15000 米，表里没有的沙盘照 15000 米；看整块沙盘的一节除外，它由 closest 管）；视角是 18 度', () => {
     const R = realRouteScene(key);
+    const nearest = routeCameraNearestM(key);
+    // 表里的数不能比默认的大出一截又没人知道：是正数，印出来
+    expect(nearest).toBeGreaterThan(0);
+    console.log(`${key} 看一站的小节，镜头最近 ${nearest} 米（${key in ROUTE_CAMERA_NEAREST_M ? '表里写的' : `表里没有，照 ${ROUTE_CAMERA_NEAREST_DEFAULT_M}`}）`);
     for (const section of R.scene.sections) {
       expect(section.camera.bearing, section.heading).toBe(0);
       expect(section.camera.fov, section.heading).toBe(18);
       if (!wholeTable(section)) {
-        expect(section.camera.distanceM, section.heading).toBeGreaterThanOrEqual(ROUTE_DISTANCE_MIN);
+        expect(section.camera.distanceM, section.heading).toBeGreaterThanOrEqual(nearest);
         expect(section.camera.closest, `${section.heading}：看路的小节不写 closest`).toBeUndefined();
       }
     }
+    // 同一条规矩的另一种问法（算镜头的工具用的就是它）：一句也没有
+    expect(camerasTooNear(R.scene, nearest)).toEqual([]);
   });
 
   describe.each(STANDARD)('画面 $name', (pane) => {
@@ -572,24 +580,31 @@ describe.each(realSceneKeys('route'))('%s 的说明', (key) => {
     }
   });
 
-  it('看路的一节：到这一站的每一趟路，它写了的每一句 note 都印在这一节；后面各站的路不算在“几样是示意”里', () => {
+  // 2026-11-26 以前这一条的名字是“看路的一节：到这一站的每一趟路，它写了的每一句 note 都印在这一节；后面各站的路不算在‘几样是示意’里”，
+  // 每一座都照“这一站的每一趟”查。看“这一站那几年走的路”的沙盘上，一站可以有几十趟自己的路，印在这一节的是 explain 点到的那几趟
+  //（docs/data-spec.md“看一站的小节画的是什么”）；哪几趟要印照 ./support/routeFacts.ts 的 journeysWithNotesPrinted。苏轼的这一座照旧是每一趟。
+  it('看路的一节：到这一站的每一趟路，它写了的每一句 note 都印在这一节（看“这一站那几年走的路”的沙盘——roads.stopShows 写 stop-years——是这一站自己的路里 explain 点到的那几趟）；后面各站的路不算在“几样是示意”里', () => {
     const R = realRouteScene(key);
     const all = printed(R);
     const count = (brief: string): number => Number(/^(\d+) 样是示意/.exec(brief)?.[1]);
     /** 另数一遍：这一节画着的路里，示意的和有一部分示意的截。 */
     const partsShown = (upTo: number): number => schematicParts(R, upTo);
-    /** 这一节的题签指到的远处里归在示意一类的（远处只在题签指到它的那一节算）。 */
-    const farShown = (strips: string[]): number => R.scene.far.filter((far) => far.class === 'schematic' && strips.some((id) => R.scene.strips.find((strip) => strip.id === id)?.of === far.id)).length;
+    /** 这一节的题签指到的远处、名字没有点的地名点里归在示意一类的（这两样只在题签指到它的那一节算；2026-11-26 以前只数远处）。 */
+    const farShown = (strips: string[]): number => schematicWherePointed(R.scene, { strips });
     const fixed = count(all[0].info.note.brief) - partsShown(0) - farShown(all[0].section.strips);
     const lines: string[] = [];
+    let journeysChecked = 0;
     all.forEach(({ section, info }, n) => {
-      for (const journey of R.scene.roads.journeys.filter((item) => n > 0 && item.stop === section.stop)) {
+      for (const journey of n > 0 ? journeysWithNotesPrinted(R.scene, section) : []) {
+        journeysChecked++;
         for (const part of journey.parts) if (part.note?.trim()) expect(info.note.lines, `${section.heading}：${part.name}的说明`).toContain(part.note.trim());
       }
       // 不是路、不是远处的那些（河、湖、海岸……）每一节都一样多：差的只是路
       expect(count(info.note.brief) - partsShown(n) - farShown(section.strips), section.heading).toBe(fixed);
       lines.push(`${section.heading} ${count(info.note.brief)} 样`);
     });
+    // 真的查到了路：每一节看一站的小节至少有一趟（两种沙盘都是：ownJourneysTold 另守着）
+    expect(journeysChecked).toBeGreaterThanOrEqual(all.length - 1);
     // 画的路只多不少：到头一站的那一节算进去的示意的截，不比每一趟都画的头一节多（这一座上真的少了没有，写着名字的那一组查）
     expect(partsShown(1)).toBeLessThanOrEqual(partsShown(0));
     console.log(`${key} 各节“几样是示意”：${lines.join('，')}（其中不是路也不是远处的 ${fixed} 样）`);
@@ -676,6 +691,28 @@ describe('su-shi/route：苏轼这一座自己的数和地名', () => {
     it('看路的小节：到各站的路上写的点，查到的有两百个以上', () => {
       expect(roadPointsOutside(realRouteScene(key), pane).checked).toBeGreaterThan(200);
     });
+  });
+
+  it('镜头：这一座看一站的小节最近 15000 米，是表里写着的（不是表里没有、照默认的数顶上的）；写的距离最近的一节是 15000 米以上', () => {
+    expect(ROUTE_CAMERA_NEAREST_M[key]).toBe(15_000);
+    expect(routeCameraNearestM(key)).toBe(15_000);
+    const R = realRouteScene(key);
+    const written = R.scene.sections.filter((section) => !wholeTable(section)).map((section) => section.camera.distanceM);
+    expect(Math.min(...written)).toBeGreaterThanOrEqual(15_000);
+    // 这个数在管事：拿一个比它大的数来查，查得出近的那几节
+    expect(camerasTooNear(R.scene, Math.min(...written) + 1).length).toBeGreaterThan(0);
+  });
+
+  it('说明：九节“几样是示意”是 33、22、23、25、26、28、28、29、33——名字没有点的地方只在立了它的题签的小节里算（2026-11-26）以后还是这九个数：这一座上没有这样的地名点', () => {
+    const R = realRouteScene(key);
+    const counts = R.scene.sections.map((section) => Number(/^(\d+) 样是示意/.exec(sectionInfo(R.scene, section.heading).note.brief)?.[1]));
+    expect(counts).toEqual([33, 22, 23, 25, 26, 28, 28, 29, 33]);
+    expect(R.scene.places.filter((place) => place.area)).toEqual([]);
+    // 这一座上两个示意的地名点（有点的）照旧每一节都算，立没立题签都算
+    const schematic = R.scene.places.filter((place) => place.class === 'schematic').map((place) => place.id);
+    expect(schematic.length).toBeGreaterThan(0);
+    // 有的小节一条指着它们的题签也没有立：那几节的数里照样有它们（每一节不是路、不是远处的那些一样多，上面“每一座”那一组里守着）
+    expect(R.scene.sections.some((section) => !section.strips.some((id) => schematic.includes(R.scene.strips.find((strip) => strip.id === id)?.of ?? '')))).toBe(true);
   });
 
   it('镜头：画面很窄的时候（420 × 800）有的小节镜头真的照着路退远了', () => {

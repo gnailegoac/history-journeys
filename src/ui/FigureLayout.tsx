@@ -15,7 +15,7 @@ import { PageTitle } from './PageTitle';
 import { StagePane } from './StagePane';
 import { StopPage } from './StopPage';
 import { pickRouteTable } from './stageEngineSource';
-import { SITE_TITLE, pageTitle } from './text';
+import { SITE_TITLE, pageTitle, roadTail } from './text';
 
 interface Props {
   figureId: string;
@@ -82,8 +82,9 @@ function Loaded({ figure, stopId }: { figure: Figure; stopId: string | null }) {
   const reloadTable = useCallback(() => (table.state === 'error' ? setAttempt : setAgain)((count) => count + 1), [table.state]);
   const marks = useMemo(() => stopMarks(figure, (id) => stopHref(figureId, id)), [figure, figureId]);
   const routeScene = route.state === 'ready' && route.value ? route.value.scene : null;
-  // 这一站没有自己的沙盘，而全程沙盘上有到这一站去的那一节：正文那一栏可以说“沙盘上是到这一站的来路”。
-  const road = !hasTable && !!routeScene?.sections.some((s) => s.stop === stopKey);
+  // 这一站没有自己的沙盘，而全程沙盘上有这一站的那一节：正文那一栏可以说沙盘上是什么。说哪一种照这座全程沙盘自己说的（roads.stopShows）：
+  // “沙盘上是到这一站的来路。”，或者（写 stop-years 的沙盘）“沙盘上是这一站的路。”——交下去的就是这半句；不是这种情形是 false。
+  const road = !hasTable && !!routeScene?.sections.some((s) => s.stop === stopKey) && roadTail(routeScene.roads.stopShows === 'stop-years');
 
   // 读者读到了哪一小节（正文还没写、有自己的沙盘的一站上：读者在文字栏的单子里按了哪一处）。
   // 记着是哪一站的：换了站，上一站的不算；离开又回到同一站，也从头算。

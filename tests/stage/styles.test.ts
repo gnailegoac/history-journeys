@@ -7,29 +7,46 @@
 
 import { describe, expect, it } from 'vitest';
 import type { TableScene } from '../../src/domain/scene';
+import type { TableStyle } from '../../src/stage/three/internal';
 import { STYLES } from '../../src/stage/styles';
 import { loadStyle, provideStyles, wholeStyle, type StyleEntry } from '../../src/stage/three/style';
 import { STAND_REACH, STAND_REACH_Y, buildTable } from '../../src/stage/three/style/song-qinglv/stand';
-import { STYLE_IDS, styleFor } from './support/styles';
+import { MADE_UP_STYLES, MADE_UP_STYLE_ID, style as madeUpHalf } from './support/madeUpStyle';
+import { STYLE_IDS, WHOLE_STYLE_IDS, loadStyles, styleFor } from './support/styles';
+
+/**
+ * “每一行”的几条查的行：登记表里的每一行，再加上测试里编出来的那一行（./support/madeUpStyle.ts）。
+ * 编出来的那一行没有 load（只有全程沙盘用的样式）：登记表里现在没有这样的一行，“没有 load 的一行怎么查”就靠它跑到。
+ */
+const EVERY_ROW: readonly StyleEntry[] = [...STYLES, ...MADE_UP_STYLES];
+/** 一行取得到的东西：有整套的取整套，没有的取它仅有的那一半。 */
+const got = async (row: StyleEntry): Promise<TableStyle> => (row.load ? await row.load() : await row.loadRoute()).style;
 
 const sceneFiles = import.meta.glob<TableScene>('/content/figures/*/scenes/*.json', { import: 'default', eager: true });
 /** 每一种样式里全程沙盘取的那一半的源文件，原样的字。 */
 const HALF_FILES = import.meta.glob<string>('/src/stage/three/style/*/*-route.ts', { query: '?raw', import: 'default', eager: true });
 
 describe('时代样式的登记表', () => {
-  it('一行一种：名字不重复，是文件夹起得了的名字；取得到，取到的东西的名字就是这一行的名字', async () => {
+  // 2026-11-26 一行可以没有 load 以前，这一条的名字是“一行一种：名字不重复，是文件夹起得了的名字；取得到，取到的东西的名字就是这一行的名字”，
+  // 只走登记表、只叫 load。现在连编出来的那一行（没有 load）一起走：有整套的取整套，没有的取那一半；那一半每一行都取一遍。查的几样没有少。
+  it('一行一种：名字不重复，是文件夹起得了的名字；取得到（有整套的取整套，只有全程沙盘用的取它那一半），取到的东西的名字就是这一行的名字；每一行的那一半都取得到', async () => {
     expect(STYLES.length).toBeGreaterThan(0);
-    const ids = STYLES.map((row) => row.id);
+    const ids = EVERY_ROW.map((row) => row.id);
     expect(new Set(ids).size).toBe(ids.length);
-    for (const row of STYLES) {
+    for (const row of EVERY_ROW) {
       expect(row.id).toMatch(/^[a-z][a-z0-9-]*$/);
-      const { style } = await row.load();
+      const style = await got(row);
       expect(style.id).toBe(row.id);
       // 再取一遍是同一份（拍照的那一页改的、沙盘拿到的是同一个东西）
-      expect((await row.load()).style).toBe(style);
+      expect(await got(row)).toBe(style);
+      // 每一座沙盘都用的那一半，哪一行都有
+      expect((await row.loadRoute()).style.id).toBe(row.id);
     }
-    // 苏轼的四座沙盘用的那一种在表里
-    expect(ids).toContain('song-qinglv');
+    // 苏轼的四座沙盘用的那一种在表里，是整套的；编出来的那一行不在登记表里，它没有 load
+    expect(STYLES.map((row) => row.id)).toContain('song-qinglv');
+    expect(WHOLE_STYLE_IDS).toContain('song-qinglv');
+    expect(STYLE_IDS).not.toContain(MADE_UP_STYLE_ID);
+    expect(MADE_UP_STYLES.map((row) => 'load' in row)).toEqual([false]);
   });
 
   it('content/ 里每一座沙盘写的样式，登记表里都有', () => {
@@ -39,10 +56,37 @@ describe('时代样式的登记表', () => {
     for (const key of keys) expect(ids, `${key} 写的样式“${sceneFiles[key].style}”`).toContain(sceneFiles[key].style);
   });
 
+  // 2026-11-26 以前这一条只叫每一行的 load；现在没有 load 的一行比的是它那一半（登记表里还没有这样的一行）。
   it('不摆沙盘的测试和做图的工具用的那张现成的表，和登记表是同一份：同样的几种，取到的是同一个东西；表里没有的说得出', async () => {
     expect(STYLE_IDS).toEqual(STYLES.map((row) => row.id));
-    for (const row of STYLES) expect(styleFor(row.id)).toBe((await row.load()).style);
+    for (const row of STYLES) expect(styleFor(row.id)).toBe(await got(row));
     expect(() => styleFor('zz-none')).toThrow(/^样式“zz-none”登记表里没有（src\/stage\/styles\.ts）；有的是：/);
+    // 整套的那几种：那一行有 load 的
+    expect(WHOLE_STYLE_IDS).toEqual(STYLES.filter((row) => row.load).map((row) => row.id));
+  });
+
+  it('那张现成的表碰到没有 load 的一行（只有全程沙盘用的样式）：不停下，取到的是它仅有的那一半；有 load 的一行照旧取整套，那一半不去要', async () => {
+    // 编出来的那一行：没有 load。取那张表的那个函数（文件一读进来就照登记表跑的就是它）不拒绝，交出来的是那一半
+    const made = await loadStyles(MADE_UP_STYLES);
+    expect([...made.keys()]).toEqual([MADE_UP_STYLE_ID]);
+    expect(made.get(MADE_UP_STYLE_ID)).toBe(madeUpHalf);
+    // 那一半里没有站点沙盘才用的几样：拿它当整套读，读到的是 undefined
+    expect(made.get(MADE_UP_STYLE_ID)?.ground).toBeUndefined();
+    // 两行的表：一行有 load，一行没有；各取各的，有 load 的那一行不去要那一半
+    const asked: string[] = [];
+    const whole = styleFor('song-qinglv');
+    const rows: StyleEntry[] = [
+      {
+        id: 'style-whole',
+        load: () => (asked.push('整套'), Promise.resolve({ style: { ...whole, id: 'style-whole' } })),
+        loadRoute: () => (asked.push('整套那一行的一半'), Promise.resolve({ style: { ...whole, id: 'style-whole' } })),
+      },
+      { id: 'style-half', loadRoute: () => (asked.push('一半'), Promise.resolve({ style: { ...madeUpHalf, id: 'style-half' } })) },
+    ];
+    const both = await loadStyles(rows);
+    expect([...both.keys()]).toEqual(['style-whole', 'style-half']);
+    expect(asked).toEqual(['整套', '一半']);
+    expect(both.get('style-half')?.id).toBe('style-half');
   });
 });
 
@@ -80,13 +124,19 @@ describe('一种样式分两半：每一座沙盘都用的一半，站点沙盘�
 
   // 2026-11-26 夜里的一套灯搬到站点沙盘才用的那一半以前，这一条的名字里没有括号里的那一句：那时两边的 light 是同一个函数。
   // 现在整套的 light 是它自己的（多了夜里的一套），白天交出来的还是那一半里的那一盏——同一个东西；别的几样查的没有变。
-  it('登记表里每一种：那一半里没有站点沙盘才用的几样；整套里每一样都有，那一半里有的东西整套里是同一个（灯：白天两边交的是同一盏）；颜色那七种两边一样', async () => {
-    for (const row of STYLES) {
-      const wholeStyleOf = (await row.load()).style;
+  // 2026-11-26 一行可以没有 load 以前，这一条的名字是“登记表里每一种：那一半里没有站点沙盘才用的几样；整套里每一样都有，那一半里有的东西整套里是同一个
+  // （灯：白天两边交的是同一盏）；颜色那七种两边一样”。现在连编出来的那一行一起走：没有 load 的一行只有前一句可查（它没有整套），有 load 的一行查的和原来一样。
+  it('每一行（登记表里的，和编出来的那一行）：那一半里没有站点沙盘才用的几样；有整套的，整套里每一样都有，那一半里有的东西整套里是同一个（灯：白天两边交的是同一盏），颜色那七种两边一样；只有全程沙盘用的那一行没有整套，只查前一句', async () => {
+    const withWhole: string[] = [];
+    for (const row of EVERY_ROW) {
       const halfStyleOf = (await row.loadRoute()).style;
-      const whole = wholeStyleOf as unknown as Record<string, unknown>;
       const half = halfStyleOf as unknown as Record<string, unknown>;
       for (const name of STOP_ONLY) expect(half[name], `${row.id} 的那一半里的 ${name}`).toBeUndefined();
+      // 只有全程沙盘用的样式：没有整套，到这里为止
+      if (!row.load) continue;
+      withWhole.push(row.id);
+      const wholeStyleOf = (await row.load()).style;
+      const whole = wholeStyleOf as unknown as Record<string, unknown>;
       for (const name of STOP_ONLY.slice(0, 3)) expect(whole[name], `${row.id} 整套里的 ${name}`).toBeDefined();
       for (const name of Object.keys(half)) {
         if (name === 'palette') continue;
@@ -99,6 +149,9 @@ describe('一种样式分两半：每一座沙盘都用的一半，站点沙盘�
       for (const [name, colour] of Object.entries(halfColours)) expect(wholeColours[name], `${row.id} 的颜色 ${name}`).toBe(colour);
       expect(Object.keys(wholeColours).length).toBeGreaterThanOrEqual(Object.keys(halfColours).length);
     }
+    // 两条路都真的走到了：登记表里整套的每一种查了后半句；编出来的那一行（没有 load）只查了前一句
+    expect(withWhole).toEqual(WHOLE_STYLE_IDS);
+    expect(EVERY_ROW.filter((row) => !row.load).map((row) => row.id)).toContain(MADE_UP_STYLE_ID);
   });
 
   it('宋代青绿设色：那一半里的颜色正好是全程沙盘读的七种，一个字不差；整套里的颜色一种没有少（五十七种，和分开以前一样多）', async () => {
@@ -117,7 +170,8 @@ describe('一种样式分两半：每一座沙盘都用的一半，站点沙盘�
     const moon = { azimuth: 103, altitude: 12 };
     /** 只有夜里的灯才写的几样（src/stage/three/internal.ts 的 LightSpec）。 */
     const NIGHT_ONLY = ['fog', 'mist', 'mistStrength', 'sheen'];
-    for (const row of STYLES) {
+    // 连编出来的那一行（只有全程沙盘用的样式）一起走：它的那一半也只有白天的一盏
+    for (const row of EVERY_ROW) {
       const half = (await row.loadRoute()).style;
       const day = half.light('day');
       expect(half.light('night', moon), `${row.id} 的那一半，夜里问它`).toBe(day);
@@ -139,12 +193,33 @@ describe('一种样式分两半：每一座沙盘都用的一半，站点沙盘�
     expect(whole.light('night')).toBe(whole.light('day'));
   });
 
+  // 2026-11-26 以前取的是登记表的头一行（STYLES[0]）；现在取的是表里头一种整套的样式（今天还是那一行）：一行可以没有 load 了。
   it('拿着只取了一半的样式摆站点沙盘：说一句就停；整套的原样交回来', async () => {
-    const row = STYLES[0];
+    const row = STYLES.find((one) => one.load);
+    if (!row?.load) throw new Error('登记表里没有一种整套的样式');
     const half = (await row.loadRoute()).style;
     expect(() => wholeStyle(half)).toThrow(`样式“${row.id}”只取了全程沙盘用的那一半，摆不了站点沙盘`);
     const whole = (await row.load()).style;
     expect(wholeStyle(whole)).toBe(whole);
+  });
+});
+
+describe('只有全程沙盘用的样式：登记表里的一行可以没有 load（在编出来的那一行上试）', () => {
+  it('照这张单子给全程沙盘取它：取得到，就是那一半；给站点沙盘取它：拒绝，话里说了这一行缺什么、场景文件怎么改，那一半没有被拿去顶替', async () => {
+    let asked = 0;
+    const rows: StyleEntry[] = MADE_UP_STYLES.map((row) => ({ ...row, loadRoute: () => (asked++, row.loadRoute()) }));
+    expect(await loadStyle(MADE_UP_STYLE_ID, 'route', rows)).toBe(madeUpHalf);
+    expect(asked).toBe(1);
+    await expect(loadStyle(MADE_UP_STYLE_ID, 'stop', rows)).rejects.toThrow(`样式“${MADE_UP_STYLE_ID}”只有全程沙盘用的那一半（登记的这一行没有 load），摆不了站点沙盘：场景文件的 style 换一种两半都有的样式`);
+    // 给站点沙盘取的那一回，那一半一次也没有去要
+    expect(asked).toBe(1);
+    // 没有登记的还是原来那一句（先查在不在表里）
+    await expect(loadStyle('style-c', 'stop', rows)).rejects.toThrow('样式“style-c”的程序没有登记，沙盘没能摆出来');
+  });
+
+  it('登记表里有 load 的一行：给站点沙盘取的是整套，和原来一样', async () => {
+    for (const id of WHOLE_STYLE_IDS) expect(await loadStyle(id, 'stop', STYLES)).toBe(styleFor(id));
+    expect(WHOLE_STYLE_IDS.length).toBeGreaterThan(0);
   });
 });
 

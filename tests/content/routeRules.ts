@@ -81,6 +81,8 @@ const ROUTE: Shape = strict({
   sources: list(strict({ id: text, basis: text, cite: text })),
   // 沙盘上的小像在凭据里印的那几句话（它站在哪不写在场景里，照行迹走）；不在五类里，没有 class
   piece: optional(strict({ name: text, basis: text, note: text })),
+  // 凭据里“沙盘上的东西”一栏开头的几条总的说明，可以不写：一条一个 id（只在这一组里认）和一段话；id 不重复、话不是空的，由规则 13 说
+  general: optional(list(strict({ id: text, text }))),
   frame: strict({
     center: lngLat,
     projection: strict({ kind: text, lat1: number, lat2: number }),
@@ -679,7 +681,8 @@ function wayRef(written: string): { id: string; reversed: boolean } {
  * 一截路至少两个点；along 指的是场景里的一条河或一个湖；每一截路都有哪一趟走到；
  * 一趟路至少一截、写了时间，每一截至少一截路，写的路都找得到；一趟路里后一截路的头接着前一截路的尾（差不到 1 公里）；
  * 每一趟路到的那一站是 figure.json 里有的，每一站至少有一趟路；地名点的 stops 写的都是 figure.json 里有的站；
- * 地名点的 area（这个名字没有点）只能写 true，写了它的不能又写 stops。
+ * 地名点的 area（这个名字没有点）只能写 true，写了它的不能又写 stops；
+ * 凭据开头的几条总的说明（general）：每一条的 id 填了，在这一组里不重复，那一段话不是空的。
  */
 export function checkRouteParts(scene: RouteScene, file: string, stops: string[]): Violation[] {
   const out: Violation[] = [];
@@ -699,6 +702,14 @@ export function checkRouteParts(scene: RouteScene, file: string, stops: string[]
     if (entry.kind === 'notDrawn' && !entry.note?.trim()) bad(`${entry.path}.why`, `没有画的“${entry.id}”没有写为什么不画：凭据里要印这一句`);
   });
   if (scene.water.coast.name.trim() === '') bad('water.coast.name', '海岸没有填名字：说明和凭据里要用它');
+
+  // 凭据开头的几条总的说明：id 只在这一组里认（不进上面那张整个文件的单子：小节的 explain 点不到它），不重复；每一条都有话
+  const general = scene.general ?? [];
+  general.forEach((line, i) => {
+    if (line.id.trim() === '') bad(`general[${i}].id`, '这一条总的说明没有填 id');
+    else if (general.findIndex((other) => other.id === line.id) < i) bad(`general[${i}].id`, `id“${line.id}”在 general 里写了不止一次；这一组里 id 不能重复`);
+    if (line.text.trim() === '') bad(`general[${i}].text`, `总的说明“${line.id}”是空的：凭据的开头要印这一段话，没有话就把这一条删掉`);
+  });
 
   // 一圈线
   const ring = (points: LngLat[], field: string, what: string): void => {
@@ -862,7 +873,10 @@ export function checkRouteSections(scene: RouteScene, file: string, stops: strin
     if (section.explain.length === 0) bad(`${at}.explain`, `小节“${section.heading}”的 explain 是空的：旁边的说明先讲哪几样，至少写一样`);
     section.explain.forEach((id, j) => {
       const note = explained(id);
-      if (note === null) {
+      if (note === null && scene.general?.some((line) => line.id === id)) {
+        // 凭据开头的总的说明不是沙盘上的哪一样东西：只印在凭据里，小节的说明点不到它
+        bad(`${at}.explain[${j}]`, `“${id}”是 general 里的一条总的说明：它只印在凭据的开头，小节的 explain 不能点它；要在这一节说的话，写进这一节点到的东西的 note`);
+      } else if (note === null) {
         bad(`${at}.explain[${j}]`, `“${id}”找不到；这里可以写抹成海的地方、河、湖、从湖面里裁掉的角、只染水色的水、地名点、远处、一趟路、没有画的东西的 id，或者 terrain、recipe、levels、coast`);
       } else if (!note?.trim()) {
         const kind = entries.find((entry) => entry.id === id)?.kind;

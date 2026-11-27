@@ -44,7 +44,8 @@ export function pictureParts(scene: unknown): unknown {
   for (const [key, child] of Object.entries(scene)) {
     // 最外面的 sources 是全程沙盘自己的出处（站点沙盘的出处在那一站的正文文件里）：改一条出处的写法，画面不变
     // 最外面的 piece 是凭据里印的小像的那几句话：小像不在定格图里，它站在哪也不写在场景里
-    if (DROPPED.has(key) || key === 'sources' || key === 'piece') continue;
+    // 最外面的 general 是凭据开头的几条总的说明（全程沙盘可以写）：只是字，画面上没有它
+    if (DROPPED.has(key) || key === 'sources' || key === 'piece' || key === 'general') continue;
     // 最外面的 strips 是题签的单子（小节里的 strips 只是一串 id，不在这里）
     out[key] = key === 'strips' && Array.isArray(child) ? child.map((strip) => pruned(strip, true)) : pruned(child, false);
   }

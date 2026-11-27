@@ -12,8 +12,11 @@ import type { StageStyle, TableStyle } from '../internal';
 export interface StyleEntry {
   /** 样式的名字：场景文件的 style 写的就是它，它的文件夹也叫这个名字。 */
   id: string;
-  /** 取整套样式的程序（站点沙盘用）。 */
-  load(): Promise<{ style: StageStyle }>;
+  /**
+   * 取整套样式的程序（站点沙盘用）。可以不写：只有全程沙盘用的样式（它只有每一座沙盘都用的那一半）没有整套可取。
+   * 站点沙盘不能写这样的样式（校验的规则 10 挡着）；真拿它去摆站点沙盘，loadStyle 说一句就停。
+   */
+  load?(): Promise<{ style: StageStyle }>;
   /** 只取每一座沙盘都用的那一半（全程沙盘用）。 */
   loadRoute(): Promise<{ style: TableStyle }>;
 }
@@ -28,12 +31,16 @@ export function provideStyles(list: readonly StyleEntry[]): void {
 /**
  * 取 id 这种样式。level 是给哪一层的沙盘取：'stop' 取整套，'route' 只取每一座沙盘都用的那一半。
  * 登记表里没有它，或者它的程序没有取到，都拒绝：沙盘说“没能摆出来”，读者再试一次的时候重新取。
+ * 给站点沙盘取一种只有全程沙盘用的样式（那一行没有写 load），也拒绝：话里说了这一行缺什么、场景文件该怎么改。
  * list 不写用交进来的那一张。
  */
 export async function loadStyle(id: string, level: 'stop' | 'route', list: readonly StyleEntry[] = registry): Promise<TableStyle> {
   const entry = list.find((row) => row.id === id);
   if (!entry) throw new Error(`样式“${id}”的程序没有登记，沙盘没能摆出来`);
-  return (await (level === 'route' ? entry.loadRoute() : entry.load())).style;
+  if (level === 'route') return (await entry.loadRoute()).style;
+  // 这一句里的字都是随站的字体里本来就有的（程序里原样写着的字都算进字体：tests/support/fontTool.ts）
+  if (!entry.load) throw new Error(`样式“${id}”只有全程沙盘用的那一半（登记的这一行没有 load），摆不了站点沙盘：场景文件的 style 换一种两半都有的样式`);
+  return (await entry.load()).style;
 }
 
 /** 这一份样式是不是整套的（站点沙盘才用的那几样都在）。 */

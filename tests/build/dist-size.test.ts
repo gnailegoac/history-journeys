@@ -150,18 +150,18 @@ describe('全程沙盘另外的那一块程序', () => {
 describe('时代样式：一种一块', () => {
   // 2026-11-26 样式分成两半以前，这一条的名字里是“它另外要下载的只有它自己那一个文件”：那时一种样式一块。现在整套是两块（它自己，和它引的那一半），
   // 那一半自己还是只有一个文件；别的几样查的没有变。
-  it('登记表里的每一种样式都是单独的一块，用到时才下载；沙盘程序、全程沙盘那一块、页面的程序都不带着它；整套另外要下载的正好是它自己和它引的那一半两个文件，那一半另外要下载的只有它自己那一个文件；沙盘程序和页面的程序各还是一个文件', () => {
+  // 2026-11-26 一行可以没有 load 以前，这一条对登记表里的每一行都要整套的那一块。现在只有全程沙盘用的样式（那一行没有 load）只有那一半这一块：
+  // 它的那一半照样查（单独一块、用到时才下载、谁也不静态带着、另外要下载的只有它自己），整套的那几句只对有 load 的行查——查的东西没有少。
+  it('登记表里的每一种样式都是单独的一块，用到时才下载；沙盘程序、全程沙盘那一块、页面的程序都不带着它；整套另外要下载的正好是它自己和它引的那一半两个文件，那一半另外要下载的只有它自己那一个文件（只有全程沙盘用的样式——那一行没有 load——只有那一半这一块，清单里没有它整套的入口）；沙盘程序和页面的程序各还是一个文件', () => {
     expect(existsSync(MANIFEST), '没有 dist/.vite/manifest.json：先运行 npm run build').toBe(true);
     const manifest = readManifest(new TextDecoder().decode(readFileSync(MANIFEST)));
     expect(STYLES.length).toBeGreaterThan(0);
     const sizes = programSizes(manifest, gzipOnDisk);
     const have = new Set([...staticClosure(manifest, PAGE_ENTRY), ...staticClosure(manifest, ENGINE_ENTRY)].map((key) => manifest[key].file));
-    for (const { id } of STYLES) {
+    for (const row of STYLES) {
+      const { id } = row;
       const key = styleEntry(id);
-      expect(manifest[key], `清单里没有 ${key} 这一项：这种样式的程序被打进了别的块（多半是沙盘程序那一块），或者文件不叫这个名字（src/stage/three/style/<样式的名字>/<样式的名字>.ts）`).toBeDefined();
-      expect(manifest[key].isDynamicEntry, `${key} 在清单里没有标成“用到时才下载”`).toBe(true);
-      for (const entry of [ENGINE_ENTRY, ROUTE_ENTRY, PAGE_ENTRY]) expect(staticClosure(manifest, entry), `${key} 成了 ${entry} 一来就带着的东西`).not.toContain(key);
-      // 每一座沙盘都用的那一半：也是单独的一块，用到时才下载，哪一块都不静态带着它（整套的那一块除外）
+      // 每一座沙盘都用的那一半：哪一行都有，是单独的一块，用到时才下载，哪一块都不静态带着它（整套的那一块除外）
       const halfKey = styleRouteEntry(id);
       expect(manifest[halfKey], `清单里没有 ${halfKey} 这一项：这种样式没有分出全程沙盘取的那一半，或者文件不叫这个名字`).toBeDefined();
       expect(manifest[halfKey].isDynamicEntry, `${halfKey} 在清单里没有标成“用到时才下载”`).toBe(true);
@@ -170,6 +170,22 @@ describe('时代样式：一种一块', () => {
         const files = staticClosure(manifest, from).map((one) => manifest[one].file);
         return files.filter((file, i) => !have.has(file) && files.indexOf(file) === i);
       };
+      if (!row.load) {
+        // 只有全程沙盘用的样式：清单里没有整套的入口；那一半另外要下载的只有它自己；量大小的那个函数照那一半认它
+        expect(manifest[key], `${key} 在清单里：登记表里这一行没有 load，却有整套的那一块`).toBeUndefined();
+        expect(extra(halfKey), `${halfKey} 另外要下载的文件`).toEqual([manifest[halfKey].file]);
+        const half = sizes.styles.find((one) => one.id === id);
+        expect(half, `量不出样式“${id}”多大`).toBeDefined();
+        expect(half?.halfOnly, `样式“${id}”只有那一半，量大小的那个函数没有认出来`).toBe(true);
+        expect(half?.files).toEqual([manifest[halfKey].file]);
+        expect(half?.gzip).toBeGreaterThan(0);
+        expect(half?.isDynamic).toBe(true);
+        expect(half?.inOthers).toBe(false);
+        continue;
+      }
+      expect(manifest[key], `清单里没有 ${key} 这一项：这种样式的程序被打进了别的块（多半是沙盘程序那一块），或者文件不叫这个名字（src/stage/three/style/<样式的名字>/<样式的名字>.ts）`).toBeDefined();
+      expect(manifest[key].isDynamicEntry, `${key} 在清单里没有标成“用到时才下载”`).toBe(true);
+      for (const entry of [ENGINE_ENTRY, ROUTE_ENTRY, PAGE_ENTRY]) expect(staticClosure(manifest, entry), `${key} 成了 ${entry} 一来就带着的东西`).not.toContain(key);
       // 整套另外要下载的正好是两个文件（它自己，和它引的那一半）；那一半另外要下载的只有它自己：和沙盘程序共用的东西留在沙盘程序里，没有另拆一块
       expect(extra(key), `${key} 另外要下载的文件`).toEqual([manifest[key].file, manifest[halfKey].file]);
       expect(extra(halfKey), `${halfKey} 另外要下载的文件`).toEqual([manifest[halfKey].file]);
@@ -184,6 +200,7 @@ describe('时代样式：一种一块', () => {
       expect(measured?.gzip).toBeGreaterThan(0);
       expect(measured?.isDynamic).toBe(true);
       expect(measured?.inOthers).toBe(false);
+      expect(measured?.halfOnly, `样式“${id}”是整套的，却被认成只有那一半`).toBeUndefined();
     }
     // 清单里的样式正好是登记表里的那几种
     expect(sizes.styles.map((one) => one.id).sort()).toEqual(STYLES.map((row) => row.id).sort());
@@ -233,6 +250,8 @@ describe('按家分块的零件：每一座沙盘要下载多少程序', () => {
     const styleOf = (key: string, id: string, route = false): number => {
       const found = sizes.styles.find((one) => one.id === id);
       expect(found, `${key} 的场景里写的样式“${id}”在构建出来的东西里量不到`).toBeDefined();
+      // 只有全程沙盘用的样式（清单里只有那一半）：站点沙盘下载不到它（校验的规则 10 也不让站点沙盘写它）
+      expect(!route && found?.halfOnly === true, `${key} 是站点沙盘，写的样式“${id}”只有全程沙盘用的那一半`).toBe(false);
       const gzip = (route ? (found?.route ?? found)?.gzip : found?.gzip) ?? 0;
       expect(gzip, `${key} 的样式“${id}”量不出大小`).toBeGreaterThan(0);
       return gzip;

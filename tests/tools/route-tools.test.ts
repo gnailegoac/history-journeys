@@ -3,6 +3,7 @@
 //   npm run route:today     今天的岸线、湖、河   content/figures/<人物>/scenes/route.today.geojson
 //   npm run route:map       检查图（不进仓库）  tests/shots/route-check/map.png、map.txt：从正上方看，场景里的每一条线、每一圈、每一条路
 //   npm run route:bank      走水路的路贴着河岸走的线：只印出来，人看过以后贴进 scenes/route.json（做法见 tests/tools/route/bankTool.ts 的开头）
+//   npm run route:camera    每一节的镜头：只印出来，人看过图以后把挑中的数写进 scenes/route.json（做法见 tests/tools/route/cameraTool.ts 的开头）
 // 做好以后放进仓库，随场景文件一起走；发布的流程不重新做。两个文件都不手改。
 // 文件是什么样子、怎么做的，写在 tests/tools/route/terrainTool.ts 和 tests/tools/route/todayTool.ts 的开头。
 //
@@ -30,18 +31,30 @@
 // 岸线那一个模式读的也是 content/ 里的场景文件和 route.today.geojson。它另认一个环境变量：
 //   WAY         只做这一条路（路的 id，如 w-min）；不设就把写了 along、沿着一条河走的路都做一遍。
 // 设了 ROUTE_OUT 的话，另把做出来的线写成 banks.json 放进那个文件夹（给贴线的人用；不设就只印）。
+// 镜头那一个模式读的是 content/ 里的场景文件和地形文件，地面是沙盘程序自己造的那一份；方框在 tests/tools/route/cameraBoxes.ts。它另认一个环境变量：
+//   ROUTE_STYLE 借哪一种登记过的样式来算（座子伸出去多远、留白的边怎么收是样式的数）。只在场景写的样式还没登记的时候用，印出来的数会写明是借的。
+// 设了 ROUTE_OUT 的话，另把量到的数写成 cameras.json 放进那个文件夹（不设就只印）。场景文件它不写。
 
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { contentKey } from '../../src/domain/contentKey';
 import type { RouteScene } from '../../src/domain/scene';
 import { routeCoords } from '../../src/domain/sceneGeoRoute';
-import { buildRouteGround, readRouteDem } from '../../src/stage/ground/route';
+import { buildRouteGround, readRouteDem, routeSamplers } from '../../src/stage/ground/route';
+import { STYLES } from '../../src/stage/styles';
+import { loadStyle } from '../../src/stage/three/style';
+import { wholeTable } from '../../src/stage/three/rig';
 import { readToday } from '../content/routeRules';
+import { madeUpRoute } from '../stage/support/madeUpRoute';
+import { style as madeUpStyle } from '../stage/support/madeUpStyle';
+import { ROUTE_CAMERA_NEAREST_DEFAULT_M, ROUTE_CAMERA_NEAREST_M, routeCameraNearestM } from '../stage/support/routeFacts';
 import { blankEdgeFor } from '../stage/support/styles';
 import { decodePng, encodeRgbPng } from '../support/png';
 import { BANK_TAPER_KM, bankLine, bankOfWay, bankWays, chaikin, dense, lineText, simplify, stitch } from './route/bankTool';
 import type { Km } from './route/bankTool';
+import { ROUTE_CAMERA_BOXES } from './route/cameraBoxes';
+import { STANDARD_CAMERA_PANES, STILL_CAMERA_PANES, TRIAL_PANE, WHOLE_VIEW_PANES, boxOutline, boxPoints, cameraForBox, distanceForBox, movedSouth, readPane, rowOf, rowsForBox, rulesBroken, upTo100, wholeViewNeed, wholeViewNeeds, withCamera, worstBeyond } from './route/cameraTool';
+import type { Beyond, CameraRow, CameraTable, PaneReading } from './route/cameraTool';
 import { ROUTE_SCENE_FILE, ROUTE_TOOL_FIGURES, routeToolFigure, scenesFolder } from './route/figures';
 import type { RouteToolFigure } from './route/figures';
 import { MAP_POINTS_PER_CELL, drawRouteMap, lineKm, waySolid } from './route/mapTool';
@@ -54,7 +67,7 @@ import type { TodayFeature, TrialWater } from './route/todayTool';
 const env = (globalThis as { process?: { env: Record<string, string | undefined> } }).process?.env ?? {};
 
 /** 这一次要做哪一样；不是来做文件的（比如随 npm test 跑）就是 null。 */
-const MODE = (['terrain', 'today', 'map', 'bank'] as const).find((mode) => import.meta.env.MODE === mode || env.ROUTE_MODE === mode) ?? null;
+const MODE = (['terrain', 'today', 'map', 'bank', 'camera'] as const).find((mode) => import.meta.env.MODE === mode || env.ROUTE_MODE === mode) ?? null;
 
 /** 项目的根目录：这个文件在 tests/tools/ 里，往上两层。 */
 const ROOT = new URL('../../', import.meta.url);
@@ -200,13 +213,13 @@ describe.skipIf(MODE !== 'terrain')('做全程沙盘的地形文件（npm run ro
 
     const step = (grid.east - grid.west) / (cols - 1);
     say(`${tag} 给 ${id} 做，格子照 ${scenes}${ROUTE_SCENE_FILE} 里 terrain 写的`);
-    say(`${tag} 照样张的 ${source.folder}${source.demBytes} 重新取样：${trial.cols} × ${trial.rows} 格，每格 ${trial.cellKm} 公里，最高的一格 ${withCommas(trial.maxM)} 米`);
+    say(`${tag} 照源数据的 ${source.folder}${source.demBytes} 重新取样：${trial.cols} × ${trial.rows} 格，每格 ${trial.cellKm} 公里，最高的一格 ${withCommas(trial.maxM)} 米`);
     say(`  做出来　　${cols} 列 × ${rows} 行，每格 ${step.toFixed(4)} 度；西 ${grid.west}、东 ${grid.east}、北 ${grid.north}、南 ${grid.south}；整米，低位在前，第 0 行最北`);
     say(`  最高的一格 ${withCommas(report.highest.m)} 米，在东经 ${report.highest.lng.toFixed(2)}、北纬 ${report.highest.lat.toFixed(2)}`);
     say(`  四个角　　西北 ${report.corners.nw}、东北 ${report.corners.ne}、西南 ${report.corners.sw}、东南 ${report.corners.se} 米`);
     say(`  陆地 ${withCommas(report.land)} 格，不是陆地（存 0）${withCommas(report.sea)} 格；陆地照 ${rings.length} 圈岸线分`);
     say(`  陆地上取样出来不到 1 米、存成 1 的 ${withCommas(report.raised)} 格；不在陆地上、取样出来不是 0、存成 0 的 ${withCommas(report.zeroed)} 格`);
-    say(`  格点在样张的桌面以外的 ${withCommas(report.outside)} 格（样张没有量过那里，取的是最近的桌边上的高；沙盘用不到这些格子）`);
+    say(`  格点在源数据的桌面以外的 ${withCommas(report.outside)} 格（源数据没有量过那里，取的是最近的桌边上的高；沙盘用不到这些格子）`);
     say(`  文件 ${withCommas(bytes.length)} 字节，记号 ${contentKey(bytes)}`);
 
     const outcome = writeIfDifferent(diskIo(outFolder(env.ROUTE_OUT, scenes)), terrainFile, bytes);
@@ -237,15 +250,15 @@ describe.skipIf(MODE !== 'today')('做今天的岸线、湖、河（npm run rout
     const { land, lakes, rivers } = report;
 
     say(`${tag} 给 ${id} 做，方框照 tests/tools/route/figures.ts 里他那一行写的`);
-    say(`${tag} 照样张的 ${source.folder}${source.water} 做：裁到东经 ${todayBox.west} 到 ${todayBox.east}、北纬 ${todayBox.south} 到 ${todayBox.north}，按 ${THIN_KM} 公里抽稀，三位小数`);
-    say(`  陆地　样张里 ${land.ringsIn} 圈 ${withCommas(land.pointsIn)} 个点；一模一样的重复的 ${land.duplicates} 圈、不成面的 ${land.degenerate.length} 圈去掉以后 ${land.ringsOut} 圈 ${withCommas(land.pointsUnique)} 个点；`);
+    say(`${tag} 照源数据的 ${source.folder}${source.water} 做：裁到东经 ${todayBox.west} 到 ${todayBox.east}、北纬 ${todayBox.south} 到 ${todayBox.north}，按 ${THIN_KM} 公里抽稀，三位小数`);
+    say(`  陆地　源数据里 ${land.ringsIn} 圈 ${withCommas(land.pointsIn)} 个点；一模一样的重复的 ${land.duplicates} 圈、不成面的 ${land.degenerate.length} 圈去掉以后 ${land.ringsOut} 圈 ${withCommas(land.pointsUnique)} 个点；`);
     say(`  　　　抽稀以后 ${withCommas(land.pointsOut)} 个点（其中 ${land.keptWhole} 圈一抽就不成面，原样留着），${withCommas(kinds.land)} 字节`);
     for (const p of land.degenerate) say(`  　　　不成面、去掉的一圈在东经 ${p[0]}、北纬 ${p[1]}（方框边上裁剩下的）`);
-    say(`  湖　　${lakes.ringsIn} 圈 ${withCommas(lakes.pointsIn)} 个点，抽稀以后 ${withCommas(lakes.pointsOut)} 个点，${withCommas(kinds.lake)} 字节${lakes.restored.length > 0 ? `；样张缩小过、这里放回原来大小的：${lakes.restored.join('、')}` : ''}`);
+    say(`  湖　　${lakes.ringsIn} 圈 ${withCommas(lakes.pointsIn)} 个点，抽稀以后 ${withCommas(lakes.pointsOut)} 个点，${withCommas(kinds.lake)} 字节${lakes.restored.length > 0 ? `；源数据缩小过、这里放回原来大小的：${lakes.restored.join('、')}` : ''}`);
     say(`  河　　${rivers.linesIn} 条 ${withCommas(rivers.pointsIn)} 个点，裁到方框、抽稀以后 ${rivers.linesOut} 条 ${withCommas(rivers.pointsOut)} 个点，${withCommas(kinds.river)} 字节`);
     for (const c of rivers.clipped) say(`  　　　出了方框、裁过的：${c.name}（裁成 ${c.pieces} 段）`);
-    say(`  工具起了名字的 ${report.named.length} 项：${report.named.map((n) => (n.zh ? `${n.name}（样张认作${n.zh}）` : n.name)).join('、')}`);
-    say(`  样张做数据时已经去掉、所以这个文件里没有的 ${water.removed.length} 样（另有不到 40 平方公里的湖，样张没有记）：`);
+    say(`  工具起了名字的 ${report.named.length} 项：${report.named.map((n) => (n.zh ? `${n.name}（源数据认作${n.zh}）` : n.name)).join('、')}`);
+    say(`  源数据做数据时已经去掉、所以这个文件里没有的 ${water.removed.length} 样（另有不到 40 平方公里的湖，源数据没有记）：`);
     for (const r of water.removed) say(`  　　　${r.kind} ${r.name}：${r.why}`);
     say(`  一共 ${features.length} 项，文件 ${withCommas(bytes.length)} 字节，记号 ${contentKey(bytes)}`);
 
@@ -345,6 +358,160 @@ describe.skipIf(MODE !== 'bank')('走水路的路贴着河岸走的线（npm run
   });
 });
 
+// ---------------------------------------------------------------- npm run route:camera
+
+const km0 = (v: number): string => (Number.isFinite(v) ? v.toFixed(0) : '看不到地面');
+/** 四边各看出去多少公里，照北、南、西、东的先后。 */
+const beyondWords = (b: Beyond): string => `${km0(b.north)}/${km0(b.south)}/${km0(b.west)}/${km0(b.east)}`;
+
+/** 一种画面上量到的，印成一行。 */
+function paneLine(r: PaneReading): string {
+  const points = r.outside.length === 0 ? `要看的 ${r.showPoints} 个点和题签都在` : `在留出来的那一块外面的 ${r.outside.length} 样：${r.outside.join('、')}`;
+  const box = r.boxOutside === undefined ? '' : `；方框一圈在外面 ${r.boxOutside} 个`;
+  return `      ${r.pane}：${r.fit.toFixed(2)} 倍 / ${r.distanceM.toFixed(0)} 米；100 公里 ${r.pxPer100Km.toFixed(0)} 像素；看出边 ${beyondWords(r.beyondKm)}，留出来的那一块 ${beyondWords(r.freeBeyondKm)}；${points}${box}`;
+}
+
+/** 一种摆法，印成几行：镜头、犯的规矩、标准的八种栏合起来的数，再一种画面一行。 */
+function rowLines(row: CameraRow): string[] {
+  const c = row.camera;
+  const px = row.standard.map((r) => r.pxPer100Km);
+  const fits = row.standard.map((r) => r.fit);
+  const outside = [...new Set(row.standard.flatMap((r) => r.outside))];
+  return [
+    `  ▸ ${row.label}`,
+    `    镜头：对准 [${c.target[0]}, ${c.target[1]}]，离 ${withCommas(c.distanceM)} 米，倾角 ${c.pitch}，朝向 ${c.bearing}，视角 ${c.fov ?? '没写'}${c.closest === undefined ? '' : `，closest ${c.closest}`}`,
+    `    规矩：${row.rules.length === 0 ? '都合' : row.rules.join('；')}`,
+    `    标准的八种栏：100 公里合 ${Math.min(...px).toFixed(0)} 到 ${Math.max(...px).toFixed(0)} 像素；镜头是写的距离的 ${Math.min(...fits).toFixed(2)} 到 ${Math.max(...fits).toFixed(2)} 倍；` +
+      `画面的角看出边最多 ${beyondWords(worstBeyond(row.standard))}，留出来的那一块的角最多 ${beyondWords(worstBeyond(row.standard, 'freeBeyondKm'))}；` +
+      `${outside.length === 0 ? '要看的点和题签都在留出来的那一块里' : `在留出来的那一块外面的：${outside.join('、')}`}`,
+    ...[row.trial, ...row.standard, ...row.stills].map(paneLine),
+  ];
+}
+
+describe.skipIf(MODE !== 'camera')('每一节的镜头（npm run route:camera）', () => {
+  // 九节、每节几种摆法、每种十一种画面，再加找倾角、挪对准的那一点的来回试：这台机器上十来秒；给足时间。
+  it('印出每一节的镜头：场景里现在写的，和照方框算的（场景文件不写）', { timeout: 600_000 }, async () => {
+    const tag = '[全程沙盘·镜头]';
+    const lines: string[] = [];
+    const say = (line: string): void => {
+      lines.push(line);
+    };
+    const { id, scenes, scene } = makingFor();
+
+    // 样式：座子伸出去多远（看整块沙盘的一节连座子一起装）、留白的边怎么收（造地面要）都是它的数
+    const registered = STYLES.map((entry) => entry.id);
+    const styleId = env.ROUTE_STYLE || scene.style;
+    if (!registered.includes(styleId)) {
+      throw new Error(
+        `${env.ROUTE_STYLE ? 'ROUTE_STYLE 写的' : `${scenes}${ROUTE_SCENE_FILE} 写的`}样式“${styleId}”登记表里没有（src/stage/styles.ts；有的是：${registered.join('、')}）。` +
+          '座子伸出去多远、留白的边怎么收是样式的数：先登记这种样式；只为先算个数，可以设 ROUTE_STYLE=<登记过的样式> 借一种，印出来的数会写明是借的。',
+      );
+    }
+    const borrowed = styleId !== scene.style;
+    const style = await loadStyle(styleId, 'route', STYLES);
+    const blank = style.route?.blank;
+    if (!blank) throw new Error(`样式“${styleId}”里没有全程沙盘的那一份`);
+
+    // 地面：沙盘程序自己造的那一份（和页面上、和 tests/stage/support/realScenes.ts 的 realRouteScene 是同一句）
+    const coords = routeCoords(scene.frame);
+    const bytes = readFileSync(new URL(`${scenes}${scene.terrain.file}`, ROOT));
+    const dem = readRouteDem(scene.terrain, bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer);
+    const ground = buildRouteGround(scene, dem, coords, blank);
+    // 看一站的小节镜头最近多少米：这座沙盘自己的那个数，和场景验收的测试读的是同一张表（tests/stage/support/routeFacts.ts）
+    const tableKey = `${id}/route`;
+    const nearestM = routeCameraNearestM(tableKey);
+    const T: CameraTable = { scene, coords, ground: routeSamplers(ground), style, nearestM };
+    const boxes = Object.hasOwn(ROUTE_CAMERA_BOXES, id) ? ROUTE_CAMERA_BOXES[id] : {};
+    /** 座子交给镜头的那几个数：伸出去多远、下沿多高；写了上沿的（四周立着一道比沙盘面高的框）连上沿。 */
+    const standWords = `伸出 ${style.stand.reachM} 米、下沿 ${style.stand.reachY}${style.stand.reachTopY === undefined ? '' : `、上沿 ${style.stand.reachTopY}`}`;
+
+    say(`${tag} 给 ${id} 做：场景 ${scenes}${ROUTE_SCENE_FILE}，地面照 ${scenes}${scene.terrain.file} 用沙盘程序自己的办法造（${ground.nx} × ${ground.nz} 个点）。只印，不写场景文件。`);
+    say(
+      borrowed
+        ? `${tag} 样式是借的：场景写的是“${scene.style}”，这一次照 ROUTE_STYLE 借“${styleId}”的座子（${standWords}）和留白的边，只为算数。` +
+            `看整块沙盘的一节跟着座子变，别的节只跟着地面的高低变一点；“${scene.style}”登记以后不设 ROUTE_STYLE 重算一遍。`
+        : `${tag} 样式“${styleId}”：座子${standWords}。`,
+    );
+    say(`${tag} 看一站的小节，镜头最近 ${nearestM} 米：${Object.hasOwn(ROUTE_CAMERA_NEAREST_M, tableKey) ? '这座沙盘在那张表里写着的数' : `那张表里没有这座沙盘，照 ${ROUTE_CAMERA_NEAREST_DEFAULT_M}`}（tests/stage/support/routeFacts.ts 的 ROUTE_CAMERA_NEAREST_M，场景验收照它查）。`);
+    say(`${tag} 沙盘 ${(coords.x1 - coords.x0).toFixed(0)} × ${(coords.z1 - coords.z0).toFixed(0)} 米（一米合 ${scene.frame.scale} 米）；方框那张表（tests/tools/route/cameraBoxes.ts）里${Object.keys(boxes).length > 0 ? `有他的 ${Object.keys(boxes).length} 节` : '没有他的方框，只量场景里写的镜头'}。`);
+    say(`${tag} 一种画面一行：镜头是写的距离的几倍 / 离多少米；镜头对准的那一点上 100 公里合多少像素；画面的四个角（定格图是图片的四个角）看出地面的边多少公里，`);
+    say('  照北/南/西/东的先后，在里面是 0；留出来的那一块的四个角的同样四个数；要看的点（mustShow 的点和这一节的题签指着的点）在不在留出来的那一块里；方框一圈 52 个点有几个在外面。');
+    say(`  画面：定稿样张的 ${TRIAL_PANE.name}（四边不留），标准的八种栏，定格图的两种形状（${STILL_CAMERA_PANES.map((p) => `${p.name}：栏 ${p.size.width} × ${p.size.height}，左右各多拍 ${p.extra}`).join('；')}）。`);
+
+    const views: Record<string, unknown>[] = [];
+    const unknown = Object.keys(boxes).filter((heading) => !scene.sections.some((section) => section.heading === heading));
+    if (unknown.length > 0) throw new Error(`方框那张表里 ${id} 的这几节，场景里没有：${unknown.join('、')}`);
+
+    for (const section of scene.sections) {
+      const whole = wholeTable(section);
+      say('');
+      say(`【${section.heading}】${whole ? '看整块沙盘' : `看 ${section.stop ?? '（没写是哪一站）'} 这一站`}`);
+      const written = rowOf(T, section, '场景里现在写的', section.camera);
+      for (const line of rowLines(written)) say(line);
+      const view: Record<string, unknown> = { heading: section.heading, stop: section.stop ?? null, whole, written };
+
+      if (whole) {
+        const trialNeed = wholeViewNeed(T, section, TRIAL_PANE);
+        const needs = wholeViewNeeds(T, section);
+        const nearest = needs.reduce((a, b) => (b.needM < a.needM ? b : a));
+        const farthest = needs.reduce((a, b) => (b.needM > a.needM ? b : a));
+        const write = upTo100(trialNeed);
+        say(`  正好装下整块沙盘（连座子，居中）要多远：定稿样张的画面 ${trialNeed.toFixed(0)} 米；量过的 ${needs.length} 种栏里最近的 ${nearest.needM.toFixed(0)} 米（${nearest.pane}），最远的 ${farthest.needM.toFixed(0)} 米（${farthest.pane}）。`);
+        say(`  照样张的画面写 distanceM ${write} 的话：最近的一种栏要的是它的 ${(nearest.needM / write).toFixed(3)} 倍（closest 不比这个数大，每一种栏上才都正好装下），最远的是 ${(farthest.needM / write).toFixed(3)} 倍（不能超过 2.5）。`);
+        say(`  要 closest 写 0.75 的话，distanceM 最多 ${(Math.floor(nearest.needM / 0.75 / 100) * 100).toFixed(0)}。现在写的 ${section.camera.distanceM}${section.camera.closest === undefined ? '' : `、closest ${section.camera.closest}`}：最近能到 ${(section.camera.distanceM * (section.camera.closest ?? 1)).toFixed(0)} 米。`);
+        view.needs = { trialM: trialNeed, panes: needs, nearest, farthest, writeM: write };
+      }
+
+      const plan = Object.hasOwn(boxes, section.heading) ? boxes[section.heading] : undefined;
+      if (plan) {
+        if (whole) throw new Error(`“${section.heading}”是看整块沙盘的一节，方框那张表里不该有它`);
+        const { box } = plan;
+        say(`  方框：东经 ${box.west} 到 ${box.east}，北纬 ${box.south} 到 ${box.north}`);
+        const { rows, notes } = rowsForBox(T, section, plan);
+        for (const row of rows) for (const line of rowLines(row)) say(line);
+        for (const note of notes) say(`  做不到的：${note}`);
+        view.box = box;
+        view.rows = rows;
+        view.notes = notes;
+        // 照方框算出来的头一种摆法，在定稿样张的画面上方框一圈的点一个也不在外面（算错了这里会红）
+        expect(rows[0].trial.boxOutside, `${section.heading}：方框居中的镜头在样张的画面上装不下方框`).toBe(0);
+      } else if (!whole) {
+        say('  方框那张表里没有这一节：只量了场景里写的镜头。');
+      }
+      views.push(view);
+    }
+
+    // 和 tests/stage/route-views.test.ts 印的是同样的几行（同样的画面、同样的写法）：两边对得上，这个工具摆镜头的办法就和验收的是同一个
+    say('');
+    say(`${id}/route 每一节的镜头（写的距离的几倍 / 镜头离多少米）：`);
+    for (const section of scene.sections) {
+      const cells = [TRIAL_PANE, ...STANDARD_CAMERA_PANES].map((pane) => {
+        const r = readPane(T, section, pane);
+        return `${pane.name} ${r.fit.toFixed(2)} / ${r.distanceM.toFixed(0)}`;
+      });
+      say(`  ${section.heading}（写的 ${section.camera.distanceM}）：${cells.join('；')}`);
+    }
+
+    console.log(lines.join('\n'));
+    if (env.ROUTE_OUT) {
+      const out = {
+        figure: id,
+        sceneStyle: scene.style,
+        styleUsed: styleId,
+        styleBorrowed: borrowed,
+        stand: { reachM: style.stand.reachM, reachY: style.stand.reachY, ...(style.stand.reachTopY === undefined ? {} : { reachTopY: style.stand.reachTopY }) },
+        table: { widthM: coords.x1 - coords.x0, depthM: coords.z1 - coords.z0, scale: scene.frame.scale },
+        nearestM,
+        wholeViewPanes: WHOLE_VIEW_PANES.length,
+        views,
+      };
+      diskIo(outFolder(env.ROUTE_OUT, scenes)).write('cameras.json', new TextEncoder().encode(`${JSON.stringify(out, null, 1)}\n`));
+      console.log(`${tag} ROUTE_OUT 指的文件夹里的 cameras.json 写好了（${views.length} 节）。`);
+    }
+    expect(views.length).toBe(scene.sections.length);
+  });
+});
+
 // ---------------------------------------------------------------- 工具自己（随 npm test 跑，不动 content/）
 
 describe('做全程沙盘的文件的工具自己（用编出来的小数据，什么也不写）', () => {
@@ -353,15 +520,16 @@ describe('做全程沙盘的文件的工具自己（用编出来的小数据，�
   /** 测试里用的“投影”：一度当 100 公里，量起来方便。 */
   const flat = (lng: number, lat: number): [number, number] => [lng * 100, lat * 100];
 
-  it('只有用自己的模式跑（--mode terrain、--mode today、--mode map、--mode bank，或者 ROUTE_MODE）才真的做', () => {
+  it('只有用自己的模式跑（--mode terrain、--mode today、--mode map、--mode bank、--mode camera，或者 ROUTE_MODE）才真的做', () => {
     expect(typeof import.meta.env.MODE).toBe('string');
     // 两头各查一句（不照抄 MODE 的那一行，那样永远不会红）：随 npm test 跑的时候一定不做；用哪个模式跑就做哪一样。
     const asked = [import.meta.env.MODE, env.ROUTE_MODE];
-    if (!asked.includes('terrain') && !asked.includes('today') && !asked.includes('map') && !asked.includes('bank')) expect(MODE).toBeNull();
+    if (!asked.includes('terrain') && !asked.includes('today') && !asked.includes('map') && !asked.includes('bank') && !asked.includes('camera')) expect(MODE).toBeNull();
     if (import.meta.env.MODE === 'terrain') expect(MODE).toBe('terrain');
     if (import.meta.env.MODE === 'today') expect(MODE).toBe('today');
     if (import.meta.env.MODE === 'map') expect(MODE).toBe('map');
     if (import.meta.env.MODE === 'bank') expect(MODE).toBe('bank');
+    if (import.meta.env.MODE === 'camera') expect(MODE).toBe('camera');
   });
 
   describe('检查图', () => {
@@ -484,6 +652,10 @@ describe('做全程沙盘的文件的工具自己（用编出来的小数据，�
       expect(() => readTrialDem(smallJson(), smallBytes.subarray(2))).toThrow('应该是 12 字节');
       expect(() => readTrialDem(smallJson({ widthKm: 300 }), smallBytes)).toThrow('对不上');
       expect(() => readTrialDem(smallJson({ projection: { lat1: 22 } }), smallBytes)).toThrow('不全');
+      // 话里那两个文件叫“源数据的”（2026-11-26 以前叫“样张的”：那是苏轼的源数据的来历，不是每一位人物的）
+      expect(() => readTrialDem(smallJson(), smallBytes.subarray(2))).toThrow(/^源数据的 dem\.bin /);
+      expect(() => readTrialDem(smallJson({ widthKm: 300 }), smallBytes)).toThrow(/^源数据的 dem\.json：/);
+      expect(() => readTrialDem(smallJson({ projection: { lat1: 22 } }), smallBytes)).toThrow(/^源数据的 dem\.json /);
     });
   });
 
@@ -732,6 +904,33 @@ describe('做全程沙盘的文件的工具自己（用编出来的小数据，�
         expect(() => todayFeatures(edit((w) => (w.lakes[0].ring = lakeRing(109.9, 24, 0.2))), flat, BOX, SHRUNK)).toThrow('出了方框');
         // 哪个湖缩小过是交进来的，不是工具自己记着的：没交那张单子，源数据里带着说明的湖就是“不知道的改动”
         expect(() => todayFeatures(water(), flat, BOX, [])).toThrow('不知道这一处改动');
+      });
+
+      it('工具停下来说的话里，那份文件叫“源数据”（哪一位人物的都是他那一行写的源数据；2026-11-26 以前这几句说的是“样张”——那是苏轼的源数据的来历，不是每一位的）', () => {
+        const edit = (change: (w: TrialWater) => void): TrialWater => {
+          const w = water();
+          change(w);
+          return w;
+        };
+        const said = (run: () => unknown): string => {
+          try {
+            run();
+          } catch (error) {
+            return error instanceof Error ? error.message : String(error);
+          }
+          return '（没有停下来）';
+        };
+        const messages = [
+          said(() => todayFeatures(edit((w) => (w.lakes[0].note = '改过')), flat, BOX, SHRUNK)),
+          said(() => todayFeatures(edit((w) => delete w.lakes[2].note), flat, BOX, SHRUNK)),
+          said(() => todayFeatures(edit((w) => w.land.push(lakeRing(105, 25, 1))), flat, BOX, SHRUNK)),
+          said(() => todayFeatures(edit((w) => w.land.push(lakeRing(110, 25, 1))), flat, BOX, SHRUNK)),
+        ];
+        expect(messages).toHaveLength(4);
+        for (const message of messages) {
+          expect(message, message).toMatch(/^源数据/);
+          expect(message, message).not.toContain('样张');
+        }
       });
 
       it('写成文件：一项一行，行尾 LF，最后一个换行；读回来是同样的东西；同样的内容写出同样的字节', () => {
@@ -1026,6 +1225,159 @@ describe('做全程沙盘的文件的工具自己（用编出来的小数据，�
       const scene = readRouteScene('su-shi');
       expect([scene.terrain.file, scene.water.todayFile]).toEqual(['route.terrain.bin', 'route.today.geojson']);
       expect(readFileSync(new URL(`${scenesFolder('su-shi')}${scene.terrain.file}`, ROOT)).length).toBe(592_800);
+    });
+  });
+
+  describe('镜头（用编出来的那座全程沙盘，tests/stage/support/madeUpRoute.ts）', () => {
+    /** 编出来的那座沙盘（东西 600 公里、南北 400 公里，正中是东经 160、北纬 20），和它的样式。 */
+    const table = (nearestM = ROUTE_CAMERA_NEAREST_DEFAULT_M): CameraTable => {
+      const R = madeUpRoute();
+      return { scene: R.scene, coords: R.coords, ground: R.samplers, style: madeUpStyle, nearestM };
+    };
+    /** 沙盘里面的一个方框：二百来公里宽、一百五十来公里高。 */
+    const BOX = { west: 159, east: 161, south: 19.3, north: 20.7 };
+    /** 一节不带题签、不写 mustShow 的小节：镜头不为别的点退。 */
+    const bare = (T: CameraTable) => ({ ...T.scene.sections[1], strips: [], camera: { target: [160, 20] as LngLat, distanceM: 20_000, pitch: 46, bearing: 0, fov: 18 } });
+
+    it('方框一圈的点：四个角，每条边上再取 12 个，一共 52 个，都压在方框的边上', () => {
+      const ring = boxOutline(BOX);
+      expect(ring).toHaveLength(52);
+      for (const corner of [[159, 20.7], [161, 20.7], [161, 19.3], [159, 19.3]]) expect(ring).toContainEqual(corner);
+      for (const [lng, lat] of ring) expect(lng === 159 || lng === 161 || lat === 19.3 || lat === 20.7).toBe(true);
+      expect(boxPoints(table(), BOX)).toHaveLength(52);
+    });
+
+    it('照方框算的镜头：对准的那一点两位小数，距离是整百；在样张的画面上方框正好装下——写的距离装得下，近一成就装不下；左右居中', () => {
+      const T = table();
+      const camera = cameraForBox(T, BOX, 46);
+      expect(camera.pitch).toBe(46);
+      expect(camera.bearing).toBe(0);
+      expect(camera.fov).toBe(18);
+      expect(camera.target.map((v) => Number(v.toFixed(2)))).toEqual(camera.target);
+      expect(camera.distanceM % 100).toBe(0);
+      // 取整以前的数就在它下面不到一百米
+      const exact = distanceForBox(T, BOX, camera.target, 46);
+      expect(camera.distanceM).toBeGreaterThanOrEqual(exact);
+      expect(camera.distanceM - exact).toBeLessThan(100);
+      expect(camera.distanceM).toBe(upTo100(exact));
+      const section = bare(T);
+      const at = readPane(T, withCamera(section, camera), TRIAL_PANE, BOX);
+      expect(at.fit).toBe(1);
+      expect(at.boxOutside).toBe(0);
+      expect(readPane(T, withCamera(section, { ...camera, distanceM: camera.distanceM * 0.9 }), TRIAL_PANE, BOX).boxOutside).toBeGreaterThan(0);
+      // 方框是左右对称的，对准的那一点就在它的中线上
+      expect(camera.target[0]).toBeCloseTo(160, 1);
+      // 斜着看，方框远的一头显得小：对准的那一点比方框的正中偏南
+      expect(camera.target[1]).toBeLessThan(20);
+    });
+
+    it('对准的那一点往南挪 40 公里：纬度小了三分之一度上下，经度不动；距离照方框重新量——照它写还装得下，近一成就装不下', () => {
+      const T = table();
+      const centred = cameraForBox(T, BOX, 46);
+      const moved = movedSouth(T, BOX, centred, 40);
+      // 一度纬度一百一十公里上下
+      expect(centred.target[1] - moved.target[1]).toBeGreaterThan(0.33);
+      expect(centred.target[1] - moved.target[1]).toBeLessThan(0.39);
+      expect(moved.target[0]).toBeCloseTo(centred.target[0], 1);
+      // 距离不一定变大：方框是宽的那一头顶着画面的边时，对准的那一点往近的一头挪，镜头反而能近一点
+      expect(moved.distanceM).toBe(upTo100(distanceForBox(T, BOX, moved.target, 46)));
+      expect(readPane(T, withCamera(bare(T), moved), TRIAL_PANE, BOX).boxOutside).toBe(0);
+      expect(readPane(T, withCamera(bare(T), { ...moved, distanceM: moved.distanceM * 0.9 }), TRIAL_PANE, BOX).boxOutside).toBeGreaterThan(0);
+      // 往北是负数
+      expect(movedSouth(T, BOX, centred, -40).target[1]).toBeGreaterThan(centred.target[1]);
+    });
+
+    it('看出地面的边多远：近处看沙盘中间，四边都是 0；退得很远，四边都看出去，东西两边一样多；定格图多拍的一截也算', () => {
+      const T = table();
+      const section = bare(T);
+      const near = readPane(T, withCamera(section, { ...section.camera, distanceM: 6_000 }), TRIAL_PANE);
+      expect(near.beyondKm).toEqual({ north: 0, south: 0, west: 0, east: 0 });
+      const far = readPane(T, withCamera(section, { ...section.camera, distanceM: 60_000 }), TRIAL_PANE);
+      expect(far.beyondKm.north).toBeGreaterThan(0);
+      expect(far.beyondKm.south).toBeGreaterThan(0);
+      expect(far.beyondKm.west).toBeGreaterThan(0);
+      expect(far.beyondKm.west).toBeCloseTo(far.beyondKm.east, 3);
+      // 另算一遍：朝北、斜 46 度看，画面下边正中的那条视线落在对准的那一点以南 d·tan(半个视角)/cos(46 度 − 半个视角)/… ——
+      // 不抄工具里的式子，照三角形量：镜头高 d·cos46，离对准的那一点的水平距离 d·sin46，下边的视线和竖直方向夹 46 − 9 度
+      const d = 60_000;
+      const rad = Math.PI / 180;
+      const southOfTargetM = d * Math.sin(46 * rad) - d * Math.cos(46 * rad) * Math.tan(37 * rad);
+      const [, targetZ] = T.coords.toLocal([160, 20]);
+      const groundY = T.coords.y(T.ground.height(0, targetZ));
+      // 对准的那一点在地面上（比海面高 groundY），看出边量的是海面那么高的平面：下边的视线再往北多走 groundY·tan(37 度)
+      const expectedSouthKm = ((targetZ + southOfTargetM - groundY * Math.tan(37 * rad) - T.coords.z1) * T.scene.frame.scale) / 1000;
+      expect(far.beyondKm.south).toBeCloseTo(expectedSouthKm, 0);
+      // 留出来的那一块比画面小，看出去的不会更多；多拍的一截只会让东西两边看出去更多
+      const still = readPane(T, withCamera(section, { ...section.camera, distanceM: 60_000 }), STILL_CAMERA_PANES[0]);
+      const same = readPane(T, withCamera(section, { ...section.camera, distanceM: 60_000 }), { ...STILL_CAMERA_PANES[0], extra: 0 });
+      expect(still.beyondKm.west).toBeGreaterThan(same.beyondKm.west);
+      expect(still.beyondKm.north).toBeCloseTo(same.beyondKm.north, 6);
+      expect(same.freeBeyondKm.south).toBeLessThan(same.beyondKm.south);
+    });
+
+    it('看整块沙盘的一节正好装下要多远：照这个数写，镜头不动（1 倍）；写近两成，镜头退 1.25 倍到同一个地方', () => {
+      const T = table();
+      const section = T.scene.sections[0];
+      const pane = STANDARD_CAMERA_PANES[0];
+      const need = wholeViewNeed(T, section, pane);
+      const exact = readPane(T, withCamera(section, { ...section.camera, distanceM: need, closest: 1 }), pane);
+      expect(exact.fit).toBeCloseTo(1, 3);
+      const nearer = readPane(T, withCamera(section, { ...section.camera, distanceM: need * 0.8, closest: 1 }), pane);
+      expect(nearer.fit).toBeCloseTo(1.25, 2);
+      expect(Math.abs(nearer.distanceM / need - 1)).toBeLessThan(0.002);
+      // 量过的每一种栏各有一个数；栏越窄越矮，要得越远
+      const needs = wholeViewNeeds(T, section);
+      expect(needs).toHaveLength(WHOLE_VIEW_PANES.length);
+      for (const { needM } of needs) expect(needM).toBeGreaterThan(0);
+    });
+
+    it('犯了哪几条规矩：朝北不转、视角 18 度、看路的小节不比这座沙盘自己的那个数近（交进来的：表里没有的沙盘是 15,000 米）、不写 closest；格式的范围', () => {
+      const M = ROUTE_CAMERA_NEAREST_DEFAULT_M;
+      expect(M).toBe(15_000);
+      const good = { target: [160, 20] as LngLat, distanceM: M, pitch: 46, bearing: 0, fov: 18 };
+      expect(rulesBroken(good, false, M)).toEqual([]);
+      expect(rulesBroken({ ...good, distanceM: 14_900 }, false, M)).toEqual(['比 15000 米近（14900 米）']);
+      // 那个数是一座沙盘一个：交进来 9,000，14,900 米就不近了，8,900 米才近；交进来 20,000，15,000 米也近了
+      expect(rulesBroken({ ...good, distanceM: 14_900 }, false, 9_000)).toEqual([]);
+      expect(rulesBroken({ ...good, distanceM: 8_900 }, false, 9_000)).toEqual(['比 9000 米近（8900 米）']);
+      expect(rulesBroken(good, false, 20_000)).toEqual(['比 20000 米近（15000 米）']);
+      // 看整块沙盘的一节不查远近，可以写 closest
+      expect(rulesBroken({ ...good, distanceM: 9_000, closest: 0.75 }, true, M)).toEqual([]);
+      expect(rulesBroken({ ...good, closest: 0.75 }, false, M)).toEqual(['看路的小节写了 closest']);
+      expect(rulesBroken({ ...good, bearing: 10 }, false, M)).toEqual(['转了 10 度（要朝北、不转）']);
+      expect(rulesBroken({ ...good, fov: 21 }, false, M)).toEqual(['视角 21 度（要写 18 度）']);
+      expect(rulesBroken({ target: [160, 20], distanceM: 20_000, pitch: 46, bearing: 0 }, false, M)).toEqual(['视角没写（要写 18 度）']);
+      expect(rulesBroken({ ...good, pitch: 86 }, false, M)).toEqual(['格式：倾角 86 度不在 0 到 85 之间']);
+    });
+
+    it('一节的一行照这座沙盘自己的那个数说“近了”：编出来的那座沙盘看一站的小节写的是 16,000、17,000 米，照 15,000 都合；它的数要是 16,500，近的两节各说一句；照方框算出来比那个数近的，另出一行退到那个数', () => {
+      const usual = table();
+      const strict = table(16_500);
+      // 只看“近了”的那一句（编出来的那几节没有写视角，那一句另有）
+      const rules = (T: CameraTable): string[][] => T.scene.sections.map((section) => rowOf(T, section, '场景里现在写的', section.camera).rules.filter((line) => line.includes('米近')));
+      expect(rules(usual)).toEqual([[], [], [], []]);
+      expect(rules(strict)).toEqual([[], [], ['比 16500 米近（16000 米）'], ['比 16500 米近（16000 米）']]);
+      // 照方框算：这个方框（二百来公里宽，沙盘上三公里多）居中的镜头比 1,000 米远、比 15,000 米近——
+      // 那个数是 1,000 的沙盘上没有“退到”的一行；是 15,000、60,000 的，各多出一行退到那个数
+      const section = usual.scene.sections[1];
+      const labels = (T: CameraTable): string[] => rowsForBox(T, section, { box: BOX }).rows.map((row) => row.label);
+      const centred = cameraForBox(usual, BOX, 46).distanceM;
+      expect(centred).toBeGreaterThan(1_000);
+      expect(centred).toBeLessThan(15_000);
+      expect(labels(table(1_000)).some((label) => label.includes('退到'))).toBe(false);
+      expect(labels(usual)).toContain('方框居中，倾角 46，退到 15000 米');
+      expect(labels(table(60_000))).toContain('方框居中，倾角 46，退到 60000 米');
+    });
+
+    it('方框那张表：每一位人物的每一项都是一个成样子的方框（西小于东、南小于北），要另算的倾角在 0 到 85 之间', () => {
+      for (const [figureId, plans] of Object.entries(ROUTE_CAMERA_BOXES)) {
+        expect(Object.keys(ROUTE_TOOL_FIGURES), figureId).toContain(figureId);
+        for (const [heading, plan] of Object.entries(plans)) {
+          expect(plan.box.west, `${figureId} ${heading}`).toBeLessThan(plan.box.east);
+          expect(plan.box.south, `${figureId} ${heading}`).toBeLessThan(plan.box.north);
+          for (const pitch of plan.alsoPitches ?? []) expect(pitch >= 0 && pitch <= 85, `${figureId} ${heading} 倾角 ${pitch}`).toBe(true);
+        }
+      }
     });
   });
 

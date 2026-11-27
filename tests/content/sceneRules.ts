@@ -28,6 +28,19 @@ import type { ContentFiles, FileSizes, Shape, Violation } from './shape';
  */
 export const STYLE_IDS: readonly string[] = STYLES.map((row) => row.id);
 
+/** 校验要知道的一种样式：名字，和它是不是整套的。 */
+export interface StyleChoice {
+  id: string;
+  /** 登记表里它那一行有 load（整套，站点沙盘能写）；没有的只有全程沙盘用的那一半，站点沙盘写不了。 */
+  whole: boolean;
+}
+
+/** 照一张样式的登记表说出校验要知道的那两样。平常就是登记表（下面的 STYLE_CHOICES）；测试交编出来的表。 */
+export const styleChoices = (rows: readonly { id: string; load?: unknown }[]): StyleChoice[] => rows.map((row) => ({ id: row.id, whole: row.load !== undefined }));
+
+/** 登记表里的每一种样式（站点沙盘的规则 10 用的）。 */
+export const STYLE_CHOICES: readonly StyleChoice[] = styleChoices(STYLES);
+
 /**
  * 地形文件最大多少字节（规则 10）：1.5 MB。和“一座沙盘的文件合计”（规则 17）是同一个数：
  * 地形文件自己不能超过它，连同先画好的两张图加起来也不能超过它。
@@ -258,17 +271,24 @@ export function checkSceneNumbers(scene: StopScene, file: string): Violation[] {
 // ---------------------------------------------------------------- 规则 10 场景文件
 
 /**
- * 规则 10 场景文件：文件名和 stopId 一样；这一站在 figure.json 里有（complete、outline 都可以：沙盘可以比正文先做好）；style 是程序里有的样式；
+ * 规则 10 场景文件：文件名和 stopId 一样；这一站在 figure.json 里有（complete、outline 都可以：沙盘可以比正文先做好）；style 是程序里有的样式，
+ * 而且是整套的（只有全程沙盘用的样式——登记表里那一行没有 load——站点沙盘写不了：它没有站点沙盘才用的那一半）；
  * credits 至少一条；relief 是统一夸大；地形文件存在，大小正好是 行 × 列 × 2 字节，不超过 1.5 MB；地形文件盖得住整块沙盘。
+ * styles 是程序里有的样式（不写就是登记表里的那几种）：测试交编出来的表。
  */
-export function checkSceneFile(scene: StopScene, file: string, stop: SceneStop, files: ContentFiles, sizes: FileSizes = {}): Violation[] {
+export function checkSceneFile(scene: StopScene, file: string, stop: SceneStop, files: ContentFiles, sizes: FileSizes = {}, styles: readonly StyleChoice[] = STYLE_CHOICES): Violation[] {
   const out: Violation[] = [];
   const bad = (field: string, problem: string) => out.push(violation(10, file, field, problem));
 
   if (scene.stopId !== stop.id) bad('stopId', `应该和文件名一样（${stop.id}），现在是“${scene.stopId}”`);
   if (stop.status === undefined) bad('', `figure.json 里没有 id 是“${stop.id}”的站，这个场景文件对不上任何一站`);
 
-  if (!STYLE_IDS.includes(scene.style)) bad('style', `样式“${scene.style}”程序里没有；有的是：${STYLE_IDS.join('、')}`);
+  const style = styles.find((one) => one.id === scene.style);
+  const wholes = styles.filter((one) => one.whole).map((one) => one.id);
+  if (!style) bad('style', `样式“${scene.style}”程序里没有；有的是：${styles.map((one) => one.id).join('、')}`);
+  else if (!style.whole) {
+    bad('style', `样式“${scene.style}”只有全程沙盘用的那一半（样式的登记表里它那一行没有 load），站点沙盘写不了它；站点沙盘能写的是：${wholes.length ? wholes.join('、') : '（现在一种也没有）'}`);
+  }
 
   if (scene.credits.length === 0) bad('credits', '至少要写一条：地形用了谁的高程数据，借了谁的河道线');
   scene.credits.forEach((credit, i) => {

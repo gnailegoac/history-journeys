@@ -114,6 +114,52 @@ export function ownJourneysTold(scene: RouteScene): string[] {
   return out;
 }
 
+/**
+ * 一节看一站的小节，展开的说明里一定印着哪几趟路的 note（每一截写了的每一句）。
+ * 看来路的沙盘：到这一站的每一趟（它们都在 explain 里，见 ownJourneysTold）。
+ * 看“那几年走的路”的沙盘：这一站自己的路里 explain 点到的那几趟——一站那几年的路可以有几十趟，不是每一趟的话都印在这一节；
+ * 没有点到的，note 在凭据里，或者在点到它的别的小节里。
+ */
+export function journeysWithNotesPrinted(scene: RouteScene, section: { stop?: string; explain: string[] }): RouteScene['roads']['journeys'] {
+  const own = scene.roads.journeys.filter((journey) => section.stop !== undefined && journey.stop === section.stop);
+  return showsStopYears(scene) ? own.filter((journey) => section.explain.includes(journey.id)) : own;
+}
+
+/**
+ * “几样是示意”里只在题签指到的那一节才算的东西，这一节算进去了几样：远处，和名字没有点的地名点（写了 area 的），归在示意一类的
+ *（docs/data-spec.md“沙盘旁边的说明”）。每一座全程沙盘的测试另数一遍各节的数时，把它和画着的路的截一起减掉，剩下的每一节一样多。
+ */
+export function schematicWherePointed(scene: RouteScene, section: { strips: string[] }): number {
+  const pointed = new Set(section.strips.map((id) => scene.strips.find((strip) => strip.id === id)?.of));
+  return [...scene.far, ...scene.places.filter((place) => place.area)].filter((thing) => thing.class === 'schematic' && pointed.has(thing.id)).length;
+}
+
+// ---------------------------------------------------------------- 镜头最近多近：一座沙盘一个数
+
+/**
+ * 全程沙盘上看一站的小节（不看整块沙盘的），镜头的 distanceM 最小多少（沙盘里的米）。它管的是先画好的地面近看有多粗：
+ * 地面是一张图（一格地面三个点），镜头越近，图上的一个点在画面上越大。一座沙盘一个数——照它的图有多细、它的小节要看多小的一块地定的
+ *（docs/data-spec.md“全程沙盘的场景数据”的“小节”）；写在这张表里，键是“人物/route”。给一座沙盘定一个比 15,000 小的数，
+ * 就是认了它近看的那几节地面粗一些：定之前在真的图片上看过。
+ * 苏轼的这一座是 15,000：再近，图上的一个点（6.66 米）在 900 像素高的栏里就超过 1.26 个像素。
+ */
+export const ROUTE_CAMERA_NEAREST_M: Readonly<Record<string, number>> = { 'su-shi/route': 15_000 };
+/** 表里没有的沙盘照这个数查（就是苏轼的那个数）。 */
+export const ROUTE_CAMERA_NEAREST_DEFAULT_M = 15_000;
+
+/** key 这座全程沙盘的那个数：表里有就是表里的，没有是 15,000。table 不写用上面那张表（测试交编出来的表）。 */
+export const routeCameraNearestM = (key: string, table: Readonly<Record<string, number>> = ROUTE_CAMERA_NEAREST_M): number => table[key] ?? ROUTE_CAMERA_NEAREST_DEFAULT_M;
+
+/**
+ * 看一站的小节里，镜头比 nearestM 近的各写一句（都不近是空的）。看整块沙盘的一节（mustShow 里写了 frame）不查：它由 closest 管。
+ * “每一座”的验收和算镜头的工具（npm run route:camera）用的都是这一个。
+ */
+export function camerasTooNear(scene: RouteScene, nearestM: number): string[] {
+  return scene.sections
+    .filter((section) => !(section.camera.mustShow ?? []).includes('frame') && section.camera.distanceM < nearestM)
+    .map((section) => `${section.heading}：distanceM 写的是 ${section.camera.distanceM}，这座沙盘最近 ${nearestM}`);
+}
+
 // ---------------------------------------------------------------- roads.boats：船走的线画在哪
 
 /** 这座沙盘的船是不是走在水上（roads.boats 写 on）；不写、写 beside 是画在河的一边。 */

@@ -79,7 +79,8 @@ async function tryNight(scene: TableScene): Promise<void> {
   const sheenMoon = Number(params.get('sheenmoon'));
   if (!(sheenMoon > 0)) return;
   const row = STYLES.find((entry) => entry.id === scene.style);
-  if (!row) return;
+  // 只有全程沙盘用的样式（那一行没有 load）到不了这里：夜色只有站点沙盘能试，站点沙盘写的都是整套的样式
+  if (!row?.load) return;
   const { style } = await row.load();
   const usual = style.light;
   style.light = (sky, moon) => {

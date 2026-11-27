@@ -674,6 +674,22 @@ describe('数字：哪些字归哪一组（编出来的一位人物）', () => {
     expect(fileOf(plan, 'song').where.get('抹')).toEqual(['某人的人物页（全程沙盘的沙盘）']);
   });
 
+  it('全程沙盘的凭据开头的几条总的说明（场景文件最外面的 general）：每一条的那段话归点开才看得见的一组，不进一打开就下载的那个文件；id 不印，不算字；没有写 general 的沙盘一个字也不多', () => {
+    // 两条编出来的说明：“卮”“簋”只在这两段话里有；“觥”只在 id 里有
+    const route = { ...routeSample(), general: [{ id: 'made-up-觥', text: '这座沙盘上的路照编出来的卮言画。' }, { id: 'second', text: '簋是编的。' }] };
+    const plan = planFonts(madeUpSite((site) => (site.figures[0].route = route)));
+    expect(has(plan, 'song-more', '卮簋')).toBe(true);
+    expect(hasNone(plan, 'song', '卮簋')).toBe(true);
+    expect(hasNone(plan, 'kai', '卮簋')).toBe(true);
+    expect(hasNone(plan, 'sans', '卮簋')).toBe(true);
+    expect(fileOf(plan, 'song-more').where.get('卮')).toEqual(['某人的人物页（全程沙盘的“沙盘上的东西”）']);
+    // id 里的字哪一个文件里都没有
+    for (const group of ['song', 'song-more', 'kai', 'sans']) expect(hasNone(plan, group, '觥'), group).toBe(true);
+    // 不写 general：这几个字一个也不在
+    const without = planFonts(madeUpSite((site) => (site.figures[0].route = routeSample())));
+    for (const group of ['song', 'song-more']) expect(hasNone(without, group, '卮簋'), group).toBe(true);
+  });
+
   it('全程沙盘的字归大家共用的文件（它摆在人物页上），按站拆开的时候也不归哪一站', () => {
     const route = routeSample();
     const split = planFonts(madeUpSite((site) => (site.figures[0].route = route)), { splitByStop: true });

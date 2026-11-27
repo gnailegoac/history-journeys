@@ -446,7 +446,9 @@ describe.each(realSceneKeys('route'))('%s 的预算（全程沙盘）', (key) =>
       ripplePx: route.ripplePx,
     }),
     roads: buildRouteModels({ scene: R.scene, coords: R.coords, samplers: R.samplers, style: route, tier }),
-    stand: buildTable(R.coords, style.palette),
+    // 座子是这座沙盘自己的样式的（2026-11-26 以前这里对每一座全程沙盘造的都是宋代青绿设色的那一种；苏轼的这一座上两样是同一个函数，
+    // tests/stage/styles.test.ts 里守着）：数的是读者在这座沙盘上真的看到的那只座子
+    stand: style.stand.build(R.coords, style.palette),
   });
 
   it(`每一节、两档：一个画面的三角形数不超过 ${withCommas(TRIANGLES_MAX)}、不超过 ${DRAW_CALLS_MAX} 批，减配的比完整的少`, { timeout: 120_000 }, () => {

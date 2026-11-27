@@ -330,13 +330,13 @@ export function todayFeatures(
       degenerate.push(ring[0]);
       continue;
     }
-    if (!ring.every(inBox)) throw new Error(`样张的陆地有一圈出了方框（头一个点 ${ring[0][0]}, ${ring[0][1]}）：这个工具不裁陆地，只认样张裁好的`);
+    if (!ring.every(inBox)) throw new Error(`源数据的陆地有一圈出了方框（头一个点 ${ring[0][0]}, ${ring[0][1]}）：这个工具不裁陆地，只认源数据裁好的`);
     unique.push(ring);
   }
   // 没有一圈套在另一圈里面（陆地里的洞）：有的话“落在哪一圈里就是陆地”就不对了
   unique.forEach((ring, i) => {
     const j = unique.findIndex((other, k) => k !== i && insideRing(ring[0], other));
-    if (j >= 0) throw new Error(`样张的陆地里第 ${i} 圈（头一个点 ${ring[0][0]}, ${ring[0][1]}）在另一圈里面：是洞，还是没去干净的重复？这个工具不认`);
+    if (j >= 0) throw new Error(`源数据的陆地里第 ${i} 圈（头一个点 ${ring[0][0]}, ${ring[0][1]}）在另一圈里面：是洞，还是没去干净的重复？这个工具不认`);
   });
   let landPoints = 0;
   let keptWhole = 0;
@@ -354,11 +354,11 @@ export function todayFeatures(
     let ring = lake.ring;
     const known = shrunk.find((item) => item.name === lake.name);
     if (lake.note !== undefined) {
-      if (!known) throw new Error(`样张改过“${lake.name ?? lake.zh ?? '没有名字的湖'}”（${lake.note}），这个工具不知道这一处改动`);
+      if (!known) throw new Error(`源数据改过“${lake.name ?? lake.zh ?? '没有名字的湖'}”（${lake.note}），这个工具不知道这一处改动`);
       ring = restoreShrunk(ring, lake.at, known.factor);
       restored.push(known.name);
     } else if (known) {
-      throw new Error(`样张里的 ${known.name} 没有带着“缩小过”的说明：不是这个工具认得的那份文件`);
+      throw new Error(`源数据里的 ${known.name} 没有带着“缩小过”的说明：不是这个工具认得的那份文件`);
     }
     if (!ring.every(inBox)) throw new Error(`湖“${lake.name ?? positionName('lake', lake.at)}”出了方框：这个工具不裁湖`);
     const name = lake.name ?? positionName('lake', lake.at);

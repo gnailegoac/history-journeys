@@ -7,7 +7,9 @@
 //     它不为自己挪别的纸条，手还按着的时候也不替它挑；给了地面的四个角就摆在里面（四个角都算），出了边的先横着推回来；远处的题签不查；
 //     “让开小像”的那一个靠它身上的记号认，别的摆法一律换成平着的纸条的；
 //   题签层照它造、照它摆：没有点的名字没有圆点、没有引线，摆不下也没有空心的圈；地面的四个角经过这一层到摆法手里；
-//   几处接头：取沙盘程序的两处（loadStageEngine、loadStillEngine）把那一小块记在容器上，挂在那里的一层就是平着的纸条
+//   几处接头：取沙盘程序的两处（loadStageEngine、loadStillEngine）把那一小块记在容器上，挂在那里的一层就是平着的纸条——
+//     立体的沙盘那一处等那一小块到了才交出沙盘程序；定格图那一处不等（图片先放，那一小块到了才记在容器上、才挂题签层；没取到由摆出来的那一座说，
+//     见 tests/unit/still-fit.test.ts 里“题签晚到”的几条，沙盘栏怎么接在 tests/unit/page/slip-stills-pane.test.tsx）
 //     （沙盘栏把样式交到这两处，在 tests/unit/page/label-style-wire.test.tsx 里查；沙盘程序每一帧交四个角，在 route-view.test.ts 和 still-fit.test.ts 里）；
 //   数一遍（验收时报给负责人的数）：这一座沙盘的每一节，在每一种标准的沙盘栏和竖着拿的各种平板上，摆下几条、最长的引线、出了地面的边的有几条；
 //   同一个画面照竖着的纸条摆一遍（比一比用的）。
@@ -714,12 +716,13 @@ describe('题签层照平着的纸条造、照它摆（编出来的那一座沙�
     layer.destroy();
   });
 
-  it('页面那一边取沙盘程序的两处（loadStageEngine、loadStillEngine）：平着的纸条的沙盘，交出来的沙盘程序每摆一座，先把那一小块记在容器上、再照原样去摆——那时候挂上去的一层题签已经是平着的纸条；竖着的纸条的沙盘，交出来的就是沙盘程序自己；没取到就拒绝', { timeout: 60_000 }, async () => {
+  // 2026-11-26 以前这一条的名字是“页面那一边取沙盘程序的两处（loadStageEngine、loadStillEngine）：平着的纸条的沙盘，交出来的沙盘程序每摆一座，
+  // 先把那一小块记在容器上、再照原样去摆——那时候挂上去的一层题签已经是平着的纸条；竖着的纸条的沙盘，交出来的就是沙盘程序自己；没取到就拒绝”，两处一起查。
+  // 定格图的那一处改了（图片不等那一小块：先摆图，题签到了再摆上去；没取到不拒绝，由摆出来的那一座说），它另有下面的一条；
+  // 立体的沙盘的那一处没有动，还是这里查的这几样。
+  it('页面那一边取立体的沙盘的那一处（loadStageEngine）：平着的纸条的沙盘，交出来的沙盘程序每摆一座，先把那一小块记在容器上、再照原样去摆——那时候挂上去的一层题签已经是平着的纸条；竖着的纸条的沙盘，交出来的就是沙盘程序自己；没取到就拒绝', { timeout: 60_000 }, async () => {
     const { engine } = await import('../../src/stage/three/engine');
-    const cases: [string, typeof loadStageEngine, StageEngine][] = [
-      ['立体的沙盘', loadStageEngine, engine],
-      ['定格图的沙盘', loadStillEngine, stillEngine],
-    ];
+    const cases: [string, typeof loadStageEngine, StageEngine][] = [['立体的沙盘', loadStageEngine, engine]];
     for (const [what, load, own] of cases) {
       const fake = loader();
       // 竖着的纸条的沙盘（登记表里的每一种样式、没有写样式、表里没有的样式）：就是沙盘程序自己，那一小块一次也没有取
@@ -769,6 +772,82 @@ describe('题签层照平着的纸条造、照它摆（编出来的那一座沙�
       await expect(load(MADE_UP_STYLE_ID, MADE_UP_STYLES, failing.load), what).rejects.toThrow('那一小块程序没有取到');
       expect(await load(MADE_UP_STYLE_ID, MADE_UP_STYLES, failing.load), what).not.toBe(own);
       expect(failing.calls(), what).toBe(2);
+    }
+  });
+
+  it('页面那一边取定格图的沙盘的那一处（loadStillEngine）：竖着的纸条的沙盘，交出来的就是定格图的沙盘自己；平着的纸条的沙盘不等那一小块——马上交出去，每摆一座把“那一小块到了、记在这个容器上了”交给那一座（options.labels），到了以后在那个容器里挂的一层才是平着的纸条；没取到也不拒绝，交给那一座的那一样拒绝，再叫一次再取一次', { timeout: 60_000 }, async () => {
+    const what = '定格图的沙盘';
+    const own = stillEngine;
+    const fake = loader();
+    // 竖着的纸条的沙盘（登记表里的每一种样式、没有写样式、表里没有的样式）：就是定格图的沙盘自己，那一小块一次也没有取
+    for (const row of STYLES) expect(await loadStillEngine(row.id, STYLES, fake.load), `${what} ${row.id}`).toBe(own);
+    expect(await loadStillEngine(undefined, MADE_UP_STYLES, fake.load), what).toBe(own);
+    expect(await loadStillEngine(MADE_UP_STYLE_ID, STYLES, fake.load), what).toBe(own);
+    expect(fake.calls(), what).toBe(0);
+    // 不交表、不交取法：照登记表查，苏轼的样式还是它自己
+    expect(await loadStillEngine(STYLES[0].id), what).toBe(own);
+
+    // 平着的纸条的沙盘，那一小块压着不给：取的那一处照样马上交出来（不等它）；取了一次；交出来的不是定格图的沙盘自己，只有 create 换了
+    let release: (got: { slipKit: LabelKitMaker }) => void = () => {};
+    let asked = 0;
+    const held = (): Promise<{ slipKit: LabelKitMaker }> => {
+      asked += 1;
+      return new Promise((resolve) => (release = resolve));
+    };
+    const got = await loadStillEngine(MADE_UP_STYLE_ID, MADE_UP_STYLES, held);
+    expect(asked).toBe(1);
+    expect(got).not.toBe(own);
+    expect(got.create).not.toBe(own.create);
+    expect({ ...got, create: own.create }).toEqual({ ...own });
+
+    // 它摆一座（这里不真的摆：定格图的沙盘自己的 create 换成一个只记交来的东西的）：容器、沙盘原样；交过去的选项多了一样 labels，别的原样
+    const page = new Doc();
+    const container = page.createElement('div');
+    const table = { key: '编的' } as unknown as StageTable;
+    const options = { namesMode: 'ancient' } as unknown as StageOptions;
+    const view = { made: what } as unknown as StopStageView;
+    const kindIn = (host: unknown): string | null => {
+      const layer = mountStrips(host as HTMLElement);
+      const children = (host as El).children;
+      const kind = children[children.length - 1].getAttribute('data-kind');
+      layer.destroy();
+      return kind;
+    };
+    const create = vi.spyOn(own, 'create').mockImplementation(() => view);
+    try {
+      expect(got.create(container as unknown as HTMLElement, table, options)).toBe(view);
+      expect(create).toHaveBeenCalledTimes(1);
+      expect(create.mock.calls[0][0]).toBe(container);
+      expect(create.mock.calls[0][1]).toBe(table);
+      const handed = create.mock.calls[0][2];
+      expect(handed).toEqual({ ...options, labels: expect.any(Promise) });
+      // 那一小块还没到：容器上什么也没有记，这时候在里面挂一层是竖着的纸条（所以定格图那一座先不挂）
+      expect(kindIn(container)).toBeNull();
+      // 到了：交过去的那一样兑现，这时候容器上已经记了，挂上去的一层是平着的纸条
+      release({ slipKit });
+      await handed.labels;
+      expect(kindIn(container)).toBe('slip');
+      // 定格图的沙盘自己（没有套过的）在别的容器里摆：交过去的选项没有 labels，那个容器上什么也不记
+      const other = page.createElement('div');
+      own.create(other as unknown as HTMLElement, table, options);
+      expect(create.mock.calls[1][2]).toBe(options);
+      expect(kindIn(other)).toBeNull();
+
+      // 没取到：取的那一处不拒绝（图片照样要放）；交给那一座的那一样拒绝，容器上什么也不记；再叫一次再取一次，这一回取到了
+      const failing = loader(1);
+      const lost = await loadStillEngine(MADE_UP_STYLE_ID, MADE_UP_STYLES, failing.load);
+      expect(lost).not.toBe(own);
+      const bare = page.createElement('div');
+      lost.create(bare as unknown as HTMLElement, table, options);
+      await expect(create.mock.calls[2][2].labels).rejects.toThrow('那一小块程序没有取到');
+      expect(kindIn(bare)).toBeNull();
+      const again = await loadStillEngine(MADE_UP_STYLE_ID, MADE_UP_STYLES, failing.load);
+      expect(failing.calls()).toBe(2);
+      again.create(bare as unknown as HTMLElement, table, options);
+      await create.mock.calls[3][2].labels;
+      expect(kindIn(bare)).toBe('slip');
+    } finally {
+      create.mockRestore();
     }
   });
 

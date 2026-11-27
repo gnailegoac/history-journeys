@@ -224,7 +224,7 @@ function coverageOfEach(W: number, H: number, rings: Vec2[][]): Float32Array {
  * taper 写了的话：head、tail 是这一头收到原来的几成（1 是不收），在 taper.len 个点的长度里慢慢收细——
  * 河从山里出来是细的；到了海边的，收到和河口差不多宽，不留一个比河口还粗的圆头。
  */
-function stampLine(buf: Float32Array, W: number, H: number, pts: Vec2[], halfW: number, taper?: { head: number; tail: number; len: number }): void {
+export function stampLine(buf: Float32Array, W: number, H: number, pts: Vec2[], halfW: number, taper?: { head: number; tail: number; len: number }): void {
   // 每个点离两头各多远（沿着线量）
   const along: number[] = [0];
   for (let s = 1; s < pts.length; s++) along.push(along[s - 1] + Math.hypot(pts[s][0] - pts[s - 1][0], pts[s][1] - pts[s - 1][1]));
@@ -309,7 +309,7 @@ export function gauss(src: Float32Array, W: number, H: number, sigma: number): F
 }
 
 /** 方框里的最小值（sign 是 1）或最大值（sign 是 −1）。 */
-function minFilter(src: Float32Array, W: number, H: number, r: number, sign = 1): Float32Array {
+export function minFilter(src: Float32Array, W: number, H: number, r: number, sign = 1): Float32Array {
   const tmp = new Float32Array(W * H);
   const out = new Float32Array(W * H);
   for (let y = 0; y < H; y++) {
@@ -396,7 +396,7 @@ type Tint = 'fieldA' | 'fieldB' | 'fieldC' | null;
 const FIELD_TINTS: Tint[] = [null, 'fieldA', 'fieldB', 'fieldC', 'fieldB', 'fieldA', null];
 
 /** 每块二十七八公里；块心是乱放的，边界按离块心的直线距离分，再加一点弯。x、z 是公里。 */
-function fieldCell(x: number, z: number): { tint: Tint; border: number } {
+export function fieldCell(x: number, z: number): { tint: Tint; border: number } {
   const S = 27;
   const cs = Math.cos(0.3);
   const sn = Math.sin(0.3);
@@ -458,13 +458,13 @@ const TO_LINEAR = Float64Array.from({ length: 256 }, (_v, i) => {
   return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
 });
 /** 屏幕上的颜色（0 到 255，可以带小数）换成线性的光（0 到 1）。 */
-const linear = (v: number): number => {
+export const linear = (v: number): number => {
   const x = clamp(v, 0, 255);
   const i = Math.floor(x);
   return i >= 255 ? 1 : TO_LINEAR[i] + (TO_LINEAR[i + 1] - TO_LINEAR[i]) * (x - i);
 };
 /** 线性的光换回屏幕上的颜色（0 到 255）。 */
-const screen = (l: number): number => 255 * (l <= 0.0031308 ? l * 12.92 : 1.055 * l ** (1 / 2.4) - 0.055);
+export const screen = (l: number): number => 255 * (l <= 0.0031308 ? l * 12.92 : 1.055 * l ** (1 / 2.4) - 0.055);
 const linear3 = (c: Vec3): Vec3 => [linear(c[0]), linear(c[1]), linear(c[2])];
 
 // ---------------------------------------------------------------- 上色

@@ -12,6 +12,7 @@
 //   留白的圈离路、离地名点至少 60 公里；roads 里那两个字段不算进定格图的记号。
 
 import { describe, expect, it } from 'vitest';
+import { PerspectiveCamera } from 'three';
 import type { Mesh } from 'three';
 import type { LineMaterial } from 'three/addons/lines/LineMaterial.js';
 import type { LineSegments2 } from 'three/addons/lines/LineSegments2.js';
@@ -21,19 +22,21 @@ import { sectionInfo } from '../../src/domain/sceneText';
 import { BLANK_KEEP, routeHeights } from '../../src/stage/ground/route';
 import { ROAD_STATES, journeyStates, roadRuns, segmentCount } from '../../src/stage/roadLines';
 import type { RoadRun, RoadState } from '../../src/stage/roadLines';
-import { equivalentDistance } from '../../src/stage/three/rig';
+import type { TableStyle } from '../../src/stage/three/internal';
+import { centreShift, equivalentDistance, framePoints, placeCamera, project, showPoints } from '../../src/stage/three/rig';
 import { ROAD_SEGMENT_TRIANGLES, buildRouteModels } from '../../src/stage/three/routeKit';
 import { loadStyle } from '../../src/stage/three/style';
-import type { StageTier } from '../../src/stage/types';
+import type { StageInsets, StageTier } from '../../src/stage/types';
 import { BLANK_CLEAR_KM, blankClearance, checkRouteScene, checkRouteShape } from '../content/routeRules';
 import { STYLE_IDS } from '../content/sceneRules';
 import { pictureKey } from '../support/pictureKey';
 import { bankWays } from '../tools/route/bankTool';
 import { routeRiversFor } from '../tools/route/painters';
 import { drawn } from './support/budgets';
-import { MADE_UP_PAINTERS, MADE_UP_ROUTE_STYLE, MADE_UP_STOPS, madeUpFiles, madeUpRoute, madeUpRouteOf, madeUpScene } from './support/madeUpRoute';
-import { FIT_MIN, FIT_REFERENCE_PX, FIT_UNDER_OPACITY, FIT_UNDER_SIDE_PX, FIT_WATER_MIN_PX, MADE_UP_PATTERNS, MADE_UP_STYLES, MADE_UP_STYLE_ID, madeUpPatternOf, style } from './support/madeUpStyle';
-import { boatsOnWater, ownJourneysTold, ownRoadsHeldInPane } from './support/routeFacts';
+import { MADE_UP_KEY, MADE_UP_PAINTERS, MADE_UP_ROUTE_STYLE, MADE_UP_STOPS, madeUpFiles, madeUpRoute, madeUpRouteOf, madeUpScene } from './support/madeUpRoute';
+import { FIT_MIN, FIT_REFERENCE_PX, FIT_UNDER_OPACITY, FIT_UNDER_SIDE_PX, FIT_WATER_MIN_PX, MADE_UP_PATTERNS, MADE_UP_STYLES, MADE_UP_STYLE_ID, RAIL_TOP_Y, madeUpPatternOf, style, styleWithRail } from './support/madeUpStyle';
+import { ROUTE_CAMERA_NEAREST_DEFAULT_M, ROUTE_CAMERA_NEAREST_M, boatsOnWater, camerasTooNear, journeysWithNotesPrinted, ownJourneysTold, ownRoadsHeldInPane, routeCameraNearestM, schematicWherePointed } from './support/routeFacts';
+import { ROUTE_PANES, STANDARD_PANES } from './support/standardPanes';
 import type { BoatLimits } from './support/routeFacts';
 
 /** 一个画面里路最多画几批（和 tests/stage/route-kit.test.ts 的是同一个数）。 */
@@ -488,13 +491,269 @@ describe('编出来的那一座全程沙盘：地面照量到的样子（recipe 
     for (let j = 0; j < nz; j++) expect(h[j * nx]).toBe(0);
   });
 
-  it('旁边印的话：常印着的一句里是“地面没有抹平”；展开的几句里印场景写的那一句，没有写的时候是“地面照今天的样子，没有抹平。”', () => {
+  // 2026-11-26 以前常印着的那一句里是“地面没有抹平”（这一条的名字里也是）：栏窄时的那一句只有一行，示意的数到了两位数、山高的两个倍数一个一位一个两位（像“8 到 25 倍”）的沙盘上多出一个字，
+  // 所以这个短的说法改成“地面没抹平”，宽栏、窄栏都用它；展开的那一句没有动。
+  it('旁边印的话：常印着的一句、栏窄时的一句里都是“地面没抹平”（原来的“地面没有抹平”不印了）；展开的几句里印场景写的那一句，没有写的时候是“地面照今天的样子，没有抹平。”', () => {
     const scene = madeUpScene();
     const info = sectionInfo(scene, scene.sections[0].heading);
-    expect(info.note.short.split('；')).toContain('地面没有抹平');
-    expect(info.note.brief.split('；')).toContain('地面没有抹平');
+    expect(info.note.short.split('；')).toContain('地面没抹平');
+    expect(info.note.brief.split('；')).toContain('地面没抹平');
+    for (const section of scene.sections) {
+      const { short, brief } = sectionInfo(scene, section.heading).note;
+      expect(`${short}${brief}`.includes('地面没有抹平'), section.heading).toBe(false);
+      expect(short.split('；')[1], section.heading).toBe('地面没抹平');
+      expect(brief.split('；')[1], section.heading).toBe('地面没抹平');
+    }
     expect(info.note.lines[1]).toBe(scene.terrain.recipe.note);
     delete scene.terrain.recipe.note;
     expect(sectionInfo(scene, scene.sections[0].heading).note.lines[1]).toBe('地面照今天的样子，没有抹平。');
+  });
+});
+
+describe('编出来的那一座全程沙盘：座子写了上沿多高（样式的 stand.reachTopY），看整块沙盘的一节把整只匣子放进画面', () => {
+  const PANES = [...STANDARD_PANES, ...ROUTE_PANES];
+  /** 头一节（看整块沙盘）在一种沙盘栏上照 tableStyle 摆好：镜头离多远，交给镜头的那几个点落在画面的哪里。 */
+  const seen = (tableStyle: TableStyle, pane: { size: { width: number; height: number }; insets: StageInsets }) => {
+    const { scene, coords, samplers } = madeUpRoute();
+    const view = placeCamera(scene.sections[0], scene, samplers, coords, tableStyle, pane.size, pane.insets);
+    const camera = new PerspectiveCamera(view.pose.fov, pane.size.width / pane.size.height, Math.max(60, view.distanceM * 0.1), view.distanceM * 3 + 30000);
+    camera.position.set(...view.pose.position);
+    camera.lookAt(...view.pose.target);
+    const [shiftX, shiftY] = centreShift(pane.insets);
+    if (shiftX || shiftY) camera.setViewOffset(pane.size.width, pane.size.height, -shiftX, -shiftY, pane.size.width, pane.size.height);
+    camera.updateProjectionMatrix();
+    camera.updateMatrixWorld(true);
+    const at = (points: [number, number, number][]) => points.map((p) => project(p, camera, pane.size));
+    /** 这几个点在画面上占的那一块，四边各离留出来的那一块的边多少像素。 */
+    const margins = (points: [number, number, number][]) => {
+      const on = at(points);
+      return {
+        left: Math.min(...on.map((p) => p.x)) - pane.insets.left,
+        right: pane.size.width - pane.insets.right - Math.max(...on.map((p) => p.x)),
+        top: Math.min(...on.map((p) => p.y)) - pane.insets.top,
+        bottom: pane.size.height - pane.insets.bottom - Math.max(...on.map((p) => p.y)),
+      };
+    };
+    return { distanceM: view.distanceM, margins };
+  };
+
+  it('交给镜头的点：没写上沿的是八个（沙盘的四个角、下沿那一圈的四个角）；写了的多四个，是上沿那一圈的四个角，排在最后——前八个一个数不差', () => {
+    const { coords } = madeUpRoute();
+    const plain = framePoints(coords, style.stand);
+    const railed = framePoints(coords, styleWithRail.stand);
+    expect(style.stand.reachTopY).toBeUndefined();
+    expect(styleWithRail.stand.reachTopY).toBe(RAIL_TOP_Y);
+    expect(plain).toHaveLength(8);
+    expect(railed).toHaveLength(12);
+    expect(railed.slice(0, 8)).toEqual(plain);
+    const r = style.stand.reachM;
+    expect(railed.slice(8)).toEqual([
+      [coords.x0 - r, RAIL_TOP_Y, coords.z0 - r],
+      [coords.x1 + r, RAIL_TOP_Y, coords.z0 - r],
+      [coords.x1 + r, RAIL_TOP_Y, coords.z1 + r],
+      [coords.x0 - r, RAIL_TOP_Y, coords.z1 + r],
+    ]);
+    // 下沿那一圈在桌面以下，上沿那一圈在桌面以上
+    expect(plain.slice(4).every((p) => p[1] === style.stand.reachY && p[1] < 0)).toBe(true);
+    expect(railed.slice(8).every((p) => p[1] > 0)).toBe(true);
+    // 上沿写的是 0（和桌面一样高）也是写了：十二个点，后四个的高度是 0——“写没写”看的是有没有这个数，不是它是不是 0
+    const flush = framePoints(coords, { ...style.stand, reachTopY: 0 });
+    expect(flush).toHaveLength(12);
+    expect(flush.slice(0, 8)).toEqual(plain);
+    expect(flush.slice(8)).toEqual([
+      [coords.x0 - r, 0, coords.z0 - r],
+      [coords.x1 + r, 0, coords.z0 - r],
+      [coords.x1 + r, 0, coords.z1 + r],
+      [coords.x0 - r, 0, coords.z1 + r],
+    ]);
+    // 沙盘程序摆头一节用的就是这十二个点
+    const { scene, samplers } = madeUpRoute();
+    expect(showPoints(scene.sections[0], scene, samplers, coords, styleWithRail)).toEqual(railed);
+    expect(showPoints(scene.sections[0], scene, samplers, coords, style)).toEqual(plain);
+  });
+
+  it('八种标准的沙盘栏上：写了上沿的，十二个点都在留出来的那一块里，上下的空一样、左右的空一样；没写的时候，照下沿摆出来的画面里上沿那一圈要高出去一截——镜头因此退远了一点', () => {
+    const { coords } = madeUpRoute();
+    const railed = framePoints(coords, styleWithRail.stand);
+    const lines: string[] = [];
+    for (const pane of PANES) {
+      const without = seen(style, pane);
+      const withRail = seen(styleWithRail, pane);
+      const held = withRail.margins(railed);
+      expect(Math.abs(held.top - held.bottom), `${pane.name}：上 ${held.top.toFixed(1)}、下 ${held.bottom.toFixed(1)}`).toBeLessThanOrEqual(2);
+      expect(Math.abs(held.left - held.right), `${pane.name}：左 ${held.left.toFixed(1)}、右 ${held.right.toFixed(1)}`).toBeLessThanOrEqual(2);
+      expect(Math.min(held.left, held.right, held.top, held.bottom), pane.name).toBeGreaterThanOrEqual(8);
+      // 没写上沿的那一份：它自己的八个点居中；同一个画面里上沿那一圈（它不知道）比那八个点高
+      const eight = without.margins(railed.slice(0, 8));
+      const rail = without.margins(railed.slice(8));
+      expect(Math.abs(eight.top - eight.bottom), pane.name).toBeLessThanOrEqual(2);
+      expect(rail.top, `${pane.name}：上沿那一圈离上边 ${rail.top.toFixed(1)}，那八个点离上边 ${eight.top.toFixed(1)}`).toBeLessThan(eight.top);
+      // 把上沿算进去，镜头不比原来近
+      expect(withRail.distanceM, pane.name).toBeGreaterThanOrEqual(without.distanceM);
+      lines.push(`  ${pane.name}：不写上沿 ${without.distanceM.toFixed(0)} 米（上沿那一圈离上边 ${rail.top.toFixed(1)} 像素），写了 ${withRail.distanceM.toFixed(0)} 米（十二个点上 ${held.top.toFixed(1)}、下 ${held.bottom.toFixed(1)}）`);
+    }
+    // 至少有一种栏上镜头真的退远了（上沿那一圈在管事）
+    expect(PANES.some((pane) => seen(styleWithRail, pane).distanceM > seen(style, pane).distanceM + 1)).toBe(true);
+    console.log(`编出来的沙盘，头一节，座子写了上沿 ${RAIL_TOP_Y} 米：\n${lines.join('\n')}`);
+  });
+
+  it('看一站的小节不看座子：写不写上沿，镜头一个数不差', () => {
+    const { scene, coords, samplers } = madeUpRoute();
+    for (const section of scene.sections.slice(1)) {
+      for (const pane of PANES) {
+        const a = placeCamera(section, scene, samplers, coords, style, pane.size, pane.insets);
+        const b = placeCamera(section, scene, samplers, coords, styleWithRail, pane.size, pane.insets);
+        expect(b.pose, `${section.heading} ${pane.name}`).toEqual(a.pose);
+        expect(b.distanceM).toBe(a.distanceM);
+      }
+    }
+  });
+});
+
+describe('编出来的那一座全程沙盘：镜头最近多近是一座沙盘一个数；看一站的小节印哪几趟路的话', () => {
+  it('镜头最近多近：表里有这座沙盘就用表里的数，没有照 15000 米；比那个数近的小节一句一句列出来，看整块沙盘的一节不查', () => {
+    const scene = madeUpScene();
+    // 这座编出来的沙盘不在表里：照默认的 15,000；它看一站的三节写的是 17000、16000、16000，头一节（看整块沙盘）不查
+    expect(MADE_UP_KEY in ROUTE_CAMERA_NEAREST_M).toBe(false);
+    expect(routeCameraNearestM(MADE_UP_KEY)).toBe(ROUTE_CAMERA_NEAREST_DEFAULT_M);
+    expect(ROUTE_CAMERA_NEAREST_DEFAULT_M).toBe(15_000);
+    expect(scene.sections.map((section) => section.camera.distanceM)).toEqual([40000, 17000, 16000, 16000]);
+    expect(camerasTooNear(scene, routeCameraNearestM(MADE_UP_KEY))).toEqual([]);
+    // 表里给它写一个数：用的就是那个数。写 16,500：近的两节列出来；写 4,000：一节也不近
+    const strict = { [MADE_UP_KEY]: 16_500 };
+    expect(routeCameraNearestM(MADE_UP_KEY, strict)).toBe(16_500);
+    expect(camerasTooNear(scene, routeCameraNearestM(MADE_UP_KEY, strict))).toEqual(['丙港那几年：distanceM 写的是 16000，这座沙盘最近 16500', '丁镇那几年：distanceM 写的是 16000，这座沙盘最近 16500']);
+    const loose = { [MADE_UP_KEY]: 4_000 };
+    scene.sections[1].camera.distanceM = 6_000;
+    expect(camerasTooNear(scene, routeCameraNearestM(MADE_UP_KEY, loose))).toEqual([]);
+    // 同一座沙盘照默认的数查：6,000 米的那一节近了
+    expect(camerasTooNear(scene, routeCameraNearestM(MADE_UP_KEY))).toEqual(['甲城那几年：distanceM 写的是 6000，这座沙盘最近 15000']);
+    // 别的沙盘的那一行不管它；苏轼的那一行是 15,000
+    expect(routeCameraNearestM(MADE_UP_KEY, { 'someone/route': 9_000 })).toBe(15_000);
+    expect(ROUTE_CAMERA_NEAREST_M['su-shi/route']).toBe(15_000);
+    // 看整块沙盘的一节再近也不列
+    scene.sections[0].camera.distanceM = 100;
+    expect(camerasTooNear(scene, 15_000).some((line) => line.startsWith('全程'))).toBe(false);
+  });
+
+  it('看“这一站那几年走的路”的沙盘：一节里一定印着的是这一站自己的路里 explain 点到的那几趟；没有点到的那一趟的话不印在这一节；改成看来路的沙盘，这一站的每一趟都要印', () => {
+    const scene = madeUpScene();
+    const jia = scene.sections[1];
+    // 甲城有两趟自己的路（头一回到，后来回来），这一节的 explain 只点了头一趟
+    expect(scene.roads.journeys.filter((journey) => journey.stop === 'jia').map((journey) => journey.id)).toEqual(['j-arrive', 'j-return']);
+    expect(jia.explain).toEqual(['j-arrive']);
+    expect(journeysWithNotesPrinted(scene, jia).map((journey) => journey.id)).toEqual(['j-arrive']);
+    const lines = sectionInfo(scene, jia.heading).note.lines;
+    expect(lines).toContain('从西边到甲城的路是照《行记》画的。');
+    expect(lines).not.toContain('回甲城的路只知道两头，画成虚线。');
+    // 每一节：要印的那几趟，每一截写了的话都印着
+    for (const section of scene.sections.slice(1)) {
+      const printed = sectionInfo(scene, section.heading).note.lines;
+      const wanted = journeysWithNotesPrinted(scene, section);
+      expect(wanted.length, section.heading).toBeGreaterThan(0);
+      for (const journey of wanted) for (const part of journey.parts) if (part.note) expect(printed, `${section.heading}：${part.name}`).toContain(part.note);
+    }
+    // 头一节不看哪一站：一趟也不要
+    expect(journeysWithNotesPrinted(scene, scene.sections[0])).toEqual([]);
+    // 同一座沙盘改成看来路的（不写 stopShows）：这一站的每一趟都要印——甲城那一节就差“回来”的那一趟
+    delete scene.roads.stopShows;
+    expect(journeysWithNotesPrinted(scene, jia).map((journey) => journey.id)).toEqual(['j-arrive', 'j-return']);
+  });
+});
+
+describe('编出来的那一座全程沙盘：凭据开头的几条总的说明（general）', () => {
+  it('文件里写着两条，通得过校验；不写也通得过；多一个不认识的字段、id 不是字，格式通不过', () => {
+    const scene = madeUpScene();
+    expect(scene.general?.map((line) => line.id)).toEqual(['records', 'made-up-names']);
+    for (const line of scene.general ?? []) expect(line.text.trim().length).toBeGreaterThan(10);
+    expect(problems()).toEqual([]);
+    expect(problems((s) => delete s.general)).toEqual([]);
+    expect(problems((s) => (s.general = []))).toEqual([]);
+    expect(problems((s) => ((s.general?.[0] as unknown as { heading: string }).heading = '标题'))).toEqual(['0 general[0].heading']);
+    expect(problems((s) => ((s.general?.[1] as unknown as { id: number }).id = 2))).toEqual(['0 general[1].id']);
+    expect(problems((s) => ((s as unknown as { general: unknown }).general = { records: '一句话' }))).toEqual(['0 general']);
+  });
+
+  it('id 在这一组里不重复、要填，每一条的话不是空的（规则 13）；它的 id 和别的东西重名不要紧（不进整个文件的那张单子）', () => {
+    expect(problems((s) => s.general?.push({ id: 'records', text: '又写了一遍。' }))).toEqual(['13 general[2].id']);
+    expect(words((s) => s.general?.push({ id: 'records', text: '又写了一遍。' }))).toEqual(['id“records”在 general 里写了不止一次；这一组里 id 不能重复']);
+    expect(problems((s) => s.general?.push({ id: '  ', text: '有话。' }))).toEqual(['13 general[2].id']);
+    expect(problems((s) => ((s.general ?? [])[1].text = '  '))).toEqual(['13 general[1].text']);
+    expect(words((s) => ((s.general ?? [])[1].text = ''))).toEqual(['总的说明“made-up-names”是空的：凭据的开头要印这一段话，没有话就把这一条删掉']);
+    // 和一个地名点同名：这一组自己认自己的 id，不算重复
+    expect(problems((s) => s.general?.push({ id: 'p-jia', text: '和甲城的地名点同名。' }))).toEqual([]);
+  });
+
+  it('小节的 explain 点不到它：点了，规则 14 说它只印在凭据的开头', () => {
+    const point = (s: RouteScene): void => void s.sections[1].explain.push('records');
+    expect(problems(point)).toEqual(['14 sections[1].explain[1]']);
+    expect(words(point)).toEqual(['“records”是 general 里的一条总的说明：它只印在凭据的开头，小节的 explain 不能点它；要在这一节说的话，写进这一节点到的东西的 note']);
+    // 沙盘旁边印的字里也没有它：哪一节展开的说明里都找不到这两段话
+    const scene = madeUpScene();
+    for (const section of scene.sections) for (const line of scene.general ?? []) expect(sectionInfo(scene, section.heading).note.lines, section.heading).not.toContain(line.text);
+  });
+
+  it('不算进定格图的记号：改一条的话、添一条、整组去掉，记号都不变；改的是画面上有的东西（一个地名点挪了）记号才变', () => {
+    const key = pictureKey(madeUpScene());
+    const changed = (change: (scene: RouteScene) => void): string => {
+      const scene = madeUpScene();
+      change(scene);
+      return pictureKey(scene);
+    };
+    expect(changed((s) => ((s.general ?? [])[0].text = '换了一句话。'))).toBe(key);
+    expect(changed((s) => s.general?.push({ id: 'third', text: '添的一条。' }))).toBe(key);
+    expect(changed((s) => delete s.general)).toBe(key);
+    expect(changed((s) => (s.places[0].at = [158.1, 21.05]))).not.toBe(key);
+  });
+});
+
+describe('编出来的那一座全程沙盘：名字没有点的地方（地名点写了 area）算不算在“几样是示意”里', () => {
+  /** 各节那一句里“几样是示意”的数，照小节的先后。 */
+  const counts = (scene: RouteScene): number[] => scene.sections.map((section) => Number(/^(\d+) 样是示意/.exec(sectionInfo(scene, section.heading).note.brief)?.[1]));
+  /** 西岭（文件里它的类别是 today，名字没有点）改成示意的一类。 */
+  const schematic = (scene: RouteScene): RouteScene => {
+    const massif = scene.places.find((place) => place.id === 'p-massif');
+    if (!massif) throw new Error('编出来的沙盘里没有西岭');
+    Object.assign(massif, { class: 'schematic', sourceIds: [] });
+    return scene;
+  };
+
+  it('文件里：西岭写了 area，不是示意的，哪一节都不算；它的纸条立在头一节和丁镇那一节', () => {
+    const scene = madeUpScene();
+    const massif = scene.places.find((place) => place.id === 'p-massif');
+    expect([massif?.area, massif?.class]).toEqual([true, 'today']);
+    expect(scene.sections.map((section) => section.strips.includes('s-massif'))).toEqual([true, false, false, true]);
+    expect(counts(scene).every((n) => n > 0)).toBe(true);
+  });
+
+  it('是示意的、名字没有点：只在立了它的纸条的那两节各多算一样，另两节不算；常印着的那一句、展开的头一句用的是同一个数', () => {
+    const before = counts(madeUpScene());
+    const scene = schematic(madeUpScene());
+    const after = counts(scene);
+    expect(after.map((n, i) => n - before[i])).toEqual([1, 0, 0, 1]);
+    // 展开的头一句：立了纸条的一节里说得到它的名字（总数不到六样时逐样列着）；没有立的一节里找不到
+    const first = (heading: string): string => sectionInfo(scene, heading).note.lines[0];
+    expect(first(scene.sections[3].heading)).toContain('西岭');
+    expect(first(scene.sections[1].heading)).not.toContain('西岭');
+    expect(first(scene.sections[2].heading)).not.toContain('西岭');
+    // 每一座全程沙盘的测试另数各节的数时减掉的那一样（./support/routeFacts.ts 的 schematicWherePointed）：也是立了纸条的那两节各多一样
+    expect(scene.sections.map((section, i) => schematicWherePointed(scene, section) - schematicWherePointed(madeUpScene(), madeUpScene().sections[i]))).toEqual([1, 0, 0, 1]);
+  });
+
+  it('是示意的、有点的地名点（把 area 去掉）：和原来一样，每一节都算，立没立题签都算', () => {
+    const before = counts(madeUpScene());
+    const scene = schematic(madeUpScene());
+    delete scene.places.find((place) => place.id === 'p-massif')?.area;
+    expect(counts(scene).map((n, i) => n - before[i])).toEqual([1, 1, 1, 1]);
+    // 有点的地名点不在“题签指到才算”的那几样里：另数的时候哪一节都不减它
+    expect(scene.sections.map((section, i) => schematicWherePointed(scene, section) - schematicWherePointed(madeUpScene(), madeUpScene().sections[i]))).toEqual([0, 0, 0, 0]);
+  });
+
+  it('把它的纸条从丁镇那一节拿掉：那一节不再算它；添到甲城那一节：那一节算上', () => {
+    const before = counts(madeUpScene());
+    const moved = schematic(madeUpScene());
+    moved.sections[3].strips = moved.sections[3].strips.filter((id) => id !== 's-massif');
+    moved.sections[1].strips.push('s-massif');
+    expect(counts(moved).map((n, i) => n - before[i])).toEqual([1, 1, 0, 0]);
   });
 });

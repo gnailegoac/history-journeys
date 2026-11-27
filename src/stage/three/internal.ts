@@ -195,6 +195,11 @@ export interface StandStyle {
   reachM: number;
   /** 那一圈的下沿在沙盘里多高（沙盘里的米）。 */
   reachY: number;
+  /**
+   * 那一圈的上沿在沙盘里多高（沙盘里的米）。可以不写：最宽的那一圈上头没有比沙盘面高的东西的座子不写，镜头只照下沿那一圈摆（和没有这一项的时候一个数不差）。
+   * 写了的（四周立着一道比沙盘面高的框的匣子），“整块沙盘都要看得见”连上沿那一圈一起算：远处那一边，框的上沿在画面上比下沿高。
+   */
+  reachTopY?: number;
   /** 照沙盘的范围造出来；颜色从样式的 palette 里取。 */
   build(coords: FrameCoords, palette: Record<string, string>): Stand;
 }

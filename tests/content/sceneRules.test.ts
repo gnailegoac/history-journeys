@@ -25,7 +25,7 @@ import { SHORE_ABOVE_LOWEST_M, SHORE_UNDER_NORMAL_M } from '../../src/stage/thre
 import type { Source } from '../../src/domain/types';
 import { STYLES } from '../../src/stage/styles';
 import { bakedPictureSize, checkBakedGround, checkScene, checkSceneNight, checkSceneShape, checkSceneStrips, checkSectionStills, FAR_STRIP_AT_MAX_M, MADE_FILES_REQUIRED, MOON_ALTITUDE, OUTLINE_SECTIONS, SHORE_ROCKS_NEED_M, STILL_MAX_BYTES, TERRAIN_MAX_BYTES, textWidth, unsureProblem, WORDS_MAX } from './sceneRules';
-import { STYLE_IDS } from './sceneRules';
+import { STYLE_CHOICES, STYLE_IDS, checkSceneFile, styleChoices } from './sceneRules';
 import type { Measured } from './sceneRules';
 import type { FileSizes, Violation } from './shape';
 
@@ -380,8 +380,40 @@ describe('规则 10 场景文件', () => {
     expect(STYLE_IDS).toContain('song-qinglv');
     const said = validateAll(edit<{ style: string }>(SCENE, (scene) => (scene.style = 'tang-gold')), SIZES).filter((v) => v.rule === 10 && v.field === 'style');
     expect(said.map((v) => v.problem)).toEqual([`样式“tang-gold”程序里没有；有的是：${STYLES.map((row) => row.id).join('、')}`]);
-    // 表里的每一种都认
-    for (const id of STYLE_IDS) expect(looseProblems<{ style: string }>((scene) => (scene.style = id))).toEqual([]);
+    // 表里整套的每一种都认（2026-11-26 以前这一句是“表里的每一种都认”，对每一行都这样查：那时每一行都是整套的。
+    // 登记表里的一行现在可以没有 load——只有全程沙盘用的样式，站点沙盘写不了——所以只对整套的行这样查；没有 load 的行在下一条）
+    const wholes = STYLE_CHOICES.filter((one) => one.whole).map((one) => one.id);
+    expect(wholes).toContain('song-qinglv');
+    for (const id of wholes) expect(looseProblems<{ style: string }>((scene) => (scene.style = id))).toEqual([]);
+    // 这张表就是照登记表说的：名字一样，有 load 的是整套的
+    expect(STYLE_CHOICES).toEqual(STYLES.map((row) => ({ id: row.id, whole: row.load !== undefined })));
+  });
+
+  it('style 是一种只有全程沙盘用的样式（登记表里它那一行没有 load）：站点沙盘写不了，规则 10 说缘故、列出能写的；整套的照常认', () => {
+    // 一张编出来的登记表：一种整套的（有 load），一种只有全程沙盘用的那一半（没有 load）
+    const rows = [
+      { id: 'made-up-whole', load: () => Promise.resolve({}), loadRoute: () => Promise.resolve({}) },
+      { id: 'made-up-half', loadRoute: () => Promise.resolve({}) },
+    ];
+    const choices = styleChoices(rows);
+    expect(choices).toEqual([
+      { id: 'made-up-whole', whole: true },
+      { id: 'made-up-half', whole: false },
+    ]);
+    const scene = JSON.parse(GOOD[SCENE]) as StopScene;
+    const stop = { id: scene.stopId, status: 'complete' as const, headings: null, sourceIds: null };
+    const styleProblems = (style: string, list = choices): string[] =>
+      checkSceneFile({ ...scene, style }, SCENE, stop, GOOD, SIZES, list)
+        .filter((v) => v.field === 'style')
+        .map((v) => `${v.rule} ${v.problem}`);
+    expect(styleProblems('made-up-whole')).toEqual([]);
+    expect(styleProblems('made-up-half')).toEqual(['10 样式“made-up-half”只有全程沙盘用的那一半（样式的登记表里它那一行没有 load），站点沙盘写不了它；站点沙盘能写的是：made-up-whole']);
+    // 表里没有的名字还是原来那一句，名字都列出来（连只有那一半的）
+    expect(styleProblems('tang-gold')).toEqual(['10 样式“tang-gold”程序里没有；有的是：made-up-whole、made-up-half']);
+    // 表里一种整套的也没有的时候，话里说得出
+    expect(styleProblems('made-up-half', styleChoices([rows[1]]))).toEqual(['10 样式“made-up-half”只有全程沙盘用的那一半（样式的登记表里它那一行没有 load），站点沙盘写不了它；站点沙盘能写的是：（现在一种也没有）']);
+    // 别的规则不因为它多报：合格样本换成整套的那一种，这个文件一处问题也没有
+    expect(checkSceneFile({ ...scene, style: 'made-up-whole' }, SCENE, stop, GOOD, SIZES, choices)).toEqual([]);
   });
 
   it('credits 一条也没有，或者有一条是空的', () => {

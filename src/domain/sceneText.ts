@@ -214,7 +214,7 @@ export const NOTE_BRIEF_MAX = 32;
 const RECIPE_SAY: Record<TableScene['terrain']['recipe']['kind'], { full: string; short: string }> = {
   'plain-and-hills': { full: '平地是修整过的：高高低低的平地抹成了差不多一样高，山也跟着矮了一截。', short: '平地修整过' },
   'plain-smoothed': { full: '平地抹平了，山照原样。', short: '平地抹平' },
-  'as-measured': { full: '地面照今天的样子，没有抹平。', short: '地面没有抹平' },
+  'as-measured': { full: '地面照今天的样子，没有抹平。', short: '地面没抹平' },
 };
 
 /** 模型和河都放大了。 */
@@ -242,7 +242,8 @@ export function sectionInfo(scene: TableScene, heading: string): SectionInfo {
   lines.push(`${relief.full}；${sizes.full}`);
 
   // 常印着的一句：示意的点三样的名字；名字长得两行放不下，就少点几样。
-  // 全程沙盘上看来路的一节，到这一站去的路里没有整截示意的：点出来的只会是别处的水，这一节的画面上不一定找得到，所以只说一共几样。
+  // 全程沙盘上看一站的一节，这一站自己的路里没有整截示意的：点出来的不是这一站自己的路（是别处的水、走过的路、别处的地名），
+  // 这一节的画面上不一定找得到，所以只说一共几样。
   const rest = [RECIPE_SAY[recipe.kind].short, relief.short];
   let short = '';
   const stop = 'stop' in section ? section.stop : undefined;
@@ -348,11 +349,13 @@ function lineOnly(scene: TableScene, section: Section): SceneFarPlace[] {
  * explain 里点到的排在前面；其余的先是水，再是摆在上面的东西，最后是地形的修整（读的人先看到的在前）。
  * 全程沙盘上看来路的一节不看 explain：到这一站去的路里整截示意的在最前，再是水，再是别的。
  * 摆件和点缀看 when；远处只算这一节的题签指到的（只在题记下面说的那种不在沙盘上，不算）。全程沙盘上，这一节还没有画的路（后面各站的）不算。
+ * 全程沙盘上名字没有点的地名点（写了 area：一个国、一座山脉）和远处一样，只算这一节的题签指到的：它在沙盘上只是那一条名字，没有立它的一节里什么也没有。
  * 地形的整理不列在这里：它自己的那句话紧跟在后面，每一节都有。
  */
 function unsureAt(scene: TableScene, section: Section): Unsure[] {
   const pointed = new Set(section.strips.map((id) => scene.strips.find((s) => s.id === id)?.of));
-  const absent = new Set<Grounds>([scene.terrain.recipe, ...notShown(scene, section), ...scene.far.filter((place) => !pointed.has(place.id))]);
+  const places: RoutePlace[] = scene.places;
+  const absent = new Set<Grounds>([scene.terrain.recipe, ...notShown(scene, section), ...[...scene.far, ...places.filter((place) => place.area)].filter((place) => !pointed.has(place.id))]);
   const all = grounded(scene);
   const present = [...all.water, ...all.placed, ...all.terrain].filter((item) => !absent.has(item.grounds));
   // 全程沙盘上看来路的一节（写了 stop）：到这一站去的路里整截是示意的排在最前，后面照 present 的先后（水，摆在上面的，地形）。

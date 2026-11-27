@@ -91,6 +91,11 @@ export const styleRouteEntry = (id: string): string => `src/stage/three/style/${
 /** 构建清单的一个键是不是一种样式的入口；是的话，第一组是样式的名字。 */
 const STYLE_KEY = /^src\/stage\/three\/style\/([^/]+)\/\1\.ts$/;
 /**
+ * 构建清单的一个键是不是一种样式里全程沙盘取的那一半；是的话，第一组是样式的名字。
+ * 只有全程沙盘用的样式（登记表里那一行没有 load）在清单里只有这一项，没有整套的入口：照这一项认它。
+ */
+const STYLE_HALF_KEY = /^src\/stage\/three\/style\/([^/]+)\/\1-route\.ts$/;
+/**
  * 内容的清单那一块在构建清单里叫什么：每位人物的每个文件怎么读（各站的文件、图片、场景文件、两种清单、行迹的出处），
  * 连同沙盘用到的文件（地形文件、先画好的地面、定格图）的网址。页面的程序一开始跑就用动态 import 去要它，但它不能进页面那一块：
  * 页面那一块里只留首页的卡片和每位人物的 figure.json（一位人物一项）。
@@ -256,6 +261,11 @@ export interface StyleSize extends FileGroup {
   route: FileGroup | null;
   /** 那一半在清单里是不是标着“用到时才下载”（没有分两半时是 true）。 */
   routeIsDynamic: boolean;
+  /**
+   * 只有全程沙盘用的样式（清单里只有那一半，没有整套的入口）才写，写 true：files、gzip 就是那一半的（它没有整套），route 和它一样；
+   * 站点沙盘下载不到它，“摆站点沙盘要下载的程序”那一行不算它。整套的样式没有这一项。
+   */
+  halfOnly?: true;
 }
 
 export interface ProgramSizes {
@@ -304,14 +314,21 @@ export function programSizes(manifest: BuildManifest, gzipOf: (file: string) => 
   const routeKeys = staticClosure(manifest, ROUTE_ENTRY);
   const routeFiles = unique(routeKeys.filter((key) => !pageKeys.includes(key) && !engineKeys.includes(key)).map((key) => manifest[key].file)).filter((file) => !pageFiles.includes(file) && !engineFiles.includes(file));
 
+  // 一种样式在清单里：有整套的入口的照它认；只有那一半的（只有全程沙盘用的样式）照那一半认。照样式的名字排
+  const idOf = (key: string): string => (STYLE_KEY.exec(key) ?? STYLE_HALF_KEY.exec(key))?.[1] ?? key;
   const styles = Object.keys(manifest)
-    .filter((key) => STYLE_KEY.test(key))
-    .sort((a, b) => (a < b ? -1 : a > b ? 1 : 0))
+    .filter((key) => STYLE_KEY.test(key) || (STYLE_HALF_KEY.test(key) && !manifest[styleEntry(idOf(key))]))
+    .sort((a, b) => (idOf(a) < idOf(b) ? -1 : idOf(a) > idOf(b) ? 1 : 0))
     .map((key): StyleSize => {
       const keys = staticClosure(manifest, key);
       const files = unique(keys.filter((one) => !pageKeys.includes(one) && !engineKeys.includes(one)).map((one) => manifest[one].file)).filter((file) => !pageFiles.includes(file) && !engineFiles.includes(file));
-      const id = STYLE_KEY.exec(key)?.[1] ?? key;
+      const id = idOf(key);
       const halfKey = styleRouteEntry(id);
+      // 只有全程沙盘用的样式：它的一组就是那一半
+      if (key === halfKey) {
+        const isDynamic = manifest[key].isDynamicEntry === true;
+        return { id, ...group(files), isDynamic, inOthers: engineKeys.includes(key) || pageKeys.includes(key) || routeKeys.includes(key), route: group(files), routeIsDynamic: isDynamic, halfOnly: true };
+      }
       const halfFiles = unique(staticClosure(manifest, halfKey).filter((one) => !pageKeys.includes(one) && !engineKeys.includes(one)).map((one) => manifest[one].file)).filter((file) => !pageFiles.includes(file) && !engineFiles.includes(file));
       return {
         id,
@@ -369,10 +386,18 @@ export function programReport(sizes: ProgramSizes, distBytes: number): SizeRepor
     row('沙盘程序（压缩以后）', sizes.engine.gzip, ENGINE_GZIP_MAX, ENGINE_GZIP_WARN, '字节', sizes.engine.files);
     // 时代样式：一种一块，各印一行（它自己没有上限）。摆一座沙盘要下载沙盘程序加上它自己的那一种：这里不看内容，照最大的一种查
     // （content/ 里每一座沙盘照它自己的样式、自己的那几家零件再查一遍，在 tests/build/dist-size.test.ts）。清单里一种也没有时不添这几行
-    const largestStyle = sizes.styles.reduce((most, one) => Math.max(most, one.gzip), 0);
+    // 只有全程沙盘用的样式（halfOnly）站点沙盘下载不到：这一行不算它
+    const largestStyle = sizes.styles.reduce((most, one) => Math.max(most, one.halfOnly ? 0 : one.gzip), 0);
     // 全程沙盘只取样式的一半（分了两半的样式）：照各种样式的那一半里最大的查；没有分两半的样式，全程沙盘下载的是整套
     const largestRouteStyle = sizes.styles.reduce((most, one) => Math.max(most, one.route ? one.route.gzip : one.gzip), 0);
     for (const one of sizes.styles) {
+      if (one.halfOnly) {
+        // 只有全程沙盘用的样式：它只有那一半，一行，照那一半的名字说
+        if (one.inOthers) report.fails.push(`时代样式“${one.id}”（只有全程沙盘用的那一半，${styleRouteEntry(one.id)}）成了页面、沙盘程序或者全程沙盘那一块一来就带着的东西：只能用动态 import 取它（src/stage/styles.ts 的登记表）`);
+        else if (!one.isDynamic) report.fails.push(`时代样式“${one.id}”里全程沙盘取的那一半（${styleRouteEntry(one.id)}）在构建清单里没有标成“用到时才下载”`);
+        report.lines.push(`时代样式“${one.id}”只有全程沙盘用的那一半（压缩以后）：${withCommas(one.gzip)} 字节（没有单独的上限，和沙盘程序、全程沙盘那一块加在一起查）　${one.files.join('、')}`);
+        continue;
+      }
       if (one.inOthers) report.fails.push(`时代样式“${one.id}”那一块程序（${styleEntry(one.id)}）成了页面、沙盘程序或者全程沙盘那一块一来就带着的东西：只能用动态 import 取它（src/stage/styles.ts 的登记表）`);
       else if (!one.isDynamic) report.fails.push(`时代样式“${one.id}”那一块程序（${styleEntry(one.id)}）在构建清单里没有标成“用到时才下载”`);
       report.lines.push(`时代样式“${one.id}”的程序（压缩以后）：${withCommas(one.gzip)} 字节（没有单独的上限，和沙盘程序加在一起查）　${one.files.join('、')}`);

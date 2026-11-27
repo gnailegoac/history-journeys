@@ -86,6 +86,12 @@ export interface StageOptions {
    * 不写，题签上就没有站号的印。站点沙盘不看。
    */
   marks?: Record<string, StopMark>;
+  /**
+   * 只有定格图的沙盘认：这座沙盘的题签是另一种（平着的纸条），那一小块程序还在路上。图片照常马上摆，先不摆题签；
+   * 它兑现了（那一小块已经记在这个容器上）再挂题签层、把这一节的题签摆上去；它拒绝了就一直不摆题签——不拿竖着的纸条的规矩去顶。
+   * 页面不直接写它：取定格图的沙盘的那一处替页面交（src/stage/index.ts 的 loadStillEngine）。竖着的纸条的沙盘不写。
+   */
+  labels?: Promise<unknown>;
 }
 
 /** 跟着镜头变的两样：指北和比例尺。 */
@@ -188,6 +194,12 @@ export interface StageView {
    * create 立刻返回，不在同一轮里做重活；动手算地形之前，先让浏览器把页面上“正在摆”的那句话画出来。
    */
   readonly ready: Promise<void>;
+
+  /**
+   * 题签晚到的那一座定格图才有（StageOptions.labels 写了的）：题签层挂上了就完成；那一小块程序没取到就拒绝——图片留着，上面没有题签，
+   * 页面这时说“沙盘没能摆出来”、给“再试一次”。别的沙盘没有这一项。
+   */
+  readonly named?: Promise<void>;
 
   /**
    * 回到刚才摆好的位置（站点沙盘上就是“回到这一节”）。

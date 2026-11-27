@@ -1,7 +1,8 @@
 // 凭据里“沙盘上的东西”一栏：沙盘上摆的每样东西属于五类里的哪一类、依据什么、出处在哪；
 // 后面是史料里有、沙盘上故意没画的东西；最后一行是用了谁的数据。
 // 内容都是 src/domain 的 sceneRegister() 从场景数据拼出来的，这里只管排出来。
-// 全程沙盘另有两样，都直接从数据里读，不经 sceneRegister()（那个函数跟着页面一打开就下载的程序走，这里的字点开才下载）：
+// 全程沙盘另有三样，都直接从数据里读，不经 sceneRegister()（那个函数跟着页面一打开就下载的程序走，这里的字点开才下载）：
+//   开头的几条总的说明（场景文件最外面的 general，可以不写）：一条一段，照文件里的先后，没有标题，id 不印；
 //   五类后面的“记号”一栏：小像（场景文件最外面的 piece，不在五类里）；
 //   最后的一段：这位人物的行迹照哪些书和文章排的——手写的那一份行迹（itinerary.json）里的 sources，一条出处印一次，连着“读了什么”。
 //   那一份里只有 sources 这一个字段进网站，每位人物的是他自己的一小块，不打在这一块程序里（tests/build/dist-size.test.ts 查着）：
@@ -24,6 +25,7 @@ export function SceneRegister({ scene, sources, itinerary }: { scene: TableScene
   if (!register) return null;
   const groups = register.groups.filter((group) => group.entries.length > 0);
   const piece = scene.level === 'route' ? scene.piece : undefined;
+  const general = scene.level === 'route' ? scene.general : undefined;
   const read = scene.level === 'route' ? onceEach(itinerary) : [];
 
   return (
@@ -31,6 +33,13 @@ export function SceneRegister({ scene, sources, itinerary }: { scene: TableScene
       <section className="scene-register">
         <h3>{REGISTER_TEXT.heading}</h3>
         <p className="provenance-line">{REGISTER_TEXT.line}</p>
+
+        {/* 全程沙盘的几条总的说明（场景文件最外面的 general）：排在这一栏的开头，一条一段，照文件里的先后；没有标题，id 不印 */}
+        {general?.map((line, i) => (
+          <p key={i} className="scene-register-item scene-general">
+            {line.text}
+          </p>
+        ))}
 
         {groups.map((group) => (
           <section key={group.class} className="scene-register-group" data-class={group.class}>

@@ -132,8 +132,11 @@ function boxed(ring: readonly LngLat[]): Boxed {
 const within = (lng: number, lat: number, rings: Boxed[]): boolean =>
   rings.some((b) => lng >= b.west && lng <= b.east && lat >= b.south && lat <= b.north && insideRing(lng, lat, b.ring));
 
-/** 很轻的抹平（不到一格）：三点的小核，横竖各一遍。出了边取边上的值。 */
-function soften(src: Float32Array, nx: number, nz: number, cells: number): Float32Array {
+/**
+ * 很轻的抹平（不到一格）：三点的小核，横竖各一遍。出了边取边上的值。
+ * 交出去是给做图的工具用的（一种画法要照没抹以前的地面上色时，用的得是这同一个核，不另抄一份）。
+ */
+export function soften(src: Float32Array, nx: number, nz: number, cells: number): Float32Array {
   const a = clamp((cells * cells) / 2, 0, 0.33);
   const tmp = new Float32Array(src.length);
   const out = new Float32Array(src.length);

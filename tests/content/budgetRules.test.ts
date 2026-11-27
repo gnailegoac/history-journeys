@@ -469,6 +469,74 @@ describe('时代样式分两半：全程沙盘只取每一座沙盘都用的那�
   });
 });
 
+describe('只有全程沙盘用的样式：清单里只有那一半，没有整套的入口', () => {
+  /** 和现在的构建一个样子：一种整套的样式（style-a，两块），另一种只有全程沙盘用的那一半（style-half：登记表里那一行没有 load）。名字是编的。 */
+  function withHalfOnly(): BuildManifest {
+    const manifest = manifestLikeToday();
+    manifest[ENGINE_ENTRY].dynamicImports = [ROUTE_ENTRY];
+    manifest[ROUTE_ENTRY] = { file: 'assets/routeLevel-g.js', isDynamicEntry: true, imports: [ENGINE_ENTRY, '_lines-h.js'] };
+    manifest['_lines-h.js'] = { file: 'assets/lines-h.js' };
+    manifest[PAGE_ENTRY].dynamicImports = [...(manifest[PAGE_ENTRY].dynamicImports ?? []), styleEntry('style-a'), styleRouteEntry('style-a'), styleRouteEntry('style-half')];
+    manifest[styleEntry('style-a')] = { file: 'assets/style-a-j.js', isDynamicEntry: true, imports: [styleRouteEntry('style-a'), ENGINE_ENTRY] };
+    manifest[styleRouteEntry('style-a')] = { file: 'assets/style-a-route-k.js', isDynamicEntry: true, imports: [ENGINE_ENTRY] };
+    manifest[styleRouteEntry('style-half')] = { file: 'assets/style-half-route-m.js', isDynamicEntry: true, imports: [ENGINE_ENTRY] };
+    return manifest;
+  }
+  const SIZES = { ...TODAY, 'assets/routeLevel-g.js': 2_100, 'assets/lines-h.js': 6_500, 'assets/style-a-j.js': 1_200, 'assets/style-a-route-k.js': 3_800, 'assets/style-half-route-m.js': 2_500 };
+  const report = (manifest: BuildManifest, table: Record<string, number> = SIZES) => programReport(programSizes(manifest, sizesOf(table)), DIST_TODAY);
+
+  it('它算一种样式：照那一半认，一组就是那一半，标着 halfOnly；整套的那一种照旧，没有这个记号；那一半不另算成第三种', () => {
+    const sizes = programSizes(withHalfOnly(), sizesOf(SIZES));
+    expect(sizes.styles).toEqual([
+      { id: 'style-a', files: ['assets/style-a-j.js', 'assets/style-a-route-k.js'], gzip: 5_000, isDynamic: true, inOthers: false, route: { files: ['assets/style-a-route-k.js'], gzip: 3_800 }, routeIsDynamic: true },
+      { id: 'style-half', files: ['assets/style-half-route-m.js'], gzip: 2_500, isDynamic: true, inOthers: false, route: { files: ['assets/style-half-route-m.js'], gzip: 2_500 }, routeIsDynamic: true, halfOnly: true },
+    ]);
+    expect('halfOnly' in sizes.styles[0]).toBe(false);
+    // 沙盘程序、全程沙盘那一组不因为它变大
+    expect(sizes.engine).toEqual({ files: ['assets/engine-b.js', 'assets/strips-c.js'], gzip: 198_600 });
+    expect(sizes.route).toEqual({ files: ['assets/routeLevel-g.js', 'assets/lines-h.js'], gzip: 8_600 });
+  });
+
+  it('表里它一行，说的是“只有全程沙盘用的那一半”；摆站点沙盘的那一行不算它，摆全程沙盘的那一行算', () => {
+    const found = report(withHalfOnly());
+    expect(found.fails).toEqual([]);
+    expect(found.lines).toContain('时代样式“style-half”只有全程沙盘用的那一半（压缩以后）：2,500 字节（没有单独的上限，和沙盘程序、全程沙盘那一块加在一起查）　assets/style-half-route-m.js');
+    expect(found.lines.filter((line) => line.includes('style-half'))).toHaveLength(1);
+    expect(found.lines).toContain('摆站点沙盘要下载的程序：沙盘程序加上最大的一种时代样式（压缩以后）：203,600 字节，上限 230,000（用了 89%）');
+    expect(found.lines).toContain('摆全程沙盘要下载的程序：沙盘程序加上全程沙盘另外的，再加上最大的一种时代样式（压缩以后）：211,000 字节，上限 230,000（用了 92%）');
+    // 它那一半比整套的那一种还大：站点沙盘那一行不动（站点沙盘下载不到它），全程沙盘那一行照它查
+    const heavy = report(withHalfOnly(), { ...SIZES, 'assets/style-half-route-m.js': 9_000 });
+    expect(heavy.lines).toContain('摆站点沙盘要下载的程序：沙盘程序加上最大的一种时代样式（压缩以后）：203,600 字节，上限 230,000（用了 89%）');
+    expect(heavy.lines).toContain('摆全程沙盘要下载的程序：沙盘程序加上全程沙盘另外的，再加上最大的一种时代样式（压缩以后）：216,200 字节，上限 230,000（用了 94%）');
+    // 大到全程沙盘超了：不合格
+    const over = report(withHalfOnly(), { ...SIZES, 'assets/style-half-route-m.js': ENGINE_GZIP_MAX - 207_200 + 1 });
+    expect(over.fails).toContain('摆全程沙盘要下载的程序：沙盘程序加上全程沙盘另外的，再加上最大的一种时代样式（压缩以后）有 230,001 字节，超过了上限 230,000');
+  });
+
+  it('它没有标成“用到时才下载”、沙盘程序静态引入了它：都不合格，说的是那一半的名字', () => {
+    const notDynamic = withHalfOnly();
+    delete notDynamic[styleRouteEntry('style-half')].isDynamicEntry;
+    expect(report(notDynamic).fails).toEqual(['时代样式“style-half”里全程沙盘取的那一半（src/stage/three/style/style-half/style-half-route.ts）在构建清单里没有标成“用到时才下载”']);
+    const held = withHalfOnly();
+    held[ENGINE_ENTRY].imports = [...(held[ENGINE_ENTRY].imports ?? []), styleRouteEntry('style-half')];
+    held[styleRouteEntry('style-half')].imports = [];
+    expect(report(held).fails.filter((line) => line.includes('时代样式“style-half”'))).toEqual([
+      '时代样式“style-half”（只有全程沙盘用的那一半，src/stage/three/style/style-half/style-half-route.ts）成了页面、沙盘程序或者全程沙盘那一块一来就带着的东西：只能用动态 import 取它（src/stage/styles.ts 的登记表）',
+    ]);
+  });
+
+  it('只有它一种样式的时候：摆站点沙盘的那一行查的是沙盘程序自己（没有哪一种样式站点沙盘下载得到）', () => {
+    const manifest = withHalfOnly();
+    delete manifest[styleEntry('style-a')];
+    delete manifest[styleRouteEntry('style-a')];
+    const sizes = programSizes(manifest, sizesOf(SIZES));
+    expect(sizes.styles.map((one) => [one.id, one.halfOnly])).toEqual([['style-half', true]]);
+    const found = programReport(sizes, DIST_TODAY);
+    expect(found.fails).toEqual([]);
+    expect(found.lines).toContain('摆站点沙盘要下载的程序：沙盘程序加上最大的一种时代样式（压缩以后）：198,600 字节，上限 230,000（用了 86%）');
+  });
+});
+
 describe('字体文件对着上限查', () => {
   /** 四个文件，照工具排的先后：黑体、头一个宋体、楷体、点开才要的宋体。黑体不说就是 49,000 字节。 */
   const files = (kai: number, song: number, more: number, sans = 49_000) => [

@@ -595,20 +595,25 @@ function rapidsEnds(rapids: SceneRapids, scene: StopScene, coords: FrameCoords):
  * “整块沙盘”是哪几个点：沙盘的四个角，加上座子最宽那一圈的四个角。
  * 连座子一起算，是因为定稿的样张看整块沙盘时座子是完整的；只算沙盘的四个角，镜头会贴到座子被画面的边切掉。
  * 座子最宽那一圈伸出去多远、多高是样式的事（stand 是样式的 stand）。
+ * 样式还写了那一圈的上沿多高的（reachTopY：四周立着一道比沙盘面高的框），上沿的四个角也算，排在最后：整只匣子——框的上沿和落在下面的那一道边——都在画面里。
+ * 没写的，就是前面这八个点，一个数不差。
  */
-export function framePoints(coords: FrameCoords, stand: Pick<StandStyle, 'reachM' | 'reachY'>): Vec3[] {
+export function framePoints(coords: FrameCoords, stand: Pick<StandStyle, 'reachM' | 'reachY' | 'reachTopY'>): Vec3[] {
   const { x0, x1, z0, z1 } = coords;
   const r = stand.reachM;
-  const y = stand.reachY;
+  const ring = (y: number): Vec3[] => [
+    [x0 - r, y, z0 - r],
+    [x1 + r, y, z0 - r],
+    [x1 + r, y, z1 + r],
+    [x0 - r, y, z1 + r],
+  ];
   return [
     [x0, 0, z0],
     [x1, 0, z0],
     [x1, 0, z1],
     [x0, 0, z1],
-    [x0 - r, y, z0 - r],
-    [x1 + r, y, z0 - r],
-    [x1 + r, y, z1 + r],
-    [x0 - r, y, z1 + r],
+    ...ring(stand.reachY),
+    ...(stand.reachTopY === undefined ? [] : ring(stand.reachTopY)),
   ];
 }
 

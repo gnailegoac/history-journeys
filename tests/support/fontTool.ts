@@ -561,6 +561,8 @@ export function planFonts(
     for (const credit of register.credits) more(home, column, credit);
     // 全程沙盘上的小像（场景文件最外面的 piece）：“记号”一栏里的三句
     if (scene.level === 'route' && scene.piece) for (const text of [scene.piece.name, scene.piece.basis, scene.piece.note]) more(home, column, text);
+    // 全程沙盘的凭据开头的几条总的说明（场景文件最外面的 general）：印的是每一条的那段话（id 不印），点开才有
+    if (scene.level === 'route') for (const line of scene.general ?? []) more(home, column, line.text);
   }
 
   // ---- 分组

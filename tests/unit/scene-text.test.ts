@@ -736,12 +736,20 @@ const sceneTexts = import.meta.glob<string>('/content/figures/*/scenes/*.json', 
 const stopTexts = import.meta.glob<string>('/content/figures/*/stops/*.json', { query: '?raw', import: 'default', eager: true });
 const realScenes = Object.entries(sceneTexts).map(([path, raw]) => ({ path, scene: parse<TableScene>(raw) }));
 
-/** 两层的沙盘说法不一样的三处：地形修整了哪里（一句话里的），第四样（一句话里的两种、展开的那一句里的）。 */
+/**
+ * 两层的沙盘说法不一样的三处：地形修整了哪里（一句话里的），第四样（一句话里的两种、展开的那一句里的）。
+ * 全程沙盘上“地形修整了哪里”跟着整理地形的办法走（recipe 的 kind）：平原抹成缓坡的说“平地抹平”，地面照量到的样子的说“地面没抹平”。
+ * （2026-11-26 以前这里对每一座全程沙盘都要“平地抹平”：那时 content/ 里的全程沙盘只有抹平原的那一种办法。）
+ */
 function wordsOf(scene: TableScene): { recipe: string; short: string; brief: string; full: string } {
   return scene.level === 'route'
-    ? { recipe: '平地抹平', short: '河和路都画宽了', brief: '河画宽了', full: '河和路都画宽了，不按比例。' }
+    ? { recipe: scene.terrain.recipe.kind === 'as-measured' ? '地面没抹平' : '平地抹平', short: '河和路都画宽了', brief: '河画宽了', full: '河和路都画宽了，不按比例。' }
     : { recipe: '平地修整过', short: '模型和河都放大了', brief: '模型和河放大了', full: '都放大了' };
 }
+
+/** 测试里编出来的那一座全程沙盘（tests/content/fixtures/made-up/）：地面照量到的样子（as-measured），content/ 里现在没有这样的一座。 */
+const madeUpTexts = import.meta.glob<string>('/tests/content/fixtures/made-up/figures/*/scenes/route.json', { query: '?raw', import: 'default', eager: true });
+const madeUpScenes = Object.entries(madeUpTexts).map(([path, raw]) => ({ path, scene: parse<TableScene>(raw) }));
 
 describe('content/ 里真实的场景', () => {
   it('至少有一个场景文件；两层的沙盘都有', () => {
@@ -749,8 +757,13 @@ describe('content/ 里真实的场景', () => {
     expect(realScenes.filter(({ scene }) => scene.level === 'route').length).toBeGreaterThan(0);
   });
 
-  it('每一节都拼得出说明，四样都在；题记和时间是场景里写的', () => {
-    for (const { path, scene } of realScenes) {
+  // 2026-11-26 以前这一条只走 content/ 里的场景，全程沙盘一律要“平地抹平”。现在“地形修整了哪里”照 recipe 的 kind 要（见 wordsOf）；
+  // content/ 里还没有地面照量到的样子的沙盘，所以编出来的那一座也照同样的几句走一遍——那一支不是空着的。
+  it('每一节都拼得出说明，四样都在；题记和时间是场景里写的（地形修整了哪里照整理的办法说：平原抹平的“平地抹平”，照量到的样子的“地面没抹平”——编出来的那一座也走一遍）', () => {
+    // content/ 里的全程沙盘现在都是抹平原的那一种；编出来的那一座是照量到的样子的
+    expect(madeUpScenes.map(({ scene }) => wordsOf(scene).recipe)).toEqual(['地面没抹平']);
+    expect(realScenes.filter(({ scene }) => scene.level === 'route').map(({ scene }) => scene.terrain.recipe.kind)).toContain('plain-smoothed');
+    for (const { path, scene } of [...realScenes, ...madeUpScenes]) {
       const words = wordsOf(scene);
       for (const section of scene.sections) {
         const info = sectionInfo(scene, section.heading);

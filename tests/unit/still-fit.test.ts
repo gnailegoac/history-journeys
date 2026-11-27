@@ -618,6 +618,116 @@ describe('定格图的沙盘（engine.ts）', () => {
     expect(ops.lastIndexOf('place')).toBeGreaterThan(ops.indexOf('set'));
   });
 
+  // ---- 题签晚到的那一座（StageOptions.labels：题签是另一种，那一小块程序还在路上；页面那一边由 loadStillEngine 交）
+  /** 一份还没有结果的“题签到了”：arrive 叫它兑现，lose 叫它拒绝。 */
+  const lateLabels = (): { labels: Promise<void>; arrive: () => void; lose: () => void } => {
+    let arrive = (): void => {};
+    let lose = (): void => {};
+    const labels = new Promise<void>((resolve, reject) => {
+      arrive = resolve;
+      lose = () => reject(new Error('那一小块程序没有取到'));
+    });
+    labels.catch(() => {});
+    return { labels, arrive, lose };
+  };
+
+  it('题签晚到：图片先摆——ready 完成的时候图片在了，一层题签也没有挂；那一小块到了才挂上一层，把现在这一节的题签摆上去，named 这时完成', async () => {
+    const late = lateLabels();
+    const layers = stripLayers.logs.length;
+    const { view, pane: p } = mount({ options: { labels: late.labels } as never });
+    await view.ready;
+    // 图片在了，没有题签层
+    expect(p.topPicture()!.src).toBe(fixtureStillUrl(1, 'wide'));
+    expect(stripLayers.logs.length).toBe(layers);
+    expect(view.named).toBeInstanceOf(Promise);
+    expect(await stateOf(view.named!)).toBe('pending');
+    // 这时换古今名字、换留的空、容器大小变了都不出错（没有题签可摆）
+    view.setNamesMode('modern');
+    view.setInsets(insetsOf(70, 130));
+    view.resize();
+    expect(stripLayers.logs.length).toBe(layers);
+    // 到了：挂上一层，摆的是现在这一节、现在的名字、现在留的空
+    late.arrive();
+    await view.named;
+    expect(stripLayers.logs.length).toBe(layers + 1);
+    const log = stripLog();
+    expect(lastOf(log, 'set')).toMatchObject({ ids: ['s-town', 's-river'], texts: ['样市', '样水'] });
+    expect(lastOf(log, 'place')!.insets).toEqual(insetsOf(70, 130));
+    const ops = log.map((call) => call.op);
+    expect(ops.lastIndexOf('place')).toBeGreaterThan(ops.indexOf('set'));
+    // 之后和平常一样：换小节，这一层收到新的一批
+    await view.showSection(SECOND, { animate: false });
+    expect(lastOf(stripLog(), 'set')!.ids).not.toEqual(['s-town', 's-river']);
+    view.destroy();
+    expect(lastOf(log, 'destroy')).toBeDefined();
+  });
+
+  it('题签晚到，到的时候图片还没出来：先挂上一层等着；图片摆上以后题签才摆', async () => {
+    const late = lateLabels();
+    const first = fixtureStillUrl(1, 'wide');
+    const layers = stripLayers.logs.length;
+    const { view, images } = mount({ options: { labels: late.labels } as never, prepare: (i) => i.hold(first) });
+    late.arrive();
+    await view.named;
+    expect(stripLayers.logs.length).toBe(layers + 1);
+    expect(stripLog().some((call) => call.op === 'set')).toBe(false);
+    expect(await stateOf(view.ready)).toBe('pending');
+    images.release(first);
+    await view.ready;
+    expect(lastOf(stripLog(), 'set')).toMatchObject({ ids: ['s-town', 's-river'] });
+  });
+
+  it('题签晚到，到的时候新的一张正在淡入：淡完才摆（和平常换小节一样藏着换）', async () => {
+    const late = lateLabels();
+    const layers = stripLayers.logs.length;
+    const { view, images } = mount({ options: { labels: late.labels } as never });
+    await view.ready;
+    images.holdWaits();
+    const moving = view.showSection(SECOND);
+    await settle();
+    late.arrive();
+    await view.named;
+    // 挂上了，正在淡入：还没有摆
+    expect(stripLayers.logs.length).toBe(layers + 1);
+    expect(stripLog().some((call) => call.op === 'set')).toBe(false);
+    images.releaseWaits();
+    await moving;
+    expect(lastOf(stripLog(), 'set')).toBeDefined();
+    expect(images.waits).toContain(FADE_MS);
+  });
+
+  it('题签晚到，那一小块没取到：named 拒绝；图片留着，一层题签也不挂（不拿竖着的纸条去顶）；换小节照常换图，ready 没有受影响', async () => {
+    const late = lateLabels();
+    const layers = stripLayers.logs.length;
+    const { view, pane: p } = mount({ options: { labels: late.labels } as never });
+    await view.ready;
+    late.lose();
+    await expect(view.named).rejects.toThrow('那一小块程序没有取到');
+    expect(stripLayers.logs.length).toBe(layers);
+    expect(p.topPicture()!.src).toBe(fixtureStillUrl(1, 'wide'));
+    await view.showSection(SECOND, { animate: false });
+    expect(p.topPicture()!.src).toBe(fixtureStillUrl(2, 'wide'));
+    view.setNamesMode('modern');
+    expect(stripLayers.logs.length).toBe(layers);
+    await expect(view.ready).resolves.toBeUndefined();
+    view.destroy();
+  });
+
+  it('题签晚到，到之前这一座已经关掉：不挂题签层；没有写 labels 的（竖着的纸条的沙盘）没有 named，题签层一上来就挂', async () => {
+    const late = lateLabels();
+    const layers = stripLayers.logs.length;
+    const { view } = mount({ options: { labels: late.labels } as never });
+    await view.ready;
+    view.destroy();
+    late.arrive();
+    await view.named;
+    expect(stripLayers.logs.length).toBe(layers);
+    const plain = mount();
+    expect(plain.view.named).toBeUndefined();
+    expect(stripLayers.logs.length).toBe(layers + 1);
+    await plain.view.ready;
+  });
+
   it('一开始就摆页面要的那一节；要的小节场景里没有，就摆第一节', async () => {
     const asked = mount({ options: { section: SECOND } });
     await asked.view.ready;

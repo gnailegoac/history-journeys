@@ -4,7 +4,7 @@
 // 它里面有苏轼的那一座没有的几样：一站分两段讲（甲城），一趟路里陆路和水路相接，船走在水上（roads.boats 写 on），
 // 有记载的水路和只知道两头的水路，一条海路，一条没有写走哪条水的水路，看一站的小节画的是那几年走的路（roads.stopShows 写 stop-years），
 // 一个算在两站名下的地方（乙渡：题签上两个站号的印），一片名字没有点的山（西岭：地名点写了 area），头一节里九条名字（另一种题签——平着的纸条——就在它上面试），
-// 地面照量到的样子（recipe 是 as-measured），一圈离路、离地名点都在六十公里以外的留白。
+// 地面照量到的样子（recipe 是 as-measured），一圈离路、离地名点都在六十公里以外的留白，凭据开头的两条总的说明（general）。
 // 用它的测试：tests/stage/made-up-route.test.ts、tests/stage/made-up-labels.test.ts（经 tests/stage/support/madeUpRoute.ts）。
 // 那四个文件不手改。要改，改这个脚本，在项目的根目录里重做一遍：
 //   node tests/content/fixtures/made-up/make-fixture.mjs tests/content/fixtures/made-up/figures/traveller
@@ -198,6 +198,11 @@ const scene = {
     { heading: '丁镇那几年', date: '编的五年', line: '到丁镇，坐船过午湖。', camera: camera([159.8, 19.5], 16000), strips: ['s-ding', 's-wu', 's-wuzhuang', 's-massif'], explain: ['j-lake'], stop: 'ding' },
   ],
   notDrawn: [],
+  // 凭据里“沙盘上的东西”一栏开头的几条总的说明（全程沙盘可以写）：说的是这座沙盘整个的说法，不是哪一样东西；id 只在这一组里认，不印出来
+  general: [
+    { id: 'records', text: '这座沙盘是测试用的，路照编出来的《行记》画：写到了途中地方的那一截画实线，只知道两头的画虚线。' },
+    { id: 'made-up-names', text: '城用天干起名，河和湖用地支起名，都是编的，地图上找不到。' },
+  ],
 };
 writeFileSync(join(out, 'scenes', 'route.json'), JSON.stringify(scene, null, 2) + '\n');
 

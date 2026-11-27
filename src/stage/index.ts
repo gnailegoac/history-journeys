@@ -51,13 +51,17 @@ export async function loadStageEngine(style?: string, rows?: readonly StyleRow[]
 }
 
 /**
- * 定格图的沙盘。style 的意思同上：题签是另一种的，先取到那一小块程序再交出去（取不到就拒绝，页面这一次不放图片）。
- * 竖着的纸条的沙盘什么也不等：交回的是一个已经兑现的 Promise，里面就是定格图的沙盘本身（和没有另一种题签的时候一样快）。
+ * 定格图的沙盘。哪一种题签都不等：交回的是一个已经兑现的 Promise。
+ * 竖着的纸条的沙盘：里面就是定格图的沙盘本身（和没有另一种题签的时候一样快）。
+ * style 的意思同上，题签是另一种的：那一小块程序这时去取，不等它——交出去的沙盘每摆一座，把“那一小块到了、记在这个容器上了”交给那一座（StageOptions.labels）：
+ * 图片马上摆，题签到了再摆上去；没取到，那一座的 named 拒绝，页面说“沙盘没能摆出来”、给“再试一次”，点了再叫一次这里，重新取。
  * rows、load 同 labelsFor（测试交编出来的表和假的取法）；上面那一个也一样。
  */
 export function loadStillEngine(style?: string, rows?: readonly StyleRow[], load?: () => Promise<{ slipKit: Slips }>): Promise<StageEngine> {
   const slips = labelsFor(style, rows, load);
-  return slips ? slips.then((kit) => labelled(still, kit)) : Promise.resolve(still);
+  // 一座也没有摆、它就没取到的那一回：不让浏览器报“未处理的错误”
+  slips?.catch(() => {});
+  return Promise.resolve(slips ? { ...still, create: (container, table, options) => still.create(container, table, { ...options, labels: slips.then((kit) => labelsIn(container, kit)) }) } : still);
 }
 
 /** 定格图的沙盘本身（竖着的纸条的沙盘、测试直接用它）。 */

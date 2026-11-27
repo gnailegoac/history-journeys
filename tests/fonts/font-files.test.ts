@@ -77,7 +77,9 @@ function withExtra(from: FontPlan, group: string, ch: string, where: string): Fo
 // ---------------------------------------------------------------- 一、字都在
 
 describe('网站上显示的每一个字都在随站的字体里', () => {
-  it('用黑体排的字都在 yanlu-sans 里；题签和印上的字都在 yanlu-kai 里；不用点开就看得见的成句的字都在 yanlu-song 里；点开才看得见的字在两个宋体文件之一里', async () => {
+  // 这一条头一个等“要做的清单”（读整个网站的字、分组）：单独跑一秒多，机器忙的时候（两组测试一起跑）超过过平常的五秒——给它自己的时限。
+  // 这个仓库的规矩：在 Node 里跑的测试，一条超过 1.5 秒的自己写时限。
+  it('用黑体排的字都在 yanlu-sans 里；题签和印上的字都在 yanlu-kai 里；不用点开就看得见的成句的字都在 yanlu-song 里；点开才看得见的字在两个宋体文件之一里', { timeout: 30_000 }, async () => {
     expect(missingFromShipped(await plan, shipped)).toEqual([]);
   });
 
@@ -311,7 +313,8 @@ describe('放进仓库的字体文件和它的记录、样式表、许可全文�
     expect(named(/KAI_FAMILY = '([^']+)'/.exec(small)?.[1] ?? '')).toEqual(['yanlu-kai.woff2']);
   });
 
-  it('页面一打开就下载的程序不引入三套字体的那张表：src/ 里引入 shipped.ts 的只有“来源”页的那一块（SourcesBody.tsx），别处要名称、要那一个字，引 probe.ts', () => {
+  // 这一条把 src/ 里的每一个文件读两遍：单独跑不到一秒，机器忙的时候到过两秒、超过过平常的五秒——给它自己的时限（规矩同文件开头那一条）
+  it('页面一打开就下载的程序不引入三套字体的那张表：src/ 里引入 shipped.ts 的只有“来源”页的那一块（SourcesBody.tsx），别处要名称、要那一个字，引 probe.ts', { timeout: 30_000 }, () => {
     const importers = (module: string): string[] =>
       sourceFiles()
         .filter((path) => new RegExp(`from '[./]+/fonts/${module}'`).test(text(path)))

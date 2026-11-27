@@ -191,6 +191,18 @@ export function firstOpenFigureOnDisk(): string | null {
 }
 
 /**
+ * content/ 里有全程沙盘、却没有行迹的人物（文件夹里有 scenes/route.json，没有 itinerary.json），照文件夹名的先后。
+ * 这样的人物的页面上没有时间轴（docs/data-spec.md“谁要有行迹”）。不用打开页面；他的页面照地址打开（首页上有没有他的卡片、打不打得开都一样）。
+ */
+export function routeFiguresWithoutItinerary(): string[] {
+  return namesIn('content/figures').filter((name) => {
+    if (name.includes('.')) return false;
+    const files = namesIn(`content/figures/${name}`);
+    return !files.includes('itinerary.json') && files.includes('scenes') && namesIn(`content/figures/${name}/scenes`).includes('route.json');
+  });
+}
+
+/**
  * content/ 里每一座站点沙盘：哪位人物、哪一站、它的场景。照人物的文件夹名、再照 figure.json 里各站的先后。
  * 不用打开页面（测试的名字要在打开页面以前定下来）：给“每一座沙盘各在浏览器里起一遍”的测试用。
  */

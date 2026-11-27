@@ -22,6 +22,8 @@ import { loadStopTable } from '../../src/domain/sceneContent';
 import { sceneRegister, sectionHeadings, sectionInfo, stripTexts } from '../../src/domain/sceneText';
 import { stopMarks } from '../../src/domain/stopMarks';
 import type { Figure, FigureCard, Source, StopContent } from '../../src/domain/types';
+import type { LabelKind } from '../../src/stage/overlay/types';
+import { labelKind } from '../../src/stage/styles';
 import { SANS_LABELS, placeLabel } from '../../src/ui/text';
 import type { FontTables } from './sfnt';
 import { charactersOf, checkSfnt, cmapOf, englishName, featuresOf, glyphCountOf, hintingOf, namesOf, readSfnt, readWoff2, renameSfnt, weightOf } from './sfnt';
@@ -373,14 +375,16 @@ export function postscriptName(name: string, weight = 400): string {
  * 数出网站上显示的字，分好组，列出要做哪几个文件。
  * splitByStop：宋体要不要按站拆开（不写就照 SPLIT_SONG_BY_STOP）。fallbackOk：不进字体的字（不写就照 FALLBACK_OK）。
  * pressedSources：界面的程序里字要点了才看得见的文件（不写就照 PRESSED_SOURCES）。
+ * labelKindOf：写着这种样式的沙盘题签是哪一种（不写就照样式的登记表查，src/stage/styles.ts 的 labelKind——页面查的也是它；测试交编出来的）。
  */
 export function planFonts(
   site: SiteText,
-  options: { splitByStop?: boolean; fallbackOk?: Readonly<Record<string, string>>; pressedSources?: readonly string[] } = {},
+  options: { splitByStop?: boolean; fallbackOk?: Readonly<Record<string, string>>; pressedSources?: readonly string[]; labelKindOf?: (style: string | undefined) => LabelKind } = {},
 ): FontPlan {
   const splitByStop = options.splitByStop ?? SPLIT_SONG_BY_STOP;
   const fallbackOk = options.fallbackOk ?? FALLBACK_OK;
   const pressedSources = options.pressedSources ?? PRESSED_SOURCES;
+  const labelKindOf = options.labelKindOf ?? ((style: string | undefined): LabelKind => labelKind(style));
 
   // 四种篮子：sans；kai；first:<归谁>；more:<归谁>。“归谁”是 common（界面、首页、人物页）或者一站的 id。每个篮子：字 → 用在哪。
   const baskets = new Map<string, Map<string, Set<string>>>();
@@ -411,6 +415,13 @@ export function planFonts(
     put('kai', label, text);
     first(home, label, text);
   };
+  /**
+   * 一座沙盘上的题签（连站号的印、小像旁边立出的名字）归哪里，照这座沙盘的题签是哪一种分：
+   *   竖着的纸条（strip）用楷体排：进楷体那一组（上面的 kai）；
+   *   平着的纸条（slip）用读正文的宋体排，圆点上的数字也是：不进楷体那一组，只归头一组宋体（不用点开就看得见）。
+   * 不知道是哪一座沙盘的（scene 没有给）照竖着的纸条。平着的纸条的字要是也放进楷体那一组，楷体的文件就白白大出一截，读苏轼的人也得下载。
+   */
+  const labelOn = (scene: TableScene | null | undefined): ((home: string, label: string, text: string | undefined | null) => void) => (scene && labelKindOf(scene.style) === 'slip' ? first : kai);
   /**
    * 用黑体排的。同一个字在头一组宋体里也记一份。道理和楷体不一样：楷体的文件还在路上时题签落到随站的宋体上，
    * 黑体的名单（--font-sans）里没有宋体，黑体还在路上时顶着的是设备上的黑体。记这一份的规矩是：黑体的字不管点没点开都归头一组
@@ -460,8 +471,8 @@ export function planFonts(
       // 目录里每一行的时间、地点、年纪是黑体（站点页抬头里的同样几个字是宋体，所以两套里都有）
       for (const text of [stop.years, stop.age, placeLabel(stop.place)]) sans('common', `${page}（各站目录）`, text);
     }
-    // 全程沙盘上站名的题签脚上写着第几站的印：印上的字是楷体的，照页面拼印的那个函数数（网址用不着，给个空的）
-    if (route) for (const mark of Object.values(stopMarks(figure, () => ''))) kai('common', `${page}（全程沙盘的印）`, mark.label);
+    // 全程沙盘上站名的题签脚上写着第几站的印（平着的纸条上是名字前头的圆点）：印上的字和题签是同一套字，照页面拼印的那个函数数（网址用不着，给个空的）
+    if (route) for (const mark of Object.values(stopMarks(figure, () => ''))) labelOn(route)('common', `${page}（全程沙盘的印）`, mark.label);
 
     // ---- 每一站
     for (const { id, content, scene } of stops) {
@@ -524,7 +535,7 @@ export function planFonts(
         first('common', where, item.says);
       }
       for (const stretch of bar.stretches) more('common', where, stretch.unsure);
-      for (const stretch of bar.stretches) for (const name of stretch.spot?.slice(2) ?? []) kai('common', `${page}（小像旁边立出的名字）`, name as string);
+      for (const stretch of bar.stretches) for (const name of stretch.spot?.slice(2) ?? []) labelOn(route)('common', `${page}（小像旁边立出的名字）`, name as string);
     }
 
     // ---- 行迹的出处：全程沙盘的凭据最后的一段（一条出处、读了它的什么），点开才看得见
@@ -545,8 +556,8 @@ export function planFonts(
       sans(home, says('沙盘'), info.date);
       for (const text of [info.line, info.date, info.note.short, info.note.brief, ...info.far.map((far) => `${far.name}：${far.say}`)]) first(home, says('沙盘'), text);
       for (const line of info.note.lines) more(home, says('“说明”'), line);
-      // 题签：古名、今名两种叫法
-      for (const names of ['ancient', 'modern'] as const) for (const strip of stripTexts(scene, heading, names)) kai(home, says('题签'), strip.text);
+      // 题签：古名、今名两种叫法。竖着的纸条归楷体那一组，平着的纸条只归头一组宋体（labelOn）
+      for (const names of ['ancient', 'modern'] as const) for (const strip of stripTexts(scene, heading, names)) labelOn(scene)(home, says('题签'), strip.text);
     }
     // 凭据里“沙盘上的东西”一栏：点开才有
     const register = sceneRegister(scene, sources);

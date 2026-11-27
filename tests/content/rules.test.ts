@@ -139,6 +139,38 @@ describe('格式：文件读得出来，字段齐全，id 对得上', () => {
     expect(all(without(FIGURE))).toEqual(['0 figures/index.json › [0].available', '0 figures/demo/figure.json']);
   });
 
+  it('卡片上的 outline（各站都还没写）要和人物的 figure.json 说的一样：每一站都是 outline 的写 true，有一站写好了的不写；没有 figure.json 的人物不许写', () => {
+    /** 只看卡片上 outline 这一项查出来的。 */
+    const outlineFound = (files: ContentFiles): string[] =>
+      validateContent(files)
+        .filter((v) => v.file === INDEX && v.field.endsWith('.outline'))
+        .map((v) => `${v.rule} ${v.field}：${v.problem}`);
+    // 合格样本：demo 有写好了的站，卡片没有写——没有话说
+    expect(goodFigure().stops.some((stop) => stop.status === 'complete')).toBe(true);
+    expect((JSON.parse(GOOD[INDEX]) as FigureCard[])[0].outline).toBeUndefined();
+    expect(outlineFound(GOOD)).toEqual([]);
+    // 有写好了的站，卡片却写了（true、false 都不行：这一项不写才是“有写好了的站”）
+    const written = goodFigure().stops.filter((stop) => stop.status === 'complete').map((stop) => stop.id).join('、');
+    expect(outlineFound(editCards((cards) => (cards[0].outline = true)))).toEqual([`0 [0].outline：“示例先生”有写好了的站（${written}），卡片不写 outline`]);
+    expect(outlineFound(editCards((cards) => (cards[0].outline = false)))).toEqual([`0 [0].outline：“示例先生”有写好了的站（${written}），卡片不写 outline`]);
+    // 每一站都改成 outline：卡片没有写、写了 false，都要说；写了 true 才对
+    const allOutline = (outline?: boolean): ContentFiles => {
+      const figure = goodFigure();
+      for (const stop of figure.stops) stop.status = 'outline';
+      const cards = JSON.parse(GOOD[INDEX]) as FigureCard[];
+      if (outline !== undefined) cards[0].outline = outline;
+      return { ...GOOD, [FIGURE]: JSON.stringify(figure), [INDEX]: JSON.stringify(cards) };
+    };
+    const missing = '0 [0].outline：“示例先生”的各站都还没写（figures/demo/figure.json 里每一站都是 outline），卡片要写 "outline": true';
+    expect(outlineFound(allOutline())).toEqual([missing]);
+    expect(outlineFound(allOutline(false))).toEqual([missing]);
+    expect(outlineFound(allOutline(true))).toEqual([]);
+    // 没有 figure.json 的人物（卡片先放着的那一位）写了：没有东西可以对
+    expect(outlineFound(editCards((cards) => (cards[1].outline = true)))).toEqual(['0 [1].outline：“后来者”写了 outline，但没有 figures/later/figure.json：这一项要照人物的文件查，没有文件就不写']);
+    // 写的不是 true / false
+    expect(all(edit<Record<string, unknown>[]>(INDEX, (cards) => (cards[0].outline = 'yes')))).toEqual(['0 figures/index.json › [0].outline']);
+  });
+
   // 2026-11-25 起 overview 可以不写（停用的字段，见下一条），“缺字段”换成缺一个还必须写的（tagline）；
   // overview 写了的照旧查：里面缺了 distanceKm 照样指出来。别的几处同原来一样。
   it('figure.json 缺字段、字段类型不对时，逐个指出来', () => {
@@ -404,7 +436,11 @@ describe('规则 3 文件齐全', () => {
     const files = editFigure((f) => (f.stops[0].status = 'outline'));
     // 还没写好的站可以有沙盘（规则 10 不拦），可是这样的站出处要写在场景文件自己的 sources 里（规则 12）：
     // 留在 stops/river.json 里的那一份不算数，那个文件本身就不该在（规则 3）。
-    expect(all(files)).toEqual(['3 figures/demo/stops/river.md', '3 figures/demo/stops/river.json', '12 figures/demo/scenes/river.json › sources']);
+    // 样本里只有这一站是写好了的：改掉以后每一站都是 outline，卡片就该写 outline（2026-11-27 起；卡片上的那一项另有一条测试，这里把它单拿出来）。
+    expect(all(files)).toEqual(['0 figures/index.json › [0].outline', '3 figures/demo/stops/river.md', '3 figures/demo/stops/river.json', '12 figures/demo/scenes/river.json › sources']);
+    // 卡片也跟着写上：剩下的就是原来的三处
+    const withCard = { ...files, [INDEX]: JSON.stringify((JSON.parse(GOOD[INDEX]) as FigureCard[]).map((card, i) => (i === 0 ? { ...card, outline: true } : card))) };
+    expect(all(withCard)).toEqual(['3 figures/demo/stops/river.md', '3 figures/demo/stops/river.json', '12 figures/demo/scenes/river.json › sources']);
   });
 });
 

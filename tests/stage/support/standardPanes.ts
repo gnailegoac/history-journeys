@@ -23,6 +23,19 @@ export interface StandardPane {
 const leave = (top: number, bottom: number): StageInsets => ({ top, right: 0, bottom, left: 0 });
 
 /**
+ * 沙盘程序（和放定格图的那一个）拿到的画面有多大。它们量的是放画面的那一块里面（clientWidth × clientHeight），比沙盘栏少栏自己的那一条一像素的边线：
+ *   左右排的版面（窗口有 960 像素以上宽，而且横着）边线在栏的左边，少的是宽：940 × 900 的栏里是 939 × 900；
+ *   沙盘在上的版面边线在栏的下边，少的是高：768 × 573 的栏里是 768 × 572。
+ * 题签的测试摆镜头、算题签指着的点、摆题签，用的都是这个数（2026-11-27 起；这以前用的是栏自己的大小，差的这一像素有时正好决定一条题签摆不摆得下）。
+ * 四边留的空不变（那是从栏的上边、下边量的）。题签用大的还是小的不看它，看的还是栏自己的宽（页面量的是 offsetWidth）。
+ * tests/e2e/pane-boxes.spec.ts 到真的页面上量放画面的那一块，量到的要和这里算的一样。
+ */
+export function engineSize(pane: Pick<StandardPane, 'window' | 'size'>): { width: number; height: number } {
+  const sideBySide = pane.window.width >= 960 && pane.window.width > pane.window.height;
+  return sideBySide ? { width: pane.size.width - 1, height: pane.size.height } : { width: pane.size.width, height: pane.size.height - 1 };
+}
+
+/**
  * 按钮下面多一行话的时候（放的是图片的那一档；写好了正文、还没有自己的沙盘的一站），上面要多留出那一行：
  * 沙盘栏的名字 → 上面留多少。四种标准的沙盘栏和下面 UPRIGHT_PANES 的几种都有。
  * tests/e2e/pane-boxes.spec.ts 到页面上量的也要是这几个数。

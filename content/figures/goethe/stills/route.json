@@ -8,7 +8,7 @@
     "maxFit": 2.5
   },
   "madeFrom": {
-    "scene": "8ef72e518c000604",
+    "scene": "8ae2ec0e5421f789",
     "terrain": "2f1c8381ad4b8505",
     "ground": "7607fcf27e008983",
     "program": "cb765ef52d35bf34"
@@ -26,7 +26,7 @@
       "insets": [
         62,
         0,
-        226,
+        130,
         0
       ],
       "extra": 130.5,
@@ -39,12 +39,12 @@
       ],
       "pane": [
         768,
-        668
+        572
       ],
       "insets": [
         54,
         0,
-        227,
+        131,
         0
       ],
       "extra": 96,
@@ -58,95 +58,95 @@
       "file": "route-1-wide.jpg",
       "width": 1800,
       "height": 1350,
-      "bytes": 142181,
+      "bytes": 173627,
       "quality": 82,
-      "key": "bbd17a42d708a443",
-      "raw": "7a71c94b96ffd41e",
+      "key": "33121c42052707d0",
+      "raw": "01b346f04889e3fe",
       "pose": {
         "target": [
           0,
           0.1,
-          1021.6
+          1156.2
         ],
         "position": [
           0,
-          31301,
-          35784.7
+          26725.4,
+          30837.6
         ],
         "fov": 18
       },
-      "fit": 0.8793,
+      "fit": 0.7508,
       "reach": [
-        334.5,
-        294
+        397.9,
+        342
       ],
       "northDeg": 0,
-      "pxPerMetre": 0.000419,
+      "pxPerMetre": 0.000491,
       "anchors": [
         {
           "id": "s-frankfurt",
-          "x": 0.41589,
-          "y": 0.19876,
+          "x": 0.40294,
+          "y": 0.21324,
           "visible": true
         },
         {
-          "id": "s-strasbourg",
-          "x": 0.3894,
-          "y": 0.24373,
+          "id": "s-karlsbad-whole",
+          "x": 0.51439,
+          "y": 0.20931,
           "visible": true
         },
         {
           "id": "s-weimar",
-          "x": 0.47753,
-          "y": 0.17384,
+          "x": 0.4741,
+          "y": 0.18492,
           "visible": true
         },
         {
           "id": "s-valmy",
-          "x": 0.32082,
-          "y": 0.22394,
+          "x": 0.29291,
+          "y": 0.2419,
           "visible": true
         },
         {
-          "id": "s-karlsbad",
-          "x": 0.51247,
-          "y": 0.19534,
+          "id": "s-strasbourg",
+          "x": 0.37203,
+          "y": 0.2645,
           "visible": true
         },
         {
           "id": "s-rome",
-          "x": 0.50451,
-          "y": 0.46966,
+          "x": 0.50528,
+          "y": 0.5262,
           "visible": true
         },
         {
           "id": "s-naples",
-          "x": 0.55823,
-          "y": 0.50705,
+          "x": 0.56843,
+          "y": 0.57019,
           "visible": true
         },
         {
           "id": "s-alpen",
-          "x": 0.45908,
-          "y": 0.31471,
+          "x": 0.45244,
+          "y": 0.34591,
           "visible": true
         },
         {
           "id": "s-adriatischesmeer",
-          "x": 0.59478,
-          "y": 0.44965,
+          "x": 0.611,
+          "y": 0.50274,
           "visible": true
         },
         {
           "id": "s-tyrrhenischesmeer",
-          "x": 0.49591,
-          "y": 0.55472,
+          "x": 0.49518,
+          "y": 0.62654,
           "visible": true
         },
         {
           "id": "s-sizilien-whole",
-          "x": 0.52224,
-          "y": 0.62613,
+          "x": 0.52632,
+          "y": 0.71161,
           "visible": true
         }
       ]
@@ -156,96 +156,96 @@
       "shape": "narrow",
       "file": "route-1-narrow.jpg",
       "width": 1920,
-      "height": 1336,
-      "bytes": 130922,
+      "height": 1144,
+      "bytes": 127951,
       "quality": 86,
-      "key": "5299cfc5a9f47062",
-      "raw": "bb3a9d0afa89c063",
+      "key": "5f94e0460d7e8f55",
+      "raw": "a20e90819096a916",
       "pose": {
         "target": [
           0,
           0.1,
-          894.9
+          1000.1
         ],
         "position": [
           0,
-          37799.7,
-          42875.6
+          32249.7,
+          36816.9
         ],
         "fov": 18
       },
-      "fit": 1.0619,
+      "fit": 0.9059,
       "reach": [
-        202.2,
+        205.7,
         181.5
       ],
       "northDeg": 0,
-      "pxPerMetre": 0.000257,
+      "pxPerMetre": 0.000258,
       "anchors": [
         {
           "id": "s-frankfurt",
-          "x": 0.43445,
-          "y": 0.19846,
+          "x": 0.43498,
+          "y": 0.22912,
           "visible": true
         },
         {
-          "id": "s-strasbourg",
-          "x": 0.41405,
-          "y": 0.23668,
+          "id": "s-karlsbad-whole",
+          "x": 0.50964,
+          "y": 0.22578,
           "visible": true
         },
         {
           "id": "s-weimar",
-          "x": 0.48246,
-          "y": 0.1772,
+          "x": 0.48262,
+          "y": 0.2048,
           "visible": true
         },
         {
           "id": "s-valmy",
-          "x": 0.36057,
-          "y": 0.21989,
+          "x": 0.36153,
+          "y": 0.25367,
           "visible": true
         },
         {
-          "id": "s-karlsbad",
-          "x": 0.50972,
-          "y": 0.19557,
+          "id": "s-strasbourg",
+          "x": 0.41455,
+          "y": 0.27296,
           "visible": true
         },
         {
           "id": "s-rome",
-          "x": 0.50346,
-          "y": 0.42556,
+          "x": 0.50347,
+          "y": 0.49262,
           "visible": true
         },
         {
           "id": "s-naples",
-          "x": 0.54455,
-          "y": 0.45633,
+          "x": 0.54487,
+          "y": 0.52888,
           "visible": true
         },
         {
           "id": "s-alpen",
-          "x": 0.46834,
-          "y": 0.2966,
+          "x": 0.46841,
+          "y": 0.34208,
           "visible": true
         },
         {
           "id": "s-adriatischesmeer",
-          "x": 0.57276,
-          "y": 0.40904,
+          "x": 0.57308,
+          "y": 0.47321,
           "visible": true
         },
         {
           "id": "s-tyrrhenischesmeer",
-          "x": 0.49688,
-          "y": 0.49536,
+          "x": 0.49685,
+          "y": 0.57505,
           "visible": true
         },
         {
           "id": "s-sizilien-whole",
-          "x": 0.51689,
-          "y": 0.5534,
+          "x": 0.51712,
+          "y": 0.64415,
           "visible": true
         }
       ]
@@ -256,10 +256,10 @@
       "file": "route-2-wide.jpg",
       "width": 1800,
       "height": 1350,
-      "bytes": 272477,
+      "bytes": 270505,
       "quality": 82,
-      "key": "7eb34dfc54c13b22",
-      "raw": "4e4513a80ec47e68",
+      "key": "b45c0af191bce7d0",
+      "raw": "12527d6adc327b41",
       "pose": {
         "target": [
           -1446.8,
@@ -284,73 +284,73 @@
         {
           "id": "s-frankfurt",
           "x": 0.44236,
-          "y": 0.23471,
+          "y": 0.28804,
           "visible": true
         },
         {
           "id": "s-leipzig",
           "x": 0.73336,
-          "y": 0.1093,
+          "y": 0.16263,
           "visible": true
         },
         {
           "id": "s-wetzlar",
           "x": 0.43168,
-          "y": 0.18356,
+          "y": 0.23689,
           "visible": true
         },
         {
           "id": "s-strasbourg",
           "x": 0.34621,
-          "y": 0.41052,
+          "y": 0.46386,
           "visible": true
         },
         {
           "id": "s-zuerich",
           "x": 0.40439,
-          "y": 0.56911,
+          "y": 0.62244,
           "visible": true
         },
         {
           "id": "s-gotthard",
           "x": 0.397,
-          "y": 0.67626,
+          "y": 0.72959,
           "visible": true
         },
         {
           "id": "s-rhein",
           "x": 0.40629,
-          "y": 0.33848,
+          "y": 0.39181,
           "visible": true
         },
         {
           "id": "s-lahn",
           "x": 0.40196,
-          "y": 0.20007,
+          "y": 0.2534,
           "visible": true
         },
         {
           "id": "s-heiligesroemischesreich",
           "x": 0.59987,
-          "y": 0.29392,
+          "y": 0.34725,
           "visible": true
         },
         {
           "id": "s-eisenach",
           "x": 0.57619,
-          "y": 0.14164,
+          "y": 0.19497,
           "visible": true
         },
         {
           "id": "s-duesseldorf",
           "x": 0.3061,
-          "y": 0.11008,
+          "y": 0.16341,
           "visible": true
         },
         {
           "id": "s-main",
-          "x": 0.51658,
-          "y": 0.25833,
+          "x": 0.51362,
+          "y": 0.30306,
           "visible": true
         }
       ]
@@ -360,11 +360,11 @@
       "shape": "narrow",
       "file": "route-2-narrow.jpg",
       "width": 1920,
-      "height": 1336,
-      "bytes": 285831,
-      "quality": 82,
-      "key": "f5782dcf89b5148e",
-      "raw": "0eb4bedbb987b5bc",
+      "height": 1144,
+      "bytes": 296543,
+      "quality": 86,
+      "key": "3f513b40640cc827",
+      "raw": "ddd6412e3a6956e2",
       "pose": {
         "target": [
           -1446.8,
@@ -373,89 +373,89 @@
         ],
         "position": [
           -1446.8,
-          10562.2,
-          8068.9
+          9344.8,
+          6808.2
         ],
         "fov": 18
       },
-      "fit": 1.1308,
+      "fit": 1,
       "reach": [
-        186,
-        181.5
+        178,
+        173.7
       ],
       "northDeg": 0,
-      "pxPerMetre": 0.00096,
+      "pxPerMetre": 0.000929,
       "anchors": [
         {
           "id": "s-frankfurt",
-          "x": 0.45238,
-          "y": 0.2154,
+          "x": 0.45421,
+          "y": 0.25851,
           "visible": true
         },
         {
           "id": "s-leipzig",
-          "x": 0.69372,
-          "y": 0.10245,
+          "x": 0.68539,
+          "y": 0.1331,
           "visible": true
         },
         {
           "id": "s-wetzlar",
-          "x": 0.44345,
-          "y": 0.16949,
+          "x": 0.44572,
+          "y": 0.20736,
           "visible": true
         },
         {
           "id": "s-strasbourg",
-          "x": 0.3738,
-          "y": 0.37195,
+          "x": 0.37782,
+          "y": 0.43433,
           "visible": true
         },
         {
           "id": "s-zuerich",
-          "x": 0.42204,
-          "y": 0.51133,
+          "x": 0.42404,
+          "y": 0.59291,
           "visible": true
         },
         {
           "id": "s-gotthard",
-          "x": 0.41641,
-          "y": 0.60439,
+          "x": 0.41817,
+          "y": 0.70006,
           "visible": true
         },
         {
           "id": "s-rhein",
-          "x": 0.42288,
-          "y": 0.30805,
+          "x": 0.42555,
+          "y": 0.36228,
           "visible": true
         },
         {
           "id": "s-lahn",
-          "x": 0.4189,
-          "y": 0.18433,
+          "x": 0.42211,
+          "y": 0.22387,
           "visible": true
         },
         {
           "id": "s-heiligesroemischesreich",
-          "x": 0.5823,
-          "y": 0.26838,
+          "x": 0.57934,
+          "y": 0.31772,
           "visible": true
         },
         {
           "id": "s-eisenach",
-          "x": 0.56315,
-          "y": 0.13173,
+          "x": 0.56053,
+          "y": 0.16544,
           "visible": true
         },
         {
           "id": "s-duesseldorf",
-          "x": 0.33903,
-          "y": 0.10313,
+          "x": 0.34596,
+          "y": 0.13388,
           "visible": true
         },
         {
           "id": "s-main",
-          "x": 0.51368,
-          "y": 0.23658,
+          "x": 0.51082,
+          "y": 0.27353,
           "visible": true
         }
       ]
@@ -466,10 +466,10 @@
       "file": "route-3-wide.jpg",
       "width": 1800,
       "height": 1350,
-      "bytes": 188957,
+      "bytes": 190005,
       "quality": 82,
-      "key": "572fbfe0cbe9efdd",
-      "raw": "ec1ce5e1de413cf8",
+      "key": "e4ece9a337f8b3d9",
+      "raw": "7ab26b6b62bdddd0",
       "pose": {
         "target": [
           -2285.2,
@@ -494,61 +494,61 @@
         {
           "id": "s-strasbourg",
           "x": 0.48963,
-          "y": 0.55361,
+          "y": 0.60694,
           "visible": true
         },
         {
           "id": "s-frankfurt",
           "x": 0.63707,
-          "y": 0.24459,
+          "y": 0.29792,
           "visible": true
         },
         {
           "id": "s-sesenheim",
           "x": 0.52908,
-          "y": 0.50806,
+          "y": 0.56139,
           "visible": true
         },
         {
           "id": "s-rhein",
           "x": 0.58709,
-          "y": 0.42374,
+          "y": 0.47708,
           "visible": true
         },
         {
           "id": "s-schwarzwald",
           "x": 0.5493,
-          "y": 0.63771,
+          "y": 0.69105,
           "visible": true
         },
         {
           "id": "s-frankreich-strasbourg",
           "x": 0.3617,
-          "y": 0.50458,
+          "y": 0.55791,
           "visible": true
         },
         {
           "id": "s-hagenau",
           "x": 0.49899,
-          "y": 0.50109,
+          "y": 0.55442,
           "visible": true
         },
         {
           "id": "s-zabern",
           "x": 0.43257,
-          "y": 0.51116,
+          "y": 0.56449,
           "visible": true
         },
         {
           "id": "s-saarbrueck",
           "x": 0.38769,
-          "y": 0.4021,
+          "y": 0.45543,
           "visible": true
         },
         {
           "id": "s-vogesen",
           "x": 0.3828,
-          "y": 0.59281,
+          "y": 0.64615,
           "visible": true
         }
       ]
@@ -558,11 +558,11 @@
       "shape": "narrow",
       "file": "route-3-narrow.jpg",
       "width": 1920,
-      "height": 1336,
-      "bytes": 230797,
+      "height": 1144,
+      "bytes": 217051,
       "quality": 86,
-      "key": "309ea4b8796f543d",
-      "raw": "4f8257615876023d",
+      "key": "65a5ba9c843f996c",
+      "raw": "10e1139399f8202e",
       "pose": {
         "target": [
           -2285.2,
@@ -578,70 +578,70 @@
       },
       "fit": 1,
       "reach": [
-        123.2,
-        152.9
+        105.5,
+        130.9
       ],
       "northDeg": 0,
-      "pxPerMetre": 0.001818,
+      "pxPerMetre": 0.001557,
       "anchors": [
         {
           "id": "s-strasbourg",
-          "x": 0.49038,
-          "y": 0.51523,
+          "x": 0.49177,
+          "y": 0.57741,
           "visible": true
         },
         {
           "id": "s-frankfurt",
-          "x": 0.62717,
-          "y": 0.20621,
+          "x": 0.6089,
+          "y": 0.26839,
           "visible": true
         },
         {
           "id": "s-sesenheim",
-          "x": 0.52698,
-          "y": 0.46968,
+          "x": 0.5231,
+          "y": 0.53186,
           "visible": true
         },
         {
           "id": "s-rhein",
-          "x": 0.5808,
-          "y": 0.38536,
+          "x": 0.56919,
+          "y": 0.44755,
           "visible": true
         },
         {
           "id": "s-schwarzwald",
-          "x": 0.54574,
-          "y": 0.59933,
+          "x": 0.53917,
+          "y": 0.66152,
           "visible": true
         },
         {
           "id": "s-frankreich-strasbourg",
-          "x": 0.37169,
-          "y": 0.4662,
+          "x": 0.39013,
+          "y": 0.52838,
           "visible": true
         },
         {
           "id": "s-hagenau",
-          "x": 0.49906,
-          "y": 0.46271,
+          "x": 0.4992,
+          "y": 0.52489,
           "visible": true
         },
         {
           "id": "s-zabern",
-          "x": 0.43744,
-          "y": 0.47278,
+          "x": 0.44643,
+          "y": 0.53496,
           "visible": true
         },
         {
           "id": "s-saarbrueck",
-          "x": 0.39581,
-          "y": 0.36372,
+          "x": 0.41078,
+          "y": 0.4259,
           "visible": true
         },
         {
           "id": "s-vogesen",
-          "x": 0.39126,
-          "y": 0.55443,
+          "x": 0.40689,
+          "y": 0.61662,
           "visible": true
         }
       ]
@@ -652,10 +652,10 @@
       "file": "route-4-wide.jpg",
       "width": 1800,
       "height": 1350,
-      "bytes": 242821,
+      "bytes": 234855,
       "quality": 82,
-      "key": "638fc83eb6622667",
-      "raw": "5b63404dced140c8",
+      "key": "25c3b023cb9a4f7f",
+      "raw": "7dc33a52586d5088",
       "pose": {
         "target": [
           -666.2,
@@ -664,83 +664,83 @@
         ],
         "position": [
           -666.2,
-          8273.1,
-          3303.1
+          7987.6,
+          3046
         ],
         "fov": 18
       },
-      "fit": 1.0359,
+      "fit": 1,
       "reach": [
-        305.3,
-        294
+        316.7,
+        303.5
       ],
       "northDeg": 0,
-      "pxPerMetre": 0.001768,
+      "pxPerMetre": 0.001831,
       "anchors": [
         {
           "id": "s-weimar",
-          "x": 0.53783,
-          "y": 0.30705,
+          "x": 0.53915,
+          "y": 0.35684,
           "visible": true
         },
         {
           "id": "s-berlin",
-          "x": 0.72671,
-          "y": 0.09062,
+          "x": 0.73406,
+          "y": 0.13364,
           "visible": true
         },
         {
           "id": "s-brocken",
-          "x": 0.47012,
-          "y": 0.17975,
+          "x": 0.46912,
+          "y": 0.2254,
           "visible": true
         },
         {
           "id": "s-harz",
-          "x": 0.49693,
-          "y": 0.19431,
+          "x": 0.49683,
+          "y": 0.24042,
           "visible": true
         },
         {
           "id": "s-leipzig",
-          "x": 0.64012,
-          "y": 0.25621,
+          "x": 0.64491,
+          "y": 0.30433,
           "visible": true
         },
         {
           "id": "s-frankfurt",
-          "x": 0.25771,
-          "y": 0.44023,
+          "x": 0.24895,
+          "y": 0.4947,
           "visible": true
         },
         {
           "id": "s-karlsbad",
-          "x": 0.70004,
-          "y": 0.42356,
+          "x": 0.70726,
+          "y": 0.47743,
           "visible": true
         },
         {
           "id": "s-ilm",
-          "x": 0.50936,
-          "y": 0.33569,
+          "x": 0.50969,
+          "y": 0.38645,
           "visible": true
         },
         {
           "id": "s-heidelberg",
-          "x": 0.24561,
-          "y": 0.5573,
+          "x": 0.23609,
+          "y": 0.61619,
           "visible": true
         },
         {
           "id": "s-jena",
-          "x": 0.56355,
-          "y": 0.31579,
+          "x": 0.56577,
+          "y": 0.36587,
           "visible": true
         },
         {
           "id": "s-saale",
-          "x": 0.56392,
-          "y": 0.33361,
+          "x": 0.5479,
+          "y": 0.41179,
           "visible": true
         }
       ]
@@ -750,11 +750,11 @@
       "shape": "narrow",
       "file": "route-4-narrow.jpg",
       "width": 1920,
-      "height": 1336,
-      "bytes": 277506,
-      "quality": 82,
-      "key": "55299e812f6c2d37",
-      "raw": "298c4640615c71b2",
+      "height": 1144,
+      "bytes": 265548,
+      "quality": 86,
+      "key": "f01a4486778961dd",
+      "raw": "8d5b5770a514f29b",
       "pose": {
         "target": [
           -666.2,
@@ -763,83 +763,83 @@
         ],
         "position": [
           -666.2,
-          10117.6,
-          4963.8
+          8542.1,
+          3545.2
         ],
         "fov": 18
       },
-      "fit": 1.2679,
+      "fit": 1.0697,
       "reach": [
-        183.8,
+        187.6,
         181.5
       ],
       "northDeg": 0,
-      "pxPerMetre": 0.001072,
+      "pxPerMetre": 0.001088,
       "anchors": [
         {
           "id": "s-weimar",
-          "x": 0.52884,
-          "y": 0.28685,
+          "x": 0.52913,
+          "y": 0.33398,
           "visible": true
         },
         {
           "id": "s-berlin",
-          "x": 0.67487,
-          "y": 0.10591,
+          "x": 0.67494,
+          "y": 0.12356,
           "visible": true
         },
         {
           "id": "s-brocken",
-          "x": 0.47709,
-          "y": 0.1811,
+          "x": 0.47697,
+          "y": 0.21036,
           "visible": true
         },
         {
           "id": "s-harz",
-          "x": 0.49765,
-          "y": 0.19321,
+          "x": 0.49764,
+          "y": 0.2245,
           "visible": true
         },
         {
           "id": "s-leipzig",
-          "x": 0.60713,
-          "y": 0.2447,
+          "x": 0.60796,
+          "y": 0.28463,
           "visible": true
         },
         {
           "id": "s-frankfurt",
-          "x": 0.31653,
-          "y": 0.39609,
+          "x": 0.31363,
+          "y": 0.46304,
           "visible": true
         },
         {
           "id": "s-karlsbad",
-          "x": 0.65151,
-          "y": 0.38249,
+          "x": 0.65388,
+          "y": 0.4469,
           "visible": true
         },
         {
           "id": "s-ilm",
-          "x": 0.50713,
-          "y": 0.31047,
+          "x": 0.50721,
+          "y": 0.36176,
           "visible": true
         },
         {
           "id": "s-heidelberg",
-          "x": 0.30859,
-          "y": 0.49087,
+          "x": 0.30454,
+          "y": 0.57623,
           "visible": true
         },
         {
           "id": "s-jena",
-          "x": 0.54842,
-          "y": 0.29405,
+          "x": 0.54894,
+          "y": 0.34245,
           "visible": true
         },
         {
           "id": "s-saale",
-          "x": 0.54865,
-          "y": 0.30874,
+          "x": 0.53561,
+          "y": 0.3855,
           "visible": true
         }
       ]
@@ -850,10 +850,10 @@
       "file": "route-5-wide.jpg",
       "width": 1800,
       "height": 1350,
-      "bytes": 194667,
+      "bytes": 193308,
       "quality": 82,
-      "key": "326a65989a2b6be6",
-      "raw": "c4857a16b61cb23e",
+      "key": "d37e65bfa95d0477",
+      "raw": "33ca1242994f5899",
       "pose": {
         "target": [
           -112.4,
@@ -878,55 +878,55 @@
         {
           "id": "s-karlsbad",
           "x": 0.6137,
-          "y": 0.45476,
+          "y": 0.5081,
           "visible": true
         },
         {
           "id": "s-weimar",
           "x": 0.39411,
-          "y": 0.30358,
+          "y": 0.35691,
           "visible": true
         },
         {
           "id": "s-jena",
           "x": 0.42908,
-          "y": 0.31486,
+          "y": 0.36819,
           "visible": true
         },
         {
           "id": "s-eger",
           "x": 0.54028,
-          "y": 0.4883,
+          "y": 0.54164,
           "visible": true
         },
         {
           "id": "s-erzgebirge",
           "x": 0.62885,
-          "y": 0.37888,
+          "y": 0.43221,
           "visible": true
         },
         {
           "id": "s-boehmen",
           "x": 0.66611,
-          "y": 0.51508,
+          "y": 0.56841,
           "visible": true
         },
         {
           "id": "s-hof",
           "x": 0.47343,
-          "y": 0.43455,
+          "y": 0.48788,
           "visible": true
         },
         {
           "id": "s-thueringerwald",
           "x": 0.30115,
-          "y": 0.36214,
+          "y": 0.41547,
           "visible": true
         },
         {
           "id": "s-saale",
-          "x": 0.42858,
-          "y": 0.33778,
+          "x": 0.40241,
+          "y": 0.42522,
           "visible": true
         }
       ]
@@ -936,11 +936,11 @@
       "shape": "narrow",
       "file": "route-5-narrow.jpg",
       "width": 1920,
-      "height": 1336,
-      "bytes": 235593,
+      "height": 1144,
+      "bytes": 220652,
       "quality": 86,
-      "key": "f045ef027a30d2e3",
-      "raw": "9478f265e540a04a",
+      "key": "1d64d234bb805ba3",
+      "raw": "1e999117c71c0b22",
       "pose": {
         "target": [
           -112.4,
@@ -956,64 +956,64 @@
       },
       "fit": 1,
       "reach": [
-        177.1,
-        70.9
+        151.7,
+        60.7
       ],
       "northDeg": 0,
-      "pxPerMetre": 0.001818,
+      "pxPerMetre": 0.001557,
       "anchors": [
         {
           "id": "s-karlsbad",
-          "x": 0.60549,
-          "y": 0.41638,
+          "x": 0.59033,
+          "y": 0.47857,
           "visible": true
         },
         {
           "id": "s-weimar",
-          "x": 0.40176,
-          "y": 0.2652,
+          "x": 0.41588,
+          "y": 0.32738,
           "visible": true
         },
         {
           "id": "s-jena",
-          "x": 0.43421,
-          "y": 0.27648,
+          "x": 0.44366,
+          "y": 0.33866,
           "visible": true
         },
         {
           "id": "s-eger",
-          "x": 0.53737,
-          "y": 0.44992,
+          "x": 0.532,
+          "y": 0.51211,
           "visible": true
         },
         {
           "id": "s-erzgebirge",
-          "x": 0.61954,
-          "y": 0.3405,
+          "x": 0.60236,
+          "y": 0.40268,
           "visible": true
         },
         {
           "id": "s-boehmen",
-          "x": 0.65411,
-          "y": 0.4767,
+          "x": 0.63196,
+          "y": 0.53888,
           "visible": true
         },
         {
           "id": "s-hof",
-          "x": 0.47535,
-          "y": 0.39617,
+          "x": 0.47889,
+          "y": 0.45835,
           "visible": true
         },
         {
           "id": "s-thueringerwald",
-          "x": 0.31551,
-          "y": 0.32376,
+          "x": 0.34203,
+          "y": 0.38594,
           "visible": true
         },
         {
           "id": "s-saale",
-          "x": 0.43374,
-          "y": 0.2994,
+          "x": 0.42247,
+          "y": 0.39569,
           "visible": true
         }
       ]
@@ -1024,10 +1024,10 @@
       "file": "route-6-wide.jpg",
       "width": 1800,
       "height": 1350,
-      "bytes": 226368,
+      "bytes": 235423,
       "quality": 82,
-      "key": "3a04c8bef960248d",
-      "raw": "eb12f0735bcbb0e5",
+      "key": "3c21347390fbe26e",
+      "raw": "a45897d7cd4a6509",
       "pose": {
         "target": [
           135.4,
@@ -1036,89 +1036,89 @@
         ],
         "position": [
           135.4,
-          10684.3,
-          15901.1
+          9371.3,
+          13954.4
         ],
         "fov": 18
       },
-      "fit": 1.257,
+      "fit": 1.1025,
       "reach": [
-        167.5,
-        294
+        195.2,
+        342
       ],
       "northDeg": 0,
-      "pxPerMetre": 0.001026,
+      "pxPerMetre": 0.001169,
       "anchors": [
         {
           "id": "s-rome",
-          "x": 0.49337,
-          "y": 0.64235,
+          "x": 0.49232,
+          "y": 0.73257,
           "visible": true
         },
         {
           "id": "s-karlsbad",
-          "x": 0.51375,
-          "y": 0.08222,
+          "x": 0.51536,
+          "y": 0.09746,
           "visible": true
         },
         {
           "id": "s-brenner",
-          "x": 0.43459,
-          "y": 0.25634,
+          "x": 0.42609,
+          "y": 0.28984,
           "visible": true
         },
         {
           "id": "s-gardasee",
-          "x": 0.375,
-          "y": 0.3566,
+          "x": 0.35796,
+          "y": 0.4028,
           "visible": true
         },
         {
           "id": "s-venedig",
-          "x": 0.48393,
-          "y": 0.36955,
+          "x": 0.48172,
+          "y": 0.41749,
           "visible": true
         },
         {
           "id": "s-naples",
-          "x": 0.63962,
-          "y": 0.73501,
+          "x": 0.66269,
+          "y": 0.84222,
           "visible": true
         },
         {
           "id": "s-alpen-rome",
-          "x": 0.50655,
-          "y": 0.24342,
+          "x": 0.5074,
+          "y": 0.27539,
           "visible": true
         },
         {
           "id": "s-tiber",
-          "x": 0.50329,
-          "y": 0.60859,
+          "x": 0.5038,
+          "y": 0.69298,
           "visible": true
         },
         {
           "id": "s-muenchen",
-          "x": 0.44166,
-          "y": 0.19491,
+          "x": 0.43437,
+          "y": 0.22153,
           "visible": true
         },
         {
           "id": "s-bologna",
-          "x": 0.41551,
-          "y": 0.43423,
+          "x": 0.4035,
+          "y": 0.49117,
           "visible": true
         },
         {
           "id": "s-florenz",
-          "x": 0.406,
-          "y": 0.48676,
+          "x": 0.39226,
+          "y": 0.55147,
           "visible": true
         },
         {
           "id": "s-kirchenstaat",
-          "x": 0.48721,
-          "y": 0.56247,
+          "x": 0.48526,
+          "y": 0.63917,
           "visible": true
         }
       ]
@@ -1128,11 +1128,11 @@
       "shape": "narrow",
       "file": "route-6-narrow.jpg",
       "width": 1920,
-      "height": 1336,
-      "bytes": 265185,
+      "height": 1144,
+      "bytes": 246369,
       "quality": 86,
-      "key": "0e6df79fef4e1075",
-      "raw": "ec10acef3880dd91",
+      "key": "e7c67079e1340bfd",
+      "raw": "f10d0f11dbc051cf",
       "pose": {
         "target": [
           135.4,
@@ -1141,89 +1141,89 @@
         ],
         "position": [
           135.4,
-          13227.7,
-          19671.8
+          11055.2,
+          16450.9
         ],
         "fov": 18
       },
-      "fit": 1.5563,
+      "fit": 1.3007,
       "reach": [
-        97.6,
+        102.4,
         181.5
       ],
       "northDeg": 0,
-      "pxPerMetre": 0.000615,
+      "pxPerMetre": 0.00063,
       "anchors": [
         {
           "id": "s-rome",
-          "x": 0.49513,
-          "y": 0.55517,
+          "x": 0.49493,
+          "y": 0.65749,
           "visible": true
         },
         {
           "id": "s-karlsbad",
           "x": 0.51061,
-          "y": 0.0988,
+          "y": 0.11538,
           "visible": true
         },
         {
           "id": "s-brenner",
-          "x": 0.45037,
-          "y": 0.24576,
+          "x": 0.44967,
+          "y": 0.28495,
           "visible": true
         },
         {
           "id": "s-gardasee",
-          "x": 0.4059,
-          "y": 0.32808,
+          "x": 0.40395,
+          "y": 0.38212,
           "visible": true
         },
         {
           "id": "s-venedig",
-          "x": 0.48791,
-          "y": 0.33862,
+          "x": 0.48765,
+          "y": 0.39465,
           "visible": true
         },
         {
           "id": "s-naples",
-          "x": 0.60163,
-          "y": 0.62636,
+          "x": 0.60665,
+          "y": 0.74625,
           "visible": true
         },
         {
           "id": "s-alpen-rome",
-          "x": 0.50498,
-          "y": 0.23505,
+          "x": 0.50504,
+          "y": 0.27241,
           "visible": true
         },
         {
           "id": "s-tiber",
-          "x": 0.50242,
-          "y": 0.52892,
+          "x": 0.50252,
+          "y": 0.62508,
           "visible": true
         },
         {
           "id": "s-muenchen",
-          "x": 0.45545,
-          "y": 0.19439,
+          "x": 0.45506,
+          "y": 0.22522,
           "visible": true
         },
         {
           "id": "s-bologna",
-          "x": 0.43684,
-          "y": 0.39093,
+          "x": 0.43516,
+          "y": 0.45718,
           "visible": true
         },
         {
           "id": "s-florenz",
-          "x": 0.43006,
-          "y": 0.43296,
+          "x": 0.42792,
+          "y": 0.50786,
           "visible": true
         },
         {
           "id": "s-kirchenstaat",
-          "x": 0.49055,
-          "y": 0.49281,
+          "x": 0.4902,
+          "y": 0.58075,
           "visible": true
         }
       ]
@@ -1234,10 +1234,10 @@
       "file": "route-7-wide.jpg",
       "width": 1800,
       "height": 1350,
-      "bytes": 127840,
+      "bytes": 122267,
       "quality": 82,
-      "key": "28268d9d6704d7f9",
-      "raw": "079686501b548aa8",
+      "key": "81e72736ad1f43cc",
+      "raw": "b178a26149b86eea",
       "pose": {
         "target": [
           1040.7,
@@ -1246,88 +1246,88 @@
         ],
         "position": [
           1040.7,
-          9396,
-          14096
+          7920.4,
+          12567.9
         ],
         "fov": 18
       },
-      "fit": 1.3802,
+      "fit": 1.1635,
       "reach": [
-        231.4,
-        294
+        273.8,
+        342
       ],
       "northDeg": 0,
-      "pxPerMetre": 0.001449,
+      "pxPerMetre": 0.001719,
       "anchors": [
         {
           "id": "s-naples-own",
-          "x": 0.5117,
-          "y": 0.21971,
+          "x": 0.51372,
+          "y": 0.24034,
           "visible": true
         },
         {
           "id": "s-rome",
-          "x": 0.34925,
-          "y": 0.11212,
+          "x": 0.32434,
+          "y": 0.11641,
           "visible": true
         },
         {
           "id": "s-vesuv",
-          "x": 0.52867,
-          "y": 0.21594,
+          "x": 0.53364,
+          "y": 0.23583,
           "visible": true
         },
         {
           "id": "s-palermo",
-          "x": 0.42353,
-          "y": 0.55459,
+          "x": 0.40846,
+          "y": 0.63664,
           "visible": true
         },
         {
           "id": "s-girgenti",
-          "x": 0.44721,
-          "y": 0.66676,
+          "x": 0.43635,
+          "y": 0.77314,
           "visible": true
         },
         {
           "id": "s-messina",
-          "x": 0.66549,
-          "y": 0.53859,
+          "x": 0.69794,
+          "y": 0.61735,
           "visible": true
         },
         {
           "id": "s-sizilien",
-          "x": 0.49508,
-          "y": 0.5726,
+          "x": 0.4941,
+          "y": 0.65868,
           "visible": true
         },
         {
           "id": "s-tyrrhenischesmeer",
-          "x": 0.30717,
-          "y": 0.36529,
+          "x": 0.27185,
+          "y": 0.41064,
           "visible": true
         },
         {
           "id": "s-koenigreichneapel",
-          "x": 0.64135,
-          "y": 0.21805,
+          "x": 0.66591,
+          "y": 0.23822,
           "visible": true
         },
         {
           "id": "s-aetna",
-          "x": 0.60895,
-          "y": 0.58518,
+          "x": 0.63094,
+          "y": 0.67409,
           "visible": true
         },
         {
           "id": "s-capri",
-          "x": 0.51116,
-          "y": 0.25287,
+          "x": 0.51311,
+          "y": 0.27889,
           "visible": true
         },
         {
           "id": "s-tiber-naples",
-          "x": 0.36371,
+          "x": 0.34146,
           "y": 0.08222,
           "visible": true
         }
@@ -1338,11 +1338,11 @@
       "shape": "narrow",
       "file": "route-7-narrow.jpg",
       "width": 1920,
-      "height": 1336,
-      "bytes": 154651,
+      "height": 1144,
+      "bytes": 147416,
       "quality": 86,
-      "key": "7454d1789caa54b9",
-      "raw": "7119c3d7b7a17d13",
+      "key": "f416ced73be45c21",
+      "raw": "8c7b5b52b34a7f75",
       "pose": {
         "target": [
           1040.7,
@@ -1351,89 +1351,89 @@
         ],
         "position": [
           1040.7,
-          11522.8,
-          16298.2
+          9706.2,
+          14417.1
         ],
         "fov": 18
       },
-      "fit": 1.6926,
+      "fit": 1.4258,
       "reach": [
-        140.4,
+        142.4,
         181.5
       ],
       "northDeg": 0,
-      "pxPerMetre": 0.000877,
+      "pxPerMetre": 0.000891,
       "anchors": [
         {
           "id": "s-naples-own",
-          "x": 0.50895,
-          "y": 0.21448,
+          "x": 0.50901,
+          "y": 0.2492,
           "visible": true
         },
         {
           "id": "s-rome",
-          "x": 0.38388,
-          "y": 0.12411,
+          "x": 0.38371,
+          "y": 0.14452,
           "visible": true
         },
         {
           "id": "s-vesuv",
-          "x": 0.52193,
-          "y": 0.21143,
+          "x": 0.52209,
+          "y": 0.24555,
           "visible": true
         },
         {
           "id": "s-palermo",
-          "x": 0.44266,
-          "y": 0.48827,
+          "x": 0.44128,
+          "y": 0.57352,
           "visible": true
         },
         {
           "id": "s-girgenti",
-          "x": 0.46069,
-          "y": 0.57749,
+          "x": 0.45951,
+          "y": 0.68164,
           "visible": true
         },
         {
           "id": "s-messina",
-          "x": 0.6242,
-          "y": 0.47543,
+          "x": 0.6271,
+          "y": 0.55808,
           "visible": true
         },
         {
           "id": "s-sizilien",
-          "x": 0.49632,
-          "y": 0.5025,
+          "x": 0.49622,
+          "y": 0.59086,
           "visible": true
         },
         {
           "id": "s-tyrrhenischesmeer",
-          "x": 0.35373,
-          "y": 0.33486,
+          "x": 0.35163,
+          "y": 0.39047,
           "visible": true
         },
         {
           "id": "s-koenigreichneapel",
-          "x": 0.60808,
-          "y": 0.21323,
+          "x": 0.6089,
+          "y": 0.24761,
           "visible": true
         },
         {
           "id": "s-aetna",
-          "x": 0.58138,
-          "y": 0.51244,
+          "x": 0.5836,
+          "y": 0.60297,
           "visible": true
         },
         {
           "id": "s-capri",
-          "x": 0.50852,
-          "y": 0.24207,
+          "x": 0.50859,
+          "y": 0.28141,
           "visible": true
         },
         {
           "id": "s-tiber-naples",
           "x": 0.39483,
-          "y": 0.0988,
+          "y": 0.11538,
           "visible": true
         }
       ]
@@ -1444,10 +1444,10 @@
       "file": "route-8-wide.jpg",
       "width": 1800,
       "height": 1350,
-      "bytes": 275798,
+      "bytes": 271421,
       "quality": 82,
-      "key": "592c883ff22916bd",
-      "raw": "708b135cc247624d",
+      "key": "18795bd7d4a48619",
+      "raw": "65c7c473ee1303cc",
       "pose": {
         "target": [
           -2172.5,
@@ -1472,73 +1472,73 @@
         {
           "id": "s-valmy",
           "x": 0.21902,
-          "y": 0.32421,
+          "y": 0.37755,
           "visible": true
         },
         {
           "id": "s-weimar",
           "x": 0.77586,
-          "y": 0.13435,
+          "y": 0.18768,
           "visible": true
         },
         {
           "id": "s-frankfurt",
           "x": 0.56381,
-          "y": 0.22643,
+          "y": 0.27977,
           "visible": true
         },
         {
           "id": "s-trier",
           "x": 0.3908,
-          "y": 0.25573,
+          "y": 0.30906,
           "visible": true
         },
         {
           "id": "s-verdun",
           "x": 0.27362,
-          "y": 0.31805,
+          "y": 0.37138,
           "visible": true
         },
         {
           "id": "s-maas",
           "x": 0.27881,
-          "y": 0.34622,
+          "y": 0.39955,
           "visible": true
         },
         {
           "id": "s-rhein",
           "x": 0.53166,
-          "y": 0.33139,
+          "y": 0.38473,
           "visible": true
         },
         {
           "id": "s-frankreich",
           "x": 0.14833,
-          "y": 0.4547,
+          "y": 0.50803,
           "visible": true
         },
         {
           "id": "s-mainz",
           "x": 0.52919,
-          "y": 0.23754,
+          "y": 0.29088,
           "visible": true
         },
         {
           "id": "s-luxenburg",
           "x": 0.34531,
-          "y": 0.2687,
+          "y": 0.32204,
           "visible": true
         },
         {
           "id": "s-argonnen",
           "x": 0.22829,
-          "y": 0.3114,
+          "y": 0.36473,
           "visible": true
         },
         {
           "id": "s-mosel",
-          "x": 0.414,
-          "y": 0.24075,
+          "x": 0.36331,
+          "y": 0.32991,
           "visible": true
         }
       ]
@@ -1548,11 +1548,11 @@
       "shape": "narrow",
       "file": "route-8-narrow.jpg",
       "width": 1920,
-      "height": 1336,
-      "bytes": 285959,
-      "quality": 82,
-      "key": "a9180b043eb4a5ff",
-      "raw": "8d15e6e2bffcc4d3",
+      "height": 1144,
+      "bytes": 292823,
+      "quality": 86,
+      "key": "140a5d142baa5d18",
+      "raw": "f8cc497024f02ab2",
       "pose": {
         "target": [
           -2172.5,
@@ -1561,89 +1561,89 @@
         ],
         "position": [
           -2172.5,
-          9295.4,
-          6794.6
+          9190.4,
+          6685.8
         ],
         "fov": 18
       },
-      "fit": 1.0115,
+      "fit": 1,
       "reach": [
-        309.6,
-        181.5
+        268.2,
+        157
       ],
       "northDeg": 0,
-      "pxPerMetre": 0.001089,
+      "pxPerMetre": 0.000943,
       "anchors": [
         {
           "id": "s-valmy",
-          "x": 0.24218,
-          "y": 0.28676,
+          "x": 0.27677,
+          "y": 0.34802,
           "visible": true
         },
         {
           "id": "s-weimar",
-          "x": 0.7533,
-          "y": 0.0988,
+          "x": 0.71916,
+          "y": 0.15815,
           "visible": true
         },
         {
           "id": "s-frankfurt",
-          "x": 0.55857,
-          "y": 0.19,
+          "x": 0.55069,
+          "y": 0.25024,
           "visible": true
         },
         {
           "id": "s-trier",
-          "x": 0.39977,
-          "y": 0.219,
+          "x": 0.41324,
+          "y": 0.27953,
           "visible": true
         },
         {
           "id": "s-verdun",
-          "x": 0.29228,
-          "y": 0.28067,
+          "x": 0.32016,
+          "y": 0.34185,
           "visible": true
         },
         {
           "id": "s-maas",
-          "x": 0.29707,
-          "y": 0.30854,
+          "x": 0.32428,
+          "y": 0.37002,
           "visible": true
         },
         {
           "id": "s-rhein",
-          "x": 0.52905,
-          "y": 0.29387,
+          "x": 0.52516,
+          "y": 0.3552,
           "visible": true
         },
         {
           "id": "s-frankreich",
-          "x": 0.17748,
-          "y": 0.41579,
+          "x": 0.22062,
+          "y": 0.4785,
           "visible": true
         },
         {
           "id": "s-mainz",
-          "x": 0.52679,
-          "y": 0.20099,
+          "x": 0.52319,
+          "y": 0.26135,
           "visible": true
         },
         {
           "id": "s-luxenburg",
-          "x": 0.35804,
-          "y": 0.23184,
+          "x": 0.37711,
+          "y": 0.29251,
           "visible": true
         },
         {
           "id": "s-argonnen",
-          "x": 0.25067,
-          "y": 0.27408,
+          "x": 0.28414,
+          "y": 0.3352,
           "visible": true
         },
         {
           "id": "s-mosel",
-          "x": 0.42107,
-          "y": 0.20417,
+          "x": 0.39141,
+          "y": 0.30038,
           "visible": true
         }
       ]
@@ -1654,10 +1654,10 @@
       "file": "route-9-wide.jpg",
       "width": 1800,
       "height": 1350,
-      "bytes": 289186,
+      "bytes": 288187,
       "quality": 82,
-      "key": "9dcdc104078c5443",
-      "raw": "9e9762070aff9e39",
+      "key": "37a22ad3881af463",
+      "raw": "4064e3f59e65f807",
       "pose": {
         "target": [
           -163,
@@ -1666,89 +1666,89 @@
         ],
         "position": [
           -163,
-          16893.5,
-          9720.7
+          15494.2,
+          8704.1
         ],
         "fov": 18
       },
-      "fit": 1.0906,
+      "fit": 1,
       "reach": [
-        319.8,
-        294
+        346.7,
+        318.4
       ],
       "northDeg": 0,
-      "pxPerMetre": 0.000941,
+      "pxPerMetre": 0.001026,
       "anchors": [
         {
           "id": "s-weimar-late",
-          "x": 0.46561,
-          "y": 0.16773,
+          "x": 0.46269,
+          "y": 0.20056,
           "visible": true
         },
         {
           "id": "s-jena",
-          "x": 0.47883,
-          "y": 0.17248,
+          "x": 0.47703,
+          "y": 0.2057,
           "visible": true
         },
         {
           "id": "s-karlsbad",
-          "x": 0.54676,
-          "y": 0.23054,
+          "x": 0.5508,
+          "y": 0.26845,
           "visible": true
         },
         {
           "id": "s-frankfurt",
-          "x": 0.3222,
-          "y": 0.23909,
+          "x": 0.30681,
+          "y": 0.27773,
           "visible": true
         },
         {
           "id": "s-dresden",
-          "x": 0.59025,
-          "y": 0.16282,
+          "x": 0.59791,
+          "y": 0.19528,
           "visible": true
         },
         {
           "id": "s-breslau",
-          "x": 0.75939,
-          "y": 0.15139,
+          "x": 0.78132,
+          "y": 0.18295,
           "visible": true
         },
         {
           "id": "s-koeln",
-          "x": 0.23945,
-          "y": 0.16376,
+          "x": 0.21735,
+          "y": 0.19631,
           "visible": true
         },
         {
-          "id": "s-rhein",
-          "x": 0.29688,
-          "y": 0.31857,
+          "id": "s-rhein-late",
+          "x": 0.28397,
+          "y": 0.31928,
           "visible": true
         },
         {
           "id": "s-marienbad",
-          "x": 0.53799,
-          "y": 0.25308,
+          "x": 0.5413,
+          "y": 0.29285,
           "visible": true
         },
         {
           "id": "s-teplitz",
-          "x": 0.59605,
-          "y": 0.19573,
+          "x": 0.60428,
+          "y": 0.23081,
           "visible": true
         },
         {
           "id": "s-nuernberg",
-          "x": 0.44906,
-          "y": 0.29893,
+          "x": 0.44458,
+          "y": 0.34259,
           "visible": true
         },
         {
           "id": "s-elbe",
-          "x": 0.66983,
-          "y": 0.24324,
+          "x": 0.68455,
+          "y": 0.28221,
           "visible": true
         }
       ]
@@ -1758,11 +1758,11 @@
       "shape": "narrow",
       "file": "route-9-narrow.jpg",
       "width": 1920,
-      "height": 1336,
-      "bytes": 282938,
-      "quality": 82,
-      "key": "d29cb4a20bc9151d",
-      "raw": "eee89eabd6e07945",
+      "height": 1144,
+      "bytes": 303728,
+      "quality": 86,
+      "key": "a9b172716f4a60ef",
+      "raw": "964b0d240aa907c0",
       "pose": {
         "target": [
           -163,
@@ -1771,89 +1771,89 @@
         ],
         "position": [
           -163,
-          20587,
-          12404.2
+          17432,
+          10112
         ],
         "fov": 18
       },
-      "fit": 1.3296,
+      "fit": 1.1254,
       "reach": [
-        196.9,
+        197.3,
         181.5
       ],
       "northDeg": 0,
-      "pxPerMetre": 0.000573,
+      "pxPerMetre": 0.000579,
       "anchors": [
         {
           "id": "s-weimar-late",
-          "x": 0.47356,
-          "y": 0.17069,
+          "x": 0.47348,
+          "y": 0.1986,
           "visible": true
         },
         {
           "id": "s-jena",
-          "x": 0.48373,
-          "y": 0.17466,
+          "x": 0.48367,
+          "y": 0.20322,
           "visible": true
         },
         {
           "id": "s-karlsbad",
-          "x": 0.53585,
-          "y": 0.22313,
+          "x": 0.53604,
+          "y": 0.25965,
           "visible": true
         },
         {
           "id": "s-frankfurt",
-          "x": 0.3637,
-          "y": 0.23021,
+          "x": 0.36295,
+          "y": 0.26795,
           "visible": true
         },
         {
           "id": "s-dresden",
-          "x": 0.56941,
-          "y": 0.16654,
+          "x": 0.5696,
+          "y": 0.19381,
           "visible": true
         },
         {
           "id": "s-breslau",
-          "x": 0.69958,
-          "y": 0.15697,
+          "x": 0.70006,
+          "y": 0.1827,
           "visible": true
         },
         {
           "id": "s-koeln",
-          "x": 0.29962,
-          "y": 0.16732,
+          "x": 0.29905,
+          "y": 0.19473,
           "visible": true
         },
         {
-          "id": "s-rhein",
-          "x": 0.3448,
-          "y": 0.29612,
+          "id": "s-rhein-late",
+          "x": 0.3469,
+          "y": 0.30518,
           "visible": true
         },
         {
           "id": "s-marienbad",
-          "x": 0.5291,
-          "y": 0.24189,
+          "x": 0.52928,
+          "y": 0.28154,
           "visible": true
         },
         {
           "id": "s-teplitz",
-          "x": 0.57375,
-          "y": 0.19409,
+          "x": 0.57406,
+          "y": 0.22582,
           "visible": true
         },
         {
           "id": "s-nuernberg",
-          "x": 0.46106,
-          "y": 0.2799,
+          "x": 0.46075,
+          "y": 0.32606,
           "visible": true
         },
         {
           "id": "s-elbe",
-          "x": 0.63016,
-          "y": 0.23367,
+          "x": 0.6309,
+          "y": 0.27198,
           "visible": true
         }
       ]

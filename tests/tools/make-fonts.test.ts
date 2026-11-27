@@ -674,6 +674,38 @@ describe('数字：哪些字归哪一组（编出来的一位人物）', () => {
     expect(fileOf(plan, 'song').where.get('抹')).toEqual(['某人的人物页（全程沙盘的沙盘）']);
   });
 
+  it('题签是平着的纸条的全程沙盘（它的样式在登记表里写了 slip）：题签的古名今名、名字前头圆点上的数字都不进楷体那一组——楷体那一组和没有这座沙盘的时候一个字不差；这些字归头一组宋体，不用点开就看得见；别的三组和题签是竖着的纸条的时候一个字不差', () => {
+    const route = routeSample();
+    const site = (): SiteText => madeUpSite((made) => (made.figures[0].route = route));
+    const groups = ['sans', 'song', 'kai', 'song-more'];
+    // 不交“是哪一种”的时候照样式的登记表查：样本写的样式在表里是竖着的纸条，和明说“都是竖着的纸条”一个字不差
+    const byRegistry = planFonts(site());
+    const strip = planFonts(site(), { labelKindOf: () => 'strip' });
+    for (const group of groups) expect(fileOf(byRegistry, group).characters, group).toBe(fileOf(strip, group).characters);
+    // 这座沙盘的样式是平着的纸条（别的样式照旧）
+    const asked: (string | undefined)[] = [];
+    const slip = planFonts(site(), { labelKindOf: (style) => (asked.push(style), style === route.style ? 'slip' : 'strip') });
+    // 问的就是这座沙盘自己写的样式
+    expect(new Set(asked)).toEqual(new Set([route.style]));
+    // 楷体那一组：和没有这座沙盘的时候一样（这位编出来的人物别处没有题签：只剩一个空格）
+    const without = planFonts(madeUpSite());
+    expect(fileOf(slip, 'kai').characters).toBe(fileOf(without, 'kai').characters);
+    expect(fileOf(without, 'kai').characters).toBe(' ');
+    // 竖着的纸条的时候这些字都在楷体那一组（上一条查的）；平着的纸条的时候一个也不在，都在头一组宋体里
+    const labels = [...new Set(shippable([...route.strips.flatMap((one) => [one.text, one.modern ?? '']), '一二'].join('')))].filter((ch) => ch !== ' ');
+    expect(labels.length).toBeGreaterThan(10);
+    for (const ch of labels) {
+      expect(fileOf(strip, 'kai').characters.includes(ch), `竖着的纸条：“${ch}”在楷体那一组`).toBe(true);
+      expect(fileOf(slip, 'kai').characters.includes(ch), `平着的纸条：“${ch}”不在楷体那一组`).toBe(false);
+      expect(fileOf(slip, 'song').characters.includes(ch), `平着的纸条：“${ch}”在头一组宋体里`).toBe(true);
+    }
+    // 用在哪照旧记着（“哪个字不在字体里”那句话用）
+    expect(fileOf(slip, 'song').where.get('镜')).toContain('某人的人物页（全程沙盘的题签）');
+    expect(fileOf(slip, 'song').where.get('二')).toContain('某人的人物页（全程沙盘的印）');
+    // 别的三组一个字不差：头一组宋体里本来就有题签的每一个字（楷体还在路上时先用宋体）
+    for (const group of ['sans', 'song', 'song-more']) expect(fileOf(slip, group).characters, group).toBe(fileOf(strip, group).characters);
+  });
+
   it('全程沙盘的凭据开头的几条总的说明（场景文件最外面的 general）：每一条的那段话归点开才看得见的一组，不进一打开就下载的那个文件；id 不印，不算字；没有写 general 的沙盘一个字也不多', () => {
     // 两条编出来的说明：“卮”“簋”只在这两段话里有；“觥”只在 id 里有
     const route = { ...routeSample(), general: [{ id: 'made-up-觥', text: '这座沙盘上的路照编出来的卮言画。' }, { id: 'second', text: '簋是编的。' }] };

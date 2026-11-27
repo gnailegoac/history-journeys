@@ -29,6 +29,12 @@ import {
   programReport,
   programSizes,
   psnrTooLow,
+  BAR_GZIP_MAX,
+  BAR_GZIP_WARN,
+  LISTS_GZIP_MAX,
+  LISTS_GZIP_WARN,
+  SMALL_CHUNKS,
+  smallChunkReport,
   staticClosure,
   stillTooBig,
   styleEntry,
@@ -534,6 +540,33 @@ describe('只有全程沙盘用的样式：清单里只有那一半，没有整�
     const found = programReport(sizes, DIST_TODAY);
     expect(found.fails).toEqual([]);
     expect(found.lines).toContain('摆站点沙盘要下载的程序：沙盘程序加上最大的一种时代样式（压缩以后）：198,600 字节，上限 230,000（用了 86%）');
+  });
+});
+
+describe('自己有上限的两小块：内容的清单那一块，时间轴的那一块', () => {
+  it('上限是这几个数：内容的清单那一块 4,000 字节（过了 3,500 提醒），时间轴的那一块 17,000 字节（过了 16,000 提醒）', () => {
+    expect([LISTS_GZIP_MAX, LISTS_GZIP_WARN]).toEqual([4_000, 3_500]);
+    expect([BAR_GZIP_MAX, BAR_GZIP_WARN]).toEqual([17_000, 16_000]);
+    expect(SMALL_CHUNKS.lists).toEqual({ what: '内容的清单那一块（压缩以后）', max: LISTS_GZIP_MAX, warnAbove: LISTS_GZIP_WARN });
+    expect(SMALL_CHUNKS.bar).toEqual({ what: '时间轴的那一块（压缩以后）', max: BAR_GZIP_MAX, warnAbove: BAR_GZIP_WARN });
+  });
+
+  it('内容的清单那一块：定这个数的时候那么大（2,334 字节）合格、不提醒；过了 3,500 提醒；正好 4,000 合格，多一个字节不合格', () => {
+    const now = smallChunkReport('lists', 2_334, 'assets/contentLists-x.js');
+    expect(now).toEqual({ lines: ['内容的清单那一块（压缩以后）：2,334 字节，上限 4,000（用了 58%）　assets/contentLists-x.js'], fails: [], warns: [] });
+    expect(smallChunkReport('lists', 3_500, 'a.js').warns).toEqual([]);
+    expect(smallChunkReport('lists', 3_501, 'a.js')).toMatchObject({ fails: [], warns: ['内容的清单那一块（压缩以后）有 3,501 字节，快到上限 4,000 了（过了 3,500 就提醒）'] });
+    expect(smallChunkReport('lists', 4_000, 'a.js').fails).toEqual([]);
+    expect(smallChunkReport('lists', 4_001, 'a.js')).toMatchObject({ fails: ['内容的清单那一块（压缩以后）有 4,001 字节，超过了上限 4,000'], warns: [] });
+  });
+
+  it('时间轴的那一块：定这个数的时候那么大（15,027 字节）合格、不提醒；过了 16,000 提醒；正好 17,000 合格，多一个字节不合格', () => {
+    const now = smallChunkReport('bar', 15_027, 'assets/TimeBar-x.js');
+    expect(now).toEqual({ lines: ['时间轴的那一块（压缩以后）：15,027 字节，上限 17,000（用了 88%）　assets/TimeBar-x.js'], fails: [], warns: [] });
+    expect(smallChunkReport('bar', 16_000, 'a.js').warns).toEqual([]);
+    expect(smallChunkReport('bar', 16_001, 'a.js')).toMatchObject({ fails: [], warns: ['时间轴的那一块（压缩以后）有 16,001 字节，快到上限 17,000 了（过了 16,000 就提醒）'] });
+    expect(smallChunkReport('bar', 17_000, 'a.js').fails).toEqual([]);
+    expect(smallChunkReport('bar', 17_001, 'a.js')).toMatchObject({ fails: ['时间轴的那一块（压缩以后）有 17,001 字节，超过了上限 17,000'], warns: [] });
   });
 });
 

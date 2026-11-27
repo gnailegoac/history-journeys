@@ -49,6 +49,7 @@ import {
 import type { FontPlan, PlannedFile } from '../support/fontTool';
 import { charactersOf, englishName, featuresOf, glyphCountOf, hintingOf, readWoff2, weightOf } from '../support/sfnt';
 import { countIn, mediaProblems, mediaQueries, scanMedia, scanProgram, scanStyle, stripCssComments, tally } from '../support/sourceScan';
+import { labelKind } from '../../src/stage/styles';
 
 /** 项目的根目录：这个文件在 tests/fonts/ 里，往上两层。 */
 const ROOT = new URL('../../', import.meta.url);
@@ -151,6 +152,36 @@ describe('网站上显示的每一个字都在随站的字体里', () => {
     const kai = await planned('kai');
     const found = [...KAI_FORBIDDEN].filter((ch) => kai.characters.includes(ch)).map((ch) => `“${ch}”（${codeOf(ch)}）用在${(kai.where.get(ch) ?? []).join('、')}里：换个说法，或者先问一声`);
     expect(found).toEqual([]);
+  });
+
+  it('楷体那一组里只有题签是竖着的纸条的沙盘上的字：content/ 里题签是平着的纸条的全程沙盘（样式的登记表里写了 slip），它的人物页没有一个字是为它放进楷体的；这样的人物自己的那一套记号里题签的字体打头的是随站的宋体，竖着的纸条的打头的是随站的楷体', { timeout: 30_000 }, async () => {
+    const kai = await planned('kai');
+    const usedIn = new Set([...kai.where.values()].flat());
+    const figures = readdirSync(at('content/figures'), { withFileTypes: true }).filter((entry) => entry.isDirectory()).map((entry) => entry.name);
+    const tokens = stripCssComments(text('src/styles/tokens.css'));
+    /** 这位人物的沙盘栏上题签的字体记号写的是什么：他自己的那一块里写了就是它，没写就是不写人物的那一块里的。 */
+    const figureFont = (id: string): string =>
+      new RegExp(`\\[data-figure='${id}'\\] \\.stage-pane \\{[^}]*--figure-font:\\s*([^;]+);`).exec(tokens)?.[1] ?? /(?:^|\n)\.stage-pane \{[^}]*--figure-font:\s*([^;]+);/.exec(tokens)?.[1] ?? '';
+    const seen: string[] = [];
+    for (const id of figures) {
+      const routePath = `content/figures/${id}/scenes/route.json`;
+      if (!existsSync(at(routePath))) continue;
+      const route = JSON.parse(text(routePath).replace(/^﻿/, '')) as { style: string };
+      const name = (JSON.parse(text(`content/figures/${id}/figure.json`).replace(/^﻿/, '')) as { name: string }).name;
+      const kind = labelKind(route.style);
+      const mine = [...usedIn].filter((where) => where.startsWith(`${name}的人物页`));
+      seen.push(`${id} ${kind}`);
+      if (kind === 'slip') {
+        expect(mine, `${id}：题签是平着的纸条，楷体那一组里不该有为它放的字`).toEqual([]);
+        expect(figureFont(id).startsWith("'Yanlu Song'"), `${id}：题签是平着的纸条，--figure-font 打头的要是随站的宋体（写的是 ${figureFont(id)}）`).toBe(true);
+      } else {
+        expect(mine.length, `${id}：题签是竖着的纸条，楷体那一组里要有它的题签和印`).toBeGreaterThan(0);
+        expect(figureFont(id).startsWith("'Yanlu Kai'"), `${id}：题签是竖着的纸条，--figure-font 打头的要是随站的楷体（写的是 ${figureFont(id)}）`).toBe(true);
+      }
+    }
+    // 两种都真的查到了
+    expect(seen.some((line) => line.endsWith(' slip')), seen.join('、')).toBe(true);
+    expect(seen.some((line) => line.endsWith(' strip')), seen.join('、')).toBe(true);
   });
 
   it('楷体那一组、黑体那一组的每一个字，头一组宋体里也有（楷体还在路上时题签先用宋体，不为它去取点开才要的文件；黑体的字不管点没点开都归头一组）', async () => {

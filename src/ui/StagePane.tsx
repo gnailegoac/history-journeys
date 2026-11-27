@@ -12,7 +12,10 @@
 //   lost         画面中途断了，可以重新摆出来
 // 另外六个属性：
 //   data-stage-bar      这一栏带着时间轴（人物页和首页；一站的页面上不写）。从这一栏一摆上就写，全程沙盘还在读的时候就有：
-//                       沙盘在上的排法里这样的栏比别的栏高出一条时间轴（layout.css），不会等全程沙盘到了才在读者眼前长高
+//                       沙盘在上的排法里这样的栏比别的栏高出一条时间轴（layout.css），不会等全程沙盘到了才在读者眼前长高。
+//                       没有行迹的人物没有时间轴，他的人物页（和摆着他的全程沙盘的首页）上不写（Props 的 noBar）：有没有行迹照内容的清单读，
+//                       清单多半比人物的资料先到，这一栏头一回摆上就不写；清单晚到的那一会儿还不知道，照有行迹的写着，
+//                       全程沙盘读出来的那一下（它要等清单）拿掉——那时栏里还没有画面
 //   data-stage-level    摆着的是全程沙盘时写 route；站点沙盘不写
 //   data-stage-picture  现在放着的是什么：table 立体的沙盘，still 图片，none 都没有。
 //                       立体的沙盘盖着图片慢慢显出来的那一小会儿还算 still，显完、图片拿走了才是 table
@@ -46,6 +49,7 @@ import type { Loaded } from '../app/useLoaded';
 import { sectionHeadings, sectionInfo } from '../domain';
 import type { SectionInfo, TableScene } from '../domain';
 import { KAI_FAMILY } from '../fonts/probe';
+import { labelKind } from '../stage/styles';
 import type { BarProps, NamesMode, RouteTable, StageInsets, StageOptions, StageReadout, StageTable, StageTier, StageViewInfo, StopStageView, StopTable } from '../stage/types';
 import { NotePanel, SectionCaption } from './SectionCaption';
 import { Waiting } from './Waiting';
@@ -112,6 +116,11 @@ interface Props {
   written?: boolean;
   /** 这一站的正文写好了，可是这一次没读出来：沙盘摆不出来时的那几句也不说“正文可以照常读”，别的照写好了的一站。 */
   textLost?: boolean;
+  /**
+   * 这位人物没有行迹（src/domain/content.ts 的 lacksItinerary：内容的清单到了才知道，还不知道的时候不写）：人物页、首页的栏上也不带时间轴——
+   * 不写 data-stage-bar，下面没有那一条，时间轴的那一段程序不去取，按钮下面不给小像留地方。和一站的页面上的栏一个样子。
+   */
+  noBar?: boolean;
   /** 沙盘的数据没读出来，读者点了“再试一次”。 */
   onReloadTable: () => void;
 }
@@ -122,7 +131,7 @@ const NO_OWN: Loaded<StopTable | null> = { state: 'ready', value: null };
 /** 沙盘摆不出来时的一句话。没有正文的一站（bare）不说句尾的“正文可以照常读”：那一页上没有正文。正文这一次没读出来的一站也不说。 */
 const say = (text: string, bare: boolean): string => (bare ? text.replace(/[，。]正文可以照常读/, '') : text);
 
-export function StagePane({ onStopPage, table, section, route, stopId, marks, written, textLost, onReloadTable }: Props) {
+export function StagePane({ onStopPage, table, section, route, stopId, marks, written, textLost, noBar, onReloadTable }: Props) {
   // 古名还是今名、收没收起、立体的沙盘摆不摆，换一站也留着（只记到这一次访问结束，不存到别处）。
   const [namesMode, setNamesMode] = useState<NamesMode>('ancient');
   const [folded, setFolded] = useState(false);
@@ -137,6 +146,8 @@ export function StagePane({ onStopPage, table, section, route, stopId, marks, wr
   const bare = onStopPage && !written;
   // 摆不出来时的那几句说不说“正文可以照常读”：没有正文的一站不说，正文这一次没读出来的一站也不说。
   const noText = bare || !!textLost;
+  // 这一栏带不带时间轴：人物页和首页带，一站的页面不带；知道了这位人物没有行迹的也不带（还不知道的那一会儿照带的办，见文件开头）。
+  const bar = !onStopPage && !noBar;
 
   // 沙盘的数据还在读：也是过了一会儿还没有画面才说“正在摆”。从哪一刻等起的记下来，沙盘接着数，不从头数。
   const reading = source.state === 'loading';
@@ -151,7 +162,9 @@ export function StagePane({ onStopPage, table, section, route, stopId, marks, wr
   // 就叫浏览器先把它取来；取过一次浏览器自己记着。没有沙盘可摆的栏不取，没有这一栏的页面（“来源”页、没找到的页面）更不取。
   // 浏览器没有 document.fonts、它的 load 当场出错、或者没取成，都不要紧（所以整句包着）：题签摆出来的时候浏览器照旧会去取。
   // 楷体的名称是做字体的工具写的（src/fonts/probe.ts）。
-  const tableKnown = source.state === 'ready' && !!source.value;
+  // 只有题签是竖着的纸条的沙盘才取（样式的登记表里查，src/stage/styles.ts 的 labelKind）：平着的纸条用的是读正文的宋体，
+  // 楷体的文件里没有它的字，摆这样一座沙盘的页面用不着那个文件。
+  const tableKnown = source.state === 'ready' && !!source.value && labelKind(source.value.scene.style) === 'strip';
   useEffect(() => {
     if (!tableKnown) return;
     try {
@@ -163,7 +176,7 @@ export function StagePane({ onStopPage, table, section, route, stopId, marks, wr
 
   if (source.state === 'loading') {
     return (
-      <Pane state="loading" picture="none" pinned bar={!onStopPage}>
+      <Pane state="loading" picture="none" pinned bar={bar}>
         <Says>{late && <p className="stage-loading">{STAGE_TEXT.loading}</p>}</Says>
       </Pane>
     );
@@ -201,7 +214,7 @@ export function StagePane({ onStopPage, table, section, route, stopId, marks, wr
       section={whole ? (road ?? null) : section}
       resetLabel={!whole ? (bare ? STAGE_TEXT.resetHere : STAGE_TEXT.reset) : onStopPage ? STAGE_TEXT.resetRoad : STAGE_TEXT.resetWhole}
       bare={noText}
-      bar={!onStopPage}
+      bar={bar}
       marks={marks}
       standing={found.kind === 'route' && onStopPage && written ? STAGE_TEXT.roadNotice + roadTail(found.scene.roads.stopShows === 'stop-years') : null}
       namesMode={namesMode}

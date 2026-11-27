@@ -65,6 +65,19 @@ export const STYLE_GZIP_MAX = 15_000;
 // 提醒的线原来是 10,000。随站的字体里，点开才下载的那个文件有哪些字要逐个列在样式表里（每个字压缩以后约三个字节），
 // 字越写越多，这一截跟着长：线挪到 13,000，免得每次都提醒。上限没有动。
 export const STYLE_GZIP_WARN = 13_000;
+/**
+ * 内容的清单那一块（LISTS_ENTRY）压缩以后最大多少字节；过了多少提醒一句。这一块每位读者一打开都要下载，里面一个内容文件一项，
+ * 人物越多、站越多越长：2026-11-27 定这个数的时候量到 2,334 字节（两位人物，91 个网址，里面只有网址——content/ 里的文件不许塞进程序里，
+ * 见 vite.config.ts）。到了提醒的线，就该想怎么把清单按人物分开，不抬上限。
+ */
+export const LISTS_GZIP_MAX = 4_000;
+export const LISTS_GZIP_WARN = 3_500;
+/**
+ * 时间轴的那一块（BAR_ENTRY）压缩以后最大多少字节；过了多少提醒一句。它里面带着每位有行迹的人物时间轴用的那一份行迹（itinerary.bar.json），
+ * 多一位有行迹的人物就长一截：2026-11-27 定这个数的时候量到 15,027 字节（一位人物的行迹）。
+ */
+export const BAR_GZIP_MAX = 17_000;
+export const BAR_GZIP_WARN = 16_000;
 /** 整个 dist/ 最大多少字节：900 MB（发布的地方最多放 1 GB）；过了 500 MB 提醒一句。 */
 export const DIST_MAX_BYTES = 900 * 1024 * 1024;
 export const DIST_WARN_BYTES = 500 * 1024 * 1024;
@@ -99,12 +112,12 @@ const STYLE_HALF_KEY = /^src\/stage\/three\/style\/([^/]+)\/\1-route\.ts$/;
  * 内容的清单那一块在构建清单里叫什么：每位人物的每个文件怎么读（各站的文件、图片、场景文件、两种清单、行迹的出处），
  * 连同沙盘用到的文件（地形文件、先画好的地面、定格图）的网址。页面的程序一开始跑就用动态 import 去要它，但它不能进页面那一块：
  * 页面那一块里只留首页的卡片和每位人物的 figure.json（一位人物一项）。
- * 2026-11-25 以前这一块里只有网址，叫 src/domain/sceneFileUrls.ts；多大由 check:size 印出来，没有单独的上限。
+ * 2026-11-25 以前这一块里只有网址，叫 src/domain/sceneFileUrls.ts；多大由 check:size 印出来，2026-11-27 起有它自己的上限（LISTS_GZIP_MAX）。
  */
 export const LISTS_ENTRY = 'src/domain/contentLists.ts';
 /**
- * 时间轴的那一段程序（src/timebar/）在清单里叫什么。栏里摆上全程沙盘才用动态 import 取它（src/ui/StagePane.tsx），不能进页面那一块。
- * 它多大由 check:size 印出来，没有单独的上限。
+ * 时间轴的那一段程序（src/timebar/）在清单里叫什么。栏里摆上有行迹的人物的全程沙盘才用动态 import 取它（src/ui/StagePane.tsx），不能进页面那一块。
+ * 它多大由 check:size 印出来，2026-11-27 起有它自己的上限（BAR_GZIP_MAX）。
  */
 export const BAR_ENTRY = 'src/timebar/TimeBar.tsx';
 /**
@@ -420,5 +433,24 @@ export function programReport(sizes: ProgramSizes, distBytes: number): SizeRepor
   }
 
   row('整个 dist/', distBytes, DIST_MAX_BYTES, DIST_WARN_BYTES, '字节');
+  return report;
+}
+
+/** 自己有上限的两小块：内容的清单那一块，时间轴的那一块。 */
+export const SMALL_CHUNKS = {
+  lists: { what: '内容的清单那一块（压缩以后）', max: LISTS_GZIP_MAX, warnAbove: LISTS_GZIP_WARN },
+  bar: { what: '时间轴的那一块（压缩以后）', max: BAR_GZIP_MAX, warnAbove: BAR_GZIP_WARN },
+} as const;
+
+/**
+ * 自己有上限的一小块对着上限查一遍（which 是上面两种里的哪一种，gzip 是它压缩以后的字节数，file 是构建出来的文件）：
+ * 一行给人看的；超了一句不合格的，没超但是过了提醒的线一句提醒。和别的数一样，正好等于上限算合格。
+ */
+export function smallChunkReport(which: keyof typeof SMALL_CHUNKS, gzip: number, file: string): SizeReport {
+  const { what, max, warnAbove } = SMALL_CHUNKS[which];
+  const report: SizeReport = { lines: [`${what}：${withCommas(gzip)} 字节，上限 ${withCommas(max)}（用了 ${Math.round((gzip / max) * 100)}%）　${file}`], fails: [], warns: [] };
+  const result = verdict(gzip, max, warnAbove);
+  if (result === 'fail') report.fails.push(`${what}有 ${withCommas(gzip)} 字节，超过了上限 ${withCommas(max)}`);
+  if (result === 'warn') report.warns.push(`${what}有 ${withCommas(gzip)} 字节，快到上限 ${withCommas(max)} 了（过了 ${withCommas(warnAbove)} 就提醒）`);
   return report;
 }

@@ -27,7 +27,7 @@ export const SOURCES_TEXT = {
   song: (font: ShippedFont): string =>
     `正文的宋体：思源宋体（用的是 Google 发布的 ${font.name}，${font.version} 版，两者是同一套字），© Adobe。按 SIL 开放字体许可 1.1 版使用。`,
   kai: (font: ShippedFont): string =>
-    `沙盘上题签的楷体：霞鹜文楷 GB（${font.name}），${font.version} 版，作者 LXGW，在 Fontworks 的 Klee One 的基础上制作。按 SIL 开放字体许可 1.1 版使用。`,
+    `沙盘上竖着写的题签的楷体：霞鹜文楷 GB（${font.name}），${font.version} 版，作者 LXGW，在 Fontworks 的 Klee One 的基础上制作。按 SIL 开放字体许可 1.1 版使用。`,
   subset: (sans: ShippedFont, song: ShippedFont, kai: ShippedFont): string =>
     `网站只带了用到的那些字，所以这几个文件都不是完整的字体，文件里的名称也改成了“${sans.family}”“${song.family}”“${kai.family}”。想要完整的字体，请到它们自己的网站下载。`,
   /** 五份许可全文都是英文的原文（许可要求照原样带着）：链接上先说一声，读者点开不至于愣住。 */

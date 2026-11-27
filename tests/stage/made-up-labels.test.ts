@@ -1,7 +1,7 @@
 // 另一种题签（平着的纸条）在那一座编出来的全程沙盘上（./support/madeUpRoute.ts，样式是 ./support/madeUpStyle.ts 的 'made-up-lines'）。
 // content/ 里没有一座沙盘用这一种：每一条新路都先在这里跑一遍。在 Node 里跑，不要浏览器。
 //   题签是哪一种，从样式那一行来：编出来的那一行写了 slip；登记表里的每一行是它自己写的那一种（没有写的是 strip），表里没有的名字是 strip；没有谁认样式的名字；
-//   取那一小块程序的地方（src/stage/index.ts 的 labelsFor）：竖着的纸条的沙盘不取，平着的纸条的沙盘取；取不到就拒绝，再叫一次再取一次；
+//   取那一小块程序的地方（src/stage/index.ts 的 labelsFor）：竖着的纸条的沙盘不取，平着的纸条的沙盘取；头一回没取到自己再取一次，两回都没取到才拒绝，再叫一次从头再取；
 //     ——这是在 Node 里查取的那一处，不是在浏览器里看请求：编出来的样式不在登记表里，页面上摆不出一座写着它的沙盘；
 //   摆法（placeSlips）：先右后左，离那一点 14 像素；没有点的名字正中摆在写的地方，摆不下绕着找，再摆不下不摆、缘故是 area，
 //     它不为自己挪别的纸条，手还按着的时候也不替它挑；给了地面的四个角就摆在里面（四个角都算），出了边的先横着推回来；远处的题签不查；
@@ -268,11 +268,26 @@ describe('取平着的纸条那一小块程序的地方（src/stage/index.ts 的
     expect(fake.calls()).toBe(1);
   });
 
-  it('没取到就拒绝（页面照“沙盘没能摆出来”办）；再叫一次就再取一次，这一回取到了', async () => {
-    const fake = loader(1);
-    await expect(labelsFor(MADE_UP_STYLE_ID, MADE_UP_STYLES, fake.load)).rejects.toThrow('那一小块程序没有取到');
-    expect(await labelsFor(MADE_UP_STYLE_ID, MADE_UP_STYLES, fake.load)).toBe(slipKit);
-    expect(fake.calls()).toBe(2);
+  // 2026-11-27 以前这一条的名字是“没取到就拒绝（页面照‘沙盘没能摆出来’办）；再叫一次就再取一次，这一回取到了”：那时候取一回、没取到就拒绝。
+  // 现在头一回没取到自己再取一次；拒绝要两回都没取到。“再叫一次再取”还在（又是最多两回）。
+  it('头一回没取到，自己再取一次、取到了，不拒绝（取法叫了两次）；连着两回都没取到才拒绝（页面照“沙盘没能摆出来”办），不取第三回；再叫一次从头再取，这一回取到了', async () => {
+    // 头一回没取到，第二回取到了：交回来的就是那一小块，谁也不用再叫一次
+    const once = loader(1);
+    expect(await labelsFor(MADE_UP_STYLE_ID, MADE_UP_STYLES, once.load)).toBe(slipKit);
+    expect(once.calls()).toBe(2);
+    // 连着两回都没取到：拒绝，说的是第二回的那一句；取法正好叫了两次
+    const twice = loader(2);
+    await expect(labelsFor(MADE_UP_STYLE_ID, MADE_UP_STYLES, twice.load)).rejects.toThrow('那一小块程序没有取到');
+    expect(twice.calls()).toBe(2);
+    // 再叫一次（读者点了“再试一次”）：从头再取，这一回取到了
+    expect(await labelsFor(MADE_UP_STYLE_ID, MADE_UP_STYLES, twice.load)).toBe(slipKit);
+    expect(twice.calls()).toBe(3);
+    // 一直取不到：每叫一次正好取两回，不多
+    const never = loader(99);
+    await expect(labelsFor(MADE_UP_STYLE_ID, MADE_UP_STYLES, never.load)).rejects.toThrow('那一小块程序没有取到');
+    expect(never.calls()).toBe(2);
+    await expect(labelsFor(MADE_UP_STYLE_ID, MADE_UP_STYLES, never.load)).rejects.toThrow('那一小块程序没有取到');
+    expect(never.calls()).toBe(4);
   });
 
   it('真的那一块取得到（不交取法）：交出来的就是 slips.ts 的 slipKit', async () => {
@@ -750,7 +765,8 @@ describe('题签层照平着的纸条造、照它摆（编出来的那一座沙�
   // 先把那一小块记在容器上、再照原样去摆——那时候挂上去的一层题签已经是平着的纸条；竖着的纸条的沙盘，交出来的就是沙盘程序自己；没取到就拒绝”，两处一起查。
   // 定格图的那一处改了（图片不等那一小块：先摆图，题签到了再摆上去；没取到不拒绝，由摆出来的那一座说），它另有下面的一条；
   // 立体的沙盘的那一处没有动，还是这里查的这几样。
-  it('页面那一边取立体的沙盘的那一处（loadStageEngine）：平着的纸条的沙盘，交出来的沙盘程序每摆一座，先把那一小块记在容器上、再照原样去摆——那时候挂上去的一层题签已经是平着的纸条；竖着的纸条的沙盘，交出来的就是沙盘程序自己；没取到就拒绝', { timeout: 60_000 }, async () => {
+  // 2026-11-27 起那一小块头一回没取到自己再取一次（labelsFor）：这一条末尾的“没取到就拒绝”换成“头一回没取到自己再取一次，两回都没取到才拒绝”，别的没有动。
+  it('页面那一边取立体的沙盘的那一处（loadStageEngine）：平着的纸条的沙盘，交出来的沙盘程序每摆一座，先把那一小块记在容器上、再照原样去摆——那时候挂上去的一层题签已经是平着的纸条；竖着的纸条的沙盘，交出来的就是沙盘程序自己；那一小块头一回没取到自己再取一次，两回都没取到才拒绝', { timeout: 60_000 }, async () => {
     const { engine } = await import('../../src/stage/three/engine');
     const cases: [string, typeof loadStageEngine, StageEngine][] = [['立体的沙盘', loadStageEngine, engine]];
     for (const [what, load, own] of cases) {
@@ -809,15 +825,24 @@ describe('题签层照平着的纸条造、照它摆（编出来的那一座沙�
         create.mockRestore();
       }
 
-      // 没取到：拒绝（页面照“没能摆出来”、“这一次不放图片”办）；再叫一次再取一次
-      const failing = loader(1);
+      // 头一回没取到：自己再取一次，取到了——交出来的是套过的沙盘程序，没有拒绝
+      const once = loader(1);
+      const second = await load(MADE_UP_STYLE_ID, MADE_UP_STYLES, once.load);
+      expect(second, what).not.toBe(own);
+      expect({ ...second, create: own.create }, what).toEqual({ ...own });
+      expect(once.calls(), what).toBe(2);
+      // 两回都没取到：拒绝（页面照“没能摆出来”办）；再叫一次从头再取，这一回取到了
+      const failing = loader(2);
       await expect(load(MADE_UP_STYLE_ID, MADE_UP_STYLES, failing.load), what).rejects.toThrow('那一小块程序没有取到');
-      expect(await load(MADE_UP_STYLE_ID, MADE_UP_STYLES, failing.load), what).not.toBe(own);
       expect(failing.calls(), what).toBe(2);
+      expect(await load(MADE_UP_STYLE_ID, MADE_UP_STYLES, failing.load), what).not.toBe(own);
+      expect(failing.calls(), what).toBe(3);
     }
   });
 
-  it('页面那一边取定格图的沙盘的那一处（loadStillEngine）：竖着的纸条的沙盘，交出来的就是定格图的沙盘自己；平着的纸条的沙盘不等那一小块——马上交出去，每摆一座把“那一小块到了、记在这个容器上了”交给那一座（options.labels），到了以后在那个容器里挂的一层才是平着的纸条；没取到也不拒绝，交给那一座的那一样拒绝，再叫一次再取一次', { timeout: 60_000 }, async () => {
+  // 2026-11-27 起那一小块头一回没取到自己再取一次（labelsFor）：这一条末尾的“没取到也不拒绝，交给那一座的那一样拒绝，再叫一次再取一次”
+  // 换成下面的说法（头一回没取到，交给那一座的那一样照样兑现；两回都没取到它才拒绝），别的没有动。
+  it('页面那一边取定格图的沙盘的那一处（loadStillEngine）：竖着的纸条的沙盘，交出来的就是定格图的沙盘自己；平着的纸条的沙盘不等那一小块——马上交出去，每摆一座把“那一小块到了、记在这个容器上了”交给那一座（options.labels），到了以后在那个容器里挂的一层才是平着的纸条；那一小块头一回没取到自己再取一次，取到了那一样照样兑现；两回都没取到也不拒绝，交给那一座的那一样拒绝，再叫一次再取', { timeout: 60_000 }, async () => {
     const what = '定格图的沙盘';
     const own = stillEngine;
     const fake = loader();
@@ -887,19 +912,28 @@ describe('题签层照平着的纸条造、照它摆（编出来的那一座沙�
       expect(create.mock.calls[1][2]).toBe(options);
       expect(kindIn(other)).toBeNull();
 
-      // 没取到：取的那一处不拒绝（图片照样要放）；交给那一座的那一样拒绝，容器上什么也不记；再叫一次再取一次，这一回取到了
-      const failing = loader(1);
+      // 两回都没取到：取的那一处不拒绝（图片照样要放）；交给那一座的那一样拒绝，容器上什么也不记；再叫一次再取，这一回取到了
+      const failing = loader(2);
       const lost = await loadStillEngine(MADE_UP_STYLE_ID, MADE_UP_STYLES, failing.load);
       expect(lost).not.toBe(own);
       const bare = page.createElement('div');
       lost.create(bare as unknown as HTMLElement, table, options);
       await expect(create.mock.calls[2][2].labels).rejects.toThrow('那一小块程序没有取到');
+      expect(failing.calls()).toBe(2);
       expect(kindIn(bare)).toBeNull();
       const again = await loadStillEngine(MADE_UP_STYLE_ID, MADE_UP_STYLES, failing.load);
-      expect(failing.calls()).toBe(2);
+      expect(failing.calls()).toBe(3);
       again.create(bare as unknown as HTMLElement, table, options);
       await create.mock.calls[3][2].labels;
       expect(kindIn(bare)).toBe('slip');
+      // 头一回没取到、自己再取的那一回取到了：只叫了这一处一次，交给那一座的那一样兑现，容器上记了——题签不用读者按什么就摆得上去
+      const once = loader(1);
+      const healed = await loadStillEngine(MADE_UP_STYLE_ID, MADE_UP_STYLES, once.load);
+      const fresh = page.createElement('div');
+      healed.create(fresh as unknown as HTMLElement, table, options);
+      await create.mock.calls[4][2].labels;
+      expect(once.calls()).toBe(2);
+      expect(kindIn(fresh)).toBe('slip');
     } finally {
       create.mockRestore();
     }

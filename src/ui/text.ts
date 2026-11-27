@@ -13,6 +13,8 @@ export const SITE_LINE = '选一位历史人物，沿着他一生走过的路，
 export const NOT_WRITTEN = '还没写';
 /** 首页上可以点进去的那张卡片底下的一句。 */
 export const START_READING = '从第一站读起';
+/** 各站都还没写的人物（卡片上写了 outline），可以点进去的那张卡片底下换成这一句：点进去看的是全程沙盘和各站的提要。 */
+export const START_ROADS = '先看他走过的路';
 /** “来源”页的名字：首页、人物页、每一站的末尾通到它的链接上写的，也是那一页的标题。 */
 export const SOURCES_LABEL = '来源';
 
@@ -161,6 +163,7 @@ function sansLabels(): string[] {
     '没有找到这位人物',
     '没有这一站',
     START_READING,
+    START_ROADS,
     SOURCES_LABEL,
     ...SOURCES_TEXT.headings,
     '一二三四五六七八九十',

@@ -36,7 +36,7 @@ import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { gzipSync } from 'node:zlib';
 import { describe, expect, it } from 'vitest';
 import { createHash } from 'node:crypto';
-import { BAR_ENTRY, ENGINE_ENTRY, ENGINE_GZIP_MAX, LISTS_ENTRY, PAGE_ENTRY, ROUTE_ENTRY, SLIPS_ENTRY, familyEntry, fontReport, programReport, programSizes, staticClosure, styleEntry, styleRouteEntry, withCommas } from '../content/budgetRules';
+import { BAR_ENTRY, ENGINE_ENTRY, ENGINE_GZIP_MAX, LISTS_ENTRY, PAGE_ENTRY, ROUTE_ENTRY, SLIPS_ENTRY, SMALL_CHUNKS, familyEntry, fontReport, programReport, programSizes, smallChunkReport, staticClosure, styleEntry, styleRouteEntry, withCommas } from '../content/budgetRules';
 import type { BuildManifest, SizeReport } from '../content/budgetRules';
 import { CONTAINER_MAX, CQW_MAX, builtFonts, builtStyleProblems } from '../support/builtFonts';
 import { oldIpadSheet } from '../support/oldIpadSheet';
@@ -303,6 +303,46 @@ describe('沙盘用到的文件的网址', () => {
     expect(files.filter((file) => page.includes(file)), '这几个文件的网址出现在页面一打开就下载的程序里').toEqual([]);
     console.log(`  内容的清单那一块（压缩以后）：${withCommas(gzipOnDisk(urls.file))} 字节，里面有 ${files.length} 个网址；页面的程序一开始跑就去要　${urls.file}`);
   });
+
+  // content/ 里的文件不许塞进程序里（vite.config.ts 的 assetsInlineLimit）：打包的工具平常把 4 KB 以下的小文件写成 data: 地址塞进引它的那一块，
+  // 一张很小的图片就进了每位读者一打开都要下载的这一块。这一条守着那一句规矩，也守着这一块自己的上限（tests/content/budgetRules.ts）。
+  it(`内容的清单那一块里只有网址：content/ 里的每一张图片、每一个地形文件在 dist/ 里都是它自己的一个文件，字节和仓库里的一样，没有哪一个被写成 data: 地址塞进程序里；这一块压缩以后不超过 ${withCommas(SMALL_CHUNKS.lists.max)} 字节（过了 ${withCommas(SMALL_CHUNKS.lists.warnAbove)} 提醒）`, () => {
+    expect(existsSync(MANIFEST), '没有 dist/.vite/manifest.json：先运行 npm run build').toBe(true);
+    const manifest = readManifest(new TextDecoder().decode(readFileSync(MANIFEST)));
+    const lists = manifest[LISTS_ENTRY];
+    // 那一块里直接写着网址的文件（地形文件，先画好的地面的两张图，定格图），和正文里的图片（它的网址是用到时才读的一小块，不直接写在那一块里）
+    const written = [
+      ...Object.keys(import.meta.glob('/content/figures/*/scenes/*.terrain.bin', { query: '?url' })),
+      ...Object.keys(import.meta.glob('/content/figures/*/baked/*.{jpg,png}', { query: '?url' })),
+      ...Object.keys(import.meta.glob('/content/figures/*/stills/*.{jpg,jpeg,png,webp,svg}', { query: '?url' })),
+    ].map((path) => path.slice(1));
+    const images = Object.keys(import.meta.glob('/content/figures/*/images/*', { query: '?url' })).map((path) => path.slice(1));
+    const sources = [...written, ...images];
+    expect(written.length).toBeGreaterThan(10);
+    const sha = (bytes: Uint8Array): string => createHash('sha256').update(bytes).digest('hex');
+    const listed = new Set(lists.assets ?? []);
+    const small: string[] = [];
+    for (const source of sources) {
+      const item = manifest[source];
+      expect(item, `${source} 在 dist/ 里不是它自己的一个文件（构建清单里没有这一项）：它多半被写成 data: 地址塞进了程序里`).toBeDefined();
+      const original = readFileSync(new URL(`../../${source}`, import.meta.url));
+      expect(sha(readFileSync(new URL(item.file, DIST))), `${source} 在 dist/ 里的那个文件（${item.file}）和仓库里的不是一样的字节`).toBe(sha(original));
+      if (written.includes(source)) expect(listed.has(item.file), `${source} 的网址（${item.file}）没有列在内容的清单那一块里`).toBe(true);
+      // 打包的工具平常会塞进去的那一种（不到 4 KB）：真的有这样的文件，这一条才算查到了东西
+      if (original.length < 4096) small.push(`${source}（${withCommas(original.length)} 字节）`);
+    }
+    // 那一块列着的网址不多不少就是直接写着网址的那些文件
+    expect(listed.size).toBe(written.length);
+    // 构建出来的每一块程序里都没有 data: 开头的图片、字体、二进制文件
+    const inlined = readdirSync(new URL('assets/', DIST))
+      .filter((name) => name.endsWith('.js'))
+      .filter((name) => /data:(image|font|application)\//.test(new TextDecoder().decode(readFileSync(new URL(`assets/${encodeURIComponent(name)}`, DIST)))));
+    expect(inlined, '这几块程序里有写成 data: 地址的文件').toEqual([]);
+    const report = smallChunkReport('lists', gzipOnDisk(lists.file), lists.file);
+    console.log(`  ${report.lines.join('\n  ')}\n  里面有 ${listed.size} 个网址，一个 data: 地址也没有；content/ 里不到 4 KB 的文件 ${small.length} 个${small.length ? `：${small.join('、')}` : ''}`);
+    for (const warn of report.warns) console.warn(`[check:size] 快到上限了：${warn}`);
+    expect(report.fails).toEqual([]);
+  });
 });
 
 describe('内容的清单', () => {
@@ -360,7 +400,8 @@ describe('内容的清单', () => {
 });
 
 describe('时间轴的那一块', () => {
-  it('单独一块，栏里摆上全程沙盘才下载；它另外要下载的只有它自己那一个文件；多大印出来（没有单独的上限）', () => {
+  // 2026-11-27 以前这一条的名字末尾是“多大印出来（没有单独的上限）”：那时它没有自己的上限。别的几样没有动。
+  it(`单独一块，栏里摆上全程沙盘才下载；它另外要下载的只有它自己那一个文件；压缩以后不超过 ${withCommas(SMALL_CHUNKS.bar.max)} 字节（过了 ${withCommas(SMALL_CHUNKS.bar.warnAbove)} 提醒），多大印出来`, () => {
     expect(existsSync(MANIFEST), '没有 dist/.vite/manifest.json：先运行 npm run build').toBe(true);
     const manifest = readManifest(new TextDecoder().decode(readFileSync(MANIFEST)));
     const bar = manifest[BAR_ENTRY];
@@ -373,7 +414,10 @@ describe('时间轴的那一块', () => {
     const files = staticClosure(manifest, BAR_ENTRY).map((key) => manifest[key].file);
     expect(files.filter((file, i) => !have.has(file) && files.indexOf(file) === i)).toEqual([bar.file]);
     expect(bar.css ?? [], '时间轴的那一块自己带了样式表：它的样式写在页面的样式表里（src/styles/timebar.css，由 StagePane.tsx 引）').toEqual([]);
-    console.log(`  时间轴的那一块（压缩以后）：${withCommas(gzipOnDisk(bar.file))} 字节（没有单独的上限），栏里摆上全程沙盘才下载　${bar.file}`);
+    const report = smallChunkReport('bar', gzipOnDisk(bar.file), bar.file);
+    console.log(`  ${report.lines.join('\n  ')}\n  栏里摆上有行迹的人物的全程沙盘才下载`);
+    for (const warn of report.warns) console.warn(`[check:size] 快到上限了：${warn}`);
+    expect(report.fails).toEqual([]);
   });
 });
 

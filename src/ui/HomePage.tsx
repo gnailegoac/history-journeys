@@ -5,11 +5,11 @@
 import { useEffect, useState } from 'react';
 import { figureHref, sourcesHref, stopHref } from '../app/router';
 import { useLoaded } from '../app/useLoaded';
-import { loadFigure, loadFigureCards, stopMarks } from '../domain';
+import { lacksItinerary, loadFigure, loadFigureCards, stopMarks } from '../domain';
 import type { FigureCard } from '../domain';
 import { StagePane } from './StagePane';
 import { pickRouteTable } from './stageEngineSource';
-import { NOT_WRITTEN, SITE_LINE, SITE_TITLE, SOURCES_LABEL, START_READING } from './text';
+import { NOT_WRITTEN, SITE_LINE, SITE_TITLE, SOURCES_LABEL, START_READING, START_ROADS } from './text';
 
 const LOADING = { state: 'loading' } as const;
 
@@ -65,6 +65,7 @@ export function HomePage() {
         section={null}
         route={cards.state === 'loading' || found.state !== 'ready' ? (found.state === 'error' ? found : LOADING) : { state: 'ready', value: found.value?.route ?? null }}
         marks={found.state === 'ready' ? found.value?.marks : undefined}
+        noBar={lacksItinerary(id)}
         onReloadTable={() => setAgain((count) => count + 1)}
       />
     </div>
@@ -72,7 +73,8 @@ export function HomePage() {
 }
 
 // 卡片：头一行是名字（黑体）、朝代和年份（年份自己一小块，不拆开），还没写的在这一行的右头有一个“还没写”的小标签；下面是一句话介绍。
-// 可以点进去的是一块白底的板，最后一行是“从第一站读起”；还没写的只是单子上的一行，点不了。卡片上不记读者读过什么。
+// 可以点进去的是一块白底的板，最后一行是“从第一站读起”——各站都还没写的人物（卡片上写了 outline）是“先看他走过的路”；
+// 还没写的只是单子上的一行，点不了。卡片上不记读者读过什么。
 function Card({ card }: { card: FigureCard }) {
   const body = (
     <>
@@ -84,7 +86,7 @@ function Card({ card }: { card: FigureCard }) {
         {!card.available && <span className="tag">{NOT_WRITTEN}</span>}
       </span>
       <span className="card-tagline">{card.tagline}</span>
-      {card.available && <span className="card-go">{START_READING}</span>}
+      {card.available && <span className="card-go">{card.outline ? START_ROADS : START_READING}</span>}
     </>
   );
   if (!card.available) {

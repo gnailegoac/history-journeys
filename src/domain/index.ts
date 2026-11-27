@@ -4,7 +4,7 @@ export { frameCoords, farEdgePoint } from './sceneGeo';
 export type { FrameCoords } from './sceneGeo';
 export { sectionHeadings, existsAt, thingsAt, stripTexts, farSay, reliefSay, sectionInfo, sceneRegister } from './sceneText';
 export { hasStopTable, loadStopTable, loadRouteTable } from './sceneContent';
-export { loadFigureCards, loadFigure, loadStop, loadItinerarySources, loadLists } from './content';
+export { loadFigureCards, loadFigure, loadStop, loadItinerarySources, loadLists, lacksItinerary } from './content';
 export { neighbours } from './route';
 export { stopMarks } from './stopMarks';
 export { parseBody, annotate, bodyLength, BodyFormatError } from './body';

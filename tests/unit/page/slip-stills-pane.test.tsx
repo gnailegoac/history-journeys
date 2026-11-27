@@ -335,6 +335,33 @@ describe('平着的纸条的沙盘，只放图片的时候：图片先放，题�
     await page.unmount();
   });
 
+  it('图片没取到、题签那一小块还没有结果的那一会儿：平着的纸条的沙盘说的就是竖着的纸条的沙盘图片取不到时说的那一句（“太慢”的那一句，带“试试立体的沙盘”），栏上的样子一个字不差；那一小块到了还是这一句', { timeout: 30_000 }, async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const seen = (page: Awaited<ReturnType<typeof mount>>) => ({ state: page.state(), picture: page.picture(), said: page.said(), button: page.button()?.textContent ?? null });
+    // 竖着的纸条的沙盘（已经在线上的那一种），只放图片、图片取不到：栏上的样子记下来
+    still.slip = false;
+    still.failPictures = true;
+    const strip = await mount();
+    await waitFor(() => strip.message() !== null);
+    await settle(60);
+    const wanted = seen(strip);
+    expect(wanted).toEqual({ state: 'slow', picture: 'none', said: [STAGE_TEXT.slow], button: STAGE_TEXT.tryTable });
+    await strip.unmount();
+    // 平着的纸条的沙盘，图片取不到，那一小块还没有结果：一样
+    still.slip = true;
+    const open = pending();
+    still.outcomes.push(open.named);
+    const slip = await mount();
+    await waitFor(() => slip.message() !== null);
+    await settle(60);
+    expect(seen(slip)).toEqual(wanted);
+    // 那一小块到了：图片没有，题签没处摆，还是这一句
+    await act(async () => open.arrive());
+    await settle(60);
+    expect(seen(slip)).toEqual(wanted);
+    await slip.unmount();
+  });
+
   it('竖着的纸条的沙盘（摆出来的那一座没有 named）：和原来一样——图片在了，平常的那一句，“试试立体的沙盘”；只取一次', { timeout: 30_000 }, async () => {
     still.slip = false;
     const page = await mount();

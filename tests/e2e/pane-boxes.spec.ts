@@ -10,6 +10,7 @@
 // 数只写在一处：tests/stage/support/standardPanes.ts（题签的测试用的也是它）。
 // 人物页和首页的栏带着时间轴（题记上面的一条，96 像素）：下面多留这一条，沙盘在上的窗口上栏也高出这一条——那几组数是 ROUTE_PANES、
 // ROUTE_HOME_PANES、ROUTE_UPRIGHT_PANES。一站的页面上没有时间轴，一个数不动。
+// 没有行迹的人物没有时间轴：他的人物页上的栏和一站的页面上的一样（文件末尾的一项量它）。
 // 量法：带着沙盘的替身（?stage=fake）打开第一个有沙盘的站；沙盘栏量的是 .stage-pane 自己的框（连它一像素的边线），
 // 取整数（offsetWidth、offsetHeight：竖着拿的平板上栏高是屏幕高度的 56%，573.44 像素，页面上摆东西用的是 573；
 // 竖着拿的大平板上是 764.96 像素，用的是 765）；
@@ -20,9 +21,9 @@
 
 import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
-import { BAR_BAND_PX, NOTICE_HEAD_PX, NOTICE_ROW_TOP, ROUTE_HOME_PANES, ROUTE_NOTICE_ROW_TOP, ROUTE_PANES, ROUTE_UPRIGHT_PANES, STANDARD_PANES, UPRIGHT_PANES } from '../stage/support/standardPanes';
+import { BAR_BAND_PX, NOTICE_HEAD_PX, NOTICE_ROW_TOP, ROUTE_HOME_PANES, ROUTE_NOTICE_ROW_TOP, ROUTE_PANES, ROUTE_UPRIGHT_PANES, STANDARD_PANES, UPRIGHT_PANES, engineSize } from '../stage/support/standardPanes';
 import type { StandardPane } from '../stage/support/standardPanes';
-import { fakeUrl, firstUnwrittenStopWithoutScene, firstWrittenStopWithoutScene, openFigureWithTable, stagePane, stopsWithScenes } from './helpers';
+import { fakeUrl, firstUnwrittenStopWithoutScene, firstWrittenStopWithoutScene, openFigureWithTable, routeFiguresWithoutItinerary, stagePane, stopsWithScenes } from './helpers';
 
 /** 页面上量到的：沙盘栏的宽、高（整数），不取整的原数，替身记下来的“上 右 下 左”，时间轴那一条多高（没有这一条是 0）。 */
 interface Measured {
@@ -283,3 +284,85 @@ test('人物页上时间轴那一条里有没有东西（地址里写不写 ?bar
     expect(without.band, where).toBe(BAR_BAND_PX);
   }
 });
+
+// 沙盘程序拿到的画面比沙盘栏少栏自己的一条边线（它量的是放画面的那一块里面：clientWidth × clientHeight）。
+// 题签的测试在 Node 里摆镜头、摆题签，用的就是少了这一条的数（tests/stage/support/standardPanes.ts 的 engineSize）：这里到真的页面上量。
+test('放画面的那一块比沙盘栏少栏自己的一条边线（左右排的版面少在宽上，沙盘在上的版面少在高上）：四种标准的窗口上一站的页面、人物页、首页，别的竖着拿的平板上的人物页，没有行迹的人物的人物页，量到的都是 engineSize 算的那个数', async ({ page }) => {
+  test.setTimeout(240_000);
+  const { figureId, found } = await openFigureWithTable(page, fakeUrl('#/'));
+  test.skip(!found, '还没有哪一站有沙盘');
+  if (!found) return;
+  /** 放画面的那一块里面多大：立体的沙盘那一层和图片那一层都盖满它，量到的要一样。 */
+  const inner = (): Promise<string[]> =>
+    page.evaluate(() => [...document.querySelectorAll<HTMLElement>('.stage-canvas > .stage-host, .stage-canvas > .stage-still-host')].map((host) => `${host.clientWidth} × ${host.clientHeight}`));
+  const check = async (what: string, wanted: StandardPane, measured: StandardPane, who: string, stopId: string | null): Promise<void> => {
+    const got = await measure(page, measured, who, stopId);
+    const where = `${what}，窗口 ${measured.window.width} × ${measured.window.height}`;
+    expect(got.pane, `${where}：沙盘栏的大小`).toBe(`${wanted.size.width} × ${wanted.size.height}`);
+    const { width, height } = engineSize(wanted);
+    const layers = await inner();
+    console.log(`${where}：沙盘栏 ${got.pane}，放画面的那一块里面 ${layers.join('、')}`);
+    expect(layers.length, `${where}：放画面的那一块里的两层`).toBe(2);
+    for (const layer of layers) expect(layer, `${where}：放画面的那一块里面（沙盘程序拿到的画面）`).toBe(`${width} × ${height}`);
+    // 少的正是一条边线：一头少 1，另一头不少
+    expect([wanted.size.width - width, wanted.size.height - height].sort(), where).toEqual([0, 1]);
+  };
+  for (const [n, pane] of STANDARD_PANES.entries()) {
+    await check(`一站自己的沙盘（${found.stopId}）`, pane, pane, figureId, found.stopId);
+    await check('人物页', ROUTE_PANES[n], pane, figureId, null);
+    await check('首页', ROUTE_HOME_PANES[n], pane, figureId, 'home');
+    for (const bare of routeFiguresWithoutItinerary()) await check(`没有行迹的人物（${bare}）的人物页`, pane, pane, bare, null);
+  }
+  for (const [n, pane] of UPRIGHT_PANES.entries()) await check('人物页', ROUTE_UPRIGHT_PANES[n], pane, figureId, null);
+});
+
+// 没有行迹的人物没有时间轴（docs/data-spec.md“谁要有行迹”）：他的人物页上的栏和一站的页面上的栏是一个样子。
+// 题签的测试照这个查他的全程沙盘（tests/stage/route-views.test.ts 的 panesOf：不带时间轴的那几种）；这里到真的页面上量。
+// 他的页面照地址打开：首页上有没有他的卡片、打不打得开，量到的都一样。
+for (const figureId of routeFiguresWithoutItinerary()) {
+  test(`没有行迹的人物（${figureId}）的人物页：四种标准的窗口上栏上不写 data-stage-bar、没有时间轴的那一条，沙盘栏的大小和上下留的空就是一站的页面上的那几个数（STANDARD_PANES）；读者点了“试试立体的沙盘”以后上面留的就是那一行话的高，不给小像多留`, async ({ page }) => {
+    test.setTimeout(240_000);
+    /** 替身记下来的“上面留多少”；连着两次量到一样才算数。 */
+    const topInset = async (): Promise<number> => {
+      let last: string | null = null;
+      for (let tries = 0; tries < 40; tries++) {
+        await page.waitForTimeout(250);
+        const now = await page.evaluate(() => document.querySelector('.fake-stage')?.getAttribute('data-fake-insets') ?? null);
+        if (now !== null && now === last) return Number(now.split(' ')[0]);
+        last = now;
+      }
+      throw new Error('替身记下来的留边一直在变，量不准');
+    };
+    for (const pane of STANDARD_PANES) {
+      const { top, right, bottom, left } = pane.insets;
+      const where = `${figureId} 的人物页，窗口 ${pane.window.width} × ${pane.window.height}`;
+      const got = await measure(page, pane, figureId, null);
+      console.log(`${where}：沙盘栏 ${got.pane}（不取整是 ${got.exact}），四边留 ${got.insets}（上 右 下 左），时间轴那一条 ${got.band}`);
+      await expect(stagePane(page), `${where}：摆着的是全程沙盘`).toHaveAttribute('data-stage-level', 'route');
+      expect(await stagePane(page).getAttribute('data-stage-bar'), `${where}：栏上不写 data-stage-bar`).toBeNull();
+      await expect(page.locator('.stage-bar'), `${where}：没有时间轴的那一条`).toHaveCount(0);
+      expect(got.band, `${where}：时间轴那一条的高`).toBe(0);
+      expect(got.pane, `${where}：沙盘栏的大小`).toBe(`${pane.size.width} × ${pane.size.height}`);
+      expect(got.insets, `${where}：四边留的空（上 右 下 左）`).toBe(`${top} ${right} ${bottom} ${left}`);
+      await expect(page.locator('.stage-notice'), `${where}：按钮下面没有那一行话`).toHaveCount(0);
+
+      // 只放图片，再点“试试立体的沙盘”：那一行话留着，上面留的就到那一行话为止（NOTICE_ROW_TOP），没有另给小像的 36 像素
+      await page.goto('about:blank');
+      await page.setViewportSize(pane.window);
+      await page.emulateMedia({ reducedMotion: 'reduce' });
+      await page.goto(`/?stage=fake&tier=still&sectionstills=fake#/${figureId}`);
+      await expect(stagePane(page)).toHaveAttribute('data-stage-state', 'slow');
+      await expect(stagePane(page)).toHaveAttribute('data-stage-picture', 'still');
+      expect(await stagePane(page).getAttribute('data-stage-bar'), `${where}，只放图片：栏上不写 data-stage-bar`).toBeNull();
+      await page.locator('.stage-retry').click();
+      await expect(stagePane(page)).toHaveAttribute('data-stage-state', 'ready');
+      await expect(stagePane(page)).toHaveAttribute('data-stage-picture', 'table');
+      await expect(page.locator('.stage-notice p')).toHaveText('设备慢的话，可以换回图片。');
+      const row = NOTICE_ROW_TOP[pane.name];
+      expect(row, `${where}：standardPanes.ts 的 NOTICE_ROW_TOP 里要有 ${pane.name}`).not.toBeUndefined();
+      expect(await topInset(), `${where}，读者要来的立体沙盘：上面留的空`).toBe(row);
+      await expect(page.locator('.stage-bar'), `${where}，读者要来的立体沙盘：没有时间轴的那一条`).toHaveCount(0);
+      expect(await stagePane(page).evaluate((el) => `${(el as HTMLElement).offsetWidth} × ${(el as HTMLElement).offsetHeight}`), `${where}，读者要来的立体沙盘：沙盘栏的大小`).toBe(`${pane.size.width} × ${pane.size.height}`);
+    }
+  });
+}

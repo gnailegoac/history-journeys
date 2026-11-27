@@ -40,6 +40,12 @@ export interface FigureCard {
   tagline: string;
   /** 是否已经写好、可以点进去。 */
   available: boolean;
+  /**
+   * 这位人物的各站都还没写（figure.json 里每一站都是 outline，一站的正文也没有）：写 true；有一站写好了就不写。
+   * 这样的卡片可以点进去的时候，最后一行写的是“先看他走过的路”，不是“从第一站读起”——点进去看的是他的全程沙盘和各站的提要。
+   * 校验照人物自己的 figure.json 查它写得对不对（docs/data-spec.md“文件放在哪”）。
+   */
+  outline?: boolean;
 }
 
 // ---------------------------------------------------------------- 人物

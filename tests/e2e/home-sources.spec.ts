@@ -223,8 +223,8 @@ test('首页，四种标准的窗口上：文字栏（网站的名字、一句�
         // 可以点进去的是一块白底的板：一圈细边，底下一点影子
         expect({ ground: shown.ground, top: shown.edges.top, left: shown.edges.left }, `${at}：是一块白底的板`).toEqual({ ground: PLATE, top: `1px solid ${LINE_STRONG}`, left: '1px solid' });
         expect(shown.edges.shadow, `${at}：板有影子`).not.toBe('none');
-        // “从第一站读起”：黑体，强调色，后面一个画出来的小箭头（7 像素见方）
-        expect(shown.go, `${at}：最后一行`).toMatchObject({ text: '从第一站读起', family: 'Yanlu Sans', size: 15, colour: FRAME_ACCENT, rule: '7px' });
+        // “从第一站读起”（卡片上写了 outline、各站都还没写的人物是“先看他走过的路”）：黑体，强调色，后面一个画出来的小箭头（7 像素见方）
+        expect(shown.go, `${at}：最后一行`).toMatchObject({ text: card.outline ? '先看他走过的路' : '从第一站读起', family: 'Yanlu Sans', size: 15, colour: FRAME_ACCENT, rule: '7px' });
         expect(shown.tag, at).toBeNull();
       } else {
         expect({ element: shown.element, href: shown.href }, `${at}：不是链接`).toEqual({ element: 'div', href: null });

@@ -871,7 +871,8 @@ describe('数据规格里全程沙盘的那个最小的例子', () => {
       features: [{ type: 'Feature', properties: { kind: 'river', name: 'Chang Jiang' }, geometry: { type: 'LineString', coordinates: [[116.0, 29.8], [117.5, 30.8], [118.8, 32.1]] } }, { type: 'Feature', properties: { kind: 'river', name: 'Yangtze' }, geometry: { type: 'LineString', coordinates: [[118.8, 32.1], [121.0, 31.8]] } }],
     };
     const files: ContentFiles = {
-      'figures/index.json': JSON.stringify([{ ...(JSON.parse(GOOD['figures/index.json']) as unknown[])[0] as object, id: 'sample' }]),
+      // 这位编出来的人物两站都还没写（照合格样本里一站还没写的站编的）：卡片照规矩写 outline（2026-11-27 起卡片上的这一项要和 figure.json 对得上）
+      'figures/index.json': JSON.stringify([{ ...(JSON.parse(GOOD['figures/index.json']) as unknown[])[0] as object, id: 'sample', outline: true }]),
       'figures/sample/figure.json': JSON.stringify(figure),
       'figures/sample/scenes/route.json': JSON.stringify(scene),
       'figures/sample/scenes/route.terrain.bin': '',

@@ -15,7 +15,17 @@ const figureFiles = import.meta.glob<Figure>('/content/figures/*/figure.json', {
  * 内容的清单（每位人物的每个文件怎么读，和沙盘用到的文件的网址）。第一次叫它时才下载；正在取、取到了的，再叫给的是同一份；
  * 没取到的话，下一次叫它再取。页面的程序一开始跑就叫一次（src/main.tsx），读一站、读一座沙盘的时候它多半已经到了。
  */
-export const loadLists = () => import('./contentLists');
+export const loadLists = () => import('./contentLists').then((lists) => (arrived = lists));
+
+/** 内容的清单到了以后记在这里：有一处要当场知道它到没到、里面有什么（lacksItinerary），不能等。 */
+let arrived: typeof import('./contentLists') | undefined;
+
+/**
+ * 这位人物没有行迹（content/figures/<人物>/ 里没有 itinerary.json）。当场答，不等、不另取什么：照内容的清单答，
+ * 清单还没到（或者还不知道是哪位人物：figureId 是空的）答 false——还不知道的时候，页面照有行迹的办。
+ * 沙盘栏照它决定带不带时间轴（src/ui/StagePane.tsx 的 noBar；docs/data-spec.md“谁要有行迹”）。
+ */
+export const lacksItinerary = (figureId: string): boolean => !!figureId && !!arrived && !(`${ROOT}/${figureId}/itinerary.json` in arrived.itinerarySources);
 
 /** 首页的人物卡片，按时代先后排列。 */
 export async function loadFigureCards(): Promise<FigureCard[]> {

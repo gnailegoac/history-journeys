@@ -23,29 +23,40 @@ import { styleFor } from './support/styles';
 import type { StageInsets } from '../../src/stage/types';
 import { realScene, realSceneKeys } from './support/realScenes';
 import type { RealScene } from './support/realScenes';
-import { STANDARD_PANES } from './support/standardPanes';
+import { STANDARD_PANES, engineSize } from './support/standardPanes';
+import type { StandardPane } from './support/standardPanes';
 import { sectionStrips } from './support/stripSizes';
 
 interface Pane {
+  /** 栏的名字：沙盘栏自己的大小（连它的一像素边线），印在测试的标题里。 */
   name: string;
+  /** 沙盘程序拿到的画面：镜头、题签指着的点、摆题签，都照它算。 */
   size: { width: number; height: number };
   /** 页面上留的空：上面一排按钮（有时再加一行说明），下面的题记。在浏览器里量出来的数。 */
   insets: StageInsets;
+  /** 沙盘栏自己多宽（连边线）：题签用大的还是小的照它分（页面量的也是它）。 */
+  paneWidth: number;
 }
 
 const leave = (top: number, bottom: number): StageInsets => ({ top, right: 0, bottom, left: 0 });
 
 /**
+ * 量过的一种沙盘栏交给摆法的样子。只有这一处把栏的大小换成沙盘程序拿到的画面（./support/standardPanes.ts 的 engineSize：
+ * 少栏自己的一条边线）；2026-11-27 以前交的是栏自己的大小。insets 不写就是这种栏平常留的空。
+ */
+const asPlaced = (pane: StandardPane, name = pane.name, insets = pane.insets): Pane => ({ name, size: engineSize(pane), insets, paneWidth: pane.size.width });
+
+/**
  * 四种标准的画面：每一节的题签在这上面必须都摆得下（docs/data-spec.md）。
  * 数写在 ./support/standardPanes.ts：浏览器测试 tests/e2e/pane-boxes.spec.ts 拿同一份到真的页面上去量。
  */
-const STANDARD: Pane[] = STANDARD_PANES.map(({ name, size, insets }) => ({ name, size, insets }));
+const STANDARD: Pane[] = STANDARD_PANES.map((pane) => asPlaced(pane));
 
-/** 只报告的画面。 */
+/** 只报告的画面：电脑、竖着拿的平板、竖着拿的大平板的沙盘栏，上面多一行说明。 */
 const REPORTED: Pane[] = [
-  { name: '940 × 900，上面多一行说明', size: { width: 940, height: 900 }, insets: leave(96, 130) },
-  { name: '768 × 573，上面多一行说明', size: { width: 768, height: 573 }, insets: leave(84, 131) },
-  { name: '1024 × 765，上面多一行说明', size: { width: 1024, height: 765 }, insets: leave(84, 131) },
+  asPlaced(STANDARD_PANES[0], '940 × 900，上面多一行说明', leave(96, 130)),
+  asPlaced(STANDARD_PANES[2], '768 × 573，上面多一行说明', leave(84, 131)),
+  asPlaced(STANDARD_PANES[3], '1024 × 765，上面多一行说明', leave(84, 131)),
 ];
 
 /** 这几个数和 placeStrips.ts 里的一样：题签离留出来的边至少 4；每一点周围半边长 6 的方块不压；那一点出了留出来的那一块 8 像素以内还算看得见。 */
@@ -98,7 +109,8 @@ function arranged(R: RealScene, section: SceneSection, pane: Pane, turnDeg = 0):
   camera.updateProjectionMatrix();
   camera.updateMatrixWorld(true);
 
-  const strips = sectionStrips(scene, section.heading, pane.size.width);
+  // 题签用大的还是小的，照栏自己的宽分（584 像素宽的栏里画面是 583 像素宽，题签还是大的那一种）
+  const strips = sectionStrips(scene, section.heading, pane.paneWidth);
   const written = strips.map((s) => scene.strips.find((x) => x.id === s.id)).filter((s): s is SceneStrip => s !== undefined);
   const D = equivalentDistance(placed.distanceM, pose.fov, pane.size.height);
   const anchors = screenAnchors(written, scene, samplers, coords, style, D, camera, pane.size);
@@ -318,5 +330,21 @@ describe.each(realSceneKeys())('%s 的题签', (key) => {
       }
     }
     expect(problems).toEqual([]);
+  });
+});
+
+describe('交给摆法的画面是沙盘程序拿到的那一块，不是沙盘栏自己的大小', () => {
+  it('四种标准的画面和三种只报告的画面：交给摆法的画面比栏少栏自己的一条边线（左右排的版面少在宽上，沙盘在上的版面少在高上），四边留的空不变；题签用大的还是小的照栏自己的宽分；名字还是栏自己的大小', () => {
+    expect(STANDARD.map((pane) => `${pane.name} → ${pane.size.width} × ${pane.size.height}`)).toEqual(['940 × 900 → 939 × 900', '584 × 768 → 583 × 768', '768 × 573 → 768 × 572', '1024 × 765 → 1024 × 764']);
+    expect(REPORTED.map((pane) => `${pane.name} → ${pane.size.width} × ${pane.size.height}`)).toEqual(['940 × 900，上面多一行说明 → 939 × 900', '768 × 573，上面多一行说明 → 768 × 572', '1024 × 765，上面多一行说明 → 1024 × 764']);
+    STANDARD.forEach((pane, i) => {
+      const measured = STANDARD_PANES[i];
+      expect(pane.size, pane.name).toEqual(engineSize(measured));
+      expect([measured.size.width - pane.size.width, measured.size.height - pane.size.height].sort(), pane.name).toEqual([0, 1]);
+      expect(pane.insets, pane.name).toEqual(measured.insets);
+      expect(pane.paneWidth, pane.name).toBe(measured.size.width);
+      expect(pane.name).toBe(measured.name);
+    });
+    for (const pane of REPORTED) expect(pane.paneWidth, pane.name).toBe(Number(pane.name.split(' × ')[0]));
   });
 });

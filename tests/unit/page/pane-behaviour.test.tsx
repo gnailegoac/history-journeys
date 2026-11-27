@@ -7,6 +7,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { SectionInfo, StopScene } from '../../../src/domain';
 import { KAI_FAMILY } from '../../../src/fonts/probe';
+import { STYLES, labelKind } from '../../../src/stage/styles';
 import { FIXTURE_HEADINGS, fixtureScene } from '../../support/fixtureScene';
 import { installMiniDom } from './miniDom';
 import type { MiniElement } from './miniDom';
@@ -679,6 +680,29 @@ describe('题签用的楷体：什么时候叫浏览器先去取（document.font
         expect(fonts.asked, what).toEqual([]);
         await bare.unmount();
       }
+    } finally {
+      fonts.remove();
+    }
+  });
+
+  it('题签是平着的纸条的沙盘（它的样式在登记表里写了 slip）不取楷体：它的题签用的是读正文的宋体，楷体的文件里没有它的字；同一栏换成题签是竖着的纸条的沙盘，这时才取', { timeout: 30_000 }, async () => {
+    win.location.search = '?stage=fake';
+    const fonts = stubFonts();
+    try {
+      // 登记表里写了 slip 的一种样式（现在是歌德的全程沙盘用的那一种），和没有写的一种
+      const slipStyle = STYLES.find((row) => row.labels === 'slip')?.id;
+      expect(slipStyle, '登记表里要有一种写了 slip 的样式').toBeDefined();
+      expect(labelKind(table.scene.style)).toBe('strip');
+      const slipTable = { ...table, key: 'f/slips', scene: { ...table.scene, style: slipStyle! } };
+      const page = await show({ onStopPage: true, table: { state: 'ready', value: slipTable }, route: NO_ROUTE });
+      for (let i = 0; i < 200 && attr(page.pane(), 'data-stage-state') !== 'ready'; i += 1) await settle(20);
+      expect(attr(page.pane(), 'data-stage-state')).toBe('ready');
+      await settle(60);
+      expect(fonts.asked, '题签是平着的纸条的沙盘：不取楷体').toEqual([]);
+      // 同一栏换成一座题签是竖着的纸条的沙盘：取
+      await page.render({ onStopPage: true, table: READY, route: NO_ROUTE });
+      expect(fonts.asked).toEqual([WANT]);
+      await page.unmount();
     } finally {
       fonts.remove();
     }

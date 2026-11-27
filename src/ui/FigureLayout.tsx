@@ -7,7 +7,7 @@ import type { ReactNode } from 'react';
 import { figureHref, homeHref, stopHref } from '../app/router';
 import { useLoaded } from '../app/useLoaded';
 import type { Loaded as LoadedValue } from '../app/useLoaded';
-import { hasStopTable, loadFigure, loadStopTable, stopMarks } from '../domain';
+import { hasStopTable, lacksItinerary, loadFigure, loadStopTable, stopMarks } from '../domain';
 import type { Figure } from '../domain';
 import type { StopTable } from '../stage/types';
 import { FigureContents } from './FigureContents';
@@ -131,6 +131,7 @@ function Loaded({ figure, stopId }: { figure: Figure; stopId: string | null }) {
         marks={marks}
         written={stop?.status === 'complete'}
         textLost={stopKey !== null && lost === stopKey}
+        noBar={lacksItinerary(figureId)}
         onReloadTable={reloadTable}
       />
     </div>

@@ -126,9 +126,34 @@ export function checkIndex(files: ContentFiles): Violation[] {
       // 规则 16：可以点进去的人物要有全程沙盘（人物页上摆的就是它）
       out.push(violation(16, file, `[${i}].available`, `“${card.name}”标了可以点进去，但没有全程沙盘的场景文件 figures/${card.id}/scenes/${ROUTE_SCENE_ID}.json`));
     }
+    out.push(...checkCardOutline(files, card, file, i));
   });
   out.push(...findPlaceholders(cards, file, ''));
   return out;
+}
+
+/**
+ * 卡片上的 outline（“这位人物的各站都还没写”）要和人物自己的 figure.json 说的一样：figure.json 里每一站都是 outline，卡片写 true；
+ * 有一站写好了（complete），卡片不写。首页照它决定可以点进去的卡片最后一行写哪一句，写错了读者会被领到一位“从第一站读起”却没有一站可读的人物那里。
+ * 没有 figure.json 的人物（卡片先放着的）不许写它：没有东西可以对。figure.json 自己的格式有问题时这里不查（它的毛病另报）。
+ */
+function checkCardOutline(files: ContentFiles, card: FigureCard, file: string, i: number): Violation[] {
+  const figureFile = `figures/${card.id}/figure.json`;
+  if (!has(files, figureFile)) {
+    return card.outline === undefined ? [] : [violation(0, file, `[${i}].outline`, `“${card.name}”写了 outline，但没有 ${figureFile}：这一项要照人物的文件查，没有文件就不写`)];
+  }
+  const read = readJson(files, figureFile);
+  if (read.data === undefined || checkShape(read.data, FIGURE, figureFile).length > 0) return [];
+  const stops = (read.data as Figure).stops;
+  const allOutline = stops.length > 0 && stops.every((stop) => stop.status === 'outline');
+  if (allOutline && card.outline !== true) {
+    return [violation(0, file, `[${i}].outline`, `“${card.name}”的各站都还没写（${figureFile} 里每一站都是 outline），卡片要写 "outline": true`)];
+  }
+  if (!allOutline && card.outline !== undefined) {
+    const written = stops.filter((stop) => stop.status === 'complete').map((stop) => stop.id);
+    return [violation(0, file, `[${i}].outline`, `“${card.name}”有写好了的站（${written.join('、') || '一站也没有'}），卡片不写 outline`)];
+  }
+  return [];
 }
 
 // ---------------------------------------------------------------- 一位人物
@@ -536,7 +561,7 @@ export function findBodyPlaceholders(markdown: string, file: string): Violation[
 /** 人物资料里的坐标另由规则 1 查，这里不管。 */
 const coordinate = anything;
 
-const CARD = object({ id: text, name: text, era: text, years: text, sortYear: number, tagline: text, available: bool });
+const CARD = object({ id: text, name: text, era: text, years: text, sortYear: number, tagline: text, available: bool, outline: optional(bool) });
 
 const PLACE = object({ id: text, ancient: text, modern: text, lngLat: coordinate });
 

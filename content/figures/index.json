@@ -18,6 +18,16 @@
     "available": false
   },
   {
+    "id": "goethe",
+    "name": "歌德",
+    "era": "十八、十九世纪 · 德意志",
+    "years": "1749–1832",
+    "sortYear": 1749,
+    "tagline": "生在法兰克福，26岁到魏玛做官，此后家一直在那里；写诗、写戏、写小说，在意大利住了一年多。",
+    "available": true,
+    "outline": true
+  },
+  {
     "id": "darwin",
     "name": "达尔文",
     "era": "十九世纪 · 英国",

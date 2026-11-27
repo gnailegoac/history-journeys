@@ -18,11 +18,16 @@ type Slips = LabelKitMaker;
 
 /**
  * 写着 style 这种样式的沙盘，题签要是另一种（样式的登记表那一行写了 labels: 'slip'），取它的那一小块程序；是竖着的纸条就什么也不取（undefined）。
- * 那一小块只引页面的程序里本来就有的东西，什么时候去要都行。没取到就拒绝：页面照“沙盘没能摆出来”办，读者点“再试一次”的时候重新取。
+ * 那一小块只引页面的程序里本来就有的东西，什么时候去要都行。头一回没取到，自己马上再取一次（网断了一下的时候，读者不用为它按“再试一次”）；
+ * 两回都没取到才拒绝：页面照“沙盘没能摆出来”办，读者点“再试一次”的时候重新取（又是最多两回）。
  * rows、load 不写就是登记表和真的那一块（测试交编出来的表和假的取法）。
  */
 export function labelsFor(style: string | undefined, rows: readonly StyleRow[] = STYLES, load: () => Promise<{ slipKit: Slips }> = () => import('./overlay/slips')): Promise<Slips> | undefined {
-  return labelKind(style, rows) === 'slip' ? load().then((got) => got.slipKit) : undefined;
+  return labelKind(style, rows) === 'slip'
+    ? load()
+        .catch(() => load())
+        .then((got) => got.slipKit)
+    : undefined;
 }
 
 /**

@@ -1,6 +1,12 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
+/**
+ * 一个文件是不是内容文件：路径里有 content/figures/ 这一截（内容都在这个文件夹里）。照这一截认，不拿项目的根目录去比：
+ * 同一个文件夹在 Windows 上可以有长短两种写法、可以隔着一个链接，比整条路径会认不出来。
+ */
+const CONTENT_FILE = /[\\/]content[\\/]figures[\\/]/;
+
 // 站点发布在 GitHub Pages 的子路径下，所以用相对路径，页面之间用 # 路由。
 export default defineConfig({
   base: './',
@@ -14,6 +20,10 @@ export default defineConfig({
     target: ['es2020', 'safari15'],
     // 构建时写一份清单（dist/.vite/manifest.json）：查各块大小的测试照它找文件（构建出来的文件名里有一串每次都可能变的字符，猜不得）。
     manifest: true,
+    // content/ 里的文件（图片、地形文件）不许塞进程序里：打包的工具平常会把 4 KB 以下的小文件写成一长串 data: 地址塞进引它的那一块，
+    // 一张小图片（比如一张几乎是空的田的标记图）就这样进了内容的清单那一块——那一块每位读者一打开都要下载，图片却只有摆那一座沙盘的人用得着。
+    // content/ 里的每一个文件在 dist/ 里都还是它自己的一个文件，清单那一块里只有网址（tests/build/dist-size.test.ts 守着）。别的小文件照平常的规矩。
+    assetsInlineLimit: (file) => (CONTENT_FILE.test(file) ? false : undefined),
   },
   server: { port: 5400, strictPort: true },
   preview: { port: 5400, strictPort: true },

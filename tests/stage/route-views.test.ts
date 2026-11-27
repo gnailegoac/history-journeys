@@ -5,11 +5,20 @@
 // 还没有自己的沙盘的一站的页面上没有时间轴（同一站自己的沙盘的栏一样）——两种都查。全程沙盘另有三条自己的规矩（docs/data-spec.md“题签摆在哪”）：
 //   引线不超过 48 像素（一条题签离它指的那一点太远，孩子会把名字读到别处去）；当时的名字、今天的名字两种都查；
 //   沙盘栏上面多一行说明的四种画面上，题签也一条不能少（最长的引线只打印，不设上限）。
+//   带着时间轴的四种另有“那一行话下面再给小像留出地方”的时候：这四种只查人物有行迹的全程沙盘——那 36 像素是给小像留的，
+//   小像只有有行迹的人物才有。（页面今天留这 36 像素不看人物有没有行迹：没有行迹的人物的人物页上也有这样的栏，这里不查。）
+//   不查的是哪几座，照 content/ 里的文件夹读（人物的文件夹里有没有 itinerary.json），
+//   “题签”那一组后面有一条测试守着（docs/data-spec.md“全程沙盘上的题签”）。
 //   “全程”那一节另有一组（文件靠后）：人物页和首页一打开看的就是它，所以在量过的每一种沙盘栏上——四种标准的、首页的两种、
 //   别的竖着拿的平板（./support/standardPanes.ts 的 UPRIGHT_PANES），连上面多一行说明的——引线都不超过 48 像素，站名不站到别的站那一边去。
 // “说明”这一组查的是印出来的字（src/domain/sceneText.ts 的 sectionInfo，页面用的就是它）：写了的每一句 note 都有一节印出来，
 // 每一节印的句子不多不少、不重复；题记、远处、那一句说明的两种写法各有多长，最长的印出来。
 // 题签的字和“是哪几站”也是页面拼的那一份（stripTexts，经 ./support/stripSizes.ts 的 routeSectionStrips）。
+// 题签有两种（样式的登记表那一行的 labels），“每一座”的几组照这座沙盘的那一种查（docs/data-spec.md“场景验收照题签的那一种查”）：
+//   竖着的纸条（苏轼的那一座）：摆法是 placeStrips，查的和原来一个字不差；
+//   平着的纸条（歌德的那一座）：摆法是 placeSlips，连地面的四个角一起交给它；没有点的名字写的那个位置不算一个点；
+//     每一条纸条（连它前头的圆）不出地面的边；站名左右站没站反，照 28 像素算“并排”；站号的圆有多大照圆算。
+//     一条不少、引线不超过 48 像素，和竖着的纸条一样。
 
 import { PerspectiveCamera } from 'three';
 import { describe, expect, it } from 'vitest';
@@ -17,18 +26,19 @@ import type { NamesMode, RouteSection, SceneStrip } from '../../src/domain/scene
 import { NOTE_BRIEF_MAX, NOTE_SHORT_MAX, sectionInfo, stripTexts } from '../../src/domain/sceneText';
 import { placeStrips } from '../../src/stage/overlay';
 import type { LabelKind, StripInput, StripPlacement } from '../../src/stage/overlay';
-import { placeSlips } from '../../src/stage/overlay/slips';
+import { GROUND_INSET_PX, placeSlips } from '../../src/stage/overlay/slips';
 import { labelKind } from '../../src/stage/styles';
 import type { Vec3 } from '../../src/stage/ground/types';
-import { centreShift, equivalentDistance, framePoints, placeCamera, project, screenAnchors, wholeTable } from '../../src/stage/three/rig';
+import { centreShift, equivalentDistance, framePoints, groundCorners, placeCamera, project, screenAnchors, wholeTable } from '../../src/stage/three/rig';
 import { styleFor } from './support/styles';
 import type { StageInsets } from '../../src/stage/types';
 import { LINE_MAX, WORDS_MAX, textWidth } from '../content/sceneRules';
+import { namesIn } from '../support/readBytes';
 import { realRouteScene, realSceneKeys } from './support/realScenes';
 import type { RealRouteScene } from './support/realScenes';
 import { NOTICE_HEAD_PX, NOTICE_ROW_TOP, ROUTE_HOME_PANES, ROUTE_NOTICE_ROW_TOP, ROUTE_PANES, ROUTE_UPRIGHT_PANES, STANDARD_PANES, UPRIGHT_PANES } from './support/standardPanes';
 import { ROUTE_CAMERA_NEAREST_DEFAULT_M, ROUTE_CAMERA_NEAREST_M, camerasTooNear, journeysWithNotesPrinted, ownJourneysTold, ownRoadsHeldInPane, routeCameraNearestM, schematicWherePointed } from './support/routeFacts';
-import { routeSectionStrips, stripSize } from './support/stripSizes';
+import { isAreaName, labelSize, routeSectionStrips } from './support/stripSizes';
 
 interface Pane {
   name: string;
@@ -52,8 +62,19 @@ const noticeTop = (name: string): number => NOTICE_ROW_TOP[name] ?? ROUTE_NOTICE
 const withNotice = (pane: Pane): Pane => ({ name: `${pane.name}，上面多一行说明`, size: pane.size, insets: leave(noticeTop(pane.name), pane.insets.bottom) });
 /** 带着时间轴的栏上，读者点了“试试立体的沙盘”以后：那一行话下面再给小像留出 36 像素。 */
 const withHead = (pane: Pane): Pane => ({ name: `${pane.name}，上面多一行说明、再给小像留出地方`, size: pane.size, insets: leave(noticeTop(pane.name) + NOTICE_HEAD_PX, pane.insets.bottom) });
+/** 带着时间轴的四种“再给小像留出地方”的时候。 */
+const WITH_HEAD: Pane[] = WITH_BAR.map(withHead);
 /** 标准的沙盘栏上面多一行说明的时候；带着时间轴的四种另有“再给小像留出地方”的时候。 */
-const WITH_NOTICE: Pane[] = [...STANDARD.filter((pane) => noticeTop(pane.name) !== undefined).map(withNotice), ...WITH_BAR.map(withHead)];
+const WITH_NOTICE: Pane[] = [...STANDARD.filter((pane) => noticeTop(pane.name) !== undefined).map(withNotice), ...WITH_HEAD];
+/**
+ * 一座全程沙盘的人物有没有行迹：content/figures/<人物>/ 里有没有 itinerary.json，照文件夹读。小像只有有行迹的人物才有
+ *（docs/data-spec.md“谁要有行迹”）：没有行迹的人物的沙盘上没有小像要让，“再给小像留出地方”的四种画面就不查他的沙盘
+ *（2026-11-27 起；这以前每一座都查）。页面今天留那 36 像素不看这个（照栏上的 data-stage-bar 留）：他的人物页上也有这样的栏，
+ * 这里不查（docs/data-spec.md“全程沙盘上的题签”）。哪一天他的行迹进来了，这四种自己就查起来。
+ */
+const hasItinerary = (key: string): boolean => namesIn(`content/figures/${key.split('/')[0]}`).includes('itinerary.json');
+/** 收集测试的时候记下来的：哪一座沙盘的哪几种画面真的没有查。“题签”那一组后面的那一条测试拿它去对文件夹。 */
+const HEAD_NOT_ASKED = new Map<string, string[]>();
 /** 别的竖着拿的平板上人物页的栏（带着时间轴）：平常的，和上面多一行说明的。 */
 const UPRIGHT: Pane[] = ROUTE_UPRIGHT_PANES.flatMap((pane) => [plain(pane), withNotice(pane)]);
 /** 首页的沙盘栏里和人物页不一样的那几种（宽屏上的两种：首页的文字栏宽，沙盘栏就窄）。带着时间轴。 */
@@ -105,18 +126,44 @@ function placed(R: RealRouteScene, section: RouteSection, pane: Pane) {
   const written = section.strips.map((id) => scene.strips.find((s) => s.id === id)).filter((s): s is SceneStrip => s !== undefined);
   const D = equivalentDistance(view.distanceM, view.pose.fov, pane.size.height);
   const anchors = screenAnchors(written, scene, samplers, coords, style, D, camera, pane.size);
-  return { view, written, anchors, at: (point: Vec3) => project(point, camera, pane.size) };
+  // 地面的四个角落在画面的哪里：沙盘程序每一帧交给题签层的那一份（平着的纸条不出这一块；竖着的纸条不看）
+  const ground = groundCorners(coords, camera, pane.size);
+  return { view, written, anchors, ground, at: (point: Vec3) => project(point, camera, pane.size) };
 }
 
-/** 一节的题签在一种画面上：交给 placeStrips 的那一份。 */
+/**
+ * 一节的题签在一种画面上：交给摆法的那一份。题签是平着的纸条的沙盘，连地面的四个角一起交（沙盘程序就是这样交的）；
+ * 竖着的纸条的沙盘不交——交不交，它摆出来的一个数不差（tests/unit/place-strips.test.ts）。
+ */
 function arranged(R: RealRouteScene, section: RouteSection, pane: Pane, names: NamesMode): { input: StripInput; text: (id: string) => string } {
-  const { written, anchors } = placed(R, section, pane);
+  const { written, anchors, ground } = placed(R, section, pane);
   const strips = routeSectionStrips(R.scene, section.heading, pane.size.width, names);
   const text = (id: string): string => {
     const strip = written.find((s) => s.id === id);
     return strip ? (names === 'modern' && strip.modern ? strip.modern : strip.text) : id;
   };
-  return { input: { strips, anchors, size: pane.size, insets: pane.insets }, text };
+  const slips = labelKind(R.scene.style) === 'slip';
+  return { input: { strips, anchors, size: pane.size, insets: pane.insets, ...(slips && ground ? { ground } : {}) }, text };
+}
+
+/** 一条没摆的题签，说它是怎么回事：摆不下，没有点的名字四周找不到空，或者指的那一点不在画面里。 */
+const hiddenWhy = (p: StripPlacement): string => (p.why === 'room' ? '摆不下' : p.why === 'area' ? '摆不下（这个名字没有点：写的那个位置四周 48 像素以内没有空）' : '指的那一点不在画面里');
+
+/** 画面上的一点离地面那一块的边多远（在里面是正的）。四个角照绕一圈的先后。 */
+function insideGroundBy(p: { x: number; y: number }, ground: NonNullable<StripInput['ground']>): number {
+  let twice = 0;
+  ground.forEach((a, i) => {
+    const b = ground[(i + 1) % ground.length];
+    twice += a.x * b.y - b.x * a.y;
+  });
+  const turn = Math.sign(twice);
+  return Math.min(
+    ...ground.map((a, i) => {
+      const b = ground[(i + 1) % ground.length];
+      const length = Math.hypot(b.x - a.x, b.y - a.y) || 1;
+      return (((p.x - a.x) * -(b.y - a.y) + (p.y - a.y) * (b.x - a.x)) / length) * turn;
+    }),
+  );
 }
 
 const inside = (p: { x: number; y: number; visible?: boolean }, { size, insets }: Pane): boolean =>
@@ -124,11 +171,19 @@ const inside = (p: { x: number; y: number; visible?: boolean }, { size, insets }
 
 const leaderPx = (p: StripPlacement): number => (p.leader ? Math.hypot(p.leader[2] - p.leader[0], p.leader[3] - p.leader[1]) : 0);
 
-/** 摆出来的题签里不该有的事（和 scene-strips.test.ts 查的是同样几件）。 */
+/**
+ * 摆出来的题签里不该有的事（和 scene-strips.test.ts 查的是同样几件）：出了留出来的那一块，压住了一个点，两条相叠，引线穿过别的题签。
+ * 照题签的那一种有两处不一样（docs/data-spec.md“场景验收照题签的那一种查”），都只有平着的纸条才有：
+ *   没有点的名字（交给摆法的那一份上写着 area）写的那个位置不算一个点：它自己的纸条摆在上面、别的纸条压过去，都不算“压点”；
+ *   交了地面的四个角的，每一条纸条（连它前头的圆）四个角都要在那一块里面、离边至少 3 像素。
+ * 竖着的纸条的沙盘这两样都没有（没有一条写着 area，也不交四个角）：查的和原来一个字不差。
+ */
 function faults(input: StripInput, result: StripPlacement[], pane: Pane, text: (id: string) => string): string[] {
   const found: string[] = [];
   const free = freeArea(pane);
-  const seen = input.anchors.filter((a) => a.visible && a.x >= free.left - SEEN_OUTSIDE && a.x <= free.right + SEEN_OUTSIDE && a.y >= free.top - SEEN_OUTSIDE && a.y <= free.bottom + SEEN_OUTSIDE);
+  const seen = input.anchors.filter(
+    (a, i) => !input.strips[i].area && a.visible && a.x >= free.left - SEEN_OUTSIDE && a.x <= free.right + SEEN_OUTSIDE && a.y >= free.top - SEEN_OUTSIDE && a.y <= free.bottom + SEEN_OUTSIDE,
+  );
   const shown = result.flatMap((p, i) => {
     if (p.hidden) return [];
     const { w, h } = input.strips[i];
@@ -137,6 +192,18 @@ function faults(input: StripInput, result: StripPlacement[], pane: Pane, text: (
   for (const a of shown) {
     const name = `“${text(a.p.id)}”`;
     if (a.box.left < free.left || a.box.right > free.right || a.box.top < free.top || a.box.bottom > free.bottom) found.push(`${name}出了留出来的那一块`);
+    if (input.ground) {
+      const ground = input.ground;
+      const by = Math.min(
+        ...[
+          [a.box.left, a.box.top],
+          [a.box.right, a.box.top],
+          [a.box.right, a.box.bottom],
+          [a.box.left, a.box.bottom],
+        ].map(([x, y]) => insideGroundBy({ x, y }, ground)),
+      );
+      if (by < GROUND_INSET_PX - 1e-6) found.push(`${name}出了地面的边（离边 ${by.toFixed(1)} 像素，至少要 ${GROUND_INSET_PX}）`);
+    }
     for (const dot of seen) {
       if (overlap(a.box, { left: dot.x - DOT, right: dot.x + DOT, top: dot.y - DOT, bottom: dot.y + DOT })) found.push(`${name}压住了“${text(dot.id)}”指的那一点`);
     }
@@ -365,8 +432,10 @@ describe.each(realSceneKeys('route'))('%s 的题签', (key) => {
       for (const section of R.scene.sections) {
         const { input, text } = arranged(R, section, pane, names);
         expect(input.strips.map((s) => s.id), section.heading).toEqual(section.strips);
+        // 平着的纸条的沙盘：地面的四个角交到了摆法手里（这些栏上四个角都在镜头前面），“不出地面的边”才真的查了
+        if (labelKind(R.scene.style) === 'slip') expect(input.ground, `${section.heading}：地面的四个角`).toHaveLength(4);
         const result = placeLabels(R, input);
-        for (const p of result) if (p.hidden) problems.push(`${section.heading}：“${text(p.id)}”${p.why === 'room' ? '摆不下' : '指的那一点不在画面里'}`);
+        for (const p of result) if (p.hidden) problems.push(`${section.heading}：“${text(p.id)}”${hiddenWhy(p)}`);
         for (const fault of faults(input, result, pane, text)) problems.push(`${section.heading}：${fault}`);
       }
       expect(problems).toEqual([]);
@@ -422,20 +491,48 @@ describe.each(realSceneKeys('route'))('%s 的题签', (key) => {
   });
 
   describe.each(WITH_NOTICE)('上面多一行说明的画面 $name', (pane) => {
-    it.each(NAMES)('%s：每一节的题签一条也不少（最长的引线打印出来，不设上限）', (names) => {
+    // “再给小像留出地方”的四种只查人物有行迹的沙盘（见上面 hasItinerary）：没有行迹的不查，记下来，后面那一条测试对着文件夹查这张账
+    const notAsked = WITH_HEAD.some((head) => head.name === pane.name) && !hasItinerary(key);
+    if (notAsked) HEAD_NOT_ASKED.set(key, [...(HEAD_NOT_ASKED.get(key) ?? []), pane.name]);
+    it.skipIf(notAsked).each(NAMES)('%s：每一节的题签一条也不少（最长的引线打印出来，不设上限）', (names) => {
       const R = realRouteScene(key);
       const problems: string[] = [];
       const lines: string[] = [];
       for (const section of R.scene.sections) {
         const { input, text } = arranged(R, section, pane, names);
         const result = placeLabels(R, input);
-        for (const p of result) if (p.hidden) problems.push(`${section.heading}：“${text(p.id)}”${p.why === 'room' ? '摆不下' : '指的那一点不在画面里'}`);
+        for (const p of result) if (p.hidden) problems.push(`${section.heading}：“${text(p.id)}”${hiddenWhy(p)}`);
         const worst = result.reduce((best, p) => (leaderPx(p) > leaderPx(best) ? p : best), result[0]);
         lines.push(`${section.heading} ${leaderPx(worst).toFixed(0)}（${text(worst.id)}）`);
       }
       console.log(`${key} ${pane.name} ${names === 'ancient' ? '当时的名字' : '今天的名字'}：各节最长的引线 ${lines.join('，')}`);
       expect(problems).toEqual([]);
     });
+  });
+});
+
+describe('“再给小像留出地方”的四种画面只查人物有行迹的全程沙盘', () => {
+  it('没有查这四种的全程沙盘，正好是 content/ 里人物的文件夹里没有 itinerary.json 的那几座，四种都没查；别的每一座四种都查（照文件夹读，不是一张写死的单子；打印出来）', () => {
+    const keys = realSceneKeys('route');
+    expect(keys.length, 'content/ 里要有全程沙盘').toBeGreaterThan(0);
+    // 照文件夹另数一遍：content/figures/ 里每一位人物的文件夹（index.json 不是文件夹），里面有没有 itinerary.json
+    const folders = namesIn('content/figures').filter((name) => !name.includes('.'));
+    const without = folders.filter((figure) => !namesIn(`content/figures/${figure}`).includes('itinerary.json'));
+    for (const key of keys) expect(folders, key).toContain(key.split('/')[0]);
+    // 收集测试的时候真的没查的那几座（上面“上面多一行说明的画面”那一组记的账）
+    expect([...HEAD_NOT_ASKED.keys()].sort()).toEqual(keys.filter((key) => without.includes(key.split('/')[0])));
+    // 不查的只有“再给小像留出地方”的四种，一查不查就是四种一起；“上面多一行说明”的八种哪一座都查
+    expect(WITH_HEAD).toHaveLength(ROUTE_PANES.length);
+    for (const [key, panes] of HEAD_NOT_ASKED) expect(panes, key).toEqual(WITH_HEAD.map((pane) => pane.name));
+    for (const pane of WITH_HEAD) expect(pane.name).toMatch(/再给小像留出地方$/);
+    const lines = keys.map((key) => {
+      const figure = key.split('/')[0];
+      return HEAD_NOT_ASKED.has(key)
+        ? `${key}：content/figures/${figure}/ 里没有 itinerary.json，这位人物没有行迹、沙盘上没有小像，“再给小像留出地方”的栏没有东西要让：这 ${WITH_HEAD.length} 种画面不查（${WITH_HEAD.map((pane) => pane.name.split('，')[0]).join('、')}，都带时间轴）——页面今天还照样留着那 36 像素，他的人物页上有这样的栏，没有查；他的行迹进来以后自己就查`
+        : `${key}：这位人物有行迹，“再给小像留出地方”的 ${WITH_HEAD.length} 种画面都查`;
+    });
+    console.log(lines.join('\n'));
+    expect(lines).toHaveLength(keys.length);
   });
 });
 
@@ -451,8 +548,10 @@ describe.each(realSceneKeys('route'))('%s 在首页上', (key) => {
       for (const section of R.scene.sections) {
         const { input, text } = arranged(R, section, pane, names);
         expect(input.strips.map((s) => s.id), section.heading).toEqual(section.strips);
+        // 平着的纸条的沙盘：地面的四个角交到了摆法手里（这些栏上四个角都在镜头前面），“不出地面的边”才真的查了
+        if (labelKind(R.scene.style) === 'slip') expect(input.ground, `${section.heading}：地面的四个角`).toHaveLength(4);
         const result = placeLabels(R, input);
-        for (const p of result) if (p.hidden) problems.push(`${section.heading}：“${text(p.id)}”${p.why === 'room' ? '摆不下' : '指的那一点不在画面里'}`);
+        for (const p of result) if (p.hidden) problems.push(`${section.heading}：“${text(p.id)}”${hiddenWhy(p)}`);
         for (const fault of faults(input, result, pane, text)) problems.push(`${section.heading}：${fault}`);
         for (const p of result) if (!p.hidden && leaderPx(p) > ROUTE_LEADER_MAX_PX) problems.push(`${section.heading}：“${text(p.id)}”的引线 ${leaderPx(p).toFixed(0)} 像素`);
         const worst = result.reduce((best, p) => (leaderPx(p) > leaderPx(best) ? p : best), result[0]);
@@ -508,7 +607,7 @@ describe.each(realSceneKeys('route'))('%s：“全程”那一节的站名', (ke
       // 有带着印的站名（这一座是几站，写着名字的那一组查；每一站都有印，在“站号的印”那一组查）
       expect(sealed.size, '头一节里要有带着印的站名').toBeGreaterThan(0);
       const problems: string[] = [];
-      for (const p of result) if (p.hidden) problems.push(`“${text(p.id)}”${p.why === 'room' ? '摆不下' : '指的那一点不在画面里'}`);
+      for (const p of result) if (p.hidden) problems.push(`“${text(p.id)}”${hiddenWhy(p)}`);
       problems.push(...faults(input, result, pane, text));
       for (const p of result) if (!p.hidden && leaderPx(p) > ROUTE_LEADER_MAX_PX) problems.push(`“${text(p.id)}”的引线 ${leaderPx(p).toFixed(0)} 像素`);
       problems.push(...wrongSides(input, result, sealed, text, SAME_ROW_PX[labelKind(R.scene.style)]));
@@ -670,11 +769,20 @@ describe.each(realSceneKeys('route'))('%s 的站号的印', (key) => {
     const sized = routeSectionStrips(R.scene, first, 940);
     const sealed = texts.filter((t) => t.stops);
     expect(sealed.length).toBeGreaterThan(0);
+    // 题签多大照这座沙盘的题签是哪一种算（./support/stripSizes.ts 的 labelSize）：竖着的纸条，站号是脚上的印，一方印高出一截——
+    // 就是这一条的名字说的；平着的纸条，站号是名字前头的圆，一个圆宽出一截，高不变
+    const kind = labelKind(R.scene.style);
     texts.forEach((t, i) => {
       const seals = t.stops?.length ?? 0;
-      expect(sized[i], t.text).toMatchObject({ id: t.id, ...stripSize(t.text, 'wide', seals) });
-      // 带印的比不带印的高
-      if (seals > 0) expect(sized[i].h, t.text).toBeGreaterThan(stripSize(t.text, 'wide').h);
+      const area = kind === 'slip' && isAreaName(R.scene, t.id);
+      expect(sized[i], t.text).toMatchObject({ id: t.id, ...labelSize(kind, t.text, 'wide', seals, area) });
+      const bare = labelSize(kind, t.text, 'wide', 0, area);
+      // 带印的比不带印的高（竖着的纸条）；带着圆的比不带的宽、一样高（平着的纸条）
+      if (seals > 0 && kind === 'strip') expect(sized[i].h, t.text).toBeGreaterThan(bare.h);
+      if (seals > 0 && kind === 'slip') {
+        expect(sized[i].w, t.text).toBeGreaterThan(bare.w);
+        expect(sized[i].h, t.text).toBe(bare.h);
+      }
     });
     // 头一节里每一站都有印，没有别的站（一站可以盖在两个地名上）
     const stops = R.scene.sections.flatMap((section) => (section.stop ? [section.stop] : []));

@@ -357,6 +357,12 @@ describe('沙盘程序和拍照工具的记号（programKey）', () => {
       expect(programPart(path), path).toEqual({ part: 'style', style: 'song-qinglv' });
       expect(fileExists(path), `${path} 这个文件不在了`).toBe(true);
     }
+    // 彩绘地形模型自己的两个文件：每一座沙盘都用的那一半（它只有这一半），匣子
+    for (const name of ['painted-relief-route.ts', 'stand.ts']) {
+      const path = `src/stage/three/style/painted-relief/${name}`;
+      expect(programPart(path), path).toEqual({ part: 'style', style: 'painted-relief' });
+      expect(fileExists(path), `${path} 这个文件不在了`).toBe(true);
+    }
     for (const family of ['rock', 'plants', 'works']) expect(programPart(`src/stage/three/families/${family}.ts`), family).toEqual({ part: 'family', family });
     for (const path of ['src/stage/ground/route.ts', 'src/stage/roadLines.ts', 'src/stage/three/routeKit.ts', 'src/stage/three/routeLevel.ts']) expect(programPart(path), path).toEqual({ part: 'route' });
     // 几张单子，一个字不差
@@ -366,8 +372,9 @@ describe('沙盘程序和拍照工具的记号（programKey）', () => {
     expect(LEFT_OUT_FILES).toEqual(['src/stage/three/piece.ts', 'src/domain/sceneContent.ts']);
     expect(STYLE_FOLDER).toBe('src/stage/three/style/');
     expect(STYLE_SHARED_FILES).toEqual(['src/stage/three/style/index.ts']);
-    // 他的样式的文件搬进了以它的名字命名的文件夹：这一行是空的，行留着（有这一行，那个文件夹才算一种认得的样式）
-    expect(STYLE_FILES).toEqual({ 'song-qinglv': [] });
+    // 一种样式的文件都在以它的名字命名的文件夹里：每一行都是空的，行留着（有这一行，那个文件夹才算一种认得的样式）。
+    // 登记表里有几种样式，这里就有几行
+    expect(STYLE_FILES).toEqual({ 'song-qinglv': [], 'painted-relief': [] });
     expect(FAMILY_FOLDER).toBe('src/stage/three/families/');
   });
 

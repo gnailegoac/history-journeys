@@ -55,9 +55,23 @@ const NO_EXCEPTIONS: AlongExceptions = { townOffRiver: {}, straightOnCanal: [] }
 /**
  * 船走在水上的沙盘（场景的 roads.boats 写 on），一座一份：沿河的水路离画出来的那条河最多多少公里，两头让出多少公里
  *（./support/routeFacts.ts 的 boatsOnWater 照它量）。数是照那一座沙盘的线量过定的，跟着它的场景文件一起进来；
- * content/ 里现在没有这样的沙盘，表是空的。编出来的那一座的两个数在 tests/stage/made-up-route.test.ts 里。
+ * 编出来的那一座的两个数在 tests/stage/made-up-route.test.ts 里。
  */
-const BOAT_LIMITS: Record<string, BoatLimits> = {};
+const BOAT_LIMITS: Record<string, BoatLimits> = {
+  // 歌德的那一座：两个数都是 1.5 公里，照它的画法画出来的河量过（沿河的水路离河最远的一点 1.47 公里）。
+  // 量的是什么：一条水路每隔 2 公里以内取一个点（路上写着的点都取），两头各 1.5 公里以内的不查，其余的取样点要离河不到 1.5 公里、
+  // 或者在湖的圈里面。两个取样点之间的那一小截没有量：这一座有四条走湖的水路，各有一小截（最长 0.8 公里）在取样点之间擦出了
+  // 抽稀过的湖岸，其中三条是在靠岸的地方（离两头 1.5 公里以外一点）。线是照水面摆的示意，不是他记下的航线；1.5 公里这个数没有为它们放宽。
+  'goethe/route': { riverKm: 1.5, landingKm: 1.5 },
+};
+/**
+ * 短得两头一让就一个点也不剩的水路，一座一份，写着名字和它有多少公里（一位小数）：这样的路一个点也没有量，
+ * 所以要一条一条认过才算数。量出来没有量的水路和这张单子得一模一样——单子上没有的不认，单子上多出来的也不留。
+ */
+const BOAT_UNMEASURED: Record<string, Record<string, number>> = {
+  // 从埃伦布赖特施泰因山谷过莱茵河到科布伦茨的渡船：全长 1.5 公里
+  'goethe/route': { 'w-thalehrenbreitstein-koblenz-boat': 1.5 },
+};
 
 const texts = import.meta.glob<string>('/content/figures/*/scenes/*.geojson', { query: '?raw', import: 'default', eager: true });
 
@@ -205,6 +219,14 @@ describe.each(realSceneKeys('route'))('%s 的路', (key) => {
       console.log(
         `${key} 的船走在水上（离河不超过 ${limits.riverKm} 公里，两头 ${limits.landingKm} 公里以内不查）：\n${lines.join('\n')}\n  没有写走的是哪条水的水路（另数，不查）：${nameless.join('、') || '没有'}\n  两头一让就一个点也不剩的水路（另数，没有量）：${unmeasured.join('、') || '没有'}\n  不合的：${off.join('；') || '没有'}`,
       );
+      // 没有量的水路得是认过的那几条，长短也对得上（另一条短路混进来、认过的路改长了，都在这里停下）
+      const known = BOAT_UNMEASURED[key] ?? {};
+      expect([...unmeasured].sort(), `${key} 没有量的水路和 BOAT_UNMEASURED 里认过的不一样`).toEqual(Object.keys(known).sort());
+      for (const [id, km] of Object.entries(known)) {
+        const way = R.scene.roads.ways.find((item) => item.id === id);
+        const points = way ? along(R.scene, R.coords, way.line) : [];
+        expect(points.length > 0 ? Number(points[points.length - 1].km.toFixed(1)) : NaN, `${id} 有多少公里`).toBe(km);
+      }
       expect(off).toEqual([]);
       return;
     }

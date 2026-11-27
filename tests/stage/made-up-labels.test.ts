@@ -1,6 +1,6 @@
 // 另一种题签（平着的纸条）在那一座编出来的全程沙盘上（./support/madeUpRoute.ts，样式是 ./support/madeUpStyle.ts 的 'made-up-lines'）。
 // content/ 里没有一座沙盘用这一种：每一条新路都先在这里跑一遍。在 Node 里跑，不要浏览器。
-//   题签是哪一种，从样式那一行来：编出来的那一行写了 slip；登记表里的每一行、表里没有的名字，都是 strip；没有谁认样式的名字；
+//   题签是哪一种，从样式那一行来：编出来的那一行写了 slip；登记表里的每一行是它自己写的那一种（没有写的是 strip），表里没有的名字是 strip；没有谁认样式的名字；
 //   取那一小块程序的地方（src/stage/index.ts 的 labelsFor）：竖着的纸条的沙盘不取，平着的纸条的沙盘取；取不到就拒绝，再叫一次再取一次；
 //     ——这是在 Node 里查取的那一处，不是在浏览器里看请求：编出来的样式不在登记表里，页面上摆不出一座写着它的沙盘；
 //   摆法（placeSlips）：先右后左，离那一点 14 像素；没有点的名字正中摆在写的地方，摆不下绕着找，再摆不下不摆、缘故是 area，
@@ -105,25 +105,36 @@ function slipInsideBy(p: StripPlacement, s: { w: number; h: number }, ground: { 
 }
 
 describe('题签是哪一种，从样式那一行来', () => {
-  it('编出来的那一行写了 slip；登记表里的每一行都没有写，是 strip；表里没有的名字、没有给名字，也是 strip', () => {
+  // 2026-11-27 以前这一条的名字是“编出来的那一行写了 slip；登记表里的每一行都没有写，是 strip；表里没有的名字、没有给名字，也是 strip”：
+  // 那时候登记表里只有宋代青绿设色一行。登记表里有了写 slip 的一行（彩绘地形模型）以后，查的是“每一行是它自己写的那一种”，
+  // 原来那一行（什么也没有添）和 content/ 里原来的四座沙盘照旧是 strip。
+  it('编出来的那一行写了 slip；登记表里的每一行是它自己写的那一种，没有写的是 strip（宋代青绿设色没有写，彩绘地形模型写了 slip）；表里没有的名字、没有给名字，也是 strip；content/ 里的每一座沙盘是它的样式那一行说的那一种', () => {
     expect(LABELS).toBe('slip');
     expect(MADE_UP_STYLES.map((row) => row.labels)).toEqual(['slip']);
-    // 登记表里：一行也没有写 labels（苏轼的那一行什么也没有添）
-    expect(STYLES.map((row) => 'labels' in row)).toEqual(STYLES.map(() => false));
-    for (const row of STYLES) expect(labelKind(row.id), row.id).toBe('strip');
+    // 登记表里：写了 labels 的一行是它写的那一种，没有写的是 strip
+    for (const row of STYLES) expect(labelKind(row.id), row.id).toBe(row.labels ?? 'strip');
+    // 现在的两行：宋代青绿设色什么也没有添（没有 labels 这个字段），彩绘地形模型写了 slip
+    expect(STYLES.map((row) => [row.id, 'labels' in row ? row.labels : '没有写'])).toEqual([
+      ['song-qinglv', '没有写'],
+      ['painted-relief', 'slip'],
+    ]);
     // 编出来的名字不在登记表里：照登记表查它是 strip（读者的构建里没有这一行）
     expect(labelKind(MADE_UP_STYLE_ID)).toBe('strip');
     expect(labelKind('没有这种样式', MADE_UP_STYLES)).toBe('strip');
     expect(labelKind(undefined, MADE_UP_STYLES)).toBe('strip');
-    // content/ 里的每一座沙盘：竖着的纸条。只读场景文件里写的样式，不造地面（造四座要四秒多）
+    // content/ 里的每一座沙盘：它的样式那一行说的那一种——苏轼的四座是竖着的纸条，歌德的全程沙盘是平着的纸条。
+    // 只读场景文件里写的样式，不造地面（造一座要一秒多）
     const keys = [...realSceneKeys(), ...realSceneKeys('route')];
     expect(keys.length).toBeGreaterThanOrEqual(4);
+    const kinds: Record<string, string> = {};
     for (const key of keys) {
       const [figureId, name] = key.split('/');
       const written = JSON.parse(new TextDecoder().decode(readBytes(`content/figures/${figureId}/scenes/${name}.json`))) as { style?: string };
       expect(typeof written.style, key).toBe('string');
-      expect(labelKind(written.style), key).toBe('strip');
+      expect(labelKind(written.style), key).toBe(STYLES.find((row) => row.id === written.style)?.labels ?? 'strip');
+      kinds[key] = labelKind(written.style);
     }
+    expect(kinds).toEqual({ 'su-shi/huangzhou': 'strip', 'su-shi/meishan': 'strip', 'su-shi/xuzhou': 'strip', 'su-shi/route': 'strip', 'goethe/route': 'slip' });
   });
 
   it('认的是那一行上写的，不是样式的名字：同一个名字的一行，写了就是 slip，不写就是 strip', () => {
@@ -164,21 +175,32 @@ describe('“这个名字没有点”：场景里地名点的 area', () => {
     expect(specs.filter((spec) => spec.area).map((spec) => spec.text)).toEqual(['海', '西岭']);
   });
 
-  it('content/ 里的每一座沙盘：没有一个地名点写 area，页面拼的题签里没有一条带着它；题签层拿到的那一份里只有指着海的那一条（竖着的纸条不看）', { timeout: 60_000 }, () => {
+  // 2026-11-27 以前这一条的名字是“content/ 里的每一座沙盘：没有一个地名点写 area，页面拼的题签里没有一条带着它；题签层拿到的那一份里只有指着海的那一条
+  // （竖着的纸条不看）”：那时候 content/ 里没有一个地名点写 area。有了写它的一座（歌德的全程沙盘，十三个）以后，查的是“带着它的正好是写了它的那几条”；
+  // 站点沙盘和苏轼的全程沙盘照旧一条也不带。
+  it('content/ 里的每一座沙盘：站点沙盘的题签没有一条带着 area；全程沙盘上，页面拼的题签里带着它的正好是地名点写了 area 的那几条，题签层拿到的那一份里另有指着海的那一条——苏轼的那一座没有一个地名点写 area，歌德的那一座写了十三个', { timeout: 60_000 }, () => {
     for (const key of realSceneKeys()) {
       const { scene, headings } = realScene(key);
       for (const heading of headings) for (const names of NAMES) expect(stripTexts(scene, heading, names).some((t) => 'area' in t), `${key} ${heading}`).toBe(false);
       for (const heading of headings) expect(sectionStripSpecs(scene, heading, stripTexts(scene, heading, 'ancient')).some((spec) => 'area' in spec), `${key} ${heading}`).toBe(false);
     }
+    const written: Record<string, number> = {};
     for (const key of realSceneKeys('route')) {
       const { scene, headings } = realRouteScene(key);
-      expect(scene.places.some((place) => 'area' in place), key).toBe(false);
+      const areas = new Set(scene.places.filter((place) => place.area).map((place) => place.id));
+      written[key] = areas.size;
+      const of = (id: string): string => scene.strips.find((s) => s.id === id)?.of ?? '';
       for (const heading of headings) {
-        for (const names of NAMES) expect(stripTexts(scene, heading, names).some((t) => 'area' in t), `${key} ${heading}`).toBe(false);
+        for (const names of NAMES) {
+          const texts = stripTexts(scene, heading, names);
+          expect(texts.filter((t) => 'area' in t).map((t) => t.id), `${key} ${heading}`).toEqual(texts.filter((t) => areas.has(of(t.id))).map((t) => t.id));
+          for (const t of texts) if ('area' in t) expect(t.area, `${key} ${heading} ${t.id}`).toBe(true);
+        }
         const specs = sectionStripSpecs(scene, heading, stripTexts(scene, heading, 'ancient'));
-        expect(specs.filter((spec) => spec.area).map((spec) => scene.strips.find((s) => s.id === spec.id)?.of), `${key} ${heading}`).toEqual(specs.some((spec) => scene.strips.find((s) => s.id === spec.id)?.of === 'coast') ? ['coast'] : []);
+        expect(specs.filter((spec) => spec.area).map((spec) => of(spec.id)), `${key} ${heading}`).toEqual(specs.map((spec) => of(spec.id)).filter((id) => id === 'coast' || areas.has(id)));
       }
     }
+    expect(written).toEqual({ 'su-shi/route': 0, 'goethe/route': 13 });
   });
 
   it('规则 13：这一座（西岭写了 area）通得过；area 写成 false 通不过，说只能写 true；写了 area 又写 stops 通不过，说两样只能写一样；写成别的东西格式就通不过', () => {
@@ -220,14 +242,22 @@ const loader = (fail = 0): { load: () => Promise<{ slipKit: LabelKitMaker }>; ca
 };
 
 describe('取平着的纸条那一小块程序的地方（src/stage/index.ts 的 labelsFor）', () => {
-  it('竖着的纸条的沙盘不取：登记表里的每一种样式、表里没有的样式，交回的都是 undefined，取法一次也没有叫', () => {
+  // 2026-11-27 以前这一条的名字是“竖着的纸条的沙盘不取：登记表里的每一种样式、表里没有的样式，交回的都是 undefined，取法一次也没有叫”：
+  // 那时候登记表里的每一行都是竖着的纸条。现在照那一行写的分：没有写 slip 的不取（宋代青绿设色照旧），写了 slip 的取。
+  it('竖着的纸条的沙盘不取：登记表里没有写 slip 的每一种样式、表里没有的样式，交回的都是 undefined，取法一次也没有叫；登记表里写了 slip 的样式取，一种叫一次', async () => {
     const fake = loader();
-    for (const row of STYLES) expect(labelsFor(row.id, STYLES, fake.load), row.id).toBeUndefined();
+    const strips = STYLES.filter((row) => (row.labels ?? 'strip') === 'strip');
+    expect(strips.map((row) => row.id)).toContain('song-qinglv');
+    for (const row of strips) expect(labelsFor(row.id, STYLES, fake.load), row.id).toBeUndefined();
     expect(labelsFor('没有这种样式', MADE_UP_STYLES, fake.load)).toBeUndefined();
     expect(labelsFor(undefined, MADE_UP_STYLES, fake.load)).toBeUndefined();
     // 编出来的样式照读者的登记表查：表里没有它，不取
     expect(labelsFor(MADE_UP_STYLE_ID, STYLES, fake.load)).toBeUndefined();
     expect(fake.calls()).toBe(0);
+    // 登记表里写了 slip 的每一种样式：取，交回来的是那一小块里造一层题签的那个函数
+    const slips = STYLES.filter((row) => row.labels === 'slip');
+    for (const row of slips) expect(await labelsFor(row.id, STYLES, fake.load), row.id).toBe(slipKit);
+    expect(fake.calls()).toBe(slips.length);
   });
 
   it('平着的纸条的沙盘取：交回的是那一小块程序里造一层题签用的那一个函数，取法叫了一次', async () => {
@@ -725,13 +755,25 @@ describe('题签层照平着的纸条造、照它摆（编出来的那一座沙�
     const cases: [string, typeof loadStageEngine, StageEngine][] = [['立体的沙盘', loadStageEngine, engine]];
     for (const [what, load, own] of cases) {
       const fake = loader();
-      // 竖着的纸条的沙盘（登记表里的每一种样式、没有写样式、表里没有的样式）：就是沙盘程序自己，那一小块一次也没有取
-      for (const row of STYLES) expect(await load(row.id, STYLES, fake.load), `${what} ${row.id}`).toBe(own);
+      // 竖着的纸条的沙盘（登记表里没有写 slip 的每一种样式、没有写样式、表里没有的样式）：就是沙盘程序自己，那一小块一次也没有取。
+      // 2026-11-27 以前这里走的是登记表里的每一行：那时候每一行都是竖着的纸条
+      const strips = STYLES.filter((row) => (row.labels ?? 'strip') === 'strip');
+      expect(strips.map((row) => row.id)).toContain('song-qinglv');
+      for (const row of strips) expect(await load(row.id, STYLES, fake.load), `${what} ${row.id}`).toBe(own);
       expect(await load(undefined, MADE_UP_STYLES, fake.load), what).toBe(own);
       expect(await load(MADE_UP_STYLE_ID, STYLES, fake.load), what).toBe(own);
       expect(fake.calls(), what).toBe(0);
       // 不交表、不交取法：照登记表查，苏轼的样式还是它自己
       expect(await load(STYLES[0].id), what).toBe(own);
+      // 登记表里写了 slip 的每一种样式：取一次，交出来的不是沙盘程序自己（只有 create 换了）
+      const slips = STYLES.filter((row) => row.labels === 'slip');
+      const registered = loader();
+      for (const row of slips) {
+        const wrapped = await load(row.id, STYLES, registered.load);
+        expect(wrapped, `${what} ${row.id}`).not.toBe(own);
+        expect({ ...wrapped, create: own.create }, `${what} ${row.id}`).toEqual({ ...own });
+      }
+      expect(registered.calls(), what).toBe(slips.length);
 
       // 平着的纸条的沙盘：取了一次；交出来的不是沙盘程序自己，只有 create 换了
       const got = await load(MADE_UP_STYLE_ID, MADE_UP_STYLES, fake.load);
@@ -779,13 +821,25 @@ describe('题签层照平着的纸条造、照它摆（编出来的那一座沙�
     const what = '定格图的沙盘';
     const own = stillEngine;
     const fake = loader();
-    // 竖着的纸条的沙盘（登记表里的每一种样式、没有写样式、表里没有的样式）：就是定格图的沙盘自己，那一小块一次也没有取
-    for (const row of STYLES) expect(await loadStillEngine(row.id, STYLES, fake.load), `${what} ${row.id}`).toBe(own);
+    // 竖着的纸条的沙盘（登记表里没有写 slip 的每一种样式、没有写样式、表里没有的样式）：就是定格图的沙盘自己，那一小块一次也没有取。
+    // 2026-11-27 以前这里走的是登记表里的每一行：那时候每一行都是竖着的纸条
+    const strips = STYLES.filter((row) => (row.labels ?? 'strip') === 'strip');
+    expect(strips.map((row) => row.id)).toContain('song-qinglv');
+    for (const row of strips) expect(await loadStillEngine(row.id, STYLES, fake.load), `${what} ${row.id}`).toBe(own);
     expect(await loadStillEngine(undefined, MADE_UP_STYLES, fake.load), what).toBe(own);
     expect(await loadStillEngine(MADE_UP_STYLE_ID, STYLES, fake.load), what).toBe(own);
     expect(fake.calls(), what).toBe(0);
     // 不交表、不交取法：照登记表查，苏轼的样式还是它自己
     expect(await loadStillEngine(STYLES[0].id), what).toBe(own);
+    // 登记表里写了 slip 的每一种样式：取一次，交出来的不是定格图的沙盘自己（只有 create 换了）
+    const slips = STYLES.filter((row) => row.labels === 'slip');
+    const registered = loader();
+    for (const row of slips) {
+      const wrapped = await loadStillEngine(row.id, STYLES, registered.load);
+      expect(wrapped, `${what} ${row.id}`).not.toBe(own);
+      expect({ ...wrapped, create: own.create }, `${what} ${row.id}`).toEqual({ ...own });
+    }
+    expect(registered.calls(), what).toBe(slips.length);
 
     // 平着的纸条的沙盘，那一小块压着不给：取的那一处照样马上交出来（不等它）；取了一次；交出来的不是定格图的沙盘自己，只有 create 换了
     let release: (got: { slipKit: LabelKitMaker }) => void = () => {};

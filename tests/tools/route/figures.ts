@@ -79,6 +79,16 @@ export const ROUTE_TOOL_FIGURES: Record<string, RouteToolFigure> = {
     shrunkLakes: [{ name: 'Gaoyou Hu', factor: 0.6 }],
     banks: SU_SHI_BANKS,
   },
+  goethe: {
+    // 高程是圆锥投影上每格 2.5 公里的格子；岸线、湖、河是 Natural Earth 1:10m 连同它的欧洲补充裁出来的，另有手工补的几条河、几个湖的岸
+    source: { folder: 'spikes/art-direction/route-goethe/data/', dem: 'dem.json', demBytes: 'dem.bin', water: 'water.json' },
+    // 源数据的陆地已经裁到的那一个方框
+    todayBox: { west: 1.9, east: 22.8, south: 35.5, north: 54.1 },
+    // 源数据里没有缩小过的湖
+    shrunkLakes: [],
+    // 他的沙盘上船走的线画在水上（roads.boats 是 on），没有贴着河岸走的路
+    banks: {},
+  },
 };
 
 /** 这位人物的场景文件所在的文件夹（相对项目的根目录，以“/”结尾）。做出来的文件平常也放在这里。 */

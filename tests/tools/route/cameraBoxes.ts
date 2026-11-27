@@ -4,10 +4,26 @@
 // 方框是度：西、东、南、北四条边。工具把它一圈的点落在真的地面上，在定稿样张的画面上居中、装下（./cameraTool.ts 的 cameraForBox）。
 // alsoPitches 是除了判过的 46 度以外还要算的倾角：算出来的每一种摆法都印出来，挑哪一种是看过图以后人定的。
 //
-// 现在表是空的：苏轼的全程沙盘的镜头是照定稿的样张定的，没有用方框；工具对他只量场景里写的镜头。
+// 苏轼没有一行：他的全程沙盘的镜头是照定稿的样张定的，没有用方框；工具对他只量场景里写的镜头。
 // 照方框算镜头的那一半，测试用编出来的那座全程沙盘和一个编出来的方框走（tests/tools/route-tools.test.ts“镜头”那一组）。
 
 import type { BoxPlan } from './cameraTool';
 
 /** 那张表：人物的文件夹名 → 小节的标题 → 方框。 */
-export const ROUTE_CAMERA_BOXES: Record<string, Record<string, BoxPlan>> = {};
+export const ROUTE_CAMERA_BOXES: Record<string, Record<string, BoxPlan>> = {
+  goethe: {
+    // 各节的方框取自他的路线记录（每一站那几年走到的地方，四边各放出一截）。场景里写的镜头是照这些方框算出来、看过图以后定的：
+    // 八节里，法兰克福、那不勒斯两节就是方框居中、倾角 46 的那一种；斯特拉斯堡、卡尔斯巴德是那一种退到 8,000 米；魏玛（上）、罗马、瓦尔密、
+    // 魏玛（下）四节把镜头对着的那一点往南或者往北挪了，其中三节也换了倾角（见 docs/research/goethe-route-table.md“镜头”）。
+    法兰克福: { box: { west: 6.17, east: 12.99, south: 46.15, north: 51.74 } },
+    斯特拉斯堡: { box: { west: 6.37, east: 9.3, south: 48.18, north: 50.52 } },
+    // 南边取到北纬 49.0 度：海德堡（那条虚线的路从它起）要在方框里。倾角 24 是方框居中时不看出北边的一种摆法。
+    '魏玛（上）': { box: { west: 8, east: 14, south: 49, north: 52.95 }, alsoPitches: [24] },
+    卡尔斯巴德: { box: { west: 10.69, east: 13.51, south: 49.67, north: 51.38 } },
+    // 方框南北一千多公里：另算一个斜一些的（56 度），看沙盘栏的两边少看出去多少。
+    罗马: { box: { west: 10.3, east: 14.83, south: 40.43, north: 50.64 }, alsoPitches: [56] },
+    那不勒斯: { box: { west: 11.96, east: 16.08, south: 36.91, north: 42.29 } },
+    瓦尔密: { box: { west: 4.04, east: 11.96, south: 48.68, north: 51.38 } },
+    '魏玛（下）': { box: { west: 6.2, east: 17.8, south: 48.9, north: 52.6 }, alsoPitches: [34] },
+  },
+};

@@ -65,7 +65,7 @@ export function stripSize(text: string, kind: StripSizeKind, seals = 0): { w: nu
 //     （17 像素：18.02 × 字数 + 16.96；14 像素：14.84 × 字数 + 14.32）；
 //   没有点的名字：字距 0.22em，右垫 0.3em → 宽 f × 1.22 × 字数 + f × 0.76 + 2（17 像素：20.74 × 字数 + 14.92；14 像素：17.08 × 字数 + 12.64）；
 //   一个圆：宽的栏 19 像素、窄的栏 16 像素，右边空 2 → 加 21、18；两个圆之间再空 1。
-// 这些数还没有在浏览器里对着真的纸条量过（content/ 里没有一座沙盘用这一种）：用它的人物进来的时候，浏览器测试里添量它的一项。
+// 歌德的全程沙盘用的是这一种。浏览器测试里还没有打开他的页面的一项：添那一项的时候，对着真的纸条量一遍这些数。
 
 /** 平着的纸条两种大小各自的数：字号；名字那一块的宽 = base + perChar × 字数（没有点的名字是 areaBase、areaPerChar）；高；一个圆占多宽；两个圆之间多空多少。 */
 export const SLIP_SIZE: Record<StripSizeKind, { font: number; h: number; base: number; perChar: number; areaBase: number; areaPerChar: number; disc: number; between: number }> = {
@@ -89,7 +89,7 @@ export function labelSize(labels: LabelKind, text: string, kind: StripSizeKind, 
 /**
  * 一小节要摆的题签，照这么宽的沙盘栏算好大小：就是题签层自己量出来、交给 placeStrips 的那一份
  * （先后就是要紧的先后；side、lean 是场景里写的愿望）。names 不写就用当时的名字。
- * labels 是这座沙盘的题签是哪一种：不写照它的样式从登记表查（content/ 里的沙盘现在都是竖着的纸条，算出来的和原来一个数不差）。
+ * labels 是这座沙盘的题签是哪一种：不写照它的样式从登记表查（content/ 里的站点沙盘现在都是竖着的纸条，算出来的和原来一个数不差）。
  */
 export function sectionStrips(scene: StopScene, heading: string, paneWidth: number, names: NamesMode = 'ancient', labels: LabelKind = labelKind(scene.style)): StripInput['strips'] {
   const kind = stripSizeKind(paneWidth);

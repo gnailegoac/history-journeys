@@ -13,6 +13,7 @@ import type { FrameCoords } from '../../../src/domain/sceneGeo';
 import type { TodayFeature } from '../../content/routeRules';
 import { paintRoute, riverPaths } from './paint';
 import type { RiverPath, RoutePaintInput, RoutePainted } from './paint';
+import { paintRelief, reliefRivers } from './paintRelief';
 
 /** 一种画法：给全程沙盘的地面上色。同样的输入画出同样的字节。 */
 export type RoutePainter = (input: RoutePaintInput) => RoutePainted;
@@ -30,6 +31,8 @@ export interface RoutePainterRow {
 export const ROUTE_PAINTERS: Readonly<Record<string, RoutePainterRow>> = {
   /** 宋代青绿设色。 */
   'song-qinglv': { paint: paintRoute, rivers: riverPaths },
+  /** 彩绘地形模型。 */
+  'painted-relief': { paint: paintRelief, rivers: reliefRivers },
 };
 
 /** 画法的一张表：样式的名字 → 它的那一行。 */

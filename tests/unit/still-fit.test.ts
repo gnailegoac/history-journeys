@@ -1163,7 +1163,7 @@ describe('定格图的沙盘（engine.ts）', () => {
 
 // 立体的沙盘每一帧把地面的四个角投到画面上交给题签层（src/stage/three/rig.ts 的 groundCorners）。定格图那一边没有沙盘程序：
 // 照清单里记的镜头（pose）、这张图照哪种窗口拍的、场景的范围自己算（src/stage/overlay/slips.ts 的 stillGround），再照这张图现在摆在哪换到栏里。
-// 这里拿 content/ 里真的清单（四座沙盘、58 张图）查：每一张图摆进每一种标准的沙盘栏，定格图那一边算出来的四个角，
+// 这里拿 content/ 里真的清单（五座沙盘、76 张图）查：每一张图摆进每一种标准的沙盘栏，定格图那一边算出来的四个角，
 // 和沙盘程序的投法（three 的镜头摆在清单里记的那个位置，用 groundCorners 投，再跟着这张图一起摆进栏里）差多少。上限 2 像素。
 // 比的是“这张图里的地面的四个角”：图是拍好的，摆进别的栏只是挪和缩放，角跟着图走。立体的沙盘在那种栏上自己摆镜头的话，画面本来就和图差一点
 // （题签指着的点差多少在上面第二组里查，上限 12 像素）；四个角同那样的画面差多少只印出来，不设上限。
@@ -1180,10 +1180,15 @@ describe('地面的四个角：定格图那一边照清单算的，和沙盘程�
   /** 一种标准的沙盘栏用宽的那张还是窄的那张（页面说的排法：窗口 960 像素以上宽、而且横着才是宽的）。 */
   const shapeOn = (pane: StandardPane): StillShape => (pane.window.width >= 960 && pane.window.width > pane.window.height ? 'wide' : 'narrow');
 
-  it('content/ 里有清单的沙盘是四座，一共 58 张图（这一组查的就是它们）', () => {
+  // 2026-11-27 以前这一条的名字是“content/ 里有清单的沙盘是四座，一共 58 张图（这一组查的就是它们）”：那时只有苏轼的四座有清单。
+  // 歌德的全程沙盘的定格图拍好以后是五座：苏轼的四座还是那 58 张，另有歌德的一座 18 张。
+  it('content/ 里有清单的沙盘是五座，一共 76 张图：苏轼的四座 58 张，歌德的全程沙盘 18 张（这一组查的就是它们）', () => {
     expect(Object.keys(figureFiles).length).toBeGreaterThan(0);
-    expect(tables.map((t) => t.key).sort()).toEqual(['su-shi/huangzhou', 'su-shi/meishan', 'su-shi/route', 'su-shi/xuzhou']);
-    expect(tables.reduce((sum, t) => sum + t.manifest.stills.length, 0)).toBe(58);
+    expect(tables.map((t) => t.key).sort()).toEqual(['goethe/route', 'su-shi/huangzhou', 'su-shi/meishan', 'su-shi/route', 'su-shi/xuzhou']);
+    const pictures = (figure: string): number => tables.filter((t) => t.key.startsWith(`${figure}/`)).reduce((sum, t) => sum + t.manifest.stills.length, 0);
+    expect(pictures('su-shi')).toBe(58);
+    expect(pictures('goethe')).toBe(18);
+    expect(tables.reduce((sum, t) => sum + t.manifest.stills.length, 0)).toBe(76);
   });
 
   it.each(tables)(`$key：每一张图、每一种标准的沙盘栏，四个角和沙盘程序的投法差不到 ${CORNER_LIMIT_PX} 像素（最多差多少印出来）`, ({ key, manifest }) => {

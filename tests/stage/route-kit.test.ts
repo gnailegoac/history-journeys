@@ -8,8 +8,9 @@
 //   宽度是样式里写的页面像素，减配的一档加粗一点；虚线的一划一空跟着镜头的远近，在页面上总是那么长；
 //   triangles() 报的和显出来的网格数出来的一样（一段线六个三角形）；一个画面里路最多画 14 批；
 //   换了小节才重造，同一节再叫只改虚线的长短；dispose 以后什么也不剩。
-// 分两组：content/ 里有几座全程沙盘，“每一座”那一组就查几座；一座沙盘自己的数（线上抽得到多少个点、头一节里有没有虚线）
-// 在写着它名字的那一组里（现在只有 su-shi/route）。
+// 分两组：content/ 里有几座全程沙盘，“每一座”那一组就查几座；一座沙盘自己的数（线上抽得到多少个点、头一节里有没有虚线，
+// 样式另写了线型、写了粗细跟着画面比例的那一座：几种线型、每一节几批、各多宽）在写着它名字的那一组里（su-shi/route、goethe/route）。
+// “每一座”那一组里有三条照样式分两种查法：样式没有另写线型、没有写粗细跟着比例的，照“一种状态一个宽度、一种虚线”查；写了的照它的线型表查。
 
 import { describe, expect, it } from 'vitest';
 import type { Mesh } from 'three';
@@ -170,7 +171,12 @@ describe.each(realSceneKeys('route'))('%s 的路', (key) => {
         expect(line.renderOrder).toBeGreaterThan(0);
         const kind = kindOf(line);
         orders[kind] = line.renderOrder;
-        expect(m.opacity).toBe(kind === 'halo' ? look.halo.opacity : look.lines[kind].opacity);
+        // 样式写了粗细跟着画面比例的（roads.fit）：全程那一节垫底的浅色线多透是它自己调的，照它自己的数在写着这座沙盘名字的那一组里查；
+        // 别的线、别的小节照旧是样式里写的那个数
+        if (kind === 'halo' && look.fit && heading === R.headings[0]) {
+          expect(m.opacity).toBeGreaterThan(0);
+          expect(m.opacity).toBeLessThanOrEqual(1);
+        } else expect(m.opacity).toBe(kind === 'halo' ? look.halo.opacity : look.lines[kind].opacity);
       }
       // 垫底的在最下面；走过的在刚走的下面
       for (const state of ROAD_STATES) if (orders[state] !== undefined) expect(orders.halo).toBeLessThan(orders[state] as number);
@@ -185,9 +191,12 @@ describe.each(realSceneKeys('route'))('%s 的路', (key) => {
   });
 
   it(`宽度是样式里写的页面像素；减配的一档每一种加粗 ${look.reducedExtraPx} 像素`, () => {
-    // 样式另写了线型（水路细一些）、写了粗细跟着画面比例的，宽度不是这一个数：那样的样式照它自己的数查
-    // （编出来的那一种在 tests/stage/made-up-route.test.ts）。登记表里的样式哪一天写了这两样，这一条要跟着它的数重写，不是跳过去
-    expect(look.patterns ?? look.fit, `${key} 的样式另写了线型或者粗细跟着比例：这一条照“一种状态一个宽度”查不了它`).toBeUndefined();
+    // 两种样式两种查法，照样式自己写没写线型（roads.patterns）、写没写粗细跟着画面比例（roads.fit）分：
+    //   都没写的（一种状态一个宽度）：全程那一节和末一节，每一条线的宽度就是样式里那一种状态的数，垫底的是垫底线的数；
+    //   写了的：看一站的小节里（末一节），每一种状态的线是它的数乘上这一种线型的倍数（线型里的 widthTimes，没写是 1）；
+    //     全程那一节的宽度、垫底线的宽度是样式的 fit 调的，照它自己的数在写着这座沙盘名字的那一组里查。
+    // 哪一种都查：宽度按页面的像素算，不按沙盘里的米；减配的一档加粗。
+    const patterns = look.patterns?.list;
     for (const tier of ['full', 'reduced'] as const) {
       const kit = build(tier);
       const extra = tier === 'reduced' ? look.reducedExtraPx : 0;
@@ -195,18 +204,25 @@ describe.each(realSceneKeys('route'))('%s 的路', (key) => {
         kit.apply(heading, 0, 40_000);
         for (const line of lines(kit)) {
           const kind = kindOf(line);
-          expect(material(line).linewidth).toBeCloseTo((kind === 'halo' ? look.halo.widthPx : look.lines[kind].widthPx) + extra, 9);
-          // 宽度按页面的像素算，不按沙盘里的米
-          expect(material(line).worldUnits).toBe(false);
+          const m = material(line);
+          expect(m.worldUnits).toBe(false);
+          if (!patterns && !look.fit) expect(m.linewidth).toBeCloseTo((kind === 'halo' ? look.halo.widthPx : look.lines[kind].widthPx) + extra, 9);
+          else if (kind !== 'halo' && heading !== R.headings[0]) {
+            // 这一批是第几种线型：照材质上的一划一空认
+            const spec = (patterns ?? [{}, { dashPx: look.dashPx }]).find((item) => (item.dashPx ? m.dashed && m.dashSize === item.dashPx[0] && m.gapSize === item.dashPx[1] : !m.dashed));
+            expect(spec, `${heading} ${kind} 的一批不是样式里哪一种线型`).toBeDefined();
+            expect(m.linewidth, `${heading} ${kind}`).toBeCloseTo(look.lines[kind].widthPx * (spec?.widthTimes ?? 1) + extra, 9);
+          } else expect(m.linewidth).toBeGreaterThan(0);
         }
       }
       kit.dispose();
     }
   });
 
-  it(`虚线：一划 ${look.dashPx[0]} 像素、一空 ${look.dashPx[1]} 像素，镜头远近变了，在页面上还是那么长`, () => {
-    // 样式另写了线型的，虚线不止这一种一划一空：照它自己的表查（见上一条的话）
-    expect(look.patterns, `${key} 的样式另写了线型：这一条照“只有一种虚线”查不了它`).toBeUndefined();
+  it(look.patterns ? '虚线：样式的线型表里写的每一种一划一空，镜头远近变了，在页面上还是那么长' : `虚线：一划 ${look.dashPx[0]} 像素、一空 ${look.dashPx[1]} 像素，镜头远近变了，在页面上还是那么长`, () => {
+    // 样式另写了线型的，虚线不止一种一划一空：每一批虚线是线型表里的一种（垫底的照线型里写的垫底线的一划一空）；
+    // 没另写的只有一种，就是样式里的 dashPx
+    const dashes: readonly (readonly number[])[] = look.patterns ? look.patterns.list.flatMap((spec) => [spec.dashPx, spec.under?.dashPx].filter((dash): dash is [number, number] => dash !== undefined)) : [look.dashPx];
     const kit = build();
     kit.apply(R.headings[0], 0, 62_800);
     const dotted = lines(kit).filter((line) => material(line).dashed);
@@ -221,8 +237,7 @@ describe.each(realSceneKeys('route'))('%s 的路', (key) => {
       const pxPerMetre = 900 / (2 * D * Math.tan((21 * Math.PI) / 360));
       for (const line of dotted) {
         const m = material(line);
-        expect(m.dashSize).toBe(look.dashPx[0]);
-        expect(m.gapSize).toBe(look.dashPx[1]);
+        expect(dashes.some((dash) => m.dashSize === dash[0] && m.gapSize === dash[1]), `一划 ${m.dashSize}、一空 ${m.gapSize} 不是样式里写的哪一种`).toBe(true);
         // 线上的距离（沙盘里的米）乘上 dashScale 就是页面上的像素
         expect(m.dashScale / pxPerMetre).toBeCloseTo(1, 3);
       }
@@ -269,5 +284,130 @@ describe('su-shi/route 的路：苏轼这一座自己的数', () => {
     kit.apply(R.headings[0], 0, 62_800);
     expect(lines(kit).filter((line) => material(line).dashed).length).toBeGreaterThan(0);
     kit.dispose();
+  });
+});
+
+// ---------------------------------------------------------------- 歌德的这一座自己的数
+
+describe('goethe/route 的路：歌德这一座自己的数', () => {
+  const key = 'goethe/route';
+  /** 一个画面里，沙盘里的一米合多少像素 × 远近（和 src/stage/three/routeKit.ts 交给样式的那个数是同一个算法）。 */
+  const focal = equivalentDistance(1, 90, 2);
+
+  it('三种线型：陆路有记载的是实线，陆路记载太少的是虚线（一划 7、一空 5.5），水路和海路是细点线（一划 3.4、一空 3，陆路的 0.68 倍宽）——水路不分虚实；垫底的浅色线跟着虚线断开', () => {
+    const { look } = roadsOf(key);
+    const list = look.patterns?.list ?? [];
+    expect(list).toHaveLength(3);
+    expect(list[0]).toEqual({});
+    expect(list[1].dashPx).toEqual([7, 5.5]);
+    expect(list[1].widthTimes).toBeUndefined();
+    expect(list[2].dashPx).toEqual([3.4, 3]);
+    expect(list[2].widthTimes).toBe(0.68);
+    // 垫底线每一划两头各宽出一点（陆路 1.2 像素，水路 0.6 像素），空着的地方露出地面
+    expect(list[1].under).toEqual({ dashPx: [7 + 2.4, 5.5 - 2.4], offsetPx: 1.2 });
+    expect(list[2].under?.offsetPx).toBeCloseTo(0.6, 12);
+    expect(list[2].under?.dashPx[0]).toBeCloseTo(4.6, 12);
+    expect(list[2].under?.dashPx[1]).toBeCloseTo(1.8, 12);
+    const of = look.patterns?.of;
+    if (!of) throw new Error('样式没有写一笔用哪一种线型');
+    expect([of(false, 'land'), of(true, 'land'), of(false, 'water'), of(true, 'water'), of(false, 'sea'), of(true, 'sea')]).toEqual([0, 1, 2, 2, 2, 2]);
+    expect(look.dashPx).toEqual([7, 5.5]);
+    expect(look.haloUnder).toEqual(['ink', 'now']);
+  });
+
+  it('每一节的路画几批：6、8、6、9、5、7、7、7、9（完整的一档和减配的一档一样）', () => {
+    const { R, build } = roadsOf(key);
+    for (const tier of ['full', 'reduced'] as const) {
+      const kit = build(tier);
+      const calls = R.headings.map((heading) => {
+        kit.apply(heading, 0, 50_000);
+        return drawn(kit.group).calls;
+      });
+      expect(calls, tier).toEqual([6, 8, 6, 9, 5, 7, 7, 7, 9]);
+      kit.dispose();
+    }
+  });
+
+  it('线比地面（海上是海面）抬高 4 米；头一节（全程）的线上抽着查高度的点有两千个以上', () => {
+    expect(roadsOf(key).look.liftM).toBe(4);
+    expect(liftedPointsChecked(key)).toBeGreaterThan(2000);
+  });
+
+  it('看一站的小节，照样式里写的数：墨线 1.8、这一站那几年走的 2.4、早先走过的 1.4 像素（八成透明度），垫底线 4.5 像素、六成二；水路的线是 0.68 倍宽，垫在它下面的那一道窄 1.26 像素；减配的一档各加 0.3', () => {
+    const { R, look, build, kindOf } = roadsOf(key);
+    expect([look.lines.ink.widthPx, look.lines.now.widthPx, look.lines.past.widthPx, look.halo.widthPx]).toEqual([1.8, 2.4, 1.4, 4.5]);
+    expect([look.lines.ink.opacity, look.lines.now.opacity, look.lines.past.opacity, look.halo.opacity]).toEqual([0.92, 1, 0.8, 0.62]);
+    expect(look.reducedExtraPx).toBe(0.3);
+    const list = look.patterns?.list ?? [];
+    for (const tier of ['full', 'reduced'] as const) {
+      const kit = build(tier);
+      const extra = tier === 'reduced' ? 0.3 : 0;
+      let water = 0;
+      for (const heading of R.headings.slice(1)) {
+        kit.apply(heading, 0, 40_000);
+        for (const line of lines(kit)) {
+          const kind = kindOf(line);
+          const m = material(line);
+          const pattern = list.findIndex((spec) => {
+            const dash = kind === 'halo' ? spec.under?.dashPx : spec.dashPx;
+            return dash ? m.dashed && m.dashSize === dash[0] && m.gapSize === dash[1] : !m.dashed;
+          });
+          expect(pattern, `${heading} ${kind}`).toBeGreaterThanOrEqual(0);
+          if (pattern === 2) water += 1;
+          if (kind === 'halo') {
+            expect(m.linewidth, `${heading} 垫底 第 ${pattern} 种`).toBeCloseTo(4.5 + extra - (pattern === 2 ? 1.26 : 0), 9);
+            expect(m.opacity).toBe(0.62);
+          } else {
+            expect(m.linewidth, `${heading} ${kind} 第 ${pattern} 种`).toBeCloseTo(look.lines[kind].widthPx * (pattern === 2 ? 0.68 : 1) + extra, 9);
+            expect(m.opacity).toBe(look.lines[kind].opacity);
+          }
+        }
+      }
+      // 八节里真有水路的线可查
+      expect(water).toBeGreaterThan(0);
+      kit.dispose();
+    }
+  });
+
+  it('全程那一节，线的粗细跟着画面的比例：倍数 = 100 公里合多少像素 ÷ 72.5，夹在 0.6 和 1 之间；垫底线是墨线两边各加 1 像素、四成透明；水路的线不细过 1 像素', () => {
+    const { R, look, build, kindOf } = roadsOf(key);
+    const list = look.patterns?.list ?? [];
+    for (const tier of ['full', 'reduced'] as const) {
+      const kit = build(tier);
+      const extra = tier === 'reduced' ? 0.3 : 0;
+      const factors: number[] = [];
+      for (const D of [15_000, 30_000, 70_000]) {
+        kit.apply(R.headings[0], 0, D);
+        const pxPer100Km = ((focal / D) * 1e5) / R.scene.frame.scale;
+        const factor = Math.min(1, Math.max(0.6, pxPer100Km / 72.5));
+        factors.push(Number(factor.toFixed(3)));
+        for (const line of lines(kit)) {
+          const kind = kindOf(line);
+          const m = material(line);
+          const pattern = list.findIndex((spec) => {
+            const dash = kind === 'halo' ? spec.under?.dashPx : spec.dashPx;
+            return dash ? m.dashed && m.dashSize === dash[0] && m.gapSize === dash[1] : !m.dashed;
+          });
+          const inkNow = Math.max(pattern === 2 ? 1 : 0, (1.8 * (pattern === 2 ? 0.68 : 1) + extra) * factor);
+          if (kind === 'halo') {
+            expect(m.linewidth, `${D} 垫底 第 ${pattern} 种`).toBeCloseTo(inkNow + 2, 9);
+            expect(m.opacity).toBe(0.4);
+          } else {
+            // 全程那一节每一趟路都是墨线
+            expect(kind).toBe('ink');
+            expect(m.linewidth, `${D} 墨线 第 ${pattern} 种`).toBeCloseTo(inkNow, 9);
+            expect(m.opacity).toBe(0.92);
+          }
+        }
+      }
+      // 三个远近：近的夹在 1，中间的在 0.6 和 1 之间，远的夹在 0.6
+      expect(factors[0]).toBe(1);
+      expect(factors[1]).toBeGreaterThan(0.6);
+      expect(factors[1]).toBeLessThan(1);
+      expect(factors[2]).toBe(0.6);
+      kit.dispose();
+    }
+    // 远的那一个画面上水路的线到了 1 像素的底（0.68 × 1.8 × 0.6 不到 1）
+    expect(1.8 * 0.68 * 0.6).toBeLessThan(1);
   });
 });

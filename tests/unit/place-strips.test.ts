@@ -14,7 +14,8 @@ import { styleFor } from '../stage/support/styles';
 import type { StageInsets } from '../../src/stage/types';
 import { realRouteScene, realScene, realSceneKeys } from '../stage/support/realScenes';
 import { HOME_PANES, STANDARD_PANES } from '../stage/support/standardPanes';
-import { routeSectionStrips, sectionStrips } from '../stage/support/stripSizes';
+import { isAreaName, routeSectionStrips, sectionStrips } from '../stage/support/stripSizes';
+import { labelKind } from '../../src/stage/styles';
 import { namesIn, readBytes } from '../support/readBytes';
 import { readCss } from '../support/sourceScan';
 
@@ -1555,20 +1556,28 @@ describe('沙盘上另有东西占着画面的一块（avoid：全程沙盘上�
     return { strips: list, anchors: screenAnchors(written, scene, samplers, coords, style, D, camera, pane.size), size: pane.size, insets: pane.insets };
   }
 
-  /** content/ 里的每一座沙盘（站点的、全程的）、每一小节、每一种标准的沙盘栏（全程沙盘再加首页的两种）、古今两种名字。 */
-  function everyRealInput(): { at: string; input: StripInput }[] {
-    const out: { at: string; input: StripInput }[] = [];
+  /**
+   * content/ 里的每一座沙盘（站点的、全程的）、每一小节、每一种标准的沙盘栏（全程沙盘再加首页的两种）、古今两种名字。
+   * areas 是交来的那一份里该写着 area 的那几条：题签是竖着的纸条的沙盘一条也没有；题签是平着的纸条的沙盘（它的题签不归 placeStrips 摆，
+   * 这里只是借它的画面，看这个摆法是不是真的不看这一项）是它那些没有点的名字。
+   */
+  function everyRealInput(): { at: string; input: StripInput; areas: string[] }[] {
+    const out: { at: string; input: StripInput; areas: string[] }[] = [];
     for (const key of realSceneKeys()) {
       const R = realScene(key);
       for (const pane of STANDARD_PANES)
         for (const section of R.scene.sections)
-          for (const names of NAMES) out.push({ at: `${key} ${pane.name} ${section.heading} ${names}`, input: realInput(R.scene, R.coords, R.samplers, section, pane, sectionStrips(R.scene, section.heading, pane.size.width, names)) });
+          for (const names of NAMES) out.push({ at: `${key} ${pane.name} ${section.heading} ${names}`, input: realInput(R.scene, R.coords, R.samplers, section, pane, sectionStrips(R.scene, section.heading, pane.size.width, names)), areas: [] });
     }
     for (const key of realSceneKeys('route')) {
       const R = realRouteScene(key);
+      const slips = labelKind(R.scene.style) === 'slip';
       for (const pane of [...STANDARD_PANES, ...HOME_PANES.filter((p) => !STANDARD_PANES.includes(p))])
         for (const section of R.scene.sections)
-          for (const names of NAMES) out.push({ at: `${key} ${pane.name} ${section.heading} ${names}`, input: realInput(R.scene, R.coords, R.samplers, section, pane, routeSectionStrips(R.scene, section.heading, pane.size.width, names)) });
+          for (const names of NAMES) {
+            const input = realInput(R.scene, R.coords, R.samplers, section, pane, routeSectionStrips(R.scene, section.heading, pane.size.width, names));
+            out.push({ at: `${key} ${pane.name} ${section.heading} ${names}`, input, areas: slips ? input.strips.filter((s) => isAreaName(R.scene, s.id)).map((s) => s.id) : [] });
+          }
     }
     return out;
   }
@@ -1619,9 +1628,13 @@ describe('沙盘上另有东西占着画面的一块（avoid：全程沙盘上�
       // 这两样是给另一种题签（平着的纸条）添的：地面的四个角，和“这个名字没有点”。竖着的纸条的摆法不看它们
       const all = everyRealInput();
       let placements = 0;
-      for (const { at: where, input: given } of all) {
+      let withArea = 0;
+      for (const { at: where, input: given, areas } of all) {
         expect('ground' in given, where).toBe(false);
-        expect(given.strips.some((s) => 'area' in s), where).toBe(false);
+        // 竖着的纸条的沙盘交来的没有一条写着 area（2026-11-27 以前 content/ 里只有这一种，这里查的是“哪一座都没有”）；
+        // 平着的纸条的沙盘，写着的正好是它那些没有点的名字。哪一种，下面查的都是同一件事：这个摆法不看 ground、不看 area
+        expect(given.strips.filter((s) => 'area' in s).map((s) => s.id), where).toEqual(areas);
+        withArea += areas.length;
         const plain = placeStrips(given);
         placements += plain.length;
         const { width, height } = given.size;
@@ -1647,7 +1660,13 @@ describe('沙盘上另有东西占着画面的一块（avoid：全程沙盘上�
       const tables = [...realSceneKeys(), ...realSceneKeys('route')];
       expect(tables.length).toBeGreaterThanOrEqual(4);
       for (const key of tables) expect(all.some((x) => x.at.startsWith(`${key} `) && x.input.strips.length > 0), key).toBe(true);
-      console.log(`不给和给了 ground、area：${tables.length} 座沙盘，${all.length} 个画面，${placements} 条题签，摆出来的一个数不差`);
+      // 题签是竖着的纸条的每一座沙盘：交来的没有一条写着 area
+      for (const key of tables) {
+        const [figureId, name] = key.split('/');
+        const written = JSON.parse(new TextDecoder().decode(readBytes(`content/figures/${figureId}/scenes/${name}.json`))) as { style?: string };
+        if (labelKind(written.style) === 'strip') expect(all.filter((x) => x.at.startsWith(`${key} `)).every((x) => x.areas.length === 0 && !x.input.strips.some((s) => 'area' in s)), key).toBe(true);
+      }
+      console.log(`不给和给了 ground、area：${tables.length} 座沙盘，${all.length} 个画面，${placements} 条题签（其中本来就写着 area 的 ${withArea} 条），摆出来的一个数不差`);
     },
     60_000,
   );

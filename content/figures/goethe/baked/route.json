@@ -1,0 +1,27 @@
+{
+  "tool": 1,
+  "inputs": {
+    "ground": "aaf2187e80178bd3",
+    "terrain": "2f1c8381ad4b8505"
+  },
+  "pixels": {
+    "colour": "c3716a72932ddb8e",
+    "fields": "80836d413890970b"
+  },
+  "colour": {
+    "file": "route.colour.jpg",
+    "width": 1369,
+    "height": 1984,
+    "bytes": 362273,
+    "key": "89f5dd81316e938e",
+    "quality": 0.9,
+    "psnr": 38.51
+  },
+  "fields": {
+    "file": "route.fields.png",
+    "width": 1369,
+    "height": 1984,
+    "bytes": 2714,
+    "key": "9620e2323f3f16c4"
+  }
+}

@@ -1,0 +1,4435 @@
+{
+  "level": "route",
+  "stopId": "route",
+  "style": "painted-relief",
+  "credits": [
+    "地形：Mapzen 地形瓦片（Terrarium），瓦片的文件头里写着用的是 SRTM、GMTED2010、ETOPO1 三种高程数据；先取成 2.5 公里一格的网格，再取成这座沙盘用的约三公里一格，收边和留白见上面的说明。",
+    "海岸、河、湖：Natural Earth（公有领域）；用的是 1:10m 的数据连同它的欧洲补充，裁到沙盘的范围，线取稀了，今天的水库没有画，见“没有画的”。",
+    "手工补的河和湖岸：OpenStreetMap（经 Overpass 公开查询接口取的，今天的河道、湖岸）。© OpenStreetMap contributors，ODbL 1.0"
+  ],
+  "sources": [
+    { "id": "letters", "basis": "own-words", "cite": "歌德当时写的书信" },
+    { "id": "diary", "basis": "own-words", "cite": "歌德的日记和笔记（1775 年起）" },
+    { "id": "rt1786", "basis": "own-words", "cite": "歌德 1786 年去罗马路上写的旅行日记（共五篇）" },
+    { "id": "notebook", "basis": "own-words", "cite": "歌德在罗马用的一个笔记本里记的两张表：一张记寄出的信，一张记西西里那些天（1886 年印出）" },
+    { "id": "duw", "basis": "own-words", "cite": "歌德《诗与真》，1811 到 1833 年陆续出版；写在书里这些路之后四十年到五十多年" },
+    { "id": "ir", "basis": "own-words", "cite": "歌德《意大利游记》，头两部 1816、1817 年出版；写在 1786、1787 年这些路之后大约三十年" },
+    { "id": "campagne", "basis": "own-words", "cite": "歌德《法国战役》（Campagne in Frankreich 1792），1822 年出版；写在 1792 年之后三十年" },
+    { "id": "tuj", "basis": "own-words", "cite": "歌德晚年逐年回顾的《年记》（Tag- und Jahreshefte），1830 年出版；写在 1805 年之后二十多年" },
+    { "id": "kestner", "basis": "record", "cite": "凯斯特纳的日记和他存下的书信（1854 年印成一本书；他同歌德在韦茨拉尔相识）" },
+    { "id": "lavater", "basis": "record", "cite": "拉瓦特 1774 年 6 月底到 7 月的日记" },
+    { "id": "seidel", "basis": "record", "cite": "同行的仆人赛德尔 1779 年 10 月的日记（歌德让他抄出来、随信寄走的那几天）" },
+    { "id": "goetze", "basis": "record", "cite": "同行的仆人格策 1790 年的旅行日记" },
+    { "id": "wieland", "basis": "record", "cite": "维兰德 1775 年 11 月 10 日在魏玛写给朋友的一封信" },
+    { "id": "visitor1775", "basis": "record", "cite": "1775 年 5 月歌德去瑞士的路上，见到他的一个人当时写下的一段话（收在一部 1889 到 1896 年出版的歌德谈话集里）" },
+    { "id": "rome1788", "basis": "record", "cite": "留在罗马的朋友 1788 年 5 月、6 月写给歌德的信（1890 年印出）" },
+    { "id": "herder1788", "basis": "record", "cite": "赫尔德 1788 年 6 月 22 日在魏玛写给一位朋友的信（印在这位朋友的遗稿和通信集第二卷里）" },
+    { "id": "chronik", "basis": "later", "cite": "比德曼《歌德生平年表》（Chronik von Goethes Leben），1931 年" },
+    { "id": "editors", "basis": "later", "cite": "魏玛版《歌德全集》（1887 到 1919 年）的编者加的题头和推定的日期" },
+    { "id": "gaz", "basis": "later", "cite": "维基百科德文、法文、意大利文等版本条目里的坐标（今天的位置，2026 年 11 月查）" },
+    { "id": "ne", "basis": "later", "cite": "Natural Earth 1:10m 的海岸、河、湖（今天的）" },
+    { "id": "osm", "basis": "later", "cite": "开放街道地图（今天的湖岸、几条河的河道和几处小地方的位置，2026 年 11 月查）" },
+    { "id": "dem", "basis": "later", "cite": "地形数据里的 SRTM、GMTED2010、ETOPO1 高程（今天的地形）" }
+  ],
+  "frame": {
+    "center": [12.33, 44.95],
+    "projection": { "kind": "lambert-conic", "lat1": 40, "lat2": 50 },
+    "scale": 145,
+    "westM": 661000,
+    "eastM": 661000,
+    "northM": 958000,
+    "southM": 958000,
+    "datumM": 0,
+    "relief": { "kind": "low-hills-more", "lowBelowM": 300, "lowTimes": 15, "power": 0.58, "highTimes": 5 }
+  },
+  "terrain": {
+    "class": "real",
+    "basis": "山的位置和形状照今天的高程：Mapzen 地形瓦片（第 7 级，一个点不到一公里）先取成 2.5 公里一格的网格，再取成东西 0.036 度、南北 0.026 度（约三公里）一格，每格是格里九个点的平均。海岸以外的格子记成 0。沙盘范围以外没有量过。山的高度只是网格的读数：2.5 公里的网格上最高的一格是 4,071 米，取成这张格子以后最高是 3,840 米。沙盘旁边不印山有多少米。",
+    "sourceIds": ["dem"],
+    "note": "维苏威火山的山形是今天的：他 1787 年登山以后，它又喷发过很多次，山顶变了样。",
+    "file": "route.terrain.bin",
+    "cols": 552,
+    "rows": 676,
+    "west": 2.412,
+    "east": 22.248,
+    "south": 36.042,
+    "north": 53.592,
+    "heightUnit": "m",
+    "recipe": {
+      "kind": "as-measured",
+      "edgeTaperM": 80000,
+      "blank": [
+        [[1.5, 50.3], [4.6, 50.3], [5.9, 50.9], [5.72, 51.56], [6.53, 52.17], [7.59, 52.65], [8.6, 53], [9.6, 53.4], [10.2, 54], [1.5, 54]],
+        [[8, 43.2], [9.9, 43.2], [10, 41], [10, 38.7], [7.9, 38.7], [7.9, 41]],
+        [[4.5, 37.6], [8.5, 37.5], [10.4, 37.6], [11.3, 37.3], [11.6, 36.6], [11.6, 35.5], [4.5, 35.5]],
+        [
+          [13.45, 45.85],
+          [14.6, 46.4],
+          [17, 45.6],
+          [19.6, 44.6],
+          [23, 44.2],
+          [23, 35.5],
+          [19.3, 35.5],
+          [19.1, 39.3],
+          [19.1, 40.6],
+          [17.2, 42.2],
+          [15.4, 43.4],
+          [14, 44.3],
+          [13.35, 45]
+        ],
+        [[14.6, 46.4], [14.9, 47.6], [15.6, 48.6], [17.5, 49], [23, 49], [23, 44.2], [19.6, 44.6], [17, 45.6]]
+      ],
+      "class": "schematic",
+      "basis": "这几个数是照做出来的地面量的。平地和山都没有抹平，只做了三样。一、沙盘四边往里 80 公里以内，地面慢慢收低，最外面 6 公里收到海面，切面才齐整；这一圈里（留白的地方不算）最高的地方原来 1,361 米，在西边上；收过以后，这一圈里最高的是东边的一处，882 米。二、沙盘的地面是 2.9 公里一格，整张轻轻抹了半格，免得格子的棱角露出来；地形文件里最高的一格 3,840 米，到了地面上最高是 3,575 米。三、留白的五片压平了：五个圈里的陆地合起来占沙盘上陆地的 29%；留白是画法，不是说那里没有山。80 公里的圈以外，收边没有让哪一格差到半米。",
+      "sourceIds": [],
+      "note": "地面的高低照今天的高程数据，没有抹平。他没有到过的几片陆地留白，不画山、不上色、不立名字，海照样是海：沙盘的西北角，科西嘉岛和撒丁岛，西西里西南面海对岸突尼斯一带，亚得里亚海东岸，还有沙盘东边的一大片。"
+    },
+    "edits": []
+  },
+  "water": {
+    "levels": {
+      "class": "today",
+      "basis": "海面定在海拔 0 米。",
+      "sourceIds": ["ne"],
+      "note": "海面是平的，画在海拔 0 米。海岸、湖、河都是照今天的线画在地面上的，没有另外挖出河床和湖盆。",
+      "values": { "normal": 0 }
+    },
+    "todayFile": "route.today.geojson",
+    "coast": {
+      "name": "海岸",
+      "class": "today",
+      "basis": "海岸、河、湖是今天的：照今天的数据画，他那时候差多少，没有逐条查。",
+      "sourceIds": ["ne"],
+      "note": "海岸、河、湖是今天的：照今天的数据画，他那时候差多少，没有逐条查。威尼斯的潟湖和波河三角洲的岸线是今天的；两百多年来三角洲又往海里长了一些。"
+    },
+    "rivers": [
+      {
+        "id": "lahn",
+        "name": "兰河",
+        "kind": "river",
+        "weight": "minor",
+        "today": [{ "names": ["Lahn"] }],
+        "class": "today",
+        "basis": "这条河照今天的数据画，他那时候差多少，没有逐条查。画出来的路里，1772、1774 年有坐船走这条河的一段。",
+        "sourceIds": ["ne"]
+      },
+      {
+        "id": "rhein",
+        "name": "莱茵河",
+        "kind": "river",
+        "weight": "trunk",
+        "today": [{ "names": ["Rhein", "Rhine", "Rhin"] }],
+        "class": "today",
+        "basis": "这条河照今天的数据画，他那时候差多少，没有逐条查。画出来的路里，1772、1774、1792、1815 年有坐船走这条河的一段。",
+        "sourceIds": ["ne"]
+      },
+      {
+        "id": "mosel",
+        "name": "摩泽尔河",
+        "kind": "river",
+        "weight": "river",
+        "today": [{ "names": ["Mosel"] }],
+        "class": "today",
+        "basis": "这条河照今天的数据画，他那时候差多少，没有逐条查。画出来的路里，1792 年有坐船走这条河的一段。",
+        "sourceIds": ["ne"]
+      },
+      {
+        "id": "brenta",
+        "name": "布伦塔河",
+        "kind": "river",
+        "weight": "minor",
+        "today": [{ "names": ["Brenta"] }],
+        "class": "today",
+        "basis": "这条河照今天的数据画，他那时候差多少，没有逐条查。画出来的路里，1786 年有坐船走这条河的一段；1790 年去威尼斯和回帕多瓦的两段路也画在这条河上：去的那一趟走的哪条水道没有写，回的那一趟只知道 5 月 23 日已在帕多瓦。",
+        "sourceIds": ["osm"]
+      },
+      {
+        "id": "po",
+        "name": "波河",
+        "kind": "river",
+        "weight": "major",
+        "today": [{ "names": ["Po"] }],
+        "class": "today",
+        "basis": "这条河照今天的数据画，他那时候差多少，没有逐条查。画出来的路里，1786 年有坐船走这条河的一段。",
+        "sourceIds": ["ne"]
+      },
+      {
+        "id": "main",
+        "name": "美因河",
+        "kind": "river",
+        "weight": "river",
+        "today": [{ "names": ["Main"] }],
+        "class": "today",
+        "basis": "这条河照今天的数据画，他那时候差多少，没有逐条查。",
+        "sourceIds": ["ne"]
+      },
+      {
+        "id": "saale",
+        "name": "萨勒河",
+        "kind": "river",
+        "weight": "minor",
+        "today": [{ "names": ["Saale"] }],
+        "class": "today",
+        "basis": "这条河照今天的数据画，他那时候差多少，没有逐条查。",
+        "sourceIds": ["ne"]
+      },
+      {
+        "id": "maas",
+        "name": "默兹河",
+        "kind": "river",
+        "weight": "river",
+        "today": [{ "names": ["Maas"] }],
+        "class": "today",
+        "basis": "这条河照今天的数据画，他那时候差多少，没有逐条查。",
+        "sourceIds": ["ne"]
+      },
+      {
+        "id": "ilm",
+        "name": "伊尔姆河",
+        "kind": "river",
+        "weight": "minor",
+        "today": [{ "names": ["Ilm"] }],
+        "class": "today",
+        "basis": "这条河照今天的数据画，他那时候差多少，没有逐条查。",
+        "sourceIds": ["osm"]
+      },
+      {
+        "id": "elbe",
+        "name": "易北河",
+        "kind": "river",
+        "weight": "major",
+        "today": [{ "names": ["Elbe"] }],
+        "class": "today",
+        "basis": "这条河照今天的数据画，他那时候差多少，没有逐条查。",
+        "sourceIds": ["ne"]
+      },
+      {
+        "id": "tiber",
+        "name": "台伯河",
+        "kind": "river",
+        "weight": "river",
+        "today": [{ "names": ["Tevere"] }],
+        "class": "today",
+        "basis": "这条河照今天的数据画，他那时候差多少，没有逐条查。",
+        "sourceIds": ["ne"]
+      }
+    ],
+    "lakes": [
+      {
+        "id": "zurichsee",
+        "name": "苏黎世湖",
+        "today": [{ "names": ["Zürichsee"] }],
+        "class": "today",
+        "basis": "这个湖照今天的数据画，他那时候差多少，没有逐条查。画出来的路里，1775、1797 年有坐船过这个湖的一段。",
+        "sourceIds": ["osm"]
+      },
+      {
+        "id": "thunersee",
+        "name": "图恩湖",
+        "today": [{ "names": ["Thunersee"] }],
+        "class": "today",
+        "basis": "这个湖照今天的数据画，他那时候差多少，没有逐条查。画出来的路里，1779 年有坐船过这个湖的一段。",
+        "sourceIds": ["osm"]
+      },
+      {
+        "id": "brienzersee",
+        "name": "布里恩茨湖",
+        "today": [{ "names": ["Brienzersee"] }],
+        "class": "today",
+        "basis": "这个湖照今天的数据画，他那时候差多少，没有逐条查。画出来的路里，1779 年有坐船过这个湖的一段。",
+        "sourceIds": ["osm"]
+      },
+      {
+        "id": "vierwaldstaettersee",
+        "name": "卢塞恩湖",
+        "today": [{ "names": ["Vierwaldstättersee"] }],
+        "class": "today",
+        "basis": "这个湖照今天的数据画，他那时候差多少，没有逐条查。画出来的路里，1775、1779、1797 年有坐船过这个湖的一段。",
+        "sourceIds": ["osm"]
+      },
+      {
+        "id": "zugersee",
+        "name": "楚格湖",
+        "today": [{ "names": ["Zugersee"] }],
+        "class": "today",
+        "basis": "这个湖照今天的数据画，他那时候差多少，没有逐条查。画出来的路里，1775、1797 年有坐船过这个湖的一段。",
+        "sourceIds": ["osm"]
+      },
+      {
+        "id": "comersee",
+        "name": "科莫湖",
+        "today": [{ "names": ["Lago di Como"] }],
+        "class": "today",
+        "basis": "这个湖照今天的数据画，他那时候差多少，没有逐条查。画出来的路里，1788 年有过这个湖的一段，是照他的打算画的。",
+        "sourceIds": ["osm"]
+      },
+      {
+        "id": "gardasee",
+        "name": "加尔达湖",
+        "today": [{ "names": ["Lago di Garda"] }],
+        "class": "today",
+        "basis": "这个湖照今天的数据画，他那时候差多少，没有逐条查。画出来的路里，1786 年有坐船过这个湖的一段。",
+        "sourceIds": ["osm"]
+      },
+      {
+        "id": "lauerzersee",
+        "name": "劳厄茨湖",
+        "today": [{ "names": ["Lauerzersee"] }],
+        "class": "today",
+        "basis": "这个湖照今天的数据画，他那时候差多少，没有逐条查。画出来的路里，1775 年有坐船过这个湖的一段。",
+        "sourceIds": ["osm"]
+      }
+    ],
+    "washes": []
+  },
+  "places": [
+    { "id": "frankfurt", "name": "法兰克福", "at": [8.682, 50.111], "stops": ["frankfurt"], "class": "today", "basis": "点取在今天的法兰克福。", "sourceIds": ["gaz"] },
+    { "id": "strasbourg", "name": "斯特拉斯堡", "at": [7.748, 48.584], "stops": ["strasbourg"], "class": "today", "basis": "点取在今天的斯特拉斯堡。", "sourceIds": ["gaz"] },
+    { "id": "weimar", "name": "魏玛", "at": [11.33, 50.979], "stops": ["weimar-1", "weimar-2"], "class": "today", "basis": "点取在今天的魏玛。", "sourceIds": ["gaz"] },
+    { "id": "karlsbad", "name": "卡尔斯巴德", "at": [12.872, 50.232], "stops": ["karlsbad"], "class": "today", "basis": "卡尔斯巴德是当时的叫法，今天叫卡罗维发利；点取在今天的卡罗维发利。", "sourceIds": ["gaz"] },
+    { "id": "rome", "name": "罗马", "at": [12.483, 41.883], "stops": ["rome"], "class": "today", "basis": "点取在今天的罗马。", "sourceIds": ["gaz"] },
+    {
+      "id": "naples",
+      "name": "那不勒斯",
+      "at": [14.249, 40.841],
+      "stops": ["naples"],
+      "class": "today",
+      "basis": "点取在今天的那不勒斯。沙盘用的海岸线画得粗，照它看，百科条目给的那个点落在水里，就往岸上挪了约 890 米。",
+      "sourceIds": ["gaz"]
+    },
+    { "id": "valmy", "name": "瓦尔密", "at": [4.774, 49.085], "stops": ["valmy"], "class": "today", "basis": "点取在今天的瓦尔密。", "sourceIds": ["gaz"] },
+    { "id": "leipzig", "name": "莱比锡", "at": [12.375, 51.34], "class": "today", "basis": "点取在今天的莱比锡。", "sourceIds": ["gaz"] },
+    { "id": "wetzlar", "name": "韦茨拉尔", "at": [8.504, 50.558], "class": "today", "basis": "点取在今天的韦茨拉尔。", "sourceIds": ["gaz"] },
+    { "id": "duesseldorf", "name": "杜塞尔多夫", "at": [6.783, 51.226], "class": "today", "basis": "点取在今天的杜塞尔多夫。", "sourceIds": ["gaz"] },
+    { "id": "zuerich", "name": "苏黎世", "at": [8.542, 47.372], "class": "today", "basis": "点取在今天的苏黎世。", "sourceIds": ["gaz"] },
+    { "id": "sesenheim", "name": "塞森海姆", "at": [7.986, 48.797], "class": "today", "basis": "点取在今天的塞森海姆。", "sourceIds": ["gaz"] },
+    { "id": "saarbrueck", "name": "萨尔布吕肯", "at": [6.996, 49.233], "class": "today", "basis": "点取在今天的萨尔布吕肯。", "sourceIds": ["gaz"] },
+    { "id": "berlin", "name": "柏林", "at": [13.408, 52.519], "class": "today", "basis": "点取在今天的柏林。", "sourceIds": ["gaz"] },
+    { "id": "jena", "name": "耶拿", "at": [11.586, 50.927], "class": "today", "basis": "点取在今天的耶拿。", "sourceIds": ["gaz"] },
+    { "id": "hof", "name": "霍夫", "at": [11.919, 50.322], "class": "today", "basis": "点取在今天的霍夫。", "sourceIds": ["gaz"] },
+    { "id": "eger", "name": "埃格尔", "at": [12.371, 50.079], "class": "today", "basis": "埃格尔是当时的叫法，今天叫海布；点取在今天的海布。", "sourceIds": ["gaz"] },
+    { "id": "muenchen", "name": "慕尼黑", "at": [11.574, 48.14], "class": "today", "basis": "点取在今天的慕尼黑。", "sourceIds": ["gaz"] },
+    { "id": "venedig", "name": "威尼斯", "at": [12.336, 45.438], "class": "today", "basis": "点取在今天的威尼斯。", "sourceIds": ["gaz"] },
+    { "id": "bologna", "name": "博洛尼亚", "at": [11.343, 44.494], "class": "today", "basis": "点取在今天的博洛尼亚。", "sourceIds": ["gaz"] },
+    { "id": "florenz", "name": "佛罗伦萨", "at": [11.25, 43.783], "class": "today", "basis": "点取在今天的佛罗伦萨。", "sourceIds": ["gaz"] },
+    { "id": "palermo", "name": "巴勒莫", "at": [13.361, 38.116], "class": "today", "basis": "点取在今天的巴勒莫。", "sourceIds": ["gaz"] },
+    { "id": "girgenti", "name": "吉尔真蒂", "at": [13.575, 37.313], "class": "today", "basis": "吉尔真蒂是当时的叫法，今天叫阿格里真托；点取在今天的阿格里真托。", "sourceIds": ["gaz"] },
+    { "id": "messina", "name": "墨西拿", "at": [15.55, 38.183], "class": "today", "basis": "点取在今天的墨西拿。", "sourceIds": ["gaz"] },
+    { "id": "mainz", "name": "美因茨", "at": [8.271, 50], "class": "today", "basis": "点取在今天的美因茨。", "sourceIds": ["gaz"] },
+    { "id": "trier", "name": "特里尔", "at": [6.644, 49.76], "class": "today", "basis": "点取在今天的特里尔。", "sourceIds": ["gaz"] },
+    { "id": "luxenburg", "name": "卢森堡", "at": [6.131, 49.611], "class": "today", "basis": "点取在今天的卢森堡。", "sourceIds": ["gaz"] },
+    { "id": "verdun", "name": "凡尔登", "at": [5.388, 49.161], "class": "today", "basis": "点取在今天的凡尔登。", "sourceIds": ["gaz"] },
+    { "id": "marienbad", "name": "玛丽恩巴德", "at": [12.702, 49.964], "class": "today", "basis": "玛丽恩巴德是当时的叫法，今天叫玛丽亚温泉市；点取在今天的玛丽亚温泉市。", "sourceIds": ["gaz"] },
+    { "id": "teplitz", "name": "特普利茨", "at": [13.822, 50.643], "class": "today", "basis": "特普利茨是当时的叫法，今天叫特普利采；点取在今天的特普利采。", "sourceIds": ["gaz"] },
+    { "id": "breslau", "name": "布雷斯劳", "at": [17.032, 51.11], "class": "today", "basis": "布雷斯劳是当时的叫法，今天叫弗罗茨瓦夫；点取在今天的弗罗茨瓦夫。", "sourceIds": ["gaz"] },
+    { "id": "dresden", "name": "德累斯顿", "at": [13.738, 51.049], "class": "today", "basis": "点取在今天的德累斯顿。", "sourceIds": ["gaz"] },
+    { "id": "nuernberg", "name": "纽伦堡", "at": [11.079, 49.456], "class": "today", "basis": "点取在今天的纽伦堡。", "sourceIds": ["gaz"] },
+    { "id": "koeln", "name": "科隆", "at": [6.959, 50.943], "class": "today", "basis": "点取在今天的科隆。", "sourceIds": ["gaz"] },
+    { "id": "hagenau", "name": "阿格诺", "at": [7.788, 48.817], "class": "today", "basis": "点取在今天的阿格诺。", "sourceIds": ["gaz"] },
+    { "id": "zabern", "name": "萨韦尔讷", "at": [7.363, 48.742], "class": "today", "basis": "点取在今天的萨韦尔讷。", "sourceIds": ["gaz"] },
+    { "id": "eisenach", "name": "爱森纳赫", "at": [10.316, 50.983], "class": "today", "basis": "点取在今天的爱森纳赫。", "sourceIds": ["gaz"] },
+    { "id": "heidelberg", "name": "海德堡", "at": [8.697, 49.41], "class": "today", "basis": "点取在今天的海德堡。", "sourceIds": ["gaz"] },
+    { "id": "alpen", "name": "阿尔卑斯山", "at": [10, 46.6], "class": "real", "basis": "阿尔卑斯山是一片山地的名字，这个点只是题签立的地方；山的位置和形状照今天的地形。“罗马”一节里题签另立在一处。", "sourceIds": ["dem"], "area": true },
+    { "id": "harz", "name": "哈茨山", "at": [10.9, 51.72], "class": "real", "basis": "哈茨山是一片山地的名字，这个点只是题签立的地方；山的位置和形状照今天的地形。", "sourceIds": ["dem"], "area": true },
+    { "id": "brocken", "name": "布罗肯峰", "at": [10.616, 51.799], "class": "today", "basis": "点取在布罗肯峰今天的位置。", "sourceIds": ["gaz"] },
+    { "id": "thueringerwald", "name": "图林根林山", "at": [10.7, 50.65], "class": "real", "basis": "图林根林山是一片山地的名字，这个点只是题签立的地方；山的位置和形状照今天的地形。", "sourceIds": ["dem"], "area": true },
+    { "id": "erzgebirge", "name": "厄尔士山脉", "at": [13, 50.58], "class": "real", "basis": "厄尔士山脉是一片山地的名字，这个点只是题签立的地方；山的位置和形状照今天的地形。", "sourceIds": ["dem"], "area": true },
+    { "id": "vogesen", "name": "孚日山脉", "at": [7.15, 48.45], "class": "real", "basis": "孚日山脉是一片山地的名字，这个点只是题签立的地方；山的位置和形状照今天的地形。", "sourceIds": ["dem"], "area": true },
+    { "id": "schwarzwald", "name": "黑森林", "at": [8.15, 48.2], "class": "real", "basis": "黑森林是一片山地的名字，这个点只是题签立的地方；山的位置和形状照今天的地形。", "sourceIds": ["dem"], "area": true },
+    { "id": "argonnen", "name": "阿戈讷", "at": [4.97, 49.2], "class": "real", "basis": "阿戈讷是一片山地的名字，这个点只是题签立的地方；山的位置和形状照今天的地形。", "sourceIds": ["dem"], "area": true },
+    { "id": "brenner", "name": "布伦纳山口", "at": [11.508, 47.003], "class": "today", "basis": "点取在布伦纳山口今天的位置。", "sourceIds": ["gaz"] },
+    { "id": "gotthard", "name": "圣哥达山口", "at": [8.562, 46.559], "class": "today", "basis": "点取在圣哥达山口今天的位置。", "sourceIds": ["gaz"] },
+    { "id": "vesuv", "name": "维苏威火山", "at": [14.426, 40.821], "class": "today", "basis": "点取在维苏威火山今天的位置。", "sourceIds": ["gaz"] },
+    { "id": "aetna", "name": "埃特纳火山", "at": [14.996, 37.751], "class": "today", "basis": "点取在埃特纳火山今天的位置。", "sourceIds": ["gaz"] },
+    { "id": "sizilien", "name": "西西里", "at": [14.1, 37.65], "class": "today", "basis": "西西里是一座岛的名字，这个点只是题签立的地方；岛的岸线照今天的海岸画。", "sourceIds": ["ne"], "area": true },
+    { "id": "capri", "name": "卡普里岛", "at": [14.233, 40.55], "class": "today", "basis": "点取在卡普里岛今天的位置。", "sourceIds": ["gaz"] },
+    {
+      "id": "heiligesroemischesreich",
+      "name": "神圣罗马帝国",
+      "at": [10.2, 49.75],
+      "class": "schematic",
+      "basis": "神圣罗马帝国是国名，指的是一大片地方；沙盘上不画国界，这个点只是题签立的地方，标出它大致在哪一带。",
+      "sourceIds": [],
+      "area": true
+    },
+    {
+      "id": "frankreich",
+      "name": "法国",
+      "at": [4.45, 48.85],
+      "class": "schematic",
+      "basis": "法国是国名，指的是一大片地方；沙盘上不画国界，这个点只是题签立的地方，标出它大致在哪一带。“斯特拉斯堡”一节里题签另立在一处。",
+      "sourceIds": [],
+      "area": true
+    },
+    { "id": "boehmen", "name": "波希米亚", "at": [13.2, 49.95], "class": "schematic", "basis": "波希米亚是国名，指的是一大片地方；沙盘上不画国界，这个点只是题签立的地方，标出它大致在哪一带。", "sourceIds": [], "area": true },
+    { "id": "kirchenstaat", "name": "教皇国", "at": [12.75, 42.95], "class": "schematic", "basis": "教皇国是国名，指的是一大片地方；沙盘上不画国界，这个点只是题签立的地方，标出它大致在哪一带。", "sourceIds": [], "area": true },
+    {
+      "id": "koenigreichneapel",
+      "name": "那不勒斯王国",
+      "at": [15.6, 40.75],
+      "class": "schematic",
+      "basis": "那不勒斯王国是国名，指的是一大片地方；沙盘上不画国界，这个点只是题签立的地方，标出它大致在哪一带。",
+      "sourceIds": [],
+      "area": true
+    },
+    { "id": "elberfeld", "name": "埃尔伯费尔德", "at": [7.149, 51.257], "class": "today", "basis": "沙盘上没有立它的题签；留这个点，是让“法兰克福”这一节的画面框得住它。这一节画的路经过这里。点取在今天的埃尔伯费尔德。", "sourceIds": ["gaz"] },
+    { "id": "mannheim", "name": "曼海姆", "at": [8.466, 49.488], "class": "today", "basis": "沙盘上没有立它的题签；留这个点，是让“斯特拉斯堡”这一节的画面框得住它。这一节画的路经过这里。点取在今天的曼海姆。", "sourceIds": ["gaz"] },
+    { "id": "carlsruh", "name": "卡尔斯鲁厄", "at": [8.404, 49.014], "class": "today", "basis": "沙盘上没有立它的题签；留这个点，是让“斯特拉斯堡”这一节的画面框得住它。这一节画的路经过这里。点取在今天的卡尔斯鲁厄。", "sourceIds": ["gaz"] },
+    { "id": "tegel", "name": "泰格尔", "at": [13.283, 52.583], "class": "today", "basis": "沙盘上没有立它的题签；留这个点，是让“魏玛（上）”这一节的画面框得住它。这一节画的路经过这里。点取在今天的泰格尔。", "sourceIds": ["gaz"] },
+    { "id": "braunschweig", "name": "不伦瑞克", "at": [10.521, 52.269], "class": "today", "basis": "沙盘上没有立它的题签；留这个点，是让“魏玛（上）”这一节的画面框得住它。这一节画的路经过这里。点取在今天的不伦瑞克。", "sourceIds": ["gaz"] },
+    { "id": "cassel", "name": "卡塞尔", "at": [9.5, 51.317], "class": "today", "basis": "沙盘上没有立它的题签；留这个点，是让“魏玛（上）”这一节的画面框得住它。这一节画的路经过这里。点取在今天的卡塞尔。", "sourceIds": ["gaz"] },
+    { "id": "woerlitz", "name": "沃利茨", "at": [12.419, 51.843], "class": "today", "basis": "沙盘上没有立它的题签；留这个点，是让“魏玛（上）”这一节的画面框得住它。这一节画的路经过这里。点取在今天的沃利茨。", "sourceIds": ["gaz"] },
+    {
+      "id": "johanngeorgenstadt",
+      "name": "约翰格奥尔根施塔特",
+      "at": [12.724, 50.431],
+      "class": "today",
+      "basis": "沙盘上没有立它的题签；留这个点，是让“卡尔斯巴德”这一节的画面框得住它。他的路经过这里。点取在今天的约翰格奥尔根施塔特。",
+      "sourceIds": ["gaz"]
+    },
+    { "id": "regensburg", "name": "雷根斯堡", "at": [12.102, 49.015], "class": "today", "basis": "沙盘上没有立它的题签；留这个点，是让“罗马”这一节的画面框得住它。这一节画的路经过这里。点取在今天的雷根斯堡。", "sourceIds": ["gaz"] },
+    { "id": "torbole", "name": "托尔博莱", "at": [10.876, 45.869], "class": "today", "basis": "沙盘上没有立它的题签；留这个点，是让“罗马”这一节的画面框得住它。这一节画的路经过这里。点取在今天的托尔博莱。", "sourceIds": ["osm"] },
+    { "id": "catania", "name": "卡塔尼亚", "at": [15.087, 37.503], "class": "today", "basis": "沙盘上没有立它的题签；留这个点，是让“那不勒斯”这一节的画面框得住它。这一节画的路经过这里。点取在今天的卡塔尼亚。", "sourceIds": ["gaz"] },
+    { "id": "segesta", "name": "塞杰斯塔", "at": [12.832, 37.941], "class": "today", "basis": "沙盘上没有立它的题签；留这个点，是让“那不勒斯”这一节的画面框得住它。这一节画的路经过这里。点取在今天的塞杰斯塔。", "sourceIds": ["gaz"] },
+    { "id": "longwy", "name": "隆维", "at": [5.761, 49.52], "class": "today", "basis": "沙盘上没有立它的题签；留这个点，是让“瓦尔密”这一节的画面框得住它。这一节画的路经过这里。点取在今天的隆维。", "sourceIds": ["gaz"] },
+    { "id": "sommetourbe", "name": "索姆图尔布", "at": [4.669, 49.102], "class": "today", "basis": "沙盘上没有立它的题签；留这个点，是让“瓦尔密”这一节的画面框得住它。这一节画的路经过这里。点取在今天的索姆图尔布。", "sourceIds": ["gaz"] },
+    { "id": "dun", "name": "默兹河畔丹", "at": [5.184, 49.387], "class": "today", "basis": "沙盘上没有立它的题签；留这个点，是让“瓦尔密”这一节的画面框得住它。这一节画的路经过这里。点取在今天的默兹河畔丹。", "sourceIds": ["gaz"] },
+    { "id": "pyrmont", "name": "皮尔蒙特", "at": [9.262, 51.985], "class": "today", "basis": "沙盘上没有立它的题签；留这个点，是让“魏玛（下）”这一节的画面框得住它。这一节画的路经过这里。点取在今天的皮尔蒙特。", "sourceIds": ["gaz"] },
+    { "id": "muenster", "name": "明斯特", "at": [7.629, 51.963], "class": "today", "basis": "沙盘上没有立它的题签；留这个点，是让“魏玛（下）”这一节的画面框得住它。这一节画的路经过这里。点取在今天的明斯特。", "sourceIds": ["gaz"] },
+    { "id": "wiesbaden", "name": "威斯巴登", "at": [8.24, 50.083], "class": "today", "basis": "沙盘上没有立它的题签；留这个点，是让“魏玛（下）”这一节的画面框得住它。这一节画的路经过这里。点取在今天的威斯巴登。", "sourceIds": ["gaz"] }
+  ],
+  "strips": [
+    { "id": "s-frankfurt", "text": "法兰克福", "of": "frankfurt", "side": "above" },
+    { "id": "s-strasbourg", "text": "斯特拉斯堡", "of": "strasbourg" },
+    { "id": "s-weimar", "text": "魏玛", "of": "weimar" },
+    { "id": "s-weimar-late", "text": "魏玛", "of": "weimar", "side": "left" },
+    { "id": "s-karlsbad", "text": "卡尔斯巴德", "modern": "卡罗维发利", "of": "karlsbad" },
+    { "id": "s-rome", "text": "罗马", "of": "rome", "side": "left" },
+    { "id": "s-naples", "text": "那不勒斯", "of": "naples" },
+    { "id": "s-naples-own", "text": "那不勒斯", "of": "naples", "side": "left" },
+    { "id": "s-valmy", "text": "瓦尔密", "of": "valmy" },
+    { "id": "s-leipzig", "text": "莱比锡", "of": "leipzig" },
+    { "id": "s-wetzlar", "text": "韦茨拉尔", "of": "wetzlar" },
+    { "id": "s-duesseldorf", "text": "杜塞尔多夫", "of": "duesseldorf" },
+    { "id": "s-zuerich", "text": "苏黎世", "of": "zuerich" },
+    { "id": "s-sesenheim", "text": "塞森海姆", "of": "sesenheim" },
+    { "id": "s-saarbrueck", "text": "萨尔布吕肯", "of": "saarbrueck" },
+    { "id": "s-berlin", "text": "柏林", "of": "berlin" },
+    { "id": "s-jena", "text": "耶拿", "of": "jena" },
+    { "id": "s-hof", "text": "霍夫", "of": "hof" },
+    { "id": "s-eger", "text": "埃格尔", "modern": "海布", "of": "eger" },
+    { "id": "s-muenchen", "text": "慕尼黑", "of": "muenchen" },
+    { "id": "s-venedig", "text": "威尼斯", "of": "venedig" },
+    { "id": "s-bologna", "text": "博洛尼亚", "of": "bologna" },
+    { "id": "s-florenz", "text": "佛罗伦萨", "of": "florenz" },
+    { "id": "s-palermo", "text": "巴勒莫", "of": "palermo" },
+    { "id": "s-girgenti", "text": "吉尔真蒂", "modern": "阿格里真托", "of": "girgenti" },
+    { "id": "s-messina", "text": "墨西拿", "of": "messina" },
+    { "id": "s-mainz", "text": "美因茨", "of": "mainz" },
+    { "id": "s-trier", "text": "特里尔", "of": "trier" },
+    { "id": "s-luxenburg", "text": "卢森堡", "of": "luxenburg" },
+    { "id": "s-verdun", "text": "凡尔登", "of": "verdun" },
+    { "id": "s-marienbad", "text": "玛丽恩巴德", "modern": "玛丽亚温泉市", "of": "marienbad", "side": "below" },
+    { "id": "s-teplitz", "text": "特普利茨", "modern": "特普利采", "of": "teplitz" },
+    { "id": "s-breslau", "text": "布雷斯劳", "modern": "弗罗茨瓦夫", "of": "breslau" },
+    { "id": "s-dresden", "text": "德累斯顿", "of": "dresden", "side": "above" },
+    { "id": "s-nuernberg", "text": "纽伦堡", "of": "nuernberg" },
+    { "id": "s-koeln", "text": "科隆", "of": "koeln" },
+    { "id": "s-hagenau", "text": "阿格诺", "of": "hagenau" },
+    { "id": "s-zabern", "text": "萨韦尔讷", "of": "zabern" },
+    { "id": "s-eisenach", "text": "爱森纳赫", "of": "eisenach" },
+    { "id": "s-heidelberg", "text": "海德堡", "of": "heidelberg" },
+    { "id": "s-adriatischesmeer", "text": "亚得里亚海", "of": "coast", "at": [15.6, 42.4] },
+    { "id": "s-tyrrhenischesmeer", "text": "第勒尼安海", "of": "coast", "at": [12.2, 39.6] },
+    { "id": "s-rhein", "text": "莱茵河", "of": "rhein", "at": [8.35, 49.2] },
+    { "id": "s-main", "text": "美因河", "of": "main", "at": [9.6, 49.9] },
+    { "id": "s-lahn", "text": "兰河", "of": "lahn", "at": [8.15, 50.4] },
+    { "id": "s-saale", "text": "萨勒河", "of": "saale", "at": [11.588, 50.812] },
+    { "id": "s-maas", "text": "默兹河", "of": "maas", "at": [5.502, 48.931] },
+    { "id": "s-mosel", "text": "摩泽尔河", "of": "mosel", "at": [6.9, 49.9] },
+    { "id": "s-ilm", "text": "伊尔姆河", "of": "ilm", "at": [11.05, 50.78] },
+    { "id": "s-elbe", "text": "易北河", "of": "elbe", "at": [15.159, 50.075] },
+    { "id": "s-tiber", "text": "台伯河", "of": "tiber", "at": [12.612, 42.265] },
+    { "id": "s-tiber-naples", "text": "台伯河", "of": "tiber", "at": [12.629, 42.175] },
+    { "id": "s-gardasee", "text": "加尔达湖", "of": "gardasee", "at": [10.65, 45.6] },
+    { "id": "s-alpen", "text": "阿尔卑斯山", "of": "alpen", "at": [10.75, 46.3] },
+    { "id": "s-alpen-rome", "text": "阿尔卑斯山", "of": "alpen", "at": [12.7, 47.2] },
+    { "id": "s-harz", "text": "哈茨山", "of": "harz" },
+    { "id": "s-brocken", "text": "布罗肯峰", "of": "brocken" },
+    { "id": "s-thueringerwald", "text": "图林根林山", "of": "thueringerwald" },
+    { "id": "s-erzgebirge", "text": "厄尔士山脉", "of": "erzgebirge" },
+    { "id": "s-vogesen", "text": "孚日山脉", "of": "vogesen", "at": [7.1, 48.35] },
+    { "id": "s-schwarzwald", "text": "黑森林", "of": "schwarzwald" },
+    { "id": "s-argonnen", "text": "阿戈讷", "of": "argonnen", "at": [4.85, 49.2] },
+    { "id": "s-brenner", "text": "布伦纳山口", "of": "brenner" },
+    { "id": "s-gotthard", "text": "圣哥达山口", "of": "gotthard" },
+    { "id": "s-vesuv", "text": "维苏威火山", "of": "vesuv" },
+    { "id": "s-aetna", "text": "埃特纳火山", "of": "aetna" },
+    { "id": "s-sizilien", "text": "西西里", "of": "sizilien", "at": [14, 37.9] },
+    { "id": "s-sizilien-whole", "text": "西西里", "of": "sizilien", "at": [13, 37.75] },
+    { "id": "s-capri", "text": "卡普里岛", "of": "capri" },
+    { "id": "s-heiligesroemischesreich", "text": "神圣罗马帝国", "of": "heiligesroemischesreich", "at": [10.6, 49.6] },
+    { "id": "s-frankreich", "text": "法国", "of": "frankreich", "at": [4.3, 48] },
+    { "id": "s-frankreich-strasbourg", "text": "法国", "of": "frankreich", "at": [6.9, 48.75] },
+    { "id": "s-boehmen", "text": "波希米亚", "of": "boehmen" },
+    { "id": "s-kirchenstaat", "text": "教皇国", "of": "kirchenstaat", "at": [12.4, 42.8] },
+    { "id": "s-koenigreichneapel", "text": "那不勒斯王国", "of": "koenigreichneapel" }
+  ],
+  "far": [],
+  "roads": {
+    "stopShows": "stop-years",
+    "boats": "on",
+    "ways": [
+      {
+        "id": "w-frankfurtammain-eisenach",
+        "by": "land",
+        "line": [[8.682, 50.111], [8.917, 50.133], [9.192, 50.201], [9.526, 50.347], [9.681, 50.556], [10.2, 50.917], [10.316, 50.983]]
+      },
+      { "id": "w-frankfurtammain-darmstadt", "by": "land", "line": [[8.682, 50.111], [8.651, 49.873]] },
+      { "id": "w-frankfurtammain-wetzlar", "by": "land", "line": [[8.682, 50.111], [8.755, 50.335], [8.504, 50.558]] },
+      { "id": "w-frankfurtammain-hadersheim", "by": "land", "line": [[8.682, 50.111], [8.486, 50.07]] },
+      { "id": "w-frankfurtammain-insberg", "by": "land", "line": [[8.682, 50.111], [9.146, 50.996]] },
+      { "id": "w-leipzig-weimar", "by": "land", "line": [[12.375, 51.34], [12.065, 51.225], [11.972, 51.201], [11.81, 51.153], [11.561, 51.123], [11.33, 50.979]] },
+      { "id": "w-leipzig-woerlitz", "by": "land", "line": [[12.375, 51.34], [12.419, 51.843]] },
+      { "id": "w-leipzig-dessau", "by": "land", "line": [[12.375, 51.34], [12.243, 51.834]] },
+      { "id": "w-leipzig-meissen", "by": "land", "line": [[12.375, 51.34], [12.733, 51.367], [13.109, 51.298], [13.478, 51.164]] },
+      { "id": "w-strassburg-carlsruh", "by": "land", "line": [[7.748, 48.584], [8.404, 49.014]] },
+      { "id": "w-strassburg-emmendingen", "by": "land", "line": [[7.748, 48.584], [7.849, 48.121]] },
+      { "id": "w-strassburg-selz", "by": "land", "line": [[7.748, 48.584], [8.108, 48.895]] },
+      { "id": "w-strassburg-selz-sesenheim", "by": "land", "line": [[7.748, 48.584], [7.986, 48.797], [8.108, 48.895]] },
+      { "id": "w-ems-nassau", "by": "land", "along": "lahn", "line": [[7.711, 50.338], [7.8, 50.31]] },
+      { "id": "w-ems-oberlahnstein-boat", "by": "water", "along": "lahn", "line": [[7.711, 50.338], [7.699, 50.339], [7.664, 50.332], [7.619, 50.317], [7.601, 50.3]] },
+      { "id": "w-ems-thalehrenbreitstein", "by": "land", "line": [[7.711, 50.338], [7.615, 50.36]] },
+      { "id": "w-thalehrenbreitstein-oberlahnstein-boat", "by": "water", "along": "rhein", "line": [[7.615, 50.36], [7.591, 50.332], [7.601, 50.3]] },
+      {
+        "id": "w-thalehrenbreitstein-koeln-boat",
+        "by": "water",
+        "along": "rhein",
+        "line": [
+          [7.615, 50.36],
+          [7.581, 50.411],
+          [7.544, 50.418],
+          [7.503, 50.418],
+          [7.463, 50.425],
+          [7.398, 50.45],
+          [7.333, 50.487],
+          [7.269, 50.567],
+          [7.243, 50.583],
+          [7.213, 50.596],
+          [7.209, 50.634],
+          [7.197, 50.67],
+          [7.175, 50.699],
+          [7.121, 50.729],
+          [7.089, 50.764],
+          [7.043, 50.78],
+          [7.028, 50.806],
+          [6.985, 50.831],
+          [6.986, 50.855],
+          [7.036, 50.875],
+          [6.986, 50.902],
+          [6.965, 50.934],
+          [6.959, 50.943]
+        ]
+      },
+      { "id": "w-thalehrenbreitstein-koblenz-boat", "by": "water", "along": "rhein", "line": [[7.615, 50.36], [7.594, 50.357]] },
+      { "id": "w-mainz-hadersheim", "by": "land", "line": [[8.271, 50], [8.486, 50.07]] },
+      { "id": "w-mainz-trier", "by": "land", "line": [[8.271, 50], [6.644, 49.76]] },
+      { "id": "w-mainz-mannheim", "by": "land", "line": [[8.271, 50], [8.466, 49.488]] },
+      { "id": "w-mainz-wiesbaden", "by": "land", "line": [[8.271, 50], [8.24, 50.083]] },
+      {
+        "id": "w-duesseldorf-koeln-boat",
+        "by": "water",
+        "along": "rhein",
+        "line": [
+          [6.783, 51.226],
+          [6.767, 51.23],
+          [6.724, 51.227],
+          [6.728, 51.196],
+          [6.76, 51.181],
+          [6.798, 51.161],
+          [6.839, 51.159],
+          [6.848, 51.137],
+          [6.876, 51.121],
+          [6.869, 51.097],
+          [6.853, 51.076],
+          [6.894, 51.069],
+          [6.951, 51.033],
+          [6.963, 51.004],
+          [6.986, 50.98],
+          [6.984, 50.962],
+          [6.959, 50.943]
+        ]
+      },
+      { "id": "w-duesseldorf-elberfeld", "by": "land", "line": [[6.783, 51.226], [7.149, 51.257]] },
+      { "id": "w-duesseldorf-koeln", "by": "land", "line": [[6.783, 51.226], [7.157, 50.966], [6.959, 50.943]] },
+      { "id": "w-duesseldorf-muenster", "by": "land", "line": [[6.783, 51.226], [6.766, 51.433], [7.629, 51.963]] },
+      { "id": "w-koeln-koblenz", "by": "land", "line": [[6.959, 50.943], [7.1, 50.734], [7.402, 50.44], [7.252, 50.402], [7.281, 50.374], [7.461, 50.414], [7.594, 50.357]] },
+      { "id": "w-mannheim-darmstadt", "by": "land", "line": [[8.466, 49.488], [8.651, 49.873]] },
+      { "id": "w-mannheim-carlsruh", "by": "land", "line": [[8.466, 49.488], [8.404, 49.014]] },
+      { "id": "w-mannheim-heidelberg", "by": "land", "line": [[8.466, 49.488], [8.697, 49.41]] },
+      { "id": "w-emmendingen-schaffhausen", "by": "land", "line": [[7.849, 48.121], [8.634, 47.697]] },
+      { "id": "w-emmendingen-basel", "by": "land", "line": [[7.849, 48.121], [7.588, 47.558]] },
+      { "id": "w-weinheim-heidelberg", "by": "land", "line": [[8.67, 49.556], [8.697, 49.41]] },
+      { "id": "w-weinheim-darmstadt", "by": "land", "line": [[8.67, 49.556], [8.645, 49.819], [8.651, 49.873]] },
+      { "id": "w-heidelberg-speyer", "by": "land", "line": [[8.697, 49.41], [8.441, 49.317]] },
+      { "id": "w-heidelberg-stuttgart", "by": "land", "line": [[8.697, 49.41], [8.883, 49.25], [9.222, 49.142], [9.192, 48.898], [9.183, 48.776]] },
+      { "id": "w-weimar-erfurt", "by": "land", "line": [[11.33, 50.979], [11.029, 50.978]] },
+      {
+        "id": "w-weimar-elbingerode",
+        "by": "land",
+        "line": [[11.33, 50.979], [11.065, 51.201], [10.948, 51.229], [10.872, 51.371], [10.808, 51.469], [10.791, 51.5], [10.767, 51.551], [10.787, 51.577], [10.803, 51.769]]
+      },
+      { "id": "w-weimar-alstaedt", "by": "land", "line": [[11.33, 50.979], [11.387, 51.404]] },
+      { "id": "w-weimar-langenstein", "by": "land", "line": [[11.33, 50.979], [10.988, 51.853]] },
+      { "id": "w-weimar-koetschau", "by": "land", "line": [[11.33, 50.979], [11.485, 50.962]] },
+      { "id": "w-weimar-oberrossla", "by": "land", "line": [[11.33, 50.979], [11.481, 51.021]] },
+      { "id": "w-weimar-lauchstaedt", "by": "land", "line": [[11.33, 50.979], [11.417, 51.121], [11.478, 51.142], [11.867, 51.387]] },
+      { "id": "w-weimar-berka", "by": "land", "line": [[11.33, 50.979], [11.281, 50.9]] },
+      {
+        "id": "w-weimar-tennstedt",
+        "by": "land",
+        "line": [
+          [11.33, 50.979],
+          [11.302, 51],
+          [11.229, 51.037],
+          [11.146, 51.071],
+          [11.106, 51.082],
+          [11.087, 51.081],
+          [10.954, 51.104],
+          [10.935, 51.114],
+          [10.833, 51.117],
+          [10.837, 51.154]
+        ]
+      },
+      { "id": "w-weimar-stadtilm", "by": "land", "line": [[11.33, 50.979], [11.081, 50.775]] },
+      { "id": "w-jena-koetschau", "by": "land", "line": [[11.586, 50.927], [11.485, 50.962]] },
+      { "id": "w-jena-kahla", "by": "land", "line": [[11.586, 50.927], [11.605, 50.849], [11.588, 50.801]] },
+      { "id": "w-jena-gera", "by": "land", "line": [[11.586, 50.927], [11.754, 50.941], [12.01, 50.931], [12.083, 50.881]] },
+      { "id": "w-jena-judenbach", "by": "land", "line": [[11.586, 50.927], [11.466, 50.742], [11.354, 50.651], [11.3, 50.533], [11.217, 50.4]] },
+      { "id": "w-jena-dornburg", "by": "land", "line": [[11.586, 50.927], [11.666, 51.006]] },
+      { "id": "w-dornburg-koetschau", "by": "land", "line": [[11.666, 51.006], [11.485, 50.962]] },
+      { "id": "w-ilmenau-stadtilm", "by": "land", "line": [[10.914, 50.687], [11.081, 50.775]] },
+      { "id": "w-erfurt-gotha", "by": "land", "line": [[11.029, 50.978], [10.718, 50.949]] },
+      { "id": "w-erfurt-ettersburg", "by": "land", "line": [[11.029, 50.978], [11.28, 51.033]] },
+      { "id": "w-erfurt-muehlhausen", "by": "land", "line": [[11.029, 50.978], [10.456, 51.209]] },
+      { "id": "w-lauchstaedt-coennern", "by": "land", "line": [[11.867, 51.387], [11.97, 51.483], [11.771, 51.67]] },
+      { "id": "w-berka-stadtilm", "by": "land", "line": [[11.281, 50.9], [11.246, 50.859], [11.081, 50.775]] },
+      { "id": "w-eisenach-gotha", "by": "land", "line": [[10.316, 50.983], [10.523, 50.942], [10.718, 50.949]] },
+      { "id": "w-eisenach-muehlhausen", "by": "land", "line": [[10.316, 50.983], [10.456, 51.209]] },
+      { "id": "w-eisenach-cassel", "by": "land", "line": [[10.316, 50.983], [10.245, 51.051], [9.972, 51.129], [9.94, 51.139], [9.5, 51.317]] },
+      { "id": "w-wiesbaden-hadersheim", "by": "land", "line": [[8.24, 50.083], [8.486, 50.07]] },
+      { "id": "w-wiesbaden-limburg", "by": "land", "line": [[8.24, 50.083], [8.269, 50.221], [8.226, 50.336], [8.067, 50.383]] },
+      { "id": "w-wiesbaden-nassau", "by": "land", "line": [[8.24, 50.083], [8.069, 50.14], [7.8, 50.31]] },
+      { "id": "w-nassau-limburg", "by": "land", "along": "lahn", "line": [[7.8, 50.31], [7.898, 50.351], [8.067, 50.383]] },
+      { "id": "w-carlsruh-stuttgart", "by": "land", "line": [[8.404, 49.014], [9.183, 48.776]] },
+      { "id": "w-trier-luxenburg", "by": "land", "line": [[6.644, 49.76], [6.548, 49.71], [6.45, 49.679], [6.131, 49.611]] },
+      { "id": "w-luxenburg-praucourt", "by": "land", "line": [[6.131, 49.611], [5.725, 49.461]] },
+      { "id": "w-luxenburg-verdun", "by": "land", "line": [[6.131, 49.611], [5.817, 49.684], [5.761, 49.52], [5.601, 49.448], [5.666, 49.332], [5.633, 49.217], [5.388, 49.161]] },
+      { "id": "w-verdun-grandpre", "by": "land", "line": [[5.388, 49.161], [5.181, 49.243], [5.011, 49.354], [4.871, 49.341]] },
+      { "id": "w-verdun-grandpre-consenvoye", "by": "land", "line": [[5.388, 49.161], [5.287, 49.288], [5.184, 49.387], [4.973, 49.401], [4.956, 49.427], [4.871, 49.341]] },
+      { "id": "w-valmy-vauxlesmourons", "by": "land", "line": [[4.774, 49.085], [4.669, 49.102], [4.751, 49.188], [4.784, 49.301]] },
+      { "id": "w-grandpre-vauxlesmourons", "by": "land", "line": [[4.871, 49.341], [4.784, 49.301]] },
+      { "id": "w-muenster-cassel", "by": "land", "line": [[7.629, 51.963], [8.757, 51.719], [9.5, 51.317]] },
+      { "id": "w-goettingen-clausthal", "by": "land", "line": [[9.936, 51.534], [10.333, 51.804]] },
+      { "id": "w-goettingen-cassel", "by": "land", "line": [[9.936, 51.534], [9.763, 51.502], [9.65, 51.417], [9.5, 51.317]] },
+      { "id": "w-cassel-insberg", "by": "land", "line": [[9.5, 51.317], [9.348, 51.102], [9.146, 50.996]] },
+      { "id": "w-augsburg-constanz", "by": "land", "line": [[10.898, 48.372], [9.011, 47.851], [9.027, 47.775], [9.176, 47.663]] },
+      {
+        "id": "w-augsburg-schwabach",
+        "by": "land",
+        "line": [[10.898, 48.372], [10.853, 48.542], [10.778, 48.719], [10.856, 48.842], [10.935, 48.944], [10.987, 49.106], [11.091, 49.246], [11.021, 49.329]]
+      },
+      {
+        "id": "w-augsburg-inspruck",
+        "by": "land",
+        "line": [
+          [10.898, 48.372],
+          [10.755, 48.179],
+          [10.725, 48.038],
+          [10.624, 47.881],
+          [10.689, 47.739],
+          [10.7, 47.567],
+          [10.719, 47.488],
+          [10.883, 47.4],
+          [10.838, 47.315],
+          [10.983, 47.3],
+          [11.16, 47.292],
+          [11.393, 47.267]
+        ]
+      },
+      { "id": "w-stuttgart-schaffhausen", "by": "land", "line": [[9.183, 48.776], [8.634, 47.697]] },
+      { "id": "w-stuttgart-engen", "by": "land", "line": [[9.183, 48.776], [9.167, 48.689], [9.053, 48.52], [8.851, 48.273], [8.819, 47.984], [8.771, 47.853]] },
+      { "id": "w-dresden-altenburg", "by": "land", "line": [[13.738, 51.049], [13.3, 51.05], [13.017, 51.067], [12.8, 51.046], [12.433, 50.985]] },
+      { "id": "w-dresden-breslau", "by": "land", "line": [[13.738, 51.049], [16.346, 50.873], [17.032, 51.11]] },
+      { "id": "w-dresden-meissen", "by": "land", "line": [[13.738, 51.049], [13.478, 51.164]] },
+      { "id": "w-dresden-teplitz", "by": "land", "line": [[13.738, 51.049], [13.94, 50.958], [13.979, 50.787], [13.959, 50.716], [13.939, 50.697], [13.822, 50.643]] },
+      { "id": "w-dresden-altenburg-freiberg", "by": "land", "line": [[13.738, 51.049], [13.343, 50.917], [13.167, 50.862], [12.924, 50.832], [12.706, 50.934], [12.433, 50.985]] },
+      { "id": "w-meissen-dessau", "by": "land", "line": [[13.478, 51.164], [12.243, 51.834]] },
+      { "id": "w-hof-schleiz", "by": "land", "line": [[11.919, 50.322], [11.85, 50.433], [11.817, 50.583]] },
+      { "id": "w-hof-wunsiedel", "by": "land", "line": [[11.919, 50.322], [11.933, 50.263], [11.933, 50.221], [12.005, 50.039]] },
+      { "id": "w-hof-franzensbad", "by": "land", "line": [[11.919, 50.322], [12.032, 50.248], [12.195, 50.224], [12.352, 50.12]] },
+      { "id": "w-poessneck-kahla", "by": "land", "line": [[11.594, 50.694], [11.52, 50.774], [11.588, 50.801]] },
+      { "id": "w-poessneck-schleiz", "by": "land", "line": [[11.594, 50.694], [11.817, 50.583]] },
+      { "id": "w-schleiz-kahla", "by": "land", "line": [[11.817, 50.583], [11.746, 50.736], [11.63, 50.767], [11.588, 50.801]] },
+      { "id": "w-schleiz-zwota", "by": "land", "line": [[11.817, 50.583], [12.138, 50.495], [12.257, 50.321], [12.406, 50.252], [12.625, 50.192]] },
+      { "id": "w-woerlitz-potsdam", "by": "land", "line": [[12.419, 51.843], [12.871, 52.097], [13.061, 52.396]] },
+      { "id": "w-woerlitz-potsdam-coswig", "by": "land", "line": [[12.419, 51.843], [12.458, 51.886], [12.644, 51.866], [13.061, 52.396]] },
+      { "id": "w-woerlitz-dessau", "by": "land", "line": [[12.419, 51.843], [12.243, 51.834]] },
+      { "id": "w-dessau-alstaedt", "by": "land", "line": [[12.243, 51.834], [11.387, 51.404]] },
+      { "id": "w-potsdam-berlin", "by": "land", "line": [[13.061, 52.396], [13.408, 52.519]] },
+      { "id": "w-elbingerode-goslar", "by": "land", "line": [[10.803, 51.769], [10.777, 51.836], [10.68, 51.866], [10.43, 51.907]] },
+      { "id": "w-elbingerode-brocken", "by": "land", "line": [[10.803, 51.769], [10.616, 51.799]] },
+      { "id": "w-elbingerode-rosstrappe", "by": "land", "line": [[10.803, 51.769], [11.018, 51.735]] },
+      { "id": "w-goslar-clausthal", "by": "land", "line": [[10.43, 51.907], [10.333, 51.804]] },
+      { "id": "w-goslar-braunschweig", "by": "land", "line": [[10.43, 51.907], [10.521, 52.269]] },
+      { "id": "w-clausthal-brocken", "by": "land", "line": [[10.333, 51.804], [10.447, 51.804], [10.537, 51.803], [10.616, 51.799]] },
+      { "id": "w-clausthal-dingelstaedt", "by": "land", "line": [[10.333, 51.804], [10.518, 51.711], [10.469, 51.631], [10.46, 51.621], [10.257, 51.512], [10.319, 51.315]] },
+      { "id": "w-clausthal-langenstein", "by": "land", "line": [[10.333, 51.804], [10.988, 51.853]] },
+      { "id": "w-muehlhausen-dingelstaedt", "by": "land", "line": [[10.456, 51.209], [10.319, 51.315]] },
+      { "id": "w-speyer-selz", "by": "land", "line": [[8.441, 49.317], [8.279, 49.119], [8.108, 48.895]] },
+      { "id": "w-langenstein-rosstrappe", "by": "land", "line": [[10.988, 51.853], [11.018, 51.735]] },
+      { "id": "w-langenstein-alstaedt", "by": "land", "line": [[10.988, 51.853], [11.387, 51.404]] },
+      { "id": "w-johanngeorgenstadt-carlsbad", "by": "land", "line": [[12.724, 50.431], [12.923, 50.366], [12.872, 50.232]] },
+      { "id": "w-johanngeorgenstadt-gera", "by": "land", "line": [[12.724, 50.431], [12.646, 50.594], [12.083, 50.881]] },
+      { "id": "w-constanz-sorico", "by": "land", "line": [[9.176, 47.663], [9.179, 47.646], [9.54, 47.378], [9.532, 46.848], [9.33, 46.506], [9.4, 46.317], [9.383, 46.172]] },
+      { "id": "w-carlsbad-zwota", "by": "land", "line": [[12.872, 50.232], [12.625, 50.192]] },
+      { "id": "w-carlsbad-libkowitz", "by": "land", "line": [[12.872, 50.232], [13.045, 50.151], [13.313, 50.132]] },
+      { "id": "w-marienbad-eger", "by": "land", "line": [[12.702, 49.964], [12.546, 50.017], [12.371, 50.079]] },
+      { "id": "w-teplitz-saaz", "by": "land", "line": [[13.822, 50.643], [13.748, 50.604], [13.637, 50.503], [13.546, 50.327]] },
+      { "id": "w-eger-wunsiedel", "by": "land", "line": [[12.371, 50.079], [12.016, 50.017], [12.005, 50.039]] },
+      { "id": "w-eger-mariakulm", "by": "land", "line": [[12.371, 50.079], [12.536, 50.15]] },
+      {
+        "id": "w-eger-inspruck",
+        "by": "land",
+        "line": [
+          [12.371, 50.079],
+          [12.333, 49.883],
+          [12.163, 49.675],
+          [12.161, 49.539],
+          [12.139, 49.389],
+          [12.11, 49.328],
+          [12.1, 49.164],
+          [12.102, 49.015],
+          [11.929, 48.9],
+          [11.764, 48.809],
+          [11.611, 48.684],
+          [11.507, 48.53],
+          [11.565, 48.348],
+          [11.574, 48.14],
+          [11.419, 47.914],
+          [11.412, 47.707],
+          [11.311, 47.59],
+          [11.26, 47.442],
+          [11.189, 47.329],
+          [11.393, 47.267]
+        ]
+      },
+      { "id": "w-eger-franzensbad", "by": "land", "line": [[12.371, 50.079], [12.352, 50.12]] },
+      { "id": "w-eger-zwota", "by": "land", "line": [[12.371, 50.079], [12.573, 50.219], [12.625, 50.192]] },
+      { "id": "w-franzensbad-mariakulm", "by": "land", "line": [[12.352, 50.12], [12.536, 50.15]] },
+      { "id": "w-breslau-krakau-czenstochau", "by": "land", "line": [[17.032, 51.11], [19.117, 50.8], [19.937, 50.062]] },
+      { "id": "w-krakau-wieliczka", "by": "land", "line": [[19.937, 50.062], [20.05, 49.983]] },
+      { "id": "w-zuerich-eglisau", "by": "land", "line": [[8.542, 47.372], [8.542, 47.519], [8.524, 47.576]] },
+      {
+        "id": "w-zuerich-richterswil-boat",
+        "by": "water",
+        "along": "zurichsee",
+        "line": [[8.542, 47.372], [8.542, 47.365], [8.586, 47.289], [8.683, 47.237], [8.71, 47.209], [8.706, 47.208]]
+      },
+      { "id": "w-zuerich-basel", "by": "land", "line": [[8.542, 47.372], [7.588, 47.558]] },
+      { "id": "w-zuerich-luzern", "by": "land", "line": [[8.542, 47.372], [8.306, 47.052]] },
+      { "id": "w-gotthard-urnerloch", "by": "land", "line": [[8.562, 46.559], [8.595, 46.633]] },
+      { "id": "w-gotthard-hospental", "by": "land", "line": [[8.562, 46.559], [8.57, 46.621]] },
+      {
+        "id": "w-basel-murten",
+        "by": "land",
+        "line": [[7.588, 47.558], [7.371, 47.281], [7.247, 47.137], [7.2, 47.067], [7.162, 47.047], [7.111, 47.033], [7.097, 47.044], [7.106, 47.006], [7.117, 46.928]]
+      },
+      { "id": "w-bern-murten", "by": "land", "line": [[7.447, 46.948], [7.117, 46.928]] },
+      { "id": "w-bern-thun", "by": "land", "line": [[7.447, 46.948], [7.63, 46.759]] },
+      {
+        "id": "w-thun-untersewen-boat",
+        "by": "water",
+        "along": "thunersee",
+        "line": [[7.63, 46.759], [7.64, 46.746], [7.707, 46.7], [7.75, 46.676], [7.809, 46.68], [7.826, 46.67], [7.826, 46.669], [7.85, 46.683]]
+      },
+      { "id": "w-lauterbrunnen-zweiluetschinen", "by": "land", "line": [[7.909, 46.6], [7.903, 46.632]] },
+      { "id": "w-luzern-seemitte-boat", "by": "water", "along": "vierwaldstaettersee", "line": [[8.306, 47.052], [8.333, 47.045], [8.35, 47.031], [8.372, 47.017]] },
+      { "id": "w-schaffhausen-eglisau", "by": "land", "line": [[8.634, 47.697], [8.524, 47.576]] },
+      { "id": "w-schaffhausen-engen", "by": "land", "line": [[8.634, 47.697], [8.771, 47.853]] },
+      { "id": "w-staefa-richterswil-boat", "by": "water", "along": "zurichsee", "line": [[8.722, 47.237], [8.71, 47.209], [8.706, 47.208]] },
+      { "id": "w-staefa-horgen-boat", "by": "water", "along": "zurichsee", "line": [[8.722, 47.237], [8.624, 47.258], [8.598, 47.261]] },
+      { "id": "w-schwyz-richterswil", "by": "land", "line": [[8.654, 47.021], [8.743, 47.128], [8.7, 47.17], [8.706, 47.208]] },
+      { "id": "w-schwyz-brunnen", "by": "land", "line": [[8.654, 47.021], [8.605, 46.996]] },
+      {
+        "id": "w-hospental-murten",
+        "by": "land",
+        "line": [
+          [8.57, 46.621],
+          [8.503, 46.599],
+          [8.415, 46.573],
+          [8.349, 46.534],
+          [8.264, 46.487],
+          [7.987, 46.316],
+          [7.634, 46.318],
+          [7.618, 46.345],
+          [7.633, 46.383],
+          [7.534, 46.292],
+          [7.361, 46.233],
+          [7.067, 46.1],
+          [6.97, 46.027],
+          [6.869, 45.922],
+          [6.633, 45.937],
+          [6.579, 46.061],
+          [6.15, 46.2],
+          [6.146, 46.205],
+          [6.15, 46.25],
+          [6.167, 46.283],
+          [6.171, 46.305],
+          [6.2, 46.35],
+          [6.239, 46.382],
+          [6.158, 46.446],
+          [6.062, 46.486],
+          [6.217, 46.583],
+          [6.338, 46.458],
+          [6.346, 46.464],
+          [6.499, 46.509],
+          [6.503, 46.516],
+          [6.527, 46.518],
+          [6.634, 46.519],
+          [6.797, 46.669],
+          [6.938, 46.821],
+          [7.041, 46.88],
+          [7.117, 46.928]
+        ]
+      },
+      { "id": "w-hospental-urnerloch", "by": "land", "line": [[8.57, 46.621], [8.595, 46.633]] },
+      { "id": "w-zug-immensee-boat", "by": "water", "along": "zugersee", "line": [[8.515, 47.166], [8.504, 47.15], [8.482, 47.1], [8.464, 47.097]] },
+      { "id": "w-zug-horgen", "by": "land", "line": [[8.515, 47.166], [8.526, 47.196], [8.578, 47.218], [8.598, 47.261]] },
+      { "id": "w-como-mayland", "by": "land", "line": [[9.083, 45.817], [9.186, 45.463]] },
+      {
+        "id": "w-como-sorico-boat",
+        "by": "water",
+        "along": "comersee",
+        "line": [
+          [9.083, 45.817],
+          [9.078, 45.819],
+          [9.075, 45.825],
+          [9.15, 45.889],
+          [9.15, 45.895],
+          [9.15, 45.941],
+          [9.219, 45.969],
+          [9.247, 45.993],
+          [9.311, 46.125],
+          [9.377, 46.169],
+          [9.383, 46.172]
+        ]
+      },
+      { "id": "w-mayland-bologna", "by": "land", "line": [[9.186, 45.463], [9.7, 45.05], [10.333, 44.8], [10.926, 44.646], [11.343, 44.494]] },
+      {
+        "id": "w-inspruck-roveredo",
+        "by": "land",
+        "line": [
+          [11.393, 47.267],
+          [11.406, 47.186],
+          [11.467, 47.093],
+          [11.508, 47.003],
+          [11.432, 46.897],
+          [11.574, 46.807],
+          [11.657, 46.716],
+          [11.525, 46.59],
+          [11.485, 46.522],
+          [11.357, 46.499],
+          [11.32, 46.404],
+          [11.267, 46.317],
+          [11.2, 46.233],
+          [11.117, 46.133],
+          [11.117, 46.067],
+          [11.123, 45.99],
+          [11.045, 45.886]
+        ]
+      },
+      { "id": "w-roveredo-torbole", "by": "land", "line": [[11.045, 45.886], [10.876, 45.869]] },
+      { "id": "w-roveredo-verona", "by": "land", "line": [[11.045, 45.886], [11.005, 45.757], [10.85, 45.6], [10.993, 45.439]] },
+      {
+        "id": "w-torbole-bardolino-boat",
+        "by": "water",
+        "along": "gardasee",
+        "line": [[10.876, 45.869], [10.806, 45.77], [10.808, 45.768], [10.743, 45.7], [10.666, 45.588], [10.668, 45.568], [10.72, 45.544], [10.724, 45.548]]
+      },
+      { "id": "w-verona-bardolino", "by": "land", "line": [[10.993, 45.439], [10.724, 45.548]] },
+      { "id": "w-verona-vicenz", "by": "land", "line": [[10.993, 45.439], [11.55, 45.55]] },
+      { "id": "w-verona-vicenz-bellemonte", "by": "land", "line": [[10.993, 45.439], [11.367, 45.45], [11.55, 45.55]] },
+      { "id": "w-verona-mantua", "by": "land", "line": [[10.993, 45.439], [10.791, 45.156]] },
+      { "id": "w-vicenz-padua", "by": "land", "line": [[11.55, 45.55], [11.872, 45.408]] },
+      {
+        "id": "w-padua-venedig-boat",
+        "by": "water",
+        "along": "brenta",
+        "line": [[11.872, 45.408], [11.879, 45.413], [12.012, 45.407], [12.052, 45.413], [12.085, 45.427], [12.117, 45.433], [12.176, 45.453], [12.221, 45.427], [12.247, 45.421]]
+      },
+      { "id": "w-brenta-venedig-sea", "by": "sea", "line": [[12.247, 45.421], [12.26, 45.418], [12.336, 45.438]] },
+      { "id": "w-venedig-po-sea", "by": "sea", "line": [[12.336, 45.438], [12.315, 45.355], [12.38, 45.25], [12.43, 45.12], [12.57, 45.01], [12.534, 44.97], [12.53, 44.969]] },
+      {
+        "id": "w-venedig-ferrara-boat",
+        "by": "water",
+        "along": "po",
+        "line": [
+          [12.53, 44.969],
+          [12.446, 44.956],
+          [12.325, 44.958],
+          [12.294, 44.964],
+          [12.242, 45.005],
+          [12.184, 45.025],
+          [12.141, 45.03],
+          [12.075, 45.021],
+          [12.088, 44.998],
+          [12.052, 44.98],
+          [11.968, 44.983],
+          [11.931, 44.977],
+          [11.87, 44.985],
+          [11.821, 44.977],
+          [11.788, 44.966],
+          [11.756, 44.961],
+          [11.736, 44.938],
+          [11.677, 44.922],
+          [11.654, 44.906],
+          [11.622, 44.895]
+        ]
+      },
+      { "id": "w-po-ferrara-boat", "by": "water", "line": [[11.622, 44.895], [11.617, 44.833]] },
+      { "id": "w-ferrara-bologna", "by": "land", "line": [[11.617, 44.833], [11.283, 44.733], [11.343, 44.494]] },
+      { "id": "w-bologna-florenz", "by": "land", "line": [[11.343, 44.494], [11.317, 44.267], [11.277, 43.995], [11.25, 43.783]] },
+      { "id": "w-florenz-rom-siena", "by": "land", "line": [[11.25, 43.783], [11.331, 43.318], [11.986, 42.645], [12.483, 41.883]] },
+      { "id": "w-neapel-palermo-sea", "by": "sea", "line": [[14.249, 40.841], [14.05, 40.55], [13.07, 38.8], [13.42, 38.21], [13.39, 38.13], [13.361, 38.116]] },
+      {
+        "id": "w-neapel-messina-sea",
+        "by": "sea",
+        "line": [[14.249, 40.841], [14.12, 40.57], [14.2, 40.47], [15.7, 38.31], [15.67, 38.265], [15.615, 38.235], [15.578, 38.19], [15.55, 38.183]]
+      },
+      {
+        "id": "w-girgenti-messina",
+        "by": "land",
+        "line": [[13.575, 37.313], [14.056, 37.491], [14.267, 37.567], [15.087, 37.503], [15.233, 37.817], [15.288, 37.853], [15.55, 38.183]]
+      },
+      { "id": "w-rosstrappe-helmstedt", "by": "land", "line": [[11.018, 51.735], [11.052, 51.895], [11.011, 52.228]] },
+      { "id": "w-rosstrappe-coennern", "by": "land", "line": [[11.018, 51.735], [11.137, 51.721], [11.238, 51.72], [11.456, 51.756], [11.771, 51.67]] },
+      { "id": "w-helmstedt-coennern", "by": "land", "line": [[11.011, 52.228], [11.617, 52.133], [11.743, 51.794], [11.771, 51.67]] },
+      { "id": "w-altenburg-gera", "by": "land", "line": [[12.433, 50.985], [12.083, 50.881]] },
+      { "id": "w-schwabach-bamberg", "by": "land", "line": [[11.021, 49.329], [11.079, 49.456], [11.004, 49.596], [11.058, 49.72], [10.892, 49.892]] },
+      { "id": "w-cronach-bamberg", "by": "land", "line": [[11.328, 50.241], [10.892, 49.892]] },
+      { "id": "w-cronach-judenbach", "by": "land", "line": [[11.328, 50.241], [11.217, 50.4]] },
+      { "id": "w-bamberg-judenbach", "by": "land", "line": [[10.892, 49.892], [10.887, 50.016], [10.897, 50.134], [10.967, 50.267], [11.217, 50.4]] },
+      { "id": "w-zwota-mariakulm", "by": "land", "line": [[12.625, 50.192], [12.536, 50.15]] },
+      { "id": "w-rigi-izenach", "by": "land", "line": [[8.486, 47.057], [8.484, 47.009]] },
+      { "id": "w-grossescheidegg-zweiluetschinen", "by": "land", "line": [[8.102, 46.656], [8.033, 46.626], [7.903, 46.632]] },
+      { "id": "w-grossescheidegg-brienz", "by": "land", "line": [[8.102, 46.656], [8.186, 46.729], [8.03, 46.758]] },
+      { "id": "w-brienz-unterlachen-boat", "by": "water", "along": "brienzersee", "line": [[8.03, 46.758], [7.9, 46.692], [7.897, 46.694], [7.889, 46.694], [7.867, 46.683]] },
+      { "id": "w-urnerloch-flueelen", "by": "land", "line": [[8.595, 46.633], [8.59, 46.648], [8.586, 46.668], [8.599, 46.706], [8.669, 46.791], [8.644, 46.882], [8.624, 46.9]] },
+      { "id": "w-libkowitz-saaz", "by": "land", "line": [[13.313, 50.132], [13.368, 50.254], [13.546, 50.327]] },
+      { "id": "w-libkowitz-saaz-podersam", "by": "land", "line": [[13.313, 50.132], [13.411, 50.226], [13.546, 50.327]] },
+      {
+        "id": "w-brunnen-izenach-boat",
+        "by": "water",
+        "along": "vierwaldstaettersee",
+        "line": [[8.605, 46.996], [8.523, 46.985], [8.523, 46.989], [8.471, 46.991], [8.468, 46.993], [8.484, 47.009]]
+      },
+      { "id": "w-brunnen-flueelen-boat", "by": "water", "along": "vierwaldstaettersee", "line": [[8.605, 46.996], [8.608, 46.909], [8.62, 46.901], [8.624, 46.9]] },
+      { "id": "w-izenach-seemitte-boat", "by": "water", "along": "vierwaldstaettersee", "line": [[8.484, 47.009], [8.372, 47.017]] },
+      { "id": "w-beckerieth-stanzstade", "by": "land", "line": [[8.467, 46.968], [8.422, 46.976], [8.366, 46.957], [8.341, 46.979]] },
+      { "id": "w-stanzstade-seemitte-boat", "by": "water", "along": "vierwaldstaettersee", "line": [[8.341, 46.979], [8.35, 46.993], [8.372, 47.017]] },
+      { "id": "w-kuessnacht-seemitte-boat", "by": "water", "along": "vierwaldstaettersee", "line": [[8.441, 47.083], [8.435, 47.081], [8.43, 47.071], [8.372, 47.017]] },
+      { "id": "w-untersewen-zweiluetschinen", "by": "land", "line": [[7.85, 46.683], [7.903, 46.632]] },
+      { "id": "w-untersewen-unterlachen", "by": "land", "line": [[7.85, 46.683], [7.867, 46.683]] },
+      { "id": "w-8e-weimar-auerstaedt-leipzig", "by": "land", "line": [[11.33, 50.979], [11.588, 51.099], [11.81, 51.153], [11.972, 51.201], [12.065, 51.225], [12.375, 51.34]] },
+      { "id": "w-8e-strassburg-zabern", "by": "land", "line": [[7.748, 48.584], [7.363, 48.742]] },
+      { "id": "w-8e-zabern-pfalzburg-buchsweiler", "by": "land", "line": [[7.363, 48.742], [7.331, 48.755], [7.259, 48.769], [7.331, 48.755], [7.484, 48.826]] },
+      { "id": "w-8e-buchsweiler-saarbrueck", "by": "land", "line": [[7.484, 48.826], [7.32, 48.861], [7.089, 48.941], [7.068, 49.111], [6.996, 49.233]] },
+      { "id": "w-8e-saarbrueck-neukirch", "by": "land", "line": [[6.996, 49.233], [7.036, 49.276], [7.056, 49.284], [7.096, 49.326], [7.184, 49.35]] },
+      { "id": "w-8e-wetzlar-ems-lahn", "by": "land", "along": "lahn", "line": [[8.504, 50.558], [8.264, 50.483], [8.067, 50.383], [8.016, 50.371], [7.8, 50.31], [7.711, 50.338]] },
+      {
+        "id": "w-8e-oberlahnstein-mainz-boat",
+        "by": "water",
+        "along": "rhein",
+        "line": [
+          [7.601, 50.3],
+          [7.648, 50.268],
+          [7.589, 50.254],
+          [7.613, 50.226],
+          [7.643, 50.185],
+          [7.693, 50.167],
+          [7.724, 50.145],
+          [7.73, 50.113],
+          [7.752, 50.093],
+          [7.765, 50.064],
+          [7.85, 50.011],
+          [7.878, 49.973],
+          [7.918, 49.974],
+          [7.962, 49.983],
+          [8.01, 49.999],
+          [8.048, 50.018],
+          [8.174, 50.046],
+          [8.213, 50.044],
+          [8.228, 50.038],
+          [8.271, 50]
+        ]
+      },
+      { "id": "w-8e-oberlahnstein-thal-boat", "by": "water", "along": "rhein", "line": [[7.601, 50.3], [7.591, 50.332], [7.615, 50.36]] },
+      {
+        "id": "w-8e-thal-koeln-boat",
+        "by": "water",
+        "along": "rhein",
+        "line": [
+          [7.615, 50.36],
+          [7.613, 50.384],
+          [7.581, 50.411],
+          [7.544, 50.418],
+          [7.503, 50.418],
+          [7.463, 50.425],
+          [7.398, 50.45],
+          [7.333, 50.487],
+          [7.269, 50.567],
+          [7.243, 50.583],
+          [7.213, 50.596],
+          [7.209, 50.634],
+          [7.197, 50.67],
+          [7.175, 50.699],
+          [7.121, 50.729],
+          [7.106, 50.74],
+          [7.089, 50.764],
+          [7.043, 50.78],
+          [7.028, 50.806],
+          [6.985, 50.831],
+          [6.986, 50.855],
+          [7.036, 50.875],
+          [6.986, 50.902],
+          [6.965, 50.934],
+          [6.959, 50.943]
+        ]
+      },
+      { "id": "w-8e-thal-mainz", "by": "land", "line": [[7.615, 50.36], [8.271, 50]] },
+      {
+        "id": "w-8e-schwyz-lauerz-boat",
+        "by": "water",
+        "along": "lauerzersee",
+        "line": [[8.654, 47.021], [8.62, 47.031], [8.619, 47.032], [8.599, 47.034], [8.587, 47.036], [8.581, 47.035]]
+      },
+      { "id": "w-8e-lauerz-rigi", "by": "land", "line": [[8.581, 47.035], [8.486, 47.057]] },
+      { "id": "w-8e-kuessnacht-kapelle-immensee", "by": "land", "line": [[8.441, 47.083], [8.453, 47.092], [8.464, 47.097]] },
+      { "id": "w-8e-zug-albis-zuerich", "by": "land", "line": [[8.515, 47.166], [8.521, 47.276], [8.512, 47.345], [8.542, 47.372]] },
+      { "id": "w-8m-leipzig-holzweissig-woerlitz", "by": "land", "line": [[12.375, 51.34], [12.307, 51.598], [12.419, 51.843]] },
+      { "id": "w-8m-berlin-zehlendorf-potsdam", "by": "land", "line": [[13.408, 52.519], [13.406, 52.578], [13.283, 52.583], [13.3, 52.517], [13.259, 52.434], [13.061, 52.396]] },
+      { "id": "w-8m-zuerich-constanz-schaffhausen", "by": "land", "line": [[8.542, 47.372], [8.727, 47.499], [8.898, 47.556], [9.176, 47.663], [8.95, 47.61], [8.634, 47.697]] },
+      {
+        "id": "w-8m-florenz-spoleto-rom",
+        "by": "land",
+        "line": [
+          [11.25, 43.783],
+          [11.883, 43.467],
+          [12.136, 43.187],
+          [12.18, 43.181],
+          [12.2, 43.15],
+          [12.389, 43.111],
+          [12.578, 43.059],
+          [12.613, 43.071],
+          [12.702, 42.955],
+          [12.733, 42.733],
+          [12.65, 42.567],
+          [12.517, 42.517],
+          [12.483, 42.417],
+          [12.412, 42.289],
+          [12.483, 41.883]
+        ]
+      },
+      {
+        "id": "w-8m-rom-albano-neapel",
+        "by": "land",
+        "line": [
+          [12.483, 41.883],
+          [12.659, 41.728],
+          [12.689, 41.707],
+          [12.778, 41.688],
+          [13.247, 41.293],
+          [13.351, 41.353],
+          [13.417, 41.35],
+          [13.606, 41.255],
+          [13.69, 41.3],
+          [13.938, 41.226],
+          [14.217, 41.1],
+          [14.249, 40.841]
+        ]
+      },
+      {
+        "id": "w-8m-palermo-monreale-girgenti",
+        "by": "land",
+        "line": [[13.361, 38.116], [13.292, 38.083], [12.967, 37.967], [12.832, 37.941], [12.8, 37.667], [13.089, 37.509], [13.267, 37.5], [13.575, 37.313]]
+      },
+      { "id": "w-8n-dresden-stolpen-breslau", "by": "land", "line": [[13.738, 51.049], [14.083, 51.049], [14.075, 51.085], [16.346, 50.873], [17.032, 51.11]] },
+      {
+        "id": "w-8n-praucourt-samogneux-verdun",
+        "by": "land",
+        "line": [[5.725, 49.461], [5.659, 49.414], [5.574, 49.378], [5.527, 49.358], [5.401, 49.343], [5.39, 49.328], [5.339, 49.256], [5.388, 49.161]]
+      },
+      {
+        "id": "w-8n-valmy-tourbe-grandpre",
+        "by": "land",
+        "line": [[4.774, 49.085], [4.75, 49.111], [4.681, 49.128], [4.686, 49.138], [4.7, 49.157], [4.732, 49.226], [4.718, 49.238], [4.784, 49.301], [4.871, 49.341]]
+      },
+      {
+        "id": "w-8n-trier-trarbach-koblenz-boat",
+        "by": "water",
+        "along": "mosel",
+        "line": [
+          [6.644, 49.76],
+          [6.687, 49.78],
+          [6.698, 49.802],
+          [6.722, 49.825],
+          [6.771, 49.812],
+          [6.804, 49.795],
+          [6.84, 49.799],
+          [6.839, 49.823],
+          [6.899, 49.82],
+          [6.895, 49.857],
+          [6.901, 49.883],
+          [6.935, 49.864],
+          [6.952, 49.89],
+          [6.993, 49.917],
+          [7.06, 49.921],
+          [6.996, 49.967],
+          [7.065, 49.972],
+          [7.095, 49.985],
+          [7.101, 49.961],
+          [7.11, 49.953],
+          [7.129, 49.975],
+          [7.112, 49.995],
+          [7.114, 50.023],
+          [7.118, 50.052],
+          [7.154, 50.023],
+          [7.154, 50.048],
+          [7.126, 50.075],
+          [7.113, 50.103],
+          [7.156, 50.098],
+          [7.188, 50.083],
+          [7.199, 50.108],
+          [7.236, 50.11],
+          [7.227, 50.135],
+          [7.19, 50.14],
+          [7.247, 50.172],
+          [7.289, 50.175],
+          [7.346, 50.184],
+          [7.376, 50.204],
+          [7.422, 50.224],
+          [7.449, 50.24],
+          [7.453, 50.268],
+          [7.458, 50.296],
+          [7.474, 50.317],
+          [7.521, 50.315],
+          [7.556, 50.338],
+          [7.569, 50.371],
+          [7.594, 50.357]
+        ]
+      },
+      { "id": "w-8n-jena-goeschwitz-kahla", "by": "land", "line": [[11.586, 50.927], [11.593, 50.878], [11.605, 50.849], [11.588, 50.801]] },
+      { "id": "w-8n-eisenach-vacha-fulda", "by": "land", "line": [[10.316, 50.983], [10.2, 50.917], [10.021, 50.829], [9.954, 50.759], [9.766, 50.673], [9.681, 50.556]] },
+      { "id": "w-8n-fulda-frankfurt", "by": "land", "line": [[9.681, 50.556], [9.526, 50.347], [9.192, 50.201], [8.917, 50.133], [8.682, 50.111]] },
+      { "id": "w-8n-frankfurt-langen-darmstadt", "by": "land", "line": [[8.682, 50.111], [8.68, 49.989], [8.651, 49.873]] },
+      { "id": "w-8n-darmstadt-heppenheim-weinheim", "by": "land", "line": [[8.651, 49.873], [8.645, 49.819], [8.645, 49.642], [8.67, 49.556]] },
+      {
+        "id": "w-8n-stuttgart-hechingen-engen",
+        "by": "land",
+        "line": [[9.183, 48.776], [9.167, 48.689], [9.053, 48.52], [8.963, 48.352], [8.851, 48.273], [8.819, 47.984], [8.771, 47.853]]
+      },
+      {
+        "id": "w-8n-zuerich-staefa-boat",
+        "by": "water",
+        "along": "zurichsee",
+        "line": [
+          [8.542, 47.372],
+          [8.542, 47.365],
+          [8.545, 47.355],
+          [8.551, 47.335],
+          [8.595, 47.289],
+          [8.598, 47.289],
+          [8.61, 47.283],
+          [8.61, 47.281],
+          [8.613, 47.279],
+          [8.639, 47.261],
+          [8.645, 47.263],
+          [8.669, 47.251],
+          [8.701, 47.245],
+          [8.722, 47.237]
+        ]
+      },
+      { "id": "w-8n-richterswil-huetten-schwyz", "by": "land", "line": [[8.706, 47.208], [8.666, 47.174], [8.7, 47.17], [8.743, 47.128], [8.654, 47.021]] },
+      {
+        "id": "w-8n-flueelen-beckenried-boat",
+        "by": "water",
+        "along": "vierwaldstaettersee",
+        "line": [
+          [8.624, 46.9],
+          [8.62, 46.901],
+          [8.605, 46.935],
+          [8.611, 46.935],
+          [8.597, 46.971],
+          [8.602, 46.983],
+          [8.597, 46.987],
+          [8.579, 46.991],
+          [8.576, 46.989],
+          [8.529, 46.983],
+          [8.471, 46.969],
+          [8.467, 46.968]
+        ]
+      },
+      { "id": "w-8n-eglisau-rheinfall-schaffhausen", "by": "land", "line": [[8.524, 47.576], [8.615, 47.678], [8.634, 47.697]] },
+      {
+        "id": "w-8n-stuttgart-dinkelsbuehl-schwabach",
+        "by": "land",
+        "line": [[9.183, 48.776], [9.214, 48.806], [9.317, 48.83], [9.8, 48.8], [10.094, 48.837], [10.131, 48.961], [10.319, 49.069], [10.58, 49.188], [11.021, 49.329]]
+      },
+      { "id": "w-breslau-krakau-8-tarnowitza", "by": "land", "line": [[17.032, 51.11], [18.85, 50.45]] },
+      { "id": "w-breslau-krakau-8-tarnowitzb", "by": "land", "line": [[18.85, 50.45], [19.937, 50.062]] },
+      { "id": "w-8l-erfurt-langensalza-muehlhausen", "by": "land", "line": [[11.029, 50.978], [10.647, 51.108], [10.456, 51.209]] },
+      { "id": "w-8l-dingelstaedt-heiligenstadt-goettingen", "by": "land", "line": [[10.319, 51.315], [10.133, 51.377], [9.936, 51.534]] },
+      {
+        "id": "w-8l-goettingen-northeim-pyrmont",
+        "by": "land",
+        "line": [[9.936, 51.534], [9.933, 51.558], [10, 51.706], [9.867, 51.817], [9.634, 51.929], [9.419, 52.018], [9.262, 51.985]]
+      },
+      {
+        "id": "w-8l-dresden-zehista-teplitz",
+        "by": "land",
+        "line": [[13.738, 51.049], [13.94, 50.958], [13.926, 50.94], [13.979, 50.787], [13.959, 50.716], [13.939, 50.697], [13.822, 50.643]]
+      },
+      {
+        "id": "w-8l-weimar-luetzen-leipzig",
+        "by": "land",
+        "line": [[11.33, 50.979], [11.561, 51.123], [11.81, 51.153], [11.972, 51.201], [12.133, 51.25], [12.221, 51.302], [12.375, 51.34]]
+      },
+      { "id": "w-8l-eisenach-berka-fulda", "by": "land", "line": [[10.316, 50.983], [10.07, 50.939], [10.021, 50.829], [9.954, 50.759], [9.766, 50.673], [9.681, 50.556]] },
+      { "id": "w-8l-wiesbaden-hochheim-hadersheim", "by": "land", "line": [[8.24, 50.083], [8.351, 50.011], [8.428, 50.012], [8.486, 50.07]] },
+      {
+        "id": "w-8l-heidelberg-wuerzburg-gotha",
+        "by": "land",
+        "line": [
+          [8.697, 49.41],
+          [9.106, 49.341],
+          [9.323, 49.522],
+          [9.474, 49.611],
+          [9.663, 49.623],
+          [9.929, 49.794],
+          [10.1, 49.983],
+          [10.195, 50.25],
+          [10.302, 50.428],
+          [10.416, 50.568],
+          [10.451, 50.721],
+          [10.718, 50.949]
+        ]
+      },
+      {
+        "id": "w-8l-hof-marktleuthen-wunsiedel",
+        "by": "land",
+        "line": [[11.919, 50.322], [11.933, 50.263], [11.933, 50.221], [11.951, 50.152], [11.995, 50.128], [12.005, 50.039]]
+      },
+      { "id": "w-8l-wunsiedel-schirnding-eger", "by": "land", "line": [[12.005, 50.039], [12.016, 50.017], [12.127, 50.076], [12.227, 50.081], [12.371, 50.079]] },
+      {
+        "id": "w-8b-urnerloch-snowbridge-flueelen",
+        "by": "land",
+        "line": [[8.595, 46.633], [8.59, 46.648], [8.586, 46.668], [8.599, 46.706], [8.634, 46.749], [8.669, 46.791], [8.644, 46.882], [8.624, 46.9]]
+      },
+      {
+        "id": "w-8c-neukirch-hagenau",
+        "by": "land",
+        "line": [[7.184, 49.35], [7.361, 49.249], [7.369, 49.188], [7.426, 49.053], [7.518, 48.975], [7.645, 48.951], [7.666, 48.934], [7.626, 48.845], [7.788, 48.817]]
+      },
+      { "id": "w-8c-hagenau-strassburg", "by": "land", "line": [[7.788, 48.817], [7.748, 48.584]] }
+    ],
+    "journeys": [
+      {
+        "id": "j-1765-leipzig-out",
+        "name": "去莱比锡",
+        "stop": "frankfurt",
+        "date": "1765 年 9 月底到 10 月初",
+        "parts": [
+          {
+            "name": "1765 年法兰克福到爱森纳赫的路",
+            "ways": ["w-frankfurtammain-eisenach"],
+            "class": "schematic",
+            "basis": "1765 年去莱比锡，头一段到爱森纳赫：他当年 12 月的一封信里说“夜里十二点过爱森纳赫”，没有写是哪一天。他多年以后写的《诗与真》说，他同一位书商夫妇坐车出了法兰克福，不久就过了哈瑙；雨下个不停，路很坏，夜里在哈瑙和下一座小城之间上一道坡，大家宁可下车走。再往前到爱森纳赫，书里没有写别的地方。虚线是照他后来几次走这条路时日记里记的地方画的。",
+            "sourceIds": ["letters", "duw", "chronik"],
+            "note": "1765 年去莱比锡，法兰克福到爱森纳赫是虚线：当时的记录只有他信里的一句“夜里十二点过爱森纳赫”；他多年以后写的《诗与真》只写到出了法兰克福不久过哈瑙、夜里上一道坡。虚线是照他后来几次走这条路时日记里记的地方画的。"
+          },
+          {
+            "name": "1765 年爱森纳赫到莱比锡的路",
+            "ways": ["w-eisenach-gotha", "-w-erfurt-gotha", "-w-weimar-erfurt", "w-8e-weimar-auerstaedt-leipzig"],
+            "class": "text",
+            "basis": "爱森纳赫到莱比锡：《诗与真》说，进了图林根路更坏，天快黑的时候马车陷在奥尔施泰特附近；当夜他们到了这个地方，同另一对也是迟到的夫妇一起吃了晚饭。书里说他到莱比锡的时候正赶上集市；10 月 12 日他已经在莱比锡写信。",
+            "sourceIds": ["letters", "duw"],
+            "note": "爱森纳赫到莱比锡画成实线，靠的是《诗与真》：书里说马车陷在奥尔施泰特附近，当夜他们到了那个地方。10 月 12 日他已在莱比锡写信。"
+          }
+        ]
+      },
+      {
+        "id": "j-1768-leipzig-back",
+        "name": "从莱比锡回家",
+        "stop": "frankfurt",
+        "date": "1768 年 8 月底到 9 月 1 日前后",
+        "parts": [
+          {
+            "name": "1768 年莱比锡到哥达的路",
+            "ways": ["-w-8e-weimar-auerstaedt-leipzig", "w-weimar-erfurt", "w-erfurt-gotha"],
+            "class": "text",
+            "basis": "1768 年从莱比锡回法兰克福，头一段到哥达：路上没有当时的记录。他多年以后写的《诗与真》说，坐的是一辆雇来的马车，同几个熟人一道；路过奥尔施泰特一带，想起三年前在那里陷过车；在哥达让人领着看了宫殿。书里说是 9 月离开莱比锡的。",
+            "sourceIds": ["letters", "duw", "chronik"]
+          },
+          {
+            "name": "1768 年哥达到法兰克福的路",
+            "ways": ["-w-eisenach-gotha", "-w-frankfurtammain-eisenach"],
+            "class": "schematic",
+            "basis": "哥达到法兰克福这一段只知道两头，书里没有再写路上的地方。照他当时的信算，9 月 1 日前后已经到家；信里只说一路顺利。虚线是照他后来走这条路时日记里记的地方画的。",
+            "sourceIds": ["letters", "duw"]
+          }
+        ]
+      },
+      {
+        "id": "j-1770-strasbourg-out",
+        "name": "去斯特拉斯堡",
+        "stop": "strasbourg",
+        "date": "1770 年 3 月底到 4 月 4 日前后",
+        "parts": [
+          {
+            "name": "1770 年法兰克福到斯特拉斯堡的路",
+            "ways": ["w-frankfurtammain-darmstadt", "-w-mannheim-darmstadt", "w-mannheim-carlsruh", "-w-strassburg-carlsruh"],
+            "class": "schematic",
+            "basis": "1770 年去斯特拉斯堡的路，只知道两头。他当时的信说打算 3 月底动身；4 月 19 日的信说到那里已经十五天。他多年以后写的《诗与真》说，坐的是新开的驿车，路上没有停，很快就到了；快到的时候，同车的人老远就把大教堂指给他看。虚线是照他 1775 年走过的曼海姆、卡尔斯鲁厄画的。",
+            "sourceIds": ["letters", "duw", "chronik"],
+            "note": "1770 年去斯特拉斯堡的路只知道两头；他多年以后写的《诗与真》只说坐的是驿车，路上没有停。虚线是照他 1775 年走过的曼海姆、卡尔斯鲁厄画的。"
+          }
+        ]
+      },
+      {
+        "id": "j-1770-saarbruecken-ride",
+        "name": "骑马去萨尔布吕肯",
+        "stop": "strasbourg",
+        "date": "1770 年夏天，6 月 27 日在萨尔布吕肯",
+        "parts": [
+          {
+            "name": "1770 年斯特拉斯堡到萨韦尔讷的路",
+            "ways": ["w-8e-strassburg-zabern"],
+            "class": "schematic",
+            "basis": "1770 年夏天，他同两个朋友骑马从斯特拉斯堡到萨韦尔讷，在那里看了主教的宫殿：只见于他多年以后写的《诗与真》。书里没有写日子，也没有写这一段路上经过哪里。",
+            "sourceIds": ["duw"],
+            "note": "1770 年夏天骑马去萨尔布吕肯的一圈，路上的地方只见于他多年以后写的《诗与真》，书里没有写日子；当时的记录有他 6 月 27 日在萨尔布吕肯写的一封信。头一段到萨韦尔讷和最后一段从阿格诺回斯特拉斯堡是虚线，中间画成实线。书里说这一趟最后到了塞森海姆，可是他写给塞森海姆一户人家的女儿的头一封信是这一年 10 月的；这里以信为准，这一趟的线没有画到塞森海姆。"
+          },
+          {
+            "name": "1770 年萨韦尔讷到布克斯维莱尔的路",
+            "ways": ["w-8e-zabern-pfalzburg-buchsweiler"],
+            "class": "text",
+            "basis": "第二天一早，他们走城外那条上山的大路，星期天早上九点已经在法尔斯堡的街上；又从原路下山，不久到了布克斯维莱尔，在那里过夜。都只见于《诗与真》。",
+            "sourceIds": ["duw"]
+          },
+          {
+            "name": "1770 年布克斯维莱尔到萨尔布吕肯的路",
+            "ways": ["w-8e-buchsweiler-saarbrueck"],
+            "class": "text",
+            "basis": "从布克斯维莱尔往西北进山，从山上的一座旧城堡旁边走过，下到一条河的河谷，先到河边的一个小地方，再过萨尔格米讷，到萨尔布吕肯，在那里住了三天：见于《诗与真》。当时的记录有他 6 月 27 日在萨尔布吕肯写的一封信，说前一天骑了一整天马，天黑的时候正走到河谷上面的山上。",
+            "sourceIds": ["letters", "duw"]
+          },
+          {
+            "name": "1770 年萨尔布吕肯到诺因基兴的路",
+            "ways": ["w-8e-saarbrueck-neukirch"],
+            "class": "text",
+            "basis": "从萨尔布吕肯进山，看了出煤的矿洞和一座地底下一直在烧的山，天晚了，顺路看了一处玻璃厂，天黑以后到诺因基兴过夜。都只见于《诗与真》。",
+            "sourceIds": ["duw"]
+          },
+          {
+            "name": "1770 年诺因基兴到阿格诺的路",
+            "ways": ["w-8c-neukirch-hagenau"],
+            "class": "text",
+            "basis": "回程走的是另一条路：一早离开诺因基兴，穿过茨韦布吕肯，沿着一条小河上到比奇，再顺着山谷下到尼德布龙；从那里骑马穿过一个小地方，再往前同朋友分手，独自穿过阿格诺。都只见于《诗与真》，书里没有写日子，也没有写在哪里过夜。",
+            "sourceIds": ["duw"]
+          },
+          {
+            "name": "1770 年阿格诺到斯特拉斯堡的路",
+            "ways": ["w-8c-hagenau-strassburg"],
+            "class": "schematic",
+            "basis": "《诗与真》说，他穿过阿格诺以后骑马去了塞森海姆；书里讲这一趟，讲到那里为止。这一趟路上，6 月 27 日他在萨尔布吕肯写过信；可是他写给塞森海姆一户人家的女儿的头一封信是这一年 10 月 15 日的，信里叫她“新朋友”。书里的先后同当时的信对不上，这里以信为准，这一趟的线没有画到塞森海姆。从阿格诺怎样回到斯特拉斯堡，书里没有写，当时的记录里也没有；虚线只是把阿格诺和斯特拉斯堡连起来。",
+            "sourceIds": ["letters", "duw", "editors"]
+          }
+        ]
+      },
+      {
+        "id": "j-1771-strasbourg-back",
+        "name": "从斯特拉斯堡回家",
+        "stop": "frankfurt",
+        "date": "1771 年 8 月下半月",
+        "parts": [
+          {
+            "name": "1771 年斯特拉斯堡到曼海姆的路",
+            "ways": ["w-strassburg-carlsruh", "-w-mannheim-carlsruh"],
+            "class": "schematic",
+            "basis": "1771 年回法兰克福，头一段到曼海姆：没有当时的记录，哪一天动身也没有写。他多年以后写的《诗与真》只写到他到了曼海姆，路上的地方没有写；虚线是照去的时候的线画的。",
+            "sourceIds": ["duw", "chronik"]
+          },
+          {
+            "name": "1771 年曼海姆到法兰克福的路",
+            "ways": ["-w-mainz-mannheim", "w-mainz-hadersheim", "-w-frankfurtammain-hadersheim"],
+            "class": "text",
+            "basis": "曼海姆到法兰克福：《诗与真》写他在曼海姆赶去看那里陈列的古代雕像；讲到回家以后的事，又说在美因茨他很喜欢一个弹竖琴的男孩，请这个男孩到法兰克福来。哪一天到家，书里没有写，也没有当时的记录。",
+            "sourceIds": ["duw", "chronik"]
+          }
+        ]
+      },
+      {
+        "id": "j-1772-wetzlar-out",
+        "name": "去韦茨拉尔",
+        "stop": "frankfurt",
+        "date": "1772 年 5 月",
+        "parts": [
+          {
+            "name": "1772 年法兰克福到韦茨拉尔的路",
+            "ways": ["w-frankfurtammain-wetzlar"],
+            "class": "schematic",
+            "basis": "1772 年 5 月去韦茨拉尔，只知道两头；虚线过弗里德贝格，是照他同年 11 月一封信的地点画的。",
+            "sourceIds": ["letters"]
+          }
+        ]
+      },
+      {
+        "id": "j-1772-lahn",
+        "name": "沿兰河到莱茵河",
+        "stop": "frankfurt",
+        "date": "1772 年 9 月 11 日起",
+        "parts": [
+          {
+            "name": "1772 年韦茨拉尔到埃姆斯的路",
+            "ways": ["w-8e-wetzlar-ems-lahn"],
+            "class": "text",
+            "basis": "从韦茨拉尔沿兰河走到埃姆斯：路上的地方只见于他四十年后写的《诗与真》——书里说他走在河的右岸，走了几天，一路过了威尔堡、林堡、迪茨、拿骚。当时的记录只写到动身的那一天：凯斯特纳的日记说他 9 月 11 日早上七点走的，说是去科布伦茨，一位朋友骑马送他朝布劳恩费尔斯那边走了一段。",
+            "sourceIds": ["letters", "duw", "kestner", "editors"],
+            "note": "1772 年从韦茨拉尔沿兰河到莱茵河边的路有记载（陆上的一段是实线，坐船的一段是细点线），可是路上的地方只见于他四十年后写的《诗与真》；当时的记录只写到动身的那一天。"
+          },
+          {
+            "name": "1772 年埃姆斯到埃伦布赖特施泰因的水路",
+            "ways": ["w-ems-oberlahnstein-boat", "-w-thalehrenbreitstein-oberlahnstein-boat"],
+            "class": "text",
+            "basis": "从埃姆斯坐小船下兰河，进了莱茵河，到埃伦布赖特施泰因山下：只见于《诗与真》，书里没有写在哪里下的船。他回去以后的两封信，一封提到山下的这个地方，一封说起在那一家人中间过的日子，都没有说是怎么到的。",
+            "sourceIds": ["letters", "duw", "editors"]
+          }
+        ]
+      },
+      {
+        "id": "j-1772-rhine-home",
+        "name": "溯莱茵河回家",
+        "stop": "frankfurt",
+        "date": "1772 年 9 月，22 日已在法兰克福",
+        "parts": [
+          {
+            "name": "1772 年埃伦布赖特施泰因到美因茨的水路",
+            "ways": ["w-thalehrenbreitstein-oberlahnstein-boat", "w-8e-oberlahnstein-mainz-boat"],
+            "class": "text",
+            "basis": "同朋友一家坐一条回美因茨的船溯莱茵河而上，船走得很慢；这一段只见于《诗与真》。书里数了沿河的六个地方，其中有圣戈阿尔、巴哈拉赫、宾根，没有写在哪里下的船。",
+            "sourceIds": ["duw"]
+          },
+          {
+            "name": "1772 年美因茨到法兰克福的路",
+            "ways": ["w-mainz-hadersheim", "-w-frankfurtammain-hadersheim"],
+            "class": "schematic",
+            "basis": "从莱茵河回法兰克福的这一段没有记载：书里只说那条船是回美因茨的，没有写他在哪里下船；凯斯特纳的日记里，9 月 22 日他已经在法兰克福。虚线从美因茨画起。",
+            "sourceIds": ["duw", "kestner"]
+          }
+        ]
+      },
+      {
+        "id": "j-1772-darmstadt-out",
+        "name": "去达姆施塔特",
+        "stop": "frankfurt",
+        "date": "1772 年 11 月 16 日起",
+        "parts": [
+          {
+            "name": "1772 年法兰克福到达姆施塔特的路",
+            "ways": ["w-frankfurtammain-darmstadt"],
+            "class": "schematic",
+            "basis": "1772 年 11 月 16 日星期一离开法兰克福去达姆施塔特，住到 12 月初。他前几天的信里说打算星期一去；妹妹 21 日的信说他星期一就走了。哪一天到的、路上经过哪里没有记载。",
+            "sourceIds": ["letters", "kestner"]
+          }
+        ]
+      },
+      {
+        "id": "j-1772-darmstadt-back",
+        "name": "从达姆施塔特回家",
+        "stop": "frankfurt",
+        "date": "1772 年 12 月 6 日到 13 日之间",
+        "parts": [
+          {
+            "name": "1772 年达姆施塔特到法兰克福的路",
+            "ways": ["-w-frankfurtammain-darmstadt"],
+            "class": "schematic",
+            "basis": "1772 年 12 月 6 日到 13 日之间从达姆施塔特回法兰克福：只知道两头。他自己写着“六日”的一封信里说还在达姆施塔特；凯斯特纳 13 日收到的一封信里，他说已经回到法兰克福。虚线照去的路画。",
+            "sourceIds": ["letters", "kestner"]
+          }
+        ]
+      },
+      {
+        "id": "j-1774-rhine-out",
+        "name": "下莱茵河",
+        "stop": "frankfurt",
+        "date": "1774 年 7 月中到 21 日前后",
+        "parts": [
+          {
+            "name": "1774 年法兰克福到埃姆斯的路",
+            "ways": ["w-frankfurtammain-hadersheim", "-w-wiesbaden-hadersheim", "w-wiesbaden-nassau", "-w-ems-nassau"],
+            "class": "schematic",
+            "basis": "7 月中又去埃姆斯：12 日还在法兰克福写信，15 日拉瓦特的日记里他已经到了。他多年以后写的《诗与真》说这一趟是坐车去的，有人同行。路上经过哪里没有记载；两个星期前他陪拉瓦特坐车去埃姆斯，拉瓦特的日记写着过威斯巴登、施瓦尔巴赫、拿骚，虚线照那条路画。",
+            "sourceIds": ["letters", "duw", "lavater"]
+          },
+          { "name": "1774 年埃姆斯到上兰施泰因的水路", "ways": ["w-ems-oberlahnstein-boat"], "class": "text", "basis": "7 月 18 日坐船下兰河：同行的拉瓦特当天的日记。", "sourceIds": ["lavater"] },
+          {
+            "name": "1774 年上兰施泰因到杜塞尔多夫的水路",
+            "ways": ["w-8e-oberlahnstein-thal-boat", "w-8e-thal-koeln-boat", "-w-duesseldorf-koeln-boat"],
+            "class": "text",
+            "basis": "7 月 18 日从兰河进了莱茵河，中午在埃伦布赖特施泰因和科布伦茨之间的渡口上岸吃午饭，傍晚七点半到新维德；20 日早上六点多再上船，过安德纳赫，中午到波恩。这些都见于同行的拉瓦特当天的日记；他多年以后写的《诗与真》说，那天是在科布伦茨上的岸。下午从波恩到科隆，他在科隆同拉瓦特分手去杜塞尔多夫；他自己的信说 21 日早上八点前已经在杜塞尔多夫。波恩以后还坐不坐船，日记没有写；《诗与真》只写到离开科隆以后顺着莱茵河往下走。",
+            "sourceIds": ["letters", "duw", "lavater"]
+          },
+          {
+            "name": "1774 年杜塞尔多夫到埃尔伯费尔德的路",
+            "ways": ["w-duesseldorf-elberfeld"],
+            "class": "schematic",
+            "basis": "7 月 21 日中午他还在杜塞尔多夫写信；当晚拉瓦特到了杜塞尔多夫，日记里说他已经去了埃尔伯费尔德。路上经过哪里没有记载。",
+            "sourceIds": ["letters", "lavater", "chronik"]
+          }
+        ]
+      },
+      {
+        "id": "j-1774-rhine-back",
+        "name": "回到埃姆斯",
+        "stop": "frankfurt",
+        "date": "1774 年 7 月下旬",
+        "parts": [
+          {
+            "name": "1774 年埃尔伯费尔德到科隆的路",
+            "ways": ["-w-duesseldorf-elberfeld", "w-duesseldorf-koeln"],
+            "class": "text",
+            "basis": "回程从埃尔伯费尔德过杜塞尔多夫到科隆：年底他给朋友的一封信里提到，他们是从杜塞尔多夫结伴走到科隆的；另有一封信，编者定为 7 月 25 日在科隆写的。本斯贝格，年谱记在回程上，他多年以后写的《诗与真》把它写在去的路上。哪一天走的没有记载。",
+            "sourceIds": ["letters", "duw", "chronik", "editors"]
+          },
+          {
+            "name": "1774 年科隆到上兰施泰因的水路",
+            "ways": ["-w-thalehrenbreitstein-koeln-boat", "w-thalehrenbreitstein-oberlahnstein-boat"],
+            "class": "schematic",
+            "basis": "科隆到埃姆斯只知道两头；他多年以后写的《诗与真》只说回程是溯莱茵河往上走的，路上的事他已经不记得。坐没坐船没有记载；线照来时的莱茵河一线画。",
+            "sourceIds": ["duw"],
+            "note": "1774 年从科隆回埃姆斯，只知道两头；他多年以后写的《诗与真》只说回程是溯莱茵河往上走的。线画在莱茵河和兰河上，是照来的时候坐船的线画的。"
+          },
+          { "name": "1774 年上兰施泰因到埃姆斯的水路", "ways": ["-w-ems-oberlahnstein-boat"], "class": "schematic", "basis": "上兰施泰因到埃姆斯这一段兰河上的线，同前一段一样没有记载，照来时的线画。", "sourceIds": [] }
+        ]
+      },
+      {
+        "id": "j-1774-ems-home",
+        "name": "从埃姆斯回家",
+        "stop": "frankfurt",
+        "date": "1774 年 8 月上旬，13 日已在法兰克福",
+        "parts": [
+          {
+            "name": "1774 年埃姆斯到埃伦布赖特施泰因的路",
+            "ways": ["w-ems-thalehrenbreitstein"],
+            "class": "schematic",
+            "basis": "埃姆斯到埃伦布赖特施泰因：他在埃姆斯写给山下那一家女主人的一封信说，星期二要去她家吃午饭；回到法兰克福以后的信里说，在埃姆斯和科布伦茨过了几天好日子。回家的路是不是从这里走的，没有记载；虚线照他 1815 年坐车走过的路画。",
+            "sourceIds": ["letters", "editors"]
+          },
+          {
+            "name": "1774 年埃伦布赖特施泰因到美因茨的路",
+            "ways": ["w-8e-thal-mainz"],
+            "class": "schematic",
+            "basis": "回法兰克福的路，当时的记录有三处：一封信末尾写着“13 日夜”，说前一夜是在驿车上过的；一封信说有一位同伴跟他一起回来；8 月 16 日的一封信说他前天从温泉回到了家。在哪里上的车、走的哪条路没有写；虚线只是把埃伦布赖特施泰因和美因茨连起来。",
+            "sourceIds": ["letters"]
+          },
+          {
+            "name": "1774 年美因茨到法兰克福的路",
+            "ways": ["w-mainz-hadersheim", "-w-frankfurtammain-hadersheim"],
+            "class": "schematic",
+            "basis": "美因茨到法兰克福这一段，路上的地方也没有记载；虚线照他 1815 年走过的路画。",
+            "sourceIds": ["letters", "editors"]
+          }
+        ]
+      },
+      {
+        "id": "j-1775-swiss-out",
+        "name": "头一次去瑞士",
+        "stop": "frankfurt",
+        "date": "1775 年 5 月 14 日到 6 月 21 日",
+        "parts": [
+          {
+            "name": "1775 年法兰克福到苏黎世的路",
+            "ways": [
+              "w-frankfurtammain-darmstadt",
+              "-w-mannheim-darmstadt",
+              "w-mannheim-carlsruh",
+              "-w-strassburg-carlsruh",
+              "w-strassburg-emmendingen",
+              "w-emmendingen-schaffhausen",
+              "w-schaffhausen-eglisau",
+              "-w-zuerich-eglisau"
+            ],
+            "class": "text",
+            "basis": "5 月 13 日他在法兰克福写信说要到妹妹那里去，路上过曼海姆、卡尔斯鲁厄、斯特拉斯堡。后来的信，一封说他到了曼海姆，一封写在斯特拉斯堡城外，一封写在埃门丁根，一封写在沙夫豪森的客店里，说第二天就到拉瓦特那里；6 月 12 日的信已是在苏黎世写的。这一路上见到他的一个人当时写道，他从法兰克福来，要去看妹妹，在卡尔斯鲁厄同魏玛的王子们谈过话。他多年以后写的《诗与真》还写到先在达姆施塔特停留，到了卡尔斯鲁厄，再走一条岔路到埃门丁根，再往前只记得沙夫豪森的瀑布。城和城之间的线是连出来的。",
+            "sourceIds": ["letters", "duw", "visitor1775", "editors"],
+            "note": "1775 年去瑞士，法兰克福到苏黎世画成实线：他一路写的信里有曼海姆、斯特拉斯堡、埃门丁根、沙夫豪森，城和城之间的线是连出来的。从苏黎世湖往上到圣哥达山口也有记载（陆上是实线，湖上坐船的几段是细点线），靠的是他当天的笔记，有几处见于年谱和他多年以后写的书。"
+          },
+          {
+            "name": "1775 年苏黎世到里希特斯维尔的水路",
+            "ways": ["w-zuerich-richterswil-boat"],
+            "class": "text",
+            "basis": "6 月 15 日早上他在苏黎世湖上：他当天的笔记只写了这一句。在里希特斯维尔上岸，见于他多年以后写的《诗与真》。",
+            "sourceIds": ["diary", "duw"]
+          },
+          {
+            "name": "1775 年里希特斯维尔到施维茨的路",
+            "ways": ["-w-schwyz-richterswil"],
+            "class": "text",
+            "basis": "6 月 16 日夜里十点到施维茨：他当天的笔记。从里希特斯维尔上山、路过艾因西德伦，见于年谱和他多年以后写的《诗与真》。",
+            "sourceIds": ["diary", "duw", "chronik"]
+          },
+          {
+            "name": "1775 年施维茨到劳厄茨的水路",
+            "ways": ["w-8e-schwyz-lauerz-boat"],
+            "class": "text",
+            "basis": "6 月 17 日下午一点离开施维茨，两点在山下的小湖上，两个姑娘划船送他们，过了湖里的小岛，在劳厄茨上岸：他当天的笔记。在湖的哪一头上的船，笔记没有写；线从施维茨画到离城最近的湖边，再画过湖。",
+            "sourceIds": ["diary", "duw"]
+          },
+          {
+            "name": "1775 年劳厄茨到里吉山的路",
+            "ways": ["w-8e-lauerz-rigi"],
+            "class": "text",
+            "basis": "在劳厄茨上岸以后登里吉山，6 月 17 日晚上七点半到山上的客店，18 日下午两点一刻到山顶：他当天的笔记。",
+            "sourceIds": ["diary", "duw"]
+          },
+          { "name": "1775 年里吉山到维茨瑙的路", "ways": ["w-rigi-izenach"], "class": "text", "basis": "6 月 19 日从里吉山下到湖边：他当天的笔记。", "sourceIds": ["diary"] },
+          {
+            "name": "1775 年维茨瑙到弗吕埃伦的水路",
+            "ways": ["-w-brunnen-izenach-boat", "w-brunnen-flueelen-boat"],
+            "class": "text",
+            "basis": "6 月 19 日坐船过卢塞恩湖，中午在盖尔绍，下午三点到湖南头的弗吕埃伦：他当天的笔记。",
+            "sourceIds": ["diary"]
+          },
+          {
+            "name": "1775 年弗吕埃伦到圣哥达山口的路",
+            "ways": ["-w-urnerloch-flueelen", "-w-gotthard-urnerloch"],
+            "class": "text",
+            "basis": "6 月 19 日下午四点到阿尔特多夫，他当天在那里写信说第二天上圣哥达山口；20 日晚上七点半到瓦森，21 日六点半再往上，过格舍嫩，到了山谷里的村子：他当天的笔记。笔记接着写“三点三十五分动身”，一路是雪、瀑布和雾里的小湖，没有另写日子；他多年以后写的《诗与真》把这一段记在 22 日，说过了雾里的几个小湖，就到了山口上的客栈。",
+            "sourceIds": ["letters", "diary", "duw"]
+          }
+        ]
+      },
+      {
+        "id": "j-1775-swiss-back",
+        "name": "从圣哥达回家",
+        "stop": "frankfurt",
+        "date": "1775 年 6 月下旬到 7 月，25 日已在法兰克福",
+        "parts": [
+          {
+            "name": "1775 年圣哥达山口到弗吕埃伦的路",
+            "ways": ["w-gotthard-urnerloch", "w-8b-urnerloch-snowbridge-flueelen"],
+            "class": "text",
+            "basis": "从圣哥达山口往回走，没有当时的记录，日子只见于年谱。他多年以后写的《诗与真》说，下山走的是来时的那条路，路上又过了一道大瀑布；上山时走过的那座雪桥已经整个塌了，只好绕路。书里讲上山的那一段说，那天下午三点从山谷里的一个村子动身，走过这座雪桥，晚上七点半到瓦森；雪桥在这个村子和瓦森之间，书里没有说得更细。书里没有再写别的地方，线照上山的路画。",
+            "sourceIds": ["duw", "chronik"]
+          },
+          {
+            "name": "1775 年弗吕埃伦到屈斯纳赫特的水路",
+            "ways": ["-w-brunnen-flueelen-boat", "w-brunnen-izenach-boat", "w-izenach-seemitte-boat", "-w-kuessnacht-seemitte-boat"],
+            "class": "text",
+            "basis": "《诗与真》说，回程是坐船过卢塞恩湖，在屈斯纳赫特上的岸；在哪里上的船、哪一天，书里没有写。湖上的线从弗吕埃伦画起，同别的几趟船画在一起。",
+            "sourceIds": ["duw", "chronik"]
+          },
+          {
+            "name": "1775 年屈斯纳赫特到伊门塞的路",
+            "ways": ["w-8e-kuessnacht-kapelle-immensee"],
+            "class": "text",
+            "basis": "上岸以后接着步行，书里写到路边的一座小教堂；在哪里再上的船，书里没有写，线照他 1797 年走过的路，画到楚格湖边的伊门塞。",
+            "sourceIds": ["duw"]
+          },
+          { "name": "1775 年伊门塞到楚格的水路", "ways": ["-w-zug-immensee-boat"], "class": "text", "basis": "《诗与真》说，他们也是坐船过的楚格湖，到了楚格；线照他 1797 年坐船的那一段画。", "sourceIds": ["duw"] },
+          {
+            "name": "1775 年楚格到苏黎世的路",
+            "ways": ["w-8e-zug-albis-zuerich"],
+            "class": "text",
+            "basis": "《诗与真》说，从楚格翻过阿尔比斯山脉，下到苏黎世南面的锡尔河谷，在那里看望了一个独自住着的年轻人，再回到苏黎世。书里没有写日子；年谱里 6 月 26 日他在苏黎世。",
+            "sourceIds": ["duw", "chronik"]
+          },
+          {
+            "name": "1775 年苏黎世到施派尔的路",
+            "ways": ["w-zuerich-basel", "-w-emmendingen-basel", "-w-strassburg-emmendingen", "w-strassburg-selz", "-w-speyer-selz"],
+            "class": "schematic",
+            "basis": "从苏黎世回来，到施派尔为止的路没有记载：哪一天离开苏黎世、路上经过哪里，他回来以后的信里都没有写。年谱里写着他过巴塞尔、斯特拉斯堡。虚线是照他 1779 年和 1797 年走过的路画的。",
+            "sourceIds": ["letters", "chronik"]
+          },
+          {
+            "name": "1775 年施派尔到法兰克福的路",
+            "ways": ["-w-heidelberg-speyer", "-w-weinheim-heidelberg", "w-weinheim-darmstadt", "-w-frankfurtammain-darmstadt"],
+            "class": "text",
+            "basis": "施派尔到法兰克福：他回到法兰克福以后的信里说，在施派尔找一个人没有找到，在达姆施塔特遇见赫尔德夫妇，同他们一起回来；7 月 25 日他已在法兰克福写信。他多年以后写的《诗与真》也写到回来时在达姆施塔特停过。海德堡只见于年谱。",
+            "sourceIds": ["letters", "duw", "chronik"]
+          }
+        ]
+      },
+      {
+        "id": "j-1775-heidelberg",
+        "name": "先往南到海德堡",
+        "stop": "weimar-1",
+        "date": "1775 年 10 月 30 日起",
+        "parts": [
+          {
+            "name": "1775 年法兰克福到魏因海姆的路",
+            "ways": ["w-frankfurtammain-darmstadt", "-w-weinheim-darmstadt"],
+            "class": "text",
+            "basis": "10 月 30 日早上六点离开法兰克福，晚上七点到魏因海姆：他当天的日记。日记是在路上的一个村子里写起的，里面对住在达姆施塔特的一位朋友说，自己正坐车从他那里旁边过去。",
+            "sourceIds": ["diary"]
+          },
+          {
+            "name": "1775 年魏因海姆到海德堡的路",
+            "ways": ["w-weinheim-heidelberg"],
+            "class": "schematic",
+            "basis": "到海德堡没有当时的记录：10 月 30 日的日记写到晚上七点在魏因海姆为止。他多年以后写的《诗与真》说，他坐马车沿山脚下的大路到了海德堡，没有写是哪一天。",
+            "sourceIds": ["duw"]
+          }
+        ]
+      },
+      {
+        "id": "j-1775-weimar",
+        "name": "到魏玛",
+        "stop": "weimar-1",
+        "date": "1775 年 11 月初到 7 日",
+        "parts": [
+          {
+            "name": "1775 年海德堡到魏玛的路",
+            "ways": [
+              "-w-weinheim-heidelberg",
+              "w-weinheim-darmstadt",
+              "-w-frankfurtammain-darmstadt",
+              "w-frankfurtammain-eisenach",
+              "w-eisenach-gotha",
+              "-w-erfurt-gotha",
+              "-w-weimar-erfurt"
+            ],
+            "class": "schematic",
+            "basis": "从海德堡折回、到魏玛的路没有当时的记录，只知道 11 月 7 日早上五点到：维兰德三天后的一封信里写的；他自己 8 日已在魏玛写信。他多年以后写的《诗与真》只写到在海德堡接到法兰克福来的急信，叫来驿车动身往回走，书到这里就完了。虚线是照他后来走这条路时日记里记的地方画的。",
+            "sourceIds": ["wieland", "letters", "duw"],
+            "note": "1775 年他到魏玛的路是虚线：从海德堡折回以后，路上没有当时的记录，只知道 11 月 7 日早上五点到，是维兰德三天后的一封信里写的。线是照他后来走这条路时日记里记的地方画的。"
+          }
+        ]
+      },
+      {
+        "id": "j-1776-woerlitz-out",
+        "name": "去沃利茨",
+        "stop": "weimar-1",
+        "date": "1776 年 12 月 2 日到 3 日",
+        "parts": [
+          {
+            "name": "1776 年魏玛到沃利茨的路",
+            "ways": ["-w-leipzig-weimar", "w-8m-leipzig-holzweissig-woerlitz"],
+            "class": "text",
+            "basis": "1776 年 12 月去沃利茨：他当天的日记记了 2 日早上七点多动身，夜里在里帕赫睡了两三个钟头；3 日九点左右到莱比锡，十点又走，过了一个村子以后被后面来的两个人赶上，晚上七点左右到沃利茨。",
+            "sourceIds": ["diary"]
+          }
+        ]
+      },
+      {
+        "id": "j-1776-woerlitz-back",
+        "name": "从沃利茨回魏玛",
+        "stop": "weimar-1",
+        "date": "1776 年 12 月 19 日到 21 日",
+        "parts": [{ "name": "1776 年沃利茨到魏玛的路", "ways": ["-w-leipzig-woerlitz", "w-leipzig-weimar"], "class": "text", "basis": "12 月 21 日从莱比锡骑马回魏玛：他当天的日记。", "sourceIds": ["diary"] }]
+      },
+      {
+        "id": "j-1777-harz-out",
+        "name": "冬天上布罗肯峰",
+        "stop": "weimar-1",
+        "date": "1777 年 11 月 29 日到 12 月 10 日",
+        "parts": [
+          {
+            "name": "1777 年魏玛到布罗肯峰的路",
+            "ways": ["w-weimar-elbingerode", "w-elbingerode-goslar", "w-goslar-clausthal", "w-clausthal-brocken"],
+            "class": "text",
+            "basis": "1777 年冬天去哈茨山，每一天都有他的日记：12 月 10 日下午一点一刻到布罗肯峰顶。他多年以后写的《法国战役》里也讲了这一趟，说是一个人骑马去的。",
+            "sourceIds": ["diary", "campagne"]
+          }
+        ]
+      },
+      {
+        "id": "j-1777-harz-back",
+        "name": "从布罗肯峰回魏玛",
+        "stop": "weimar-1",
+        "date": "1777 年 12 月 10 日到 16 日",
+        "parts": [
+          {
+            "name": "1777 年布罗肯峰到魏玛的路",
+            "ways": [
+              "-w-clausthal-brocken",
+              "w-clausthal-dingelstaedt",
+              "-w-muehlhausen-dingelstaedt",
+              "-w-eisenach-muehlhausen",
+              "w-eisenach-gotha",
+              "-w-erfurt-gotha",
+              "-w-weimar-erfurt"
+            ],
+            "class": "text",
+            "basis": "回程每一天也有日记：12 月 16 日中午前后回到魏玛。",
+            "sourceIds": ["diary"]
+          }
+        ]
+      },
+      {
+        "id": "j-1778-berlin-out",
+        "name": "去柏林",
+        "stop": "weimar-1",
+        "date": "1778 年 5 月 10 日到 15 日",
+        "parts": [
+          {
+            "name": "1778 年魏玛到柏林的路",
+            "ways": ["-w-leipzig-weimar", "w-leipzig-woerlitz", "w-woerlitz-potsdam", "w-potsdam-berlin"],
+            "class": "text",
+            "basis": "1778 年去柏林，每一站有日记：5 月 15 日上午到波茨坦，夜里九点到柏林。",
+            "sourceIds": ["diary"]
+          }
+        ]
+      },
+      {
+        "id": "j-1778-berlin-back",
+        "name": "从柏林回魏玛",
+        "stop": "weimar-1",
+        "date": "1778 年 5 月 20 日到 6 月 1 日",
+        "parts": [
+          {
+            "name": "1778 年柏林到德绍的路",
+            "ways": ["w-8m-berlin-zehlendorf-potsdam", "-w-woerlitz-potsdam-coswig", "w-woerlitz-dessau"],
+            "class": "text",
+            "basis": "回程过泰格尔、采伦多夫、波茨坦、维滕贝格、沃利茨到德绍：他当天的日记。画出来的这些路里，泰格尔是最北的一处。",
+            "sourceIds": ["diary"]
+          },
+          { "name": "1778 年德绍到阿尔施泰特的路", "ways": ["w-dessau-alstaedt"], "class": "schematic", "basis": "德绍到阿尔施泰特，5 月 29 日到 31 日日记是空的，只知道两头。", "sourceIds": ["diary"] },
+          { "name": "1778 年阿尔施泰特到魏玛的路", "ways": ["-w-weimar-alstaedt"], "class": "text", "basis": "6 月 1 日早上六点离开阿尔施泰特，下午一点到魏玛：他当天的日记。", "sourceIds": ["diary"] }
+        ]
+      },
+      {
+        "id": "j-1779-swiss-out",
+        "name": "第二次去瑞士",
+        "stop": "weimar-1",
+        "date": "1779 年 9 月 12 日到 10 月 12 日",
+        "parts": [
+          {
+            "name": "1779 年埃特斯堡到“Insberg”的路",
+            "ways": ["-w-erfurt-ettersburg", "w-erfurt-gotha", "-w-eisenach-gotha", "w-eisenach-cassel", "w-cassel-insberg"],
+            "class": "text",
+            "basis": "9 月 12 日到 16 日，过爱森纳赫、卡塞尔，每天有日记；15 日他在卡塞尔写的信也说已经平安到了。16 日晚上到的“Insberg”可能是今天的耶斯贝格。",
+            "sourceIds": ["letters", "diary"]
+          },
+          {
+            "name": "1779 年“Insberg”到施派尔的路",
+            "ways": ["-w-frankfurtammain-insberg", "w-frankfurtammain-darmstadt", "-w-weinheim-darmstadt", "w-weinheim-heidelberg", "w-heidelberg-speyer"],
+            "class": "schematic",
+            "basis": "从“Insberg”到施派尔：9 月 20 日他在法兰克福写信，说是一个晴好的傍晚到的；24 日在施派尔对岸的莱茵河边等渡船，中午到施派尔，是他当天和第二天的信里写的。哪天到法兰克福、23 日过海德堡，只见于年谱。",
+            "sourceIds": ["letters", "chronik"]
+          },
+          {
+            "name": "1779 年施派尔到埃门丁根的路",
+            "ways": ["w-speyer-selz", "-w-strassburg-selz-sesenheim", "w-strassburg-emmendingen"],
+            "class": "text",
+            "basis": "施派尔到埃门丁根：他一路写的信里有地点和日子。",
+            "sourceIds": ["letters"]
+          },
+          {
+            "name": "1779 年埃门丁根到图恩的路",
+            "ways": ["w-emmendingen-basel", "w-basel-murten", "-w-bern-murten", "w-bern-thun"],
+            "class": "text",
+            "basis": "经巴塞尔、穆捷到比尔；10 月 6 日沿比尔湖骑马过埃拉赫到因斯过夜，7 日中午在穆尔滕，当天到伯尔尼，8 日到图恩：他一路写给朋友的信和日记。沿比尔湖走的是哪一边的岸，信里没有写，线画在东南岸，在岸上补了三个拐点。",
+            "sourceIds": ["letters", "diary"]
+          },
+          {
+            "name": "1779 年图恩到下塞恩的水路",
+            "ways": ["w-thun-untersewen-boat"],
+            "class": "text",
+            "basis": "10 月 9 日早上七点过后从图恩坐船过图恩湖，将近十二点到下塞恩：他当天的日记和当晚写的信。",
+            "sourceIds": ["letters", "diary"]
+          },
+          {
+            "name": "1779 年下塞恩到劳特布伦嫩的路",
+            "ways": ["w-untersewen-zweiluetschinen", "-w-lauterbrunnen-zweiluetschinen"],
+            "class": "text",
+            "basis": "10 月 9 日中午在下塞恩上岸，先坐了一段小车，再沿着山谷走到劳特布伦嫩，下午四点半到：他当晚写的信。路上两条山谷会合的地方信里没有写，是补的拐点。",
+            "sourceIds": ["letters"]
+          },
+          {
+            "name": "1779 年劳特布伦嫩到大沙伊德格山口的路",
+            "ways": ["w-lauterbrunnen-zweiluetschinen", "-w-grossescheidegg-zweiluetschinen"],
+            "class": "text",
+            "basis": "10 月 11 日从劳特布伦嫩走山下的路到格林德尔瓦尔德：先顺着来时的山谷往回走到两条山谷会合的地方，再沿另一条山谷往上；12 日上午十一点翻上大沙伊德格山口。他的日记只写“走下面那条路”，会合的地方是照这句话补的拐点。",
+            "sourceIds": ["diary", "seidel"]
+          }
+        ]
+      },
+      {
+        "id": "j-1779-swiss-on",
+        "name": "绕瑞士到圣哥达",
+        "stop": "weimar-1",
+        "date": "1779 年 10 月 12 日到 11 月 13 日",
+        "parts": [
+          {
+            "name": "1779 年大沙伊德格山口到布里恩茨的路",
+            "ways": ["w-grossescheidegg-brienz"],
+            "class": "text",
+            "basis": "10 月 12 日翻过大沙伊德格山口，当晚顺着山谷往上走到古坦嫩过夜；13 日折回，中午在迈林根，傍晚六点半到布里恩茨：同行的仆人赛德尔当天记的，他把这份日记寄给了朋友。他自己的日记记到 12 日中午过了山口、在一间小屋歇脚为止。去古坦嫩的那一段来回，沙盘上没有画。",
+            "sourceIds": ["letters", "diary", "seidel"]
+          },
+          {
+            "name": "1779 年布里恩茨到因特拉肯的水路",
+            "ways": ["w-brienz-unterlachen-boat"],
+            "class": "text",
+            "basis": "10 月 14 日早上八点从布里恩茨坐船过布里恩茨湖，十一点在因特拉肯的修道院上岸：赛德尔的日记；他自己的信里也写“日出时上布里恩茨湖”。",
+            "sourceIds": ["letters", "seidel"]
+          },
+          { "name": "1779 年因特拉肯到下塞恩的路", "ways": ["-w-untersewen-unterlachen"], "class": "text", "basis": "上岸以后走到下塞恩，在客栈停到下午两点半：赛德尔的日记。", "sourceIds": ["letters", "seidel"] },
+          {
+            "name": "1779 年下塞恩到图恩的水路",
+            "ways": ["-w-thun-untersewen-boat"],
+            "class": "text",
+            "basis": "下午两点半开船过图恩湖，半路上岸看了一个岩洞，晚上七点到图恩：赛德尔的日记；他自己当晚在图恩写的信也说到了。",
+            "sourceIds": ["letters", "seidel"]
+          },
+          { "name": "1779 年图恩到伯尔尼的路", "ways": ["-w-bern-thun"], "class": "text", "basis": "10 月 15 日上午九点三刻离开图恩，下午一点到伯尔尼：赛德尔的日记。", "sourceIds": ["seidel"] },
+          {
+            "name": "1779 年伯尔尼到圣哥达山口的路",
+            "ways": ["w-bern-murten", "-w-hospental-murten", "-w-gotthard-hospental"],
+            "class": "text",
+            "basis": "从伯尔尼经洛桑、日内瓦、沙莫尼、瓦莱到圣哥达山口，一路有他的信和日记：10 月 24 日从罗勒上汝拉山，在山上的茹湖谷住了两晚，26 日晚上八点下到尼永，27 日到日内瓦；11 月 6 日从沙莫尼翻巴尔姆山口到马蒂尼，12 日踏雪翻富尔卡山口，13 日到圣哥达山口。洛桑到罗勒、尼永到日内瓦沿湖的两段，在岸上补了几个拐点。",
+            "sourceIds": ["letters", "diary"]
+          }
+        ]
+      },
+      {
+        "id": "j-1779-swiss-back",
+        "name": "从圣哥达回魏玛",
+        "stop": "weimar-1",
+        "date": "1779 年 11 月 14 日起，1780 年 1 月 13 日已在魏玛",
+        "parts": [
+          {
+            "name": "1779 年圣哥达山口到弗吕埃伦的路",
+            "ways": ["w-gotthard-hospental", "w-hospental-urnerloch", "w-urnerloch-flueelen"],
+            "class": "schematic",
+            "basis": "11 月 14 日早上从圣哥达山口动身下山，是他当天早上的信里写的；到卢塞恩以后的信说，下山以后坐船过了卢塞恩湖。山路上经过哪里、哪天到湖边，没有写；虚线照他 1775 年走过的罗伊斯河谷画。",
+            "sourceIds": ["letters"]
+          },
+          {
+            "name": "1779 年弗吕埃伦到布伦嫩的水路",
+            "ways": ["-w-brunnen-flueelen-boat"],
+            "class": "text",
+            "basis": "从圣哥达山口下来以后坐船过卢塞恩湖：他 11 月 16 日在卢塞恩写的信、后来在苏黎世写的信里都这样说，苏黎世那一封写的是“到施维茨、卢塞恩”。信里没有日子，也没有写在哪里上船、下船；施维茨离湖五公里，线画到湖边的布伦嫩。",
+            "sourceIds": ["letters"]
+          },
+          {
+            "name": "1779 年布伦嫩到卢塞恩的水路",
+            "ways": ["w-brunnen-izenach-boat", "w-izenach-seemitte-boat", "-w-luzern-seemitte-boat"],
+            "class": "text",
+            "basis": "他 11 月 16 日在卢塞恩写的信说，下了圣哥达山口，坐船过卢塞恩湖到了这里；在苏黎世写的信说是先到施维茨、再到卢塞恩。从施维茨回到湖边在哪里上船、哪天到卢塞恩，没有写；线从布伦嫩画起。",
+            "sourceIds": ["letters"]
+          },
+          {
+            "name": "1779 年卢塞恩到苏黎世的路",
+            "ways": ["-w-zuerich-luzern"],
+            "class": "schematic",
+            "basis": "从卢塞恩到苏黎世：他在苏黎世写的信只说“从那里骑马到这里”。11 月 16 日他在卢塞恩写信，20 日已在苏黎世写信；哪天走、哪天到、路过哪里都没有写。",
+            "sourceIds": ["letters"]
+          },
+          {
+            "name": "1779 年苏黎世到斯图加特的路",
+            "ways": ["w-8m-zuerich-constanz-schaffhausen", "-w-stuttgart-schaffhausen"],
+            "class": "schematic",
+            "basis": "苏黎世到斯图加特：11 月 30 日他在苏黎世写信，说后天动身，前面还有博登湖和莱茵瀑布；12 月 7 日的信写在沙夫豪森，说前一天和当天都看了瀑布，第二天去斯图加特。走的是哪条路，信里没有写；虚线过康斯坦茨，是照他信里的打算和半年以后给一位朋友写的一条路画的，湖的南面补了一个拐点。",
+            "sourceIds": ["letters"]
+          },
+          {
+            "name": "1779 年斯图加特到法兰克福的路",
+            "ways": ["-w-carlsruh-stuttgart", "-w-mannheim-carlsruh", "w-mannheim-darmstadt", "-w-frankfurtammain-darmstadt"],
+            "class": "text",
+            "basis": "斯图加特到法兰克福：他 12 月 20 日在卡尔斯鲁厄写信，说在斯图加特住了八天，看了那里军事学校的庆典，下一步过曼海姆去法兰克福；22 日的信写在曼海姆，说前一天早上离开卡尔斯鲁厄；29 日已在法兰克福写信。城和城之间经过哪里，信里没有写，线是连出来的。",
+            "sourceIds": ["letters"]
+          },
+          {
+            "name": "1780 年法兰克福到魏玛的路",
+            "ways": ["w-frankfurtammain-eisenach", "w-eisenach-gotha", "-w-erfurt-gotha", "-w-weimar-erfurt"],
+            "class": "schematic",
+            "basis": "法兰克福到魏玛：1 月 10 日他还在法兰克福写信，13 日在魏玛写信说已经平安回来。1 月 3 日的信里，他让人把信寄到爱森纳赫等他；路上经过哪里，没有记载。",
+            "sourceIds": ["letters"]
+          }
+        ]
+      },
+      {
+        "id": "j-1783-harz-out",
+        "name": "第二次上布罗肯峰",
+        "stop": "weimar-1",
+        "date": "1783 年 9 月初到 21 日",
+        "parts": [
+          {
+            "name": "1783 年魏玛到克劳斯塔尔的路",
+            "ways": ["w-weimar-langenstein", "-w-clausthal-langenstein"],
+            "class": "schematic",
+            "basis": "去程：9 月 6 日他写了告别的字条；9 日的信写在朗根施泰因，11 日的写在布兰肯堡，13 日又在朗根施泰因，说晚上去哈尔伯施塔特；14 日在那里写信，说第二天才定下一步往哪里走；18 日晚上才到克劳斯塔尔。都是他一路写的信。魏玛到朗根施泰因、最后几天到克劳斯塔尔的路，信里没有写；线只过朗根施泰因。",
+            "sourceIds": ["letters"]
+          },
+          {
+            "name": "1783 年克劳斯塔尔到布罗肯峰的路",
+            "ways": ["w-clausthal-brocken"],
+            "class": "schematic",
+            "basis": "9 月 21 日早上动身上布罗肯峰，打算在山顶过夜：他当天早上写的一句。24 日的信说这一趟顺利走完了，同行的孩子骑一匹小马。上山的路没有写，照 1777 年的路画。",
+            "sourceIds": ["letters"],
+            "note": "1783 年 9 月 21 日早上他动身上布罗肯峰；上山的路没有写，虚线是照 1777 年的路画的。"
+          }
+        ]
+      },
+      {
+        "id": "j-1783-harz-back",
+        "name": "经哥廷根、卡塞尔回魏玛",
+        "stop": "weimar-1",
+        "date": "1783 年 9 月下旬到 10 月，7 日已在魏玛",
+        "parts": [
+          {
+            "name": "1783 年布罗肯峰到卡塞尔的路",
+            "ways": ["-w-clausthal-brocken", "-w-goettingen-clausthal", "w-goettingen-cassel"],
+            "class": "text",
+            "basis": "回程：9 月 24 日他在采勒费尔德写信，说上布罗肯峰的一趟顺利走完了，星期五去哥廷根；28 日的信说已经平安到了哥廷根；10 月 2 日的信写在卡塞尔，说“我们现在到了这里”。城和城之间经过哪里，信里没有写，线是连出来的。",
+            "sourceIds": ["letters"]
+          },
+          {
+            "name": "1783 年卡塞尔到魏玛的路",
+            "ways": ["-w-eisenach-cassel", "w-eisenach-gotha", "-w-erfurt-gotha", "-w-weimar-erfurt"],
+            "class": "schematic",
+            "basis": "卡塞尔到魏玛只有他的打算：10 月 2 日的信说，打算 5 日星期天动身去爱森纳赫；在哥廷根写的信里，他让人把信寄到哥达等他。路上到底经过哪里，没有记载；10 月 7 日的一张字条里，他说很高兴又能给朋友送去早饭、道一声早安，这时他已经回来了。",
+            "sourceIds": ["letters"]
+          }
+        ]
+      },
+      {
+        "id": "j-1784-eisenach-out",
+        "name": "去哥达、爱森纳赫",
+        "stop": "weimar-1",
+        "date": "1784 年 6 月上旬",
+        "parts": [
+          {
+            "name": "1784 年魏玛到爱森纳赫的路",
+            "ways": ["w-weimar-erfurt", "w-erfurt-gotha", "-w-eisenach-gotha"],
+            "class": "text",
+            "basis": "6 月 3 日他写信说行李都收拾好了；5 日的信写在哥达，说这几天过得很好，第二天去爱森纳赫；7 日的信写在爱森纳赫，说已经到了，信里提到这一段坐的是马车。在爱森纳赫住到 7 月。",
+            "sourceIds": ["letters"]
+          }
+        ]
+      },
+      {
+        "id": "j-1784-eisenach-back",
+        "name": "从爱森纳赫回魏玛",
+        "stop": "weimar-1",
+        "date": "1784 年 7 月，21 日已经回来",
+        "parts": [
+          {
+            "name": "1784 年爱森纳赫到魏玛的路",
+            "ways": ["w-eisenach-gotha", "-w-erfurt-gotha", "-w-weimar-erfurt"],
+            "class": "schematic",
+            "basis": "7 月 9 日他还在爱森纳赫写信，说第二天进山；21 日的信里他已经在处理成堆的公文，信上没有写地点。信里两次说，想从埃尔福特直接骑马去看朋友；路上经过哪里没有记载，虚线照去的路画。",
+            "sourceIds": ["letters"]
+          }
+        ]
+      },
+      {
+        "id": "j-1784-harz-out",
+        "name": "去不伦瑞克",
+        "stop": "weimar-1",
+        "date": "1784 年 8 月 8 日起",
+        "parts": [
+          {
+            "name": "1784 年魏玛到丁格尔施泰特的路",
+            "ways": ["w-weimar-erfurt", "w-erfurt-muehlhausen", "w-muehlhausen-dingelstaedt"],
+            "class": "text",
+            "basis": "8 月 8 日过米尔豪森到丁格尔施泰特：他当晚的信。",
+            "sourceIds": ["letters"]
+          },
+          {
+            "name": "1784 年丁格尔施泰特到不伦瑞克的路",
+            "ways": ["-w-clausthal-dingelstaedt", "-w-goslar-clausthal", "w-goslar-braunschweig"],
+            "class": "text",
+            "basis": "8 月 8 日夜里他写信说，凌晨一点接着往杜德施塔特走；11 日的信写在采勒费尔德，说已经平安到了；14 日的信说第二天一早下山去戈斯拉尔。一封编者定为 18 日的信说，他们翻过了山，已经到了宫廷里；22 日的信上写着不伦瑞克。杜德施塔特和戈斯拉尔是他信里说要去的，到没到、哪天到，没有写。",
+            "sourceIds": ["letters", "editors"]
+          }
+        ]
+      },
+      {
+        "id": "j-1784-harz-back",
+        "name": "第三次上布罗肯峰，回魏玛",
+        "stop": "weimar-1",
+        "date": "1784 年 9 月 1 日起，16 日已在魏玛",
+        "parts": [
+          {
+            "name": "1784 年不伦瑞克到魏玛的路",
+            "ways": [
+              "-w-goslar-braunschweig",
+              "w-goslar-clausthal",
+              "w-clausthal-brocken",
+              "-w-elbingerode-brocken",
+              "w-elbingerode-rosstrappe",
+              "-w-langenstein-rosstrappe",
+              "w-langenstein-alstaedt",
+              "-w-weimar-alstaedt"
+            ],
+            "class": "text",
+            "basis": "回程：8 月 30 日他写信说后天一早动身，先回戈斯拉尔；9 月 6 日的信写在埃尔宾格罗德，说从 1 日起就在山里，是从戈斯拉尔上的哈茨山，到过布罗肯峰；回到魏玛以后的信说，在朗根施泰因住了两天，在阿尔施泰特收到了等着他的信。9 月 16 日的信里他已经回来。哪一天上的布罗肯峰，信里没有写；这几处之间的线是连出来的。",
+            "sourceIds": ["letters"],
+            "note": "1784 年 9 月 1 日到 6 日之间他又上过布罗肯峰，哪一天信里没有写。这一趟回程画成实线：他的信里写到戈斯拉尔、埃尔宾格罗德、朗根施泰因、阿尔施泰特，这几处之间的线是连出来的。"
+          }
+        ]
+      },
+      {
+        "id": "j-1785-karlsbad-out",
+        "name": "头一次去卡尔斯巴德",
+        "stop": "weimar-1",
+        "date": "1785 年 6 月下旬起，打算 7 月 5 日到",
+        "parts": [
+          {
+            "name": "1785 年魏玛到文西德尔的路",
+            "ways": ["w-weimar-koetschau", "-w-jena-koetschau", "w-jena-kahla", "-w-schleiz-kahla", "-w-hof-schleiz", "w-hof-wunsiedel"],
+            "class": "text",
+            "basis": "去程：6 月 20 日他还在魏玛；27 日在奥拉河畔诺伊施塔特写信，说可惜还留在这里，打算星期四动身，还想绕霍夫走；后来的信说，是一场病把他在那里留了八天，又说他们是从文西德尔来的，上过那一带的山。霍夫是他打算走的，走没走信里没有写。",
+            "sourceIds": ["letters"]
+          },
+          {
+            "name": "1785 年文西德尔到卡尔斯巴德的路",
+            "ways": ["-w-eger-wunsiedel", "w-eger-mariakulm", "-w-zwota-mariakulm", "-w-carlsbad-zwota"],
+            "class": "text",
+            "basis": "星期一晚上九点他在茨沃道写信，说从文西德尔来，离卡尔斯巴德还有六个钟头的路，打算第二天中午前后到。信上只写“星期一”，编者定为 7 月 4 日。",
+            "sourceIds": ["letters", "editors"]
+          }
+        ]
+      },
+      {
+        "id": "j-1785-karlsbad-back",
+        "name": "从卡尔斯巴德回魏玛",
+        "stop": "weimar-1",
+        "date": "1785 年 8 月 16 日起，22 日已在魏玛",
+        "parts": [
+          {
+            "name": "1785 年卡尔斯巴德到约翰格奥尔根施塔特的路",
+            "ways": ["-w-johanngeorgenstadt-carlsbad"],
+            "class": "text",
+            "basis": "8 月 16 日离开卡尔斯巴德，18 日在约翰格奥尔根施塔特：他的信，信里还写到约阿希姆斯塔尔（今亚希莫夫）。",
+            "sourceIds": ["letters"]
+          },
+          {
+            "name": "1785 年约翰格奥尔根施塔特到魏玛的路",
+            "ways": ["w-johanngeorgenstadt-gera", "-w-jena-gera", "w-jena-koetschau", "-w-weimar-koetschau"],
+            "class": "schematic",
+            "basis": "约翰格奥尔根施塔特到魏玛：8 月 18 日他写信说第二天去施内贝格，到矿井里看看，然后赶紧回家；9 月 1 日的信说到过那里，那里的矿井不让外人下去。以后的路没有记载，22 日他已在魏玛写信。",
+            "sourceIds": ["letters"]
+          }
+        ]
+      },
+      {
+        "id": "j-1786-karlsbad",
+        "name": "到卡尔斯巴德",
+        "stop": "karlsbad",
+        "date": "1786 年 7 月 24 日起",
+        "parts": [
+          {
+            "name": "1786 年魏玛到卡尔斯巴德的路",
+            "ways": [
+              "w-weimar-koetschau",
+              "-w-jena-koetschau",
+              "w-jena-kahla",
+              "-w-poessneck-kahla",
+              "w-poessneck-schleiz",
+              "-w-hof-schleiz",
+              "w-hof-franzensbad",
+              "w-franzensbad-mariakulm",
+              "-w-zwota-mariakulm",
+              "-w-carlsbad-zwota"
+            ],
+            "class": "schematic",
+            "basis": "1786 年 7 月 24 日离开魏玛，当天在耶拿；以后的路没有记载，他打算 27 日晚上到。虚线是照他后来十几次去温泉时日记里的路画的。",
+            "sourceIds": ["letters"],
+            "note": "1786 年 7 月 24 日他离开魏玛，当天在耶拿；以后的路没有记载，只知道他打算 27 日晚上到。虚线是照他后来十几次去温泉时日记里的路画的。"
+          }
+        ]
+      },
+      {
+        "id": "j-1786-rome",
+        "name": "从卡尔斯巴德到罗马",
+        "stop": "rome",
+        "date": "1786 年 9 月 3 日到 10 月 29 日",
+        "parts": [
+          {
+            "name": "1786 年卡尔斯巴德到托尔博莱的路",
+            "ways": ["w-carlsbad-zwota", "w-zwota-mariakulm", "-w-eger-mariakulm", "w-eger-inspruck", "w-inspruck-roveredo", "w-roveredo-torbole"],
+            "class": "text",
+            "basis": "卡尔斯巴德到加尔达湖，每一个驿站都在他这一趟的日记的站表里，连钟点都有：9 月 8 日晚上七点半到布伦纳山口。",
+            "sourceIds": ["letters", "rt1786", "ir"],
+            "note": "卡尔斯巴德到加尔达湖是实线：每一个驿站都在他这一趟日记的站表里，连钟点都有。"
+          },
+          { "name": "1786 年托尔博莱到巴多利诺的水路", "ways": ["w-torbole-bardolino-boat"], "class": "text", "basis": "9 月 13 日坐船过加尔达湖，到马尔切西内；14 日上午到巴多利诺：日记的站表。", "sourceIds": ["rt1786"] },
+          {
+            "name": "1786 年巴多利诺到帕多瓦的路",
+            "ways": ["-w-verona-bardolino", "w-verona-vicenz", "w-vicenz-padua"],
+            "class": "text",
+            "basis": "9 月 14 日中午过后到维罗纳，19 日到维琴察，26 日到帕多瓦：他的日记。",
+            "sourceIds": ["letters", "rt1786"]
+          },
+          {
+            "name": "1786 年帕多瓦到威尼斯的水路",
+            "ways": ["w-padua-venedig-boat", "w-brenta-venedig-sea"],
+            "class": "text",
+            "basis": "9 月 28 日沿布伦塔河坐船到威尼斯：他的旅行日记写了前一天晚上的打算，也写了 28 日傍晚五点从布伦塔河进潟湖、头一次看见威尼斯；他坐的是公共的客船，快到时换了一条小船进城。过潟湖的那一截线是示意着画的。",
+            "sourceIds": ["rt1786"]
+          },
+          {
+            "name": "1786 年威尼斯到费拉拉的水路",
+            "ways": ["w-venedig-po-sea", "w-venedig-ferrara-boat", "w-po-ferrara-boat"],
+            "class": "text",
+            "basis": "10 月 14 日夜里坐信使船离开威尼斯，16 日早上七点到费拉拉：他的日记。日记里写到波河，也提到阿迪杰河；船从潟湖怎样进的河没有写，潟湖里和海边的那一截线是示意着画的。费拉拉不在波河边上；船离开波河以后怎样到的城里，日记也没有写，最后这一小段线是直着连的。",
+            "sourceIds": ["rt1786"],
+            "note": "威尼斯到费拉拉的船也有记载：日记写了哪天夜里走、哪天早上到，也写到波河。船从潟湖怎样进的河没有写，潟湖里和海边的那一截是示意着画的。"
+          },
+          {
+            "name": "1786 年费拉拉到罗马的路",
+            "ways": ["w-ferrara-bologna", "w-bologna-florenz", "w-8m-florenz-spoleto-rom"],
+            "class": "text",
+            "basis": "费拉拉到罗马，他的日记一天一天写着：26 日在阿西西山下下了车，让车夫赶着车先去福利尼奥，自己走上阿西西，再步行到福利尼奥；27 日登上斯波莱托，走过那里架在两座山之间的水道桥，晚上到特尔尼；10 月 29 日晚上到罗马。23、24 日两晚住在哪里没有写；25 日的日记写到阿雷佐的平原和佩鲁贾的湖。22 日晚上住的“Giredo”可能是今天巴贝里诺-迪穆杰洛的“Ghiereto”。湖边的路他没有写地名，线在湖的北岸、东北角和东边补了三个拐点。",
+            "sourceIds": ["letters", "rt1786"]
+          }
+        ]
+      },
+      {
+        "id": "j-1787-naples",
+        "name": "到那不勒斯",
+        "stop": "naples",
+        "date": "1787 年 2 月 22 日到 25 日",
+        "parts": [
+          {
+            "name": "1787 年罗马到那不勒斯的路",
+            "ways": ["w-8m-rom-albano-neapel"],
+            "class": "text",
+            "basis": "罗马到那不勒斯这四天，他写过一份路上的日记，2 月 27 日从那不勒斯寄回魏玛，我们没有读到。路上的地方见于他大约三十年后写成的《意大利游记》：2 月 22 日过阿尔巴诺，到韦莱特里；23 日凌晨三点就上路，过泰拉奇纳，天黑时到丰迪；24 日在海边一座小城歇了几个钟头，坐渡船过一条河，到圣阿加塔；25 日中午在卡普阿，当天到那不勒斯。当时的信只有两头：2 月 21 日他在罗马写“明天走”，3 月 3 日在那不勒斯写“平安到了”；信里还说一位画家朋友同他一起走。泰拉奇纳和丰迪之间、海边那座小城和那条河之间，线在离开海岸的地方各补了一个拐点。",
+            "sourceIds": ["letters", "notebook", "ir"],
+            "note": "罗马到那不勒斯画成实线，可是路上的地方只见于他大约三十年后写成的《意大利游记》：他这四天写过一份路上的日记，寄回了魏玛，我们没有读到；当时的信只有两头。"
+          }
+        ]
+      },
+      {
+        "id": "j-1787-sicily-out",
+        "name": "渡海到西西里",
+        "stop": "naples",
+        "date": "1787 年 3 月 29 日到 4 月 23 日",
+        "parts": [
+          {
+            "name": "1787 年那不勒斯到巴勒莫的海路",
+            "ways": ["w-neapel-palermo-sea"],
+            "class": "text",
+            "basis": "3 月 29 日在那不勒斯上船：他当时记的一张小表写着这一天“上船”，后两天“在海上”，4 月 1 日写着“巴勒莫”。他多年以后写的《意大利游记》说是 4 月 2 日下午三点进的巴勒莫港，比小表晚一天。他 4 月 17 日在巴勒莫写的信说，渡海很辛苦，又说他也许从来没有像在这里这样，一连十六天都这么快活。海上的线是示意的：书里写到天亮时船在伊斯基亚岛和卡普里岛之间，后来乌斯蒂卡岛落在左边，船再朝它开去。",
+            "sourceIds": ["letters", "notebook", "ir"],
+            "note": "那不勒斯到巴勒莫的海路有记载：他当时记的一张小表写着 3 月 29 日上船、4 月 1 日巴勒莫；他多年以后写的《意大利游记》说是 4 月 2 日进的港。海上的线是示意的，只照书里写到的几座岛拐了几个弯。"
+          },
+          {
+            "name": "1787 年巴勒莫到吉尔真蒂的路",
+            "ways": ["w-8m-palermo-monreale-girgenti"],
+            "class": "text",
+            "basis": "4 月 18 日离开巴勒莫。动身前一天他在信里写了打算走的路，过塞杰斯塔到吉尔真蒂，打算五天到；他路上的笔记写到出城过蒙雷阿莱，写到阿尔卡莫和塞杰斯塔的神庙；他当时记的一张小表写着：21 日离开阿尔卡莫，22 日到夏卡，23 日从夏卡动身，24 日写着吉尔真蒂。《意大利游记》说 23 日晚上到吉尔真蒂。回到那不勒斯以后的信里说这一路是骑马走的。夏卡和吉尔真蒂之间，线在离海岸远一点的地方补了一个拐点。",
+            "sourceIds": ["letters", "diary", "notebook", "ir"]
+          }
+        ]
+      },
+      {
+        "id": "j-1787-sicily-back",
+        "name": "穿过西西里，渡海回那不勒斯",
+        "stop": "naples",
+        "date": "1787 年 4 月 28 日到 5 月 14 日",
+        "parts": [
+          {
+            "name": "1787 年吉尔真蒂到墨西拿的路",
+            "ways": ["w-girgenti-messina"],
+            "class": "text",
+            "basis": "吉尔真蒂到墨西拿：他当时记的一张小表写着 4 月 28 日离开吉尔真蒂，30 日离开卡尔塔尼塞塔；再往后的地方，卡斯特罗乔瓦尼、卡塔尼亚、陶尔米纳，见于《意大利游记》。书里 4 月 28 日到卡尔塔尼塞塔、29 日已经到了卡斯特罗乔瓦尼，同小表差一天。他 5 月 15 日的信说这一路是骑马走的；当时的信里提到卡塔尼亚，没有说是路过。书里在西西里最后一个星期的日子，同他到那不勒斯第二天写的信对不上。卡塔尼亚和陶尔米纳之间，线在离海岸远一点的地方补了一个拐点。",
+            "sourceIds": ["letters", "notebook", "ir"],
+            "note": "吉尔真蒂到墨西拿画成实线，可是卡尔塔尼塞塔以后的地方只见于他大约三十年后写成的《意大利游记》：他当时记的一张小表只写着 4 月 28 日离开吉尔真蒂、30 日离开卡尔塔尼塞塔。书里在西西里最后一个星期的日子，同他回到那不勒斯第二天写的信对不上。"
+          },
+          {
+            "name": "1787 年墨西拿到那不勒斯的海路",
+            "ways": ["-w-neapel-messina-sea"],
+            "class": "text",
+            "basis": "从墨西拿坐船回那不勒斯：他 5 月 15 日的信说，前一天下的船，坐的是一条法国船，走了三天半。5 月底的另一封信说，来回渡海他都吃了海的苦头，还写到海中间一座一直冒着火的岛，写到在卡普里岛后面的礁石旁边，天晴、海上一点风也没有，船差一点出事；信里没有说这是去的时候还是回来的时候。《意大利游记》把船漂到卡普里岛附近写在回程。哪天开船信里没有写。海上的线是示意的。",
+            "sourceIds": ["letters", "ir"],
+            "note": "墨西拿回那不勒斯的海路有记载：他 5 月 15 日的信说，前一天下的船，走了三天半。5 月底的另一封信写到在卡普里岛后面的礁石旁边船差一点出事，没有说是去的时候还是回来的时候；《意大利游记》把船漂到卡普里岛附近写在回程。哪天开船信里没有写，海上的线是示意的。"
+          }
+        ]
+      },
+      {
+        "id": "j-1787-rome-back",
+        "name": "回罗马",
+        "stop": "rome",
+        "date": "1787 年 6 月 3 日到 6 日",
+        "parts": [
+          {
+            "name": "1787 年那不勒斯到罗马的路",
+            "ways": ["-w-8m-rom-albano-neapel"],
+            "class": "text",
+            "basis": "6 月 6 日午后回到罗马，路上走了三天半，他一个人坐一辆雇来的马车：他 8 日在罗马写的信。信里还说 6 月 1 日、2 日他留在那不勒斯；《意大利游记》写的是 3 日动身，同信对得上。途中的地方没有记载，线是照 2 月去的那条路画的。",
+            "sourceIds": ["letters", "ir"],
+            "note": "罗马和那不勒斯之间的线，是 1787 年 6 月他从那不勒斯回罗马的路，画成实线：他 6 月 8 日在罗马写的信说，6 日午后到的，路上走了三天半。途中的地方没有记载，线是照 2 月去的那条路画的。"
+          }
+        ]
+      },
+      {
+        "id": "j-1788-home",
+        "name": "从罗马回魏玛",
+        "stop": "weimar-2",
+        "date": "1788 年 4 月 23 日到 6 月 18 日",
+        "parts": [
+          {
+            "name": "1788 年罗马到米兰的路",
+            "ways": ["-w-florenz-rom-siena", "-w-bologna-florenz", "-w-mayland-bologna"],
+            "class": "schematic",
+            "basis": "4 月 19 日他写信说打算 22 日或 23 日离开罗马；留在罗马的一位朋友 5 月里写给他的信，说是 23 日走的。5 月 6 日他在佛罗伦萨写信，说大概 9 日动身；朋友的信里说收到了他从博洛尼亚寄出的信；22 日晚上到米兰。路过锡耶纳，是他一年以后一封信里带出来的：他在那里看过一幅画。帕尔马是他的打算；别的城没有读到当时的记录。罗马和锡耶纳之间，线在博尔塞纳湖东岸补了一个拐点。",
+            "sourceIds": ["letters", "rome1788"],
+            "note": "1788 年从罗马回魏玛的路，陆上全是虚线，科莫湖上的一段是细点线。罗马到米兰，记录里只有几座城和几个日子：4 月 23 日离开罗马，5 月 6 日在佛罗伦萨，在博洛尼亚寄过信，22 日晚上到米兰。"
+          },
+          {
+            "name": "1788 年米兰到科莫的路",
+            "ways": ["-w-como-mayland"],
+            "class": "schematic",
+            "basis": "米兰以北这一段，是照他 5 月 23 日、24 日在米兰写的打算画的：过科莫湖、基亚文纳，翻施普吕根山口，到库尔、康斯坦茨。他确实到了康斯坦茨；翻的是不是这个山口，没有找到过山以后写的东西。",
+            "sourceIds": ["letters"],
+            "note": "米兰以北到康斯坦茨的一段，是照他 5 月 23 日、24 日在米兰写的打算画的：过科莫湖，翻施普吕根山口。他确实到了康斯坦茨；翻的是不是这个山口，不能肯定。"
+          },
+          {
+            "name": "1788 年科莫到科莫湖北头的水路",
+            "ways": ["w-como-sorico-boat"],
+            "class": "schematic",
+            "basis": "科莫湖上的线是照他的打算画的：5 月 24 日他在米兰写“过湖到基亚文纳、库尔”。在哪里上船、下船没有写，线画到湖的北头。",
+            "sourceIds": ["letters"]
+          },
+          {
+            "name": "1788 年科莫湖北头到康斯坦茨的路",
+            "ways": ["-w-constanz-sorico"],
+            "class": "schematic",
+            "basis": "湖北头经基亚文纳、施普吕根山口、库尔到康斯坦茨，也是照他 5 月 23 日写的打算画的；过山以后写的东西没有找到。库尔和康斯坦茨之间，线在莱茵河谷里补了一个拐点，到康斯坦茨前在博登湖南岸又补了一个。",
+            "sourceIds": ["letters", "editors"]
+          },
+          {
+            "name": "1788 年康斯坦茨到魏玛的路",
+            "ways": ["-w-augsburg-constanz", "w-augsburg-schwabach", "w-schwabach-bamberg", "w-bamberg-judenbach", "-w-jena-judenbach", "w-jena-koetschau", "-w-weimar-koetschau"],
+            "class": "schematic",
+            "basis": "康斯坦茨到魏玛，路上只有一条记录：他记寄信的那张表里，6 月 9 日有一封信寄往林道；在哪里寄的没有写。6 月 18 日晚上十点回到魏玛，是赫尔德四天以后的一封信里写的。虚线过奥格斯堡、纽伦堡，是他 3 月里的打算，照他 1790 年走过的路画。出康斯坦茨的一段绕着博登湖西北头画，补了两个拐点。",
+            "sourceIds": ["letters", "notebook", "herder1788"],
+            "note": "康斯坦茨到魏玛，路上只有一条记录：他记寄信的那张表里，6 月 9 日有一封信寄往林道，在哪里寄的没有写。虚线过奥格斯堡、纽伦堡，是他 3 月里的打算，照他 1790 年走过的路画的。"
+          }
+        ]
+      },
+      {
+        "id": "j-1790-venice-out",
+        "name": "再去威尼斯",
+        "stop": "weimar-2",
+        "date": "1790 年 3 月 10 日到 31 日",
+        "parts": [
+          {
+            "name": "1790 年魏玛到帕多瓦的路",
+            "ways": [
+              "w-weimar-koetschau",
+              "-w-jena-koetschau",
+              "w-jena-judenbach",
+              "-w-bamberg-judenbach",
+              "-w-schwabach-bamberg",
+              "-w-augsburg-schwabach",
+              "w-augsburg-inspruck",
+              "w-inspruck-roveredo",
+              "w-roveredo-verona",
+              "w-verona-vicenz-bellemonte",
+              "w-vicenz-padua"
+            ],
+            "class": "text",
+            "basis": "1790 年 3 月去威尼斯，耶拿到维罗纳的每一个驿站都在他自己列的站表里；维罗纳以后见于随行仆人格策的日记。",
+            "sourceIds": ["letters", "diary", "goetze"]
+          },
+          {
+            "name": "1790 年帕多瓦到威尼斯的水路",
+            "ways": ["w-padua-venedig-boat", "w-brenta-venedig-sea"],
+            "class": "schematic",
+            "basis": "3 月 31 日下午坐船从帕多瓦到威尼斯：同行的格策的日记写的；他自己 4 月 3 日的信也说是 31 日到的威尼斯。哪天离开帕多瓦、走的哪条水道没有写，线照 1786 年他日记里写的布伦塔河画。",
+            "sourceIds": ["letters", "goetze"]
+          }
+        ]
+      },
+      {
+        "id": "j-1790-venice-back",
+        "name": "从威尼斯到曼托瓦",
+        "stop": "weimar-2",
+        "date": "1790 年 5 月下旬",
+        "parts": [
+          {
+            "name": "1790 年威尼斯到帕多瓦的水路",
+            "ways": ["-w-brenta-venedig-sea", "-w-padua-venedig-boat"],
+            "class": "schematic",
+            "basis": "离开威尼斯哪一天没有当时的记录，5 月 23 日他的日记已经写在帕多瓦。怎么从威尼斯到帕多瓦的，也没有写；线照 3 月来时那趟船的线画。",
+            "sourceIds": ["letters", "diary"]
+          },
+          { "name": "1790 年帕多瓦到维琴察的路", "ways": ["-w-vicenz-padua"], "class": "text", "basis": "5 月 24 日从帕多瓦到维琴察：他的日记。", "sourceIds": ["diary"] },
+          {
+            "name": "1790 年维琴察到曼托瓦的路",
+            "ways": ["-w-verona-vicenz-bellemonte", "w-verona-mantua"],
+            "class": "text",
+            "basis": "维琴察到曼托瓦：他的日记 5 月 25 日还写在维琴察；28 日在曼托瓦写的信，把威尼斯、帕多瓦、维琴察、维罗纳、曼托瓦一路数下来，说都去过、看过了。哪天过的维罗纳没有写；城和城之间的线是连出来的。",
+            "sourceIds": ["letters", "diary"]
+          }
+        ]
+      },
+      {
+        "id": "j-1790-mantua-home",
+        "name": "从曼托瓦回魏玛",
+        "stop": "weimar-2",
+        "date": "1790 年 5 月底到 6 月",
+        "parts": [
+          {
+            "name": "1790 年曼托瓦到魏玛的路",
+            "ways": [
+              "-w-verona-mantua",
+              "-w-roveredo-verona",
+              "-w-inspruck-roveredo",
+              "-w-augsburg-inspruck",
+              "w-augsburg-schwabach",
+              "w-schwabach-bamberg",
+              "w-bamberg-judenbach",
+              "-w-jena-judenbach",
+              "w-jena-koetschau",
+              "-w-weimar-koetschau"
+            ],
+            "class": "schematic",
+            "basis": "回程只知道信上的几处：5 月 31 日他在维罗纳写信，说第二天动身；6 月 9 日在奥格斯堡写的信里，说到在因斯布鲁克遇到的一件事；6 月 22 日已在魏玛。7 月 1 日的一封信说，那辆小马车这一趟从魏玛到维罗纳、又从维罗纳回来，一路平安。虚线是照 3 月去的路画的。",
+            "sourceIds": ["letters"]
+          }
+        ]
+      },
+      {
+        "id": "j-1790-silesia-out",
+        "name": "去西里西亚",
+        "stop": "weimar-2",
+        "date": "1790 年 7 月 26 日到 8 月 10 日前后",
+        "parts": [
+          {
+            "name": "1790 年魏玛到德累斯顿的路",
+            "ways": ["w-weimar-koetschau", "-w-jena-koetschau", "w-jena-gera", "-w-altenburg-gera", "-w-dresden-altenburg"],
+            "class": "text",
+            "basis": "7 月 26 日上午十点离开魏玛，夜里到格拉，28 日早上七点半到德累斯顿：他 30 日在德累斯顿写的信。",
+            "sourceIds": ["letters"]
+          },
+          {
+            "name": "1790 年德累斯顿到布雷斯劳的路",
+            "ways": ["w-8n-dresden-stolpen-breslau"],
+            "class": "schematic",
+            "basis": "7 月 30 日夜里离开德累斯顿：他当天的信说，要从施托尔彭的玄武岩那边走，赶去西里西亚；他的笔记本里记了施托尔彭的玄武岩，和从那里再往前的路边的花岗岩石柱。再往后只知道 8 月 6 日他从齐尔劳寄过一封信，10 日到了布雷斯劳城外。施托尔彭以后的虚线是连出来的。",
+            "sourceIds": ["letters", "diary"]
+          }
+        ]
+      },
+      {
+        "id": "j-1790-krakau-out",
+        "name": "从布雷斯劳去克拉科夫、维利奇卡",
+        "stop": "weimar-2",
+        "date": "1790 年 9 月初",
+        "parts": [
+          {
+            "name": "1790 年布雷斯劳到塔尔诺维茨的路",
+            "ways": ["w-breslau-krakau-8-tarnowitza"],
+            "class": "schematic",
+            "basis": "9 月初从布雷斯劳出发，先到塔尔诺维茨（今塔尔诺夫斯凯古雷）：他 11 日和 12 日的两封信数这一趟到过的地方，都把它排在头一个。哪一天动身、路上经过哪里，信里没有写；虚线只是把两头连起来。",
+            "sourceIds": ["letters"]
+          },
+          {
+            "name": "1790 年塔尔诺维茨到维利奇卡的路",
+            "ways": ["w-breslau-krakau-8-tarnowitzb", "w-krakau-wieliczka"],
+            "class": "text",
+            "basis": "塔尔诺维茨到克拉科夫、维利奇卡：他 9 月 11 日的信说，这一趟到过塔尔诺维茨、克拉科夫、维利奇卡和琴斯托霍瓦，一共八天，10 日回到布雷斯劳；12 日的信说是陪公爵去的，还讲到塔尔诺维茨矿上抽水的两台机器。哪天到克拉科夫、哪天到维利奇卡，信里没有写；城和城之间的线是连出来的。",
+            "sourceIds": ["letters"]
+          }
+        ]
+      },
+      {
+        "id": "j-1790-krakau-back",
+        "name": "回布雷斯劳",
+        "stop": "weimar-2",
+        "date": "1790 年 9 月上旬，10 日回到布雷斯劳",
+        "parts": [
+          {
+            "name": "1790 年维利奇卡到布雷斯劳的路",
+            "ways": ["-w-krakau-wieliczka", "-w-breslau-krakau-czenstochau"],
+            "class": "schematic",
+            "basis": "回布雷斯劳的路没有写。他 9 月 11 日的信把琴斯托霍瓦排在这一趟的最后，12 日的信把它排在维利奇卡前面；虚线过琴斯托霍瓦，是照 11 日那封信的次序画的。10 日回到布雷斯劳，是 11 日的信里写的。",
+            "sourceIds": ["letters"]
+          }
+        ]
+      },
+      {
+        "id": "j-1790-silesia-back",
+        "name": "从西里西亚回魏玛",
+        "stop": "weimar-2",
+        "date": "1790 年 9 月下旬到 10 月",
+        "parts": [
+          {
+            "name": "1790 年布雷斯劳到魏玛的路",
+            "ways": ["-w-dresden-breslau", "w-dresden-altenburg", "w-altenburg-gera", "-w-jena-gera", "w-jena-koetschau", "-w-weimar-koetschau"],
+            "class": "schematic",
+            "basis": "回程：他 9 月 18 日在布雷斯劳写信，说打算第二天动身，先在西里西亚的山里走一个星期，25 日到德累斯顿。9 月 28 日和 10 月 3 日他都从德累斯顿寄过信；回到魏玛以后的信说，最后在德累斯顿过得很好。路上经过哪里没有写，10 月 14 日已在魏玛。虚线从布雷斯劳到德累斯顿只是连起来的，德累斯顿以后照 7 月去的路画。",
+            "sourceIds": ["letters", "diary"]
+          }
+        ]
+      },
+      {
+        "id": "j-1792-campaign-out",
+        "name": "随军到瓦尔密",
+        "stop": "valmy",
+        "date": "1792 年 8 月上旬到 9 月 20 日",
+        "parts": [
+          {
+            "name": "1792 年魏玛到美因茨的路",
+            "ways": ["w-weimar-erfurt", "w-erfurt-gotha", "-w-eisenach-gotha", "-w-frankfurtammain-eisenach", "w-frankfurtammain-hadersheim", "-w-mainz-hadersheim"],
+            "class": "schematic",
+            "basis": "魏玛到美因茨：他 8 月 9 日在哥达写信，说已经到了哥达，在埃尔福特被臭虫咬得厉害；13 日的信说前一天傍晚到了法兰克福；21 日的信说当天动身去美因茨。哥达到法兰克福中间经过哪里，信里没有写；虚线是照他 1797 年日记里记的几个地方画的。",
+            "sourceIds": ["letters"],
+            "note": "1792 年从魏玛到美因茨是虚线：只知道他信上的几座城和日子。"
+          },
+          {
+            "name": "1792 年美因茨到特里尔的路",
+            "ways": ["w-mainz-trier"],
+            "class": "schematic",
+            "basis": "美因茨到特里尔：当时的记录只有两头。他三十年后写的《法国战役》只写了出美因茨的头一段路：坐的是一辆轻便马车，在一段上坡的窄路上赶上一辆装得很满的大车，大家下车步行。后面的路书里没有写。",
+            "sourceIds": ["letters", "campagne"],
+            "note": "美因茨到特里尔也是虚线：当时的记录只有两头；他三十年后写的《法国战役》只写了出美因茨的头一段路。"
+          },
+          {
+            "name": "1792 年特里尔到普罗库尔的路",
+            "ways": ["w-trier-luxenburg", "w-luxenburg-praucourt"],
+            "class": "text",
+            "basis": "特里尔到隆维附近的军营：当时的记录只有两头——他在特里尔写的一封信（编者定为 8 月 25 日）说第二天动身，后天大概到军营；他当时记的几行和 28 日的信都说，27 日到了军营。路上的事见于他三十年后写的《法国战役》：走的是去卢森堡的路，先看了伊格尔附近的一座古代石碑，在近旁的小城格雷文马赫等驿马等了几个钟头，后来隆维落在右边远处，27 日下午到军营。线是照摩泽尔河谷和去卢森堡的路画的。",
+            "sourceIds": ["letters", "diary", "campagne", "editors"],
+            "note": "特里尔到隆维附近的军营画成实线，靠的是他三十年后写的《法国战役》：书里写到去卢森堡的路上的伊格尔和格雷文马赫，写到隆维落在右边远处。当时的记录只有两头和 8 月 27 日到军营。"
+          },
+          {
+            "name": "1792 年普罗库尔到凡尔登的路",
+            "ways": ["w-8n-praucourt-samogneux-verdun"],
+            "class": "text",
+            "basis": "8 月 27 日下午到隆维附近的军营，30 日到凡尔登城外：他当时记的几行。他三十年后写的《法国战役》还写到，30 日这一天过了瓦夫里尔，后来穿过萨莫尼厄。",
+            "sourceIds": ["diary", "campagne"],
+            "note": "从军营到瓦尔密是实线：哪天到哪里，他当时记了几行。"
+          },
+          {
+            "name": "1792 年凡尔登到沃莱穆龙的路",
+            "ways": ["w-verdun-grandpre", "w-grandpre-vauxlesmourons"],
+            "class": "text",
+            "basis": "9 月 11 日离开凡尔登城外，12 日到朗德尔，停了五天；18 日过格朗普雷：他当时记的。",
+            "sourceIds": ["letters", "diary"]
+          },
+          {
+            "name": "1792 年沃莱穆龙到瓦尔密的路",
+            "ways": ["-w-valmy-vauxlesmourons"],
+            "class": "text",
+            "basis": "9 月 19 日行军到马西日，下午再走到索姆图尔布，露宿；20 日到大路边，炮战：他当时记的。他三十年后写的《法国战役》说，那天他们停在大路上的一块路牌旁边，炮火对着的是守在瓦尔密磨坊旁边的法国军队。“瓦尔密”这个地名，他当时记的几行和信里都没有；线的终点画在瓦尔密，是照后来通行的叫法定的。",
+            "sourceIds": ["letters", "diary", "campagne"],
+            "note": "9 月 20 日那天，他只记了到大路边、炮战，没有写地名；“瓦尔密”是我们按后来通行的叫法补上的。"
+          }
+        ]
+      },
+      {
+        "id": "j-1792-campaign-back",
+        "name": "退回特里尔",
+        "stop": "valmy",
+        "date": "1792 年 9 月 30 日起，10 月 24 日已在特里尔",
+        "parts": [
+          {
+            "name": "1792 年瓦尔密到卢森堡的路",
+            "ways": ["w-8n-valmy-tourbe-grandpre", "-w-verdun-grandpre-consenvoye", "-w-luxenburg-verdun"],
+            "class": "text",
+            "basis": "撤退的路他一天一天记着：9 月 30 日一早拔营，10 月 3 日格朗普雷，9 日凡尔登，12 日隆维，13 日到卢森堡。他三十年后写的《法国战役》还写到头几天经过的几个村子；书里到卢森堡的日子，比他当时记的晚一天。",
+            "sourceIds": ["letters", "diary", "campagne"]
+          },
+          {
+            "name": "1792 年卢森堡到特里尔的路",
+            "ways": ["-w-trier-luxenburg"],
+            "class": "text",
+            "basis": "卢森堡到特里尔：当时的记录只有两头——10 月 16 日他还在卢森堡写信，说过几天去特里尔；他当时记的几行里，24 日已在特里尔。《法国战役》把这段路写在 10 月 22 日下面：路过格雷文马赫，在驿站前没有停；到了伊格尔附近那座古代的石碑前，停了很久，记了些笔记。他 28 日在特里尔写的信里也说到这座石碑，说它有六十五法尺高。线是照摩泽尔河谷画的。",
+            "sourceIds": ["letters", "diary", "campagne"],
+            "note": "退回来的路，到卢森堡为止是实线，他一天一天记着；卢森堡到特里尔也画成实线，靠的是《法国战役》：书里写到路过格雷文马赫，在伊格尔附近的古代石碑前停了很久。当时的记录只有两头：10 月 16 日他还在卢森堡写信，24 日已在特里尔。"
+          }
+        ]
+      },
+      {
+        "id": "j-1792-home",
+        "name": "绕道杜塞尔多夫、明斯特回魏玛",
+        "stop": "weimar-2",
+        "date": "1792 年 10 月底到 12 月",
+        "parts": [
+          {
+            "name": "1792 年特里尔到科布伦茨的水路",
+            "ways": ["w-8n-trier-trarbach-koblenz-boat"],
+            "class": "text",
+            "basis": "他 10 月 28 日还在特里尔写信，11 月 4 日的信说已经平安到了科布伦茨。怎么走的见于他三十年后写的《法国战役》：在特里尔雇了一条小船，沿摩泽尔河往下，天黑以后遇上大风，夜里在半路的小城特拉巴赫上岸，后来又坐船到了科布伦茨。书里只把这一段写在 10 月底，没有写是哪一天。",
+            "sourceIds": ["letters", "campagne"],
+            "note": "1792 年从特里尔到科布伦茨、再到杜塞尔多夫的路有记载，画在摩泽尔河和莱茵河上：他当时的信说 11 月 4 日已经平安到了科布伦茨，14 日说到杜塞尔多夫已经八天；怎么走的见于他三十年后写的《法国战役》，两段都是雇了小船顺着河往下。"
+          },
+          {
+            "name": "1792 年科布伦茨到杜塞尔多夫的水路",
+            "ways": ["-w-thalehrenbreitstein-koblenz-boat", "w-8e-thal-koeln-boat", "-w-duesseldorf-koeln-boat"],
+            "class": "text",
+            "basis": "他 11 月 4 日还在科布伦茨写信；14 日在杜塞尔多夫写的几封信里，一封说是从科布伦茨赶来的，一封说到这里已经八天。怎么走的见于《法国战役》：在科布伦茨雇了一条小船沿莱茵河往下，船漏水，夜里在波恩靠岸，天亮以后接着划，天黑了才在杜塞尔多夫上岸。书里没有写日子。",
+            "sourceIds": ["letters", "campagne"]
+          },
+          {
+            "name": "1792 年杜塞尔多夫到明斯特的路",
+            "ways": ["w-duesseldorf-muenster"],
+            "class": "text",
+            "basis": "杜塞尔多夫到明斯特：他 12 月 10 日在明斯特写的信里说，一路上是沼泽、荒林、冬夜和雨，在杜伊斯堡见到了一位旧相识。他三十年后写的《法国战役》里说，车是朋友借给他的，中午到杜伊斯堡，深夜才到明斯特。杜伊斯堡以后经过哪里，信里和书里都没有写。",
+            "sourceIds": ["letters", "campagne"]
+          },
+          {
+            "name": "1792 年明斯特到卡塞尔的路",
+            "ways": ["w-muenster-cassel"],
+            "class": "text",
+            "basis": "明斯特到卡塞尔：12 月 10 日他在明斯特写信，说正要动身；回到魏玛以后，24 日的信说回来走的是帕德博恩、卡塞尔。《法国战役》里写，一路换驿马赶路，常常没有修好的路，尽是沙地和沼泽；最后一夜天最黑，进卡塞尔的时候满城点着灯。哪天到的卡塞尔没有写；城和城之间的线是连出来的。",
+            "sourceIds": ["letters", "campagne"]
+          },
+          {
+            "name": "1792 年卡塞尔到魏玛的路",
+            "ways": ["-w-eisenach-cassel", "w-eisenach-gotha", "-w-erfurt-gotha", "-w-weimar-erfurt"],
+            "class": "schematic",
+            "basis": "卡塞尔到魏玛：路上的事只见于《法国战役》。书里只说，离开卡塞尔，在去爱森纳赫的路上，逃难的人少了些；到魏玛是半夜以后。路上经过哪些地方、哪天到的，书里都没有写；他 12 月 19 日已在魏玛写信。这条虚线是照他别的年份日记里走的路画的。",
+            "sourceIds": ["letters", "campagne"]
+          }
+        ]
+      },
+      {
+        "id": "j-1793-mainz-out",
+        "name": "去美因茨城外的军营",
+        "stop": "weimar-2",
+        "date": "1793 年 5 月中旬到 27 日前后",
+        "parts": [
+          {
+            "name": "1793 年魏玛到美因茨的路",
+            "ways": ["w-weimar-erfurt", "w-erfurt-gotha", "-w-eisenach-gotha", "-w-frankfurtammain-eisenach", "w-frankfurtammain-hadersheim", "-w-mainz-hadersheim"],
+            "class": "schematic",
+            "basis": "去美因茨的路只知道信上的几处：5 月 15 日有一封信写在哥达，17 日到 26 日在法兰克福，26 日的信说第二天去军营；29 日的信说已经到了军营，6 月 5 日的信说到这里已经十天。路上经过哪里，信里没有写；虚线是照他 1797 年日记里记的几个地方画的。",
+            "sourceIds": ["letters"]
+          }
+        ]
+      },
+      {
+        "id": "j-1793-mainz-back",
+        "name": "从美因茨回魏玛",
+        "stop": "weimar-2",
+        "date": "1793 年 8 月",
+        "parts": [
+          {
+            "name": "1793 年美因茨到法兰克福的路",
+            "ways": ["w-mainz-mannheim", "w-mannheim-heidelberg", "-w-weinheim-heidelberg", "w-weinheim-darmstadt", "-w-frankfurtammain-darmstadt"],
+            "class": "text",
+            "basis": "8 月 1 日他在美因茨写信，说要同两位同伴去曼海姆，到海德堡看妹夫，再回法兰克福；9 日的信已经写在法兰克福；11 日的信说，在海德堡同妹夫过了几天好日子。曼海姆是他的打算，到没到信里没有写；城和城之间的线是连出来的。",
+            "sourceIds": ["letters"]
+          },
+          {
+            "name": "1793 年法兰克福到魏玛的路",
+            "ways": ["w-frankfurtammain-eisenach", "w-eisenach-gotha", "-w-erfurt-gotha", "-w-weimar-erfurt"],
+            "class": "schematic",
+            "basis": "法兰克福到魏玛：8 月 19 日他在法兰克福写信，说正准备动身。路上经过哪里没有记载，哪天到魏玛也没有写，28 日已在魏玛写信。虚线是照他 1797 年日记里记的几个地方画的。",
+            "sourceIds": ["letters"]
+          }
+        ]
+      },
+      {
+        "id": "j-1794-dresden-out",
+        "name": "去沃利茨、德绍、德累斯顿",
+        "stop": "weimar-2",
+        "date": "1794 年 7 月下旬到 8 月初",
+        "parts": [
+          {
+            "name": "1794 年魏玛到德累斯顿的路",
+            "ways": ["-w-leipzig-weimar", "w-leipzig-woerlitz", "w-woerlitz-dessau", "-w-meissen-dessau", "-w-dresden-meissen"],
+            "class": "schematic",
+            "basis": "1794 年去德累斯顿：7 月 25 日他在魏玛写信，说要跟着去德绍；30 日的信写在沃利茨，说在这里过了几天好日子，第二天去德绍，星期六同公爵去德累斯顿；8 月 1 日的信写在德绍；10 日在德累斯顿写的信说，已经在这里住了八天。魏玛到沃利茨、德绍到德累斯顿，路上经过哪里信里没有写，虚线是连出来的。",
+            "sourceIds": ["letters"]
+          }
+        ]
+      },
+      {
+        "id": "j-1794-dresden-back",
+        "name": "从德累斯顿回魏玛",
+        "stop": "weimar-2",
+        "date": "1794 年 8 月 10 日或 11 日起，14 日已在魏玛",
+        "parts": [
+          {
+            "name": "1794 年德累斯顿到魏玛的路",
+            "ways": ["w-dresden-meissen", "w-meissen-dessau", "-w-leipzig-dessau", "w-leipzig-weimar"],
+            "class": "schematic",
+            "basis": "1794 年 8 月从德累斯顿回魏玛：虚线是照他的打算画的——他在德累斯顿写的信说第二天动身，再经德绍走。回来以后，8 月 29 日的信里说这些天到过德累斯顿、德绍、莱比锡，没有说是哪一程；8 月 14 日他已在魏玛写信。路上哪天到哪里没有记。",
+            "sourceIds": ["letters"],
+            "note": "1794 年 8 月从德累斯顿回魏玛的虚线，是照他的打算画的：他在德累斯顿写信说要再经德绍走。可是 8 月 14 日他已在魏玛写信，回程是不是真的绕了德绍，不能肯定。"
+          }
+        ]
+      },
+      {
+        "id": "j-1795-karlsbad-out",
+        "name": "去卡尔斯巴德",
+        "stop": "weimar-2",
+        "date": "1795 年 7 月 2 日到 4 日",
+        "parts": [
+          {
+            "name": "1795 年魏玛到耶拿的路",
+            "ways": ["w-weimar-koetschau", "-w-jena-koetschau"],
+            "class": "schematic",
+            "basis": "1795 年哪天从魏玛到耶拿没有记：6 月 27 日他还在魏玛写信，说星期一去耶拿；7 月 2 日从耶拿动身。",
+            "sourceIds": ["letters", "diary"]
+          },
+          {
+            "name": "1795 年耶拿到卡尔斯巴德的路",
+            "ways": ["w-8n-jena-goeschwitz-kahla", "-w-poessneck-kahla", "w-poessneck-schleiz", "w-schleiz-zwota", "-w-carlsbad-zwota"],
+            "class": "text",
+            "basis": "1795 年 7 月 2 日从耶拿动身，过珀斯内克、施莱茨、普劳恩、阿多夫，4 日晚上到卡尔斯巴德：路上的地方见于他路上的笔记，到的日子和钟点见于他 8 日的信。这一年走的不是后来过霍夫的那条路。",
+            "sourceIds": ["letters", "diary"]
+          }
+        ]
+      },
+      {
+        "id": "j-1795-karlsbad-back",
+        "name": "从卡尔斯巴德回魏玛",
+        "stop": "weimar-2",
+        "date": "1795 年 8 月，17 日已在魏玛",
+        "parts": [
+          {
+            "name": "1795 年卡尔斯巴德到魏玛的路",
+            "ways": ["w-carlsbad-zwota", "-w-schleiz-zwota", "-w-poessneck-schleiz", "w-poessneck-kahla", "-w-8n-jena-goeschwitz-kahla", "w-jena-koetschau", "-w-weimar-koetschau"],
+            "class": "schematic",
+            "basis": "1795 年回程路上的事没有记载：7 月 25 日他在卡尔斯巴德写信说，大约一个星期以后动身，打算先到耶拿；29 日说准备动身；8 月 17 日已在魏玛写信。虚线是照去的路画的。",
+            "sourceIds": ["letters"]
+          }
+        ]
+      },
+      {
+        "id": "j-1797-swiss-out",
+        "name": "第三次去瑞士，到圣哥达",
+        "stop": "weimar-2",
+        "date": "1797 年 7 月 30 日到 10 月 3 日",
+        "parts": [
+          {
+            "name": "1797 年魏玛到法兰克福的路",
+            "ways": ["w-weimar-erfurt", "w-erfurt-gotha", "-w-eisenach-gotha", "w-8n-eisenach-vacha-fulda", "w-8n-fulda-frankfurt"],
+            "class": "text",
+            "basis": "7 月 30 日下午三点离开魏玛，8 月 3 日早上八点到法兰克福：日记里每一天都有。",
+            "sourceIds": ["letters", "diary"]
+          },
+          {
+            "name": "1797 年法兰克福到苏黎世的路",
+            "ways": [
+              "w-8n-frankfurt-langen-darmstadt",
+              "w-8n-darmstadt-heppenheim-weinheim",
+              "w-weinheim-heidelberg",
+              "w-heidelberg-stuttgart",
+              "w-8n-stuttgart-hechingen-engen",
+              "-w-schaffhausen-engen",
+              "w-schaffhausen-eglisau",
+              "-w-zuerich-eglisau"
+            ],
+            "class": "text",
+            "basis": "8 月 25 日离开法兰克福，过达姆施塔特、海德堡、斯图加特、蒂宾根、沙夫豪森，9 月 19 日傍晚到苏黎世：他的日记一天一天写着，他路上的信里也有。",
+            "sourceIds": ["letters", "diary"]
+          },
+          {
+            "name": "1797 年苏黎世到施泰法的水路",
+            "ways": ["w-8n-zuerich-staefa-boat"],
+            "class": "text",
+            "basis": "9 月 21 日早上八点前后离开苏黎世，中午在黑尔利贝格湖边的一处庄园吃饭，傍晚到施泰法：他的日记。坐的是船，沿苏黎世湖往上走，是他 25 日随信寄出的一份行程里写的。湖面上的几个点是补的。",
+            "sourceIds": ["letters", "diary"]
+          },
+          { "name": "1797 年施泰法到里希特斯维尔的水路", "ways": ["w-staefa-richterswil-boat"], "class": "text", "basis": "9 月 28 日早上八点从施泰法坐船过苏黎世湖：他的日记。", "sourceIds": ["diary"] },
+          {
+            "name": "1797 年里希特斯维尔到施维茨的路",
+            "ways": ["w-8n-richterswil-huetten-schwyz"],
+            "class": "text",
+            "basis": "9 月 28 日在里希特斯维尔上岸，先上山走到许滕，在那里歇到下午两点，再过欣德勒吉，傍晚到艾因西德伦；29 日上午十一点动身，翻山到施维茨：他的日记。",
+            "sourceIds": ["letters", "diary"]
+          },
+          { "name": "1797 年施维茨到布伦嫩的路", "ways": ["w-schwyz-brunnen"], "class": "text", "basis": "9 月 30 日早上从施维茨走到湖边的布伦嫩：他的日记。", "sourceIds": ["letters", "diary"] },
+          {
+            "name": "1797 年布伦嫩到弗吕埃伦的水路",
+            "ways": ["w-brunnen-flueelen-boat"],
+            "class": "text",
+            "basis": "在布伦嫩上船，过卢塞恩湖的南头，半路到过湖边的一座小教堂，再到弗吕埃伦：他的日记。在弗吕埃伦下的船，是他 10 月 17 日的信里写的。",
+            "sourceIds": ["letters", "diary"]
+          },
+          {
+            "name": "1797 年弗吕埃伦到圣哥达山口的路",
+            "ways": ["-w-urnerloch-flueelen", "-w-hospental-urnerloch", "-w-gotthard-hospental"],
+            "class": "text",
+            "basis": "9 月 30 日住阿尔特多夫，10 月 1 日到瓦森，2 日过格舍嫩到霍斯彭塔尔，3 日早上八点半往上走到圣哥达山口：他的日记。",
+            "sourceIds": ["letters", "diary"]
+          }
+        ]
+      },
+      {
+        "id": "j-1797-swiss-back",
+        "name": "从圣哥达回魏玛",
+        "stop": "weimar-2",
+        "date": "1797 年 10 月 3 日到 11 月 20 日前后",
+        "parts": [
+          {
+            "name": "1797 年圣哥达山口到弗吕埃伦的路",
+            "ways": ["w-gotthard-hospental", "w-hospental-urnerloch", "w-urnerloch-flueelen"],
+            "class": "text",
+            "basis": "10 月 3 日当天下到霍斯彭塔尔，4 日到瓦森，5 日到阿尔特多夫，6 日一早走到湖边：他的日记。",
+            "sourceIds": ["letters", "diary"]
+          },
+          {
+            "name": "1797 年弗吕埃伦到贝肯里德的水路",
+            "ways": ["w-8n-flueelen-beckenried-boat"],
+            "class": "text",
+            "basis": "10 月 6 日上午九点在弗吕埃伦上船，先靠近右岸，再横过湖面到左岸的尖角，过吕特利，靠着布伦嫩对面的左岸走，在岸边一家客店接了几个人上船，十二点半在贝肯里德上岸：他的日记。在弗吕埃伦上船、到贝肯里德下船，他 10 月 17 日的信里也这样写。湖面上的几个点是照日记补的。",
+            "sourceIds": ["letters", "diary"]
+          },
+          {
+            "name": "1797 年贝肯里德到施坦斯施塔德的路",
+            "ways": ["w-beckerieth-stanzstade"],
+            "class": "text",
+            "basis": "沿湖边的小路过布奥克斯走到施坦斯过夜；7 日早上八点前后动身，走到施坦斯施塔德的码头：他的日记。",
+            "sourceIds": ["letters", "diary"]
+          },
+          {
+            "name": "1797 年施坦斯施塔德到屈斯纳赫特的水路",
+            "ways": ["w-stanzstade-seemitte-boat", "-w-kuessnacht-seemitte-boat"],
+            "class": "text",
+            "basis": "7 日从施坦斯施塔德坐船横过卢塞恩湖，到屈斯纳赫特吃午饭：他的日记。",
+            "sourceIds": ["letters", "diary"]
+          },
+          {
+            "name": "1797 年屈斯纳赫特到伊门塞的路",
+            "ways": ["w-8e-kuessnacht-kapelle-immensee"],
+            "class": "text",
+            "basis": "午饭后翻过两个湖之间的小山梁，路过一座小教堂，走到楚格湖边的伊门塞：路上的事是他的日记写的，伊门塞这个地名见于他 10 月 17 日的信。",
+            "sourceIds": ["letters", "diary"]
+          },
+          {
+            "name": "1797 年伊门塞到楚格的水路",
+            "ways": ["-w-zug-immensee-boat"],
+            "class": "text",
+            "basis": "在伊门塞坐小船过楚格湖到楚格：坐船是他的日记写的，在伊门塞上的船见于他 10 月 17 日的信。",
+            "sourceIds": ["letters", "diary"]
+          },
+          { "name": "1797 年楚格到霍尔根的路", "ways": ["w-zug-horgen"], "class": "text", "basis": "10 月 8 日早上八点离开楚格，过巴尔，从桥上过苏黎世南面的锡尔河，到苏黎世湖边的霍尔根：他的日记。", "sourceIds": ["letters", "diary"] },
+          {
+            "name": "1797 年霍尔根到施泰法的水路",
+            "ways": ["-w-staefa-horgen-boat"],
+            "class": "text",
+            "basis": "当天傍晚从霍尔根回施泰法，走了两个钟头：他的日记。坐的是船，是他 10 月 17 日的信里写的。",
+            "sourceIds": ["letters", "diary"]
+          },
+          {
+            "name": "1797 年施泰法到苏黎世的水路",
+            "ways": ["-w-8n-zuerich-staefa-boat"],
+            "class": "text",
+            "basis": "10 月 20 日想走，刮逆风，没有走成；21 日上午十点离开施泰法，中午到黑尔利贝格一位熟人家：他的日记。这一天是怎么走的、哪天到的苏黎世，日记没有写；23 日他已在苏黎世访客。线照 9 月来的那趟船画。",
+            "sourceIds": ["diary"]
+          },
+          {
+            "name": "1797 年苏黎世到克罗纳赫的路",
+            "ways": [
+              "w-zuerich-eglisau",
+              "w-8n-eglisau-rheinfall-schaffhausen",
+              "w-schaffhausen-engen",
+              "-w-stuttgart-engen",
+              "w-8n-stuttgart-dinkelsbuehl-schwabach",
+              "w-schwabach-bamberg",
+              "-w-cronach-bamberg"
+            ],
+            "class": "text",
+            "basis": "10 月 26 日早上八点离开苏黎世，傍晚从大路下去看了莱茵瀑布，天黑以后走到沙夫豪森；再过蒂宾根、斯图加特，11 月 6 日上午到纽伦堡，住到 15 日；17 日到克罗纳赫：他的日记。他 10 月 30 日在蒂宾根写的信说，原想绕道巴塞尔，后来没有去。",
+            "sourceIds": ["letters", "diary"]
+          },
+          {
+            "name": "1797 年克罗纳赫到魏玛的路",
+            "ways": ["w-cronach-judenbach", "-w-jena-judenbach", "w-jena-koetschau", "-w-weimar-koetschau"],
+            "class": "schematic",
+            "basis": "克罗纳赫到魏玛只知道两头：11 月 18 日早上六点离开克罗纳赫；一张编者定为 20 日的便条说他已经回来，22 日的信说前一天在魏玛看了戏。路上经过哪里没有记载。",
+            "sourceIds": ["letters", "diary", "chronik", "editors"]
+          }
+        ]
+      },
+      {
+        "id": "j-1800-leipzig-out",
+        "name": "去莱比锡",
+        "stop": "weimar-2",
+        "date": "1800 年 4 月 28 日",
+        "parts": [
+          {
+            "name": "1800 年魏玛到莱比锡的路",
+            "ways": ["-w-leipzig-weimar"],
+            "class": "text",
+            "basis": "1800 年 4 月 28 日从魏玛到莱比锡，下午四点前后到：他当天的日记。路上经过哪里没有写，线照他别的年份走这条路时记的地方画。他在莱比锡住到 5 月中旬。",
+            "sourceIds": ["diary"]
+          }
+        ]
+      },
+      {
+        "id": "j-1800-leipzig-back",
+        "name": "从莱比锡回魏玛",
+        "stop": "weimar-2",
+        "date": "1800 年 5 月 16 日回到魏玛",
+        "parts": [
+          {
+            "name": "1800 年莱比锡到魏玛的路",
+            "ways": ["w-leipzig-weimar"],
+            "class": "schematic",
+            "basis": "1800 年 5 月 16 日从莱比锡回到魏玛：他当天的日记只写“从莱比锡回来了”。哪天动身、路上经过哪里没有写，虚线照去的路画。",
+            "sourceIds": ["diary"]
+          }
+        ]
+      },
+      {
+        "id": "j-1801-rossla-out",
+        "name": "去上罗斯拉的田庄",
+        "stop": "weimar-2",
+        "date": "1801 年 3 月 25 日",
+        "parts": [
+          {
+            "name": "1801 年魏玛到上罗斯拉的路",
+            "ways": ["w-weimar-oberrossla"],
+            "class": "text",
+            "basis": "1801 年 3 月 25 日上午十点离开魏玛，中午到上罗斯拉自己的田庄：他当天的日记。他在那里住到 4 月 14 日。",
+            "sourceIds": ["diary"]
+          }
+        ]
+      },
+      {
+        "id": "j-1801-rossla-back",
+        "name": "从上罗斯拉回魏玛",
+        "stop": "weimar-2",
+        "date": "1801 年 4 月 14 日",
+        "parts": [
+          {
+            "name": "1801 年上罗斯拉到魏玛的路",
+            "ways": ["-w-weimar-oberrossla"],
+            "class": "schematic",
+            "basis": "1801 年 4 月 14 日从上罗斯拉回魏玛：他当天的日记只有一句“回魏玛”，没有写什么时候动身，画成虚线。4 月 22 日到 30 日他又去住了几天，那一趟没有画。",
+            "sourceIds": ["diary"]
+          }
+        ]
+      },
+      {
+        "id": "j-1801-pyrmont-out",
+        "name": "去皮尔蒙特",
+        "stop": "weimar-2",
+        "date": "1801 年 6 月 5 日到 13 日",
+        "parts": [
+          {
+            "name": "1801 年魏玛到皮尔蒙特的路",
+            "ways": [
+              "w-weimar-erfurt",
+              "w-8l-erfurt-langensalza-muehlhausen",
+              "w-muehlhausen-dingelstaedt",
+              "w-8l-dingelstaedt-heiligenstadt-goettingen",
+              "w-8l-goettingen-northeim-pyrmont"
+            ],
+            "class": "text",
+            "basis": "6 月 5 日早上五点离开魏玛，八点到埃尔福特，过朗根萨尔察，晚上七点到米尔豪森；6 日过丁格尔施泰特，中午在海利根施塔特吃饭，晚上到哥廷根，当晚还同儿子奥古斯特绕着城走了一圈。12 日中午离开哥廷根，从诺特海姆旁边走过；13 日过埃舍斯豪森，过了一条河，到皮尔蒙特：他的日记，路过的村子一个一个都写了。",
+            "sourceIds": ["diary"]
+          }
+        ]
+      },
+      {
+        "id": "j-1801-pyrmont-back",
+        "name": "经哥廷根、卡塞尔回魏玛",
+        "stop": "weimar-2",
+        "date": "1801 年 7 月 17 日到 8 月 30 日",
+        "parts": [
+          { "name": "1801 年皮尔蒙特到哥廷根的路", "ways": ["-w-8l-goettingen-northeim-pyrmont"], "class": "text", "basis": "7 月 17 日中午离开皮尔蒙特，18 日晚上到哥廷根：他的日记。", "sourceIds": ["diary"] },
+          {
+            "name": "1801 年哥廷根到魏玛的路",
+            "ways": ["w-goettingen-cassel", "-w-eisenach-cassel", "w-eisenach-gotha", "-w-erfurt-gotha", "-w-weimar-erfurt"],
+            "class": "text",
+            "basis": "8 月 14 日离开哥廷根，过卡塞尔、爱森纳赫、哥达，30 日回到魏玛：他的日记。",
+            "sourceIds": ["diary"]
+          }
+        ]
+      },
+      {
+        "id": "j-1802-lauchstaedt-out",
+        "name": "去劳赫施泰特",
+        "stop": "weimar-2",
+        "date": "1802 年 6 月 21 日起",
+        "parts": [
+          {
+            "name": "1802 年魏玛到劳赫施泰特的路",
+            "ways": ["w-weimar-lauchstaedt"],
+            "class": "schematic",
+            "basis": "1802 年 6 月 21 日一早动身去劳赫施泰特，26 日那里的新剧院开张：他的日记。去的路上经过哪里、哪天到没有写；虚线照他 7 月回来时日记里记的地方画。",
+            "sourceIds": ["diary"]
+          }
+        ]
+      },
+      {
+        "id": "j-1802-lauchstaedt-back",
+        "name": "从劳赫施泰特回魏玛",
+        "stop": "weimar-2",
+        "date": "1802 年 7 月 25 日",
+        "parts": [
+          {
+            "name": "1802 年劳赫施泰特到魏玛的路",
+            "ways": ["-w-weimar-lauchstaedt"],
+            "class": "text",
+            "basis": "1802 年 7 月 25 日早上五点离开劳赫施泰特，中午在路上的一个村子，后来在布特施泰特的药房歇了一下，晚上九点到魏玛家里：他当天的日记。",
+            "sourceIds": ["diary"]
+          }
+        ]
+      },
+      {
+        "id": "j-1805-lauchstaedt-out",
+        "name": "去劳赫施泰特",
+        "stop": "weimar-2",
+        "date": "1805 年 7 月，打算 3 日动身",
+        "parts": [
+          {
+            "name": "1805 年魏玛到劳赫施泰特的路",
+            "ways": ["w-weimar-lauchstaedt"],
+            "class": "schematic",
+            "basis": "1805 年 7 月去劳赫施泰特：7 月 3 日他还在魏玛写信，说就要动身，又写信给沃尔夫说打算这个星期三到他附近。他在劳赫施泰特写的头一封信只写了“星期六”，编者定在 7 月 6 日。两封信里都说有一位女伴同行，没有写她的名字。路上经过哪里没有记载，虚线照他 1802 年 7 月走过的路画。",
+            "sourceIds": ["letters", "editors"]
+          }
+        ]
+      },
+      {
+        "id": "j-1805-helmstedt-out",
+        "name": "从劳赫施泰特去黑尔姆施泰特",
+        "stop": "weimar-2",
+        "date": "1805 年 8 月 12 日到 16 日",
+        "parts": [
+          {
+            "name": "1805 年劳赫施泰特到黑尔姆施泰特的路",
+            "ways": ["w-lauchstaedt-coennern", "-w-helmstedt-coennern"],
+            "class": "text",
+            "basis": "1805 年 8 月 12 日从劳赫施泰特到哈雷，14 日到马格德堡，16 日晚上到黑尔姆施泰特：他 19 日在黑尔姆施泰特写的信，一天一天说了。哈雷到马格德堡之间信里没有写地名：线过肯嫩，是他回程的信里写的地方；过贝恩堡，他多年以后的书里说他们在那里停过。同去的有他的儿子奥古斯特和住在哈雷的沃尔夫。",
+            "sourceIds": ["letters", "tuj"]
+          }
+        ]
+      },
+      {
+        "id": "j-1805-helmstedt-back",
+        "name": "从黑尔姆施泰特回劳赫施泰特",
+        "stop": "weimar-2",
+        "date": "1805 年 8 月下旬，28 日已在劳赫施泰特",
+        "parts": [
+          {
+            "name": "1805 年黑尔姆施泰特到劳赫施泰特的路",
+            "ways": ["-w-rosstrappe-helmstedt", "w-rosstrappe-coennern", "-w-lauchstaedt-coennern"],
+            "class": "text",
+            "basis": "8 月下旬从黑尔姆施泰特回来：他 8 月 28 日的信按次序写着，先过哈尔伯施塔特，再到哈茨山边的两个地方，其中一处是一座山，然后过巴伦施泰特、阿舍斯莱本、肯嫩回到哈雷；9 月 1 日的信说是沿着哈茨山走的。路上哪天到哪里没有写，28 日他已在劳赫施泰特写信。去哈尔伯施塔特的路上他们拜访过一处田庄，信里没有写地名。",
+            "sourceIds": ["letters"]
+          }
+        ]
+      },
+      {
+        "id": "j-1805-lauchstaedt-back",
+        "name": "从劳赫施泰特回魏玛",
+        "stop": "weimar-2",
+        "date": "1805 年 9 月，打算 6 日晚上到家，10 日已在魏玛",
+        "parts": [
+          {
+            "name": "1805 年劳赫施泰特到魏玛的路",
+            "ways": ["-w-weimar-lauchstaedt"],
+            "class": "schematic",
+            "basis": "1805 年 9 月从劳赫施泰特回魏玛：8 月 28 日他写信回家，请家里在 9 月 5 日把马送回来，说最好有人来接他；9 月 5 日的信说，家里来接他的人到了，打算第二天晚上赶到家；10 日已在魏玛写信。路上经过哪里没有记载，虚线照他 1802 年 7 月走过的路画。",
+            "sourceIds": ["letters"]
+          }
+        ]
+      },
+      {
+        "id": "j-1806-karlsbad-out",
+        "name": "去卡尔斯巴德",
+        "stop": "weimar-2",
+        "date": "1806 年 6 月 29 日到 7 月 2 日",
+        "parts": [
+          {
+            "name": "1806 年耶拿到卡尔斯巴德的路",
+            "ways": [
+              "w-jena-kahla",
+              "-w-poessneck-kahla",
+              "w-poessneck-schleiz",
+              "-w-hof-schleiz",
+              "w-hof-franzensbad",
+              "-w-eger-franzensbad",
+              "w-eger-mariakulm",
+              "-w-zwota-mariakulm",
+              "-w-carlsbad-zwota"
+            ],
+            "class": "text",
+            "basis": "1806 年去卡尔斯巴德：路上每一天从哪里走到哪里，他当天的日记都写了；钟点只记了动身的时候。",
+            "sourceIds": ["diary"]
+          }
+        ]
+      },
+      {
+        "id": "j-1806-karlsbad-back",
+        "name": "从卡尔斯巴德回魏玛",
+        "stop": "weimar-2",
+        "date": "1806 年 8 月 4 日到 11 日",
+        "parts": [
+          {
+            "name": "1806 年卡尔斯巴德到魏玛的路",
+            "ways": [
+              "w-carlsbad-zwota",
+              "w-zwota-mariakulm",
+              "-w-eger-mariakulm",
+              "w-eger-franzensbad",
+              "-w-hof-franzensbad",
+              "w-hof-schleiz",
+              "-w-poessneck-schleiz",
+              "w-poessneck-kahla",
+              "-w-jena-kahla",
+              "w-jena-koetschau",
+              "-w-weimar-koetschau"
+            ],
+            "class": "text",
+            "basis": "1806 年从卡尔斯巴德回魏玛：路上每一天从哪里走到哪里，他当天的日记都写了，多数日子还记了钟点。",
+            "sourceIds": ["diary"]
+          }
+        ]
+      },
+      {
+        "id": "j-1807-karlsbad-out",
+        "name": "去卡尔斯巴德",
+        "stop": "weimar-2",
+        "date": "1807 年 5 月 16 日到 28 日",
+        "parts": [
+          {
+            "name": "1807 年魏玛到卡尔斯巴德的路",
+            "ways": [
+              "w-weimar-koetschau",
+              "-w-jena-koetschau",
+              "w-jena-kahla",
+              "-w-poessneck-kahla",
+              "w-poessneck-schleiz",
+              "-w-hof-schleiz",
+              "w-hof-franzensbad",
+              "w-franzensbad-mariakulm",
+              "-w-zwota-mariakulm",
+              "-w-carlsbad-zwota"
+            ],
+            "class": "text",
+            "basis": "1807 年去卡尔斯巴德：路上每一天从哪里走到哪里，他当天的日记都写了，多数日子还记了钟点。",
+            "sourceIds": ["diary"]
+          }
+        ]
+      },
+      {
+        "id": "j-1807-karlsbad-back",
+        "name": "从卡尔斯巴德回魏玛",
+        "stop": "weimar-2",
+        "date": "1807 年 9 月 7 日到 11 日",
+        "parts": [
+          {
+            "name": "1807 年卡尔斯巴德到魏玛的路",
+            "ways": [
+              "w-carlsbad-zwota",
+              "w-zwota-mariakulm",
+              "-w-eger-mariakulm",
+              "w-eger-franzensbad",
+              "-w-hof-franzensbad",
+              "w-hof-schleiz",
+              "-w-poessneck-schleiz",
+              "w-poessneck-kahla",
+              "-w-jena-kahla",
+              "w-jena-koetschau",
+              "-w-weimar-koetschau"
+            ],
+            "class": "text",
+            "basis": "1807 年从卡尔斯巴德回魏玛：路上每一天从哪里走到哪里，他当天的日记都写了，多数日子还记了钟点。",
+            "sourceIds": ["diary"]
+          }
+        ]
+      },
+      {
+        "id": "j-1808-karlsbad-out",
+        "name": "去卡尔斯巴德",
+        "stop": "weimar-2",
+        "date": "1808 年 5 月 12 日到 15 日",
+        "parts": [
+          {
+            "name": "1808 年魏玛到卡尔斯巴德的路",
+            "ways": [
+              "w-weimar-koetschau",
+              "-w-jena-koetschau",
+              "w-jena-kahla",
+              "-w-poessneck-kahla",
+              "w-poessneck-schleiz",
+              "-w-hof-schleiz",
+              "w-hof-franzensbad",
+              "w-franzensbad-mariakulm",
+              "-w-zwota-mariakulm",
+              "-w-carlsbad-zwota"
+            ],
+            "class": "text",
+            "basis": "1808 年去卡尔斯巴德：路上每一天从哪里走到哪里，他当天的日记都写了，多数日子还记了钟点。",
+            "sourceIds": ["diary"]
+          }
+        ]
+      },
+      {
+        "id": "j-1808-to-franzensbad",
+        "name": "到弗朗岑斯巴德",
+        "stop": "weimar-2",
+        "date": "1808 年 7 月 9 日",
+        "parts": [
+          {
+            "name": "1808 年 7 月 9 日卡尔斯巴德到弗朗岑斯巴德的路",
+            "ways": ["w-carlsbad-zwota", "w-zwota-mariakulm", "-w-franzensbad-mariakulm"],
+            "class": "text",
+            "basis": "1808 年 7 月 9 日上午九点多离开卡尔斯巴德，下午一点左右在半路上吃饭，晚上七点到弗朗岑斯巴德（今弗朗齐歇克矿泉村）：他当天的日记。",
+            "sourceIds": ["diary"]
+          }
+        ]
+      },
+      {
+        "id": "j-1808-to-karlsbad",
+        "name": "回卡尔斯巴德",
+        "stop": "weimar-2",
+        "date": "1808 年 7 月 21 日到 22 日",
+        "parts": [
+          {
+            "name": "1808 年弗朗岑斯巴德到卡尔斯巴德的路",
+            "ways": ["w-franzensbad-mariakulm", "-w-zwota-mariakulm", "-w-carlsbad-zwota"],
+            "class": "text",
+            "basis": "1808 年 7 月 21 日晚上九点离开弗朗岑斯巴德，连夜赶路，22 日早上六点到卡尔斯巴德：他当天的日记。",
+            "sourceIds": ["diary"]
+          }
+        ]
+      },
+      {
+        "id": "j-1808-to-franzensbad-2",
+        "name": "再到弗朗岑斯巴德",
+        "stop": "weimar-2",
+        "date": "1808 年 8 月 30 日",
+        "parts": [
+          {
+            "name": "1808 年 8 月 30 日卡尔斯巴德到弗朗岑斯巴德的路",
+            "ways": ["w-carlsbad-zwota", "w-zwota-mariakulm", "-w-franzensbad-mariakulm"],
+            "class": "text",
+            "basis": "1808 年 8 月 30 日早上六点离开卡尔斯巴德，中午在半路上歇脚的地方日记也写了，当天到弗朗岑斯巴德：他当天的日记。",
+            "sourceIds": ["diary"]
+          }
+        ]
+      },
+      {
+        "id": "j-1808-karlsbad-back",
+        "name": "从弗朗岑斯巴德回魏玛",
+        "stop": "weimar-2",
+        "date": "1808 年 9 月 12 日到 17 日",
+        "parts": [
+          {
+            "name": "1808 年弗朗岑斯巴德到魏玛的路",
+            "ways": ["-w-hof-franzensbad", "w-hof-schleiz", "w-schleiz-kahla", "-w-jena-kahla", "w-jena-koetschau", "-w-weimar-koetschau"],
+            "class": "text",
+            "basis": "1808 年从弗朗岑斯巴德回魏玛：路上每一天从哪里走到哪里，他当天的日记都写了，多数日子还记了钟点。",
+            "sourceIds": ["diary"]
+          }
+        ]
+      },
+      {
+        "id": "j-1810-bohemia-out",
+        "name": "去卡尔斯巴德",
+        "stop": "weimar-2",
+        "date": "1810 年 5 月 16 日到 19 日",
+        "parts": [
+          {
+            "name": "1810 年耶拿到卡尔斯巴德的路",
+            "ways": [
+              "w-jena-kahla",
+              "-w-poessneck-kahla",
+              "w-poessneck-schleiz",
+              "-w-hof-schleiz",
+              "w-hof-franzensbad",
+              "w-franzensbad-mariakulm",
+              "-w-zwota-mariakulm",
+              "-w-carlsbad-zwota"
+            ],
+            "class": "text",
+            "basis": "1810 年去卡尔斯巴德：路上每一天从哪里走到哪里，他当天的日记都写了，多数日子还记了钟点。",
+            "sourceIds": ["diary"]
+          }
+        ]
+      },
+      {
+        "id": "j-1810-teplitz",
+        "name": "到特普利茨",
+        "stop": "weimar-2",
+        "date": "1810 年 8 月 4 日到 6 日",
+        "parts": [
+          {
+            "name": "1810 年卡尔斯巴德到特普利茨的路",
+            "ways": ["w-carlsbad-libkowitz", "w-libkowitz-saaz", "-w-teplitz-saaz"],
+            "class": "text",
+            "basis": "1810 年 8 月 4 日离开卡尔斯巴德，在舍恩霍夫住了两晚，6 日过萨茨（今扎泰茨）、布吕克斯（今莫斯特）到特普利茨：他当天的日记。",
+            "sourceIds": ["diary"]
+          }
+        ]
+      },
+      {
+        "id": "j-1810-bohemia-back",
+        "name": "经德累斯顿回魏玛",
+        "stop": "weimar-2",
+        "date": "1810 年 9 月 16 日到 10 月 2 日",
+        "parts": [
+          {
+            "name": "1810 年特普利茨到魏玛的路",
+            "ways": ["-w-8l-dresden-zehista-teplitz", "w-dresden-altenburg-freiberg", "w-altenburg-gera", "-w-jena-gera", "w-jena-koetschau", "-w-weimar-koetschau"],
+            "class": "text",
+            "basis": "1810 年经德累斯顿回魏玛：路上每一天从哪里走到哪里，他当天的日记都写了，多数日子还记了钟点。",
+            "sourceIds": ["diary"]
+          }
+        ]
+      },
+      {
+        "id": "j-1811-karlsbad-out",
+        "name": "去卡尔斯巴德",
+        "stop": "weimar-2",
+        "date": "1811 年 5 月 12 日到 17 日",
+        "parts": [
+          {
+            "name": "1811 年魏玛到卡尔斯巴德的路",
+            "ways": [
+              "w-weimar-koetschau",
+              "-w-jena-koetschau",
+              "w-jena-kahla",
+              "-w-poessneck-kahla",
+              "w-poessneck-schleiz",
+              "-w-hof-schleiz",
+              "w-hof-franzensbad",
+              "w-franzensbad-mariakulm",
+              "-w-zwota-mariakulm",
+              "-w-carlsbad-zwota"
+            ],
+            "class": "text",
+            "basis": "1811 年去卡尔斯巴德：路上每一天从哪里走到哪里，他当天的日记都写了，多数日子还记了钟点。",
+            "sourceIds": ["diary"]
+          }
+        ]
+      },
+      {
+        "id": "j-1811-karlsbad-back",
+        "name": "从卡尔斯巴德回耶拿",
+        "stop": "weimar-2",
+        "date": "1811 年 6 月 28 日到 7 月 1 日",
+        "parts": [
+          {
+            "name": "1811 年卡尔斯巴德到耶拿的路",
+            "ways": [
+              "w-carlsbad-zwota",
+              "w-zwota-mariakulm",
+              "-w-eger-mariakulm",
+              "w-eger-franzensbad",
+              "-w-hof-franzensbad",
+              "w-hof-schleiz",
+              "-w-poessneck-schleiz",
+              "w-poessneck-kahla",
+              "-w-jena-kahla"
+            ],
+            "class": "text",
+            "basis": "1811 年从卡尔斯巴德回耶拿：路上每一天从哪里走到哪里，他当天的日记都写了，多数日子还记了钟点。",
+            "sourceIds": ["diary"]
+          }
+        ]
+      },
+      {
+        "id": "j-1812-bohemia-out",
+        "name": "去卡尔斯巴德",
+        "stop": "weimar-2",
+        "date": "1812 年 4 月 20 日到 5 月 3 日",
+        "parts": [
+          {
+            "name": "1812 年魏玛到卡尔斯巴德的路",
+            "ways": [
+              "w-weimar-koetschau",
+              "-w-jena-koetschau",
+              "w-jena-kahla",
+              "-w-poessneck-kahla",
+              "w-poessneck-schleiz",
+              "-w-hof-schleiz",
+              "w-hof-franzensbad",
+              "w-franzensbad-mariakulm",
+              "-w-zwota-mariakulm",
+              "-w-carlsbad-zwota"
+            ],
+            "class": "text",
+            "basis": "1812 年去卡尔斯巴德：路上每一天从哪里走到哪里，他当天的日记都写了，多数日子还记了钟点。",
+            "sourceIds": ["diary"]
+          }
+        ]
+      },
+      {
+        "id": "j-1812-teplitz",
+        "name": "到特普利茨",
+        "stop": "weimar-2",
+        "date": "1812 年 7 月 13 日到 14 日",
+        "parts": [
+          {
+            "name": "1812 年卡尔斯巴德到特普利茨的路",
+            "ways": ["w-carlsbad-libkowitz", "w-libkowitz-saaz-podersam", "-w-teplitz-saaz"],
+            "class": "text",
+            "basis": "1812 年到特普利茨：路上每一天从哪里走到哪里，他当天的日记都写了，多数日子还记了钟点。",
+            "sourceIds": ["diary"]
+          }
+        ]
+      },
+      {
+        "id": "j-1812-teplitz-back",
+        "name": "从特普利茨回卡尔斯巴德",
+        "stop": "weimar-2",
+        "date": "1812 年 8 月 11 日到 12 日",
+        "parts": [
+          {
+            "name": "1812 年特普利茨到卡尔斯巴德的路",
+            "ways": ["w-teplitz-saaz", "-w-libkowitz-saaz-podersam", "-w-carlsbad-libkowitz"],
+            "class": "text",
+            "basis": "1812 年从特普利茨回卡尔斯巴德：路上每一天从哪里走到哪里，他当天的日记都写了，多数日子还记了钟点。",
+            "sourceIds": ["diary"]
+          }
+        ]
+      },
+      {
+        "id": "j-1812-bohemia-back",
+        "name": "从卡尔斯巴德回魏玛",
+        "stop": "weimar-2",
+        "date": "1812 年 9 月 12 日到 16 日",
+        "parts": [
+          {
+            "name": "1812 年卡尔斯巴德到魏玛的路",
+            "ways": [
+              "w-carlsbad-zwota",
+              "w-zwota-mariakulm",
+              "-w-eger-mariakulm",
+              "w-eger-franzensbad",
+              "-w-hof-franzensbad",
+              "w-hof-schleiz",
+              "-w-poessneck-schleiz",
+              "w-poessneck-kahla",
+              "-w-jena-kahla",
+              "w-jena-koetschau",
+              "-w-weimar-koetschau"
+            ],
+            "class": "text",
+            "basis": "1812 年从卡尔斯巴德回魏玛：路上每一天从哪里走到哪里，他当天的日记都写了，多数日子还记了钟点。",
+            "sourceIds": ["diary"]
+          }
+        ]
+      },
+      {
+        "id": "j-1813-teplitz-out",
+        "name": "去特普利茨",
+        "stop": "weimar-2",
+        "date": "1813 年 4 月 17 日到 26 日",
+        "parts": [
+          {
+            "name": "1813 年魏玛到特普利茨的路",
+            "ways": ["w-8l-weimar-luetzen-leipzig", "w-leipzig-meissen", "-w-dresden-meissen", "w-dresden-teplitz"],
+            "class": "text",
+            "basis": "1813 年去特普利茨：路上每一天从哪里走到哪里，他当天的日记都写了，多数日子还记了钟点。",
+            "sourceIds": ["diary"]
+          }
+        ]
+      },
+      {
+        "id": "j-1813-teplitz-back",
+        "name": "经德累斯顿回魏玛",
+        "stop": "weimar-2",
+        "date": "1813 年 8 月 10 日到 19 日",
+        "parts": [
+          {
+            "name": "1813 年特普利茨到魏玛的路",
+            "ways": ["-w-dresden-teplitz", "w-dresden-altenburg", "w-altenburg-gera", "-w-jena-gera", "w-jena-koetschau", "-w-weimar-koetschau"],
+            "class": "text",
+            "basis": "1813 年经德累斯顿回魏玛：路上每一天从哪里走到哪里，他当天的日记都写了，多数日子还记了钟点。",
+            "sourceIds": ["diary"]
+          }
+        ]
+      },
+      {
+        "id": "j-1814-berka-out",
+        "name": "去贝尔卡",
+        "stop": "weimar-2",
+        "date": "1814 年 5 月 13 日",
+        "parts": [
+          {
+            "name": "1814 年魏玛到贝尔卡的路",
+            "ways": ["w-weimar-berka"],
+            "class": "text",
+            "basis": "1814 年 5 月 13 日去贝尔卡：这一天他先在魏玛写信，说动身去贝尔卡以前不再登门告别，同一天又在贝尔卡写了信。路上经过哪里没有写，两地相隔十来公里，线是直着连的。他在贝尔卡住到 6 月底。",
+            "sourceIds": ["letters"]
+          }
+        ]
+      },
+      {
+        "id": "j-1814-berka-back",
+        "name": "从贝尔卡回魏玛",
+        "stop": "weimar-2",
+        "date": "1814 年 6 月底",
+        "parts": [
+          {
+            "name": "1814 年贝尔卡到魏玛的路",
+            "ways": ["-w-weimar-berka"],
+            "class": "schematic",
+            "basis": "1814 年 6 月底从贝尔卡回魏玛：6 月 23 日他还在贝尔卡写信，7 月 1 日已在魏玛写信，他的日记这一天也是在魏玛记的；第二天的信里说在贝尔卡住了七个星期。哪天回的没有写；虚线照去的路画。",
+            "sourceIds": ["letters", "diary"]
+          }
+        ]
+      },
+      {
+        "id": "j-1814-rhine-out",
+        "name": "去威斯巴登",
+        "stop": "weimar-2",
+        "date": "1814 年 7 月 25 日到 29 日",
+        "parts": [
+          {
+            "name": "1814 年魏玛到威斯巴登的路",
+            "ways": [
+              "w-weimar-erfurt",
+              "w-erfurt-gotha",
+              "-w-eisenach-gotha",
+              "w-8l-eisenach-berka-fulda",
+              "w-8n-fulda-frankfurt",
+              "w-frankfurtammain-hadersheim",
+              "-w-wiesbaden-hadersheim"
+            ],
+            "class": "text",
+            "basis": "1814 年去威斯巴登：路上每一天从哪里走到哪里，他当天的日记都写了，多数日子还记了钟点；只有 7 月 28 日晚上从哈瑙到法兰克福这一段日记没有写，是他第二天的信里说的。出了爱森纳赫，日记写着过威拉河畔贝尔卡、法哈、欣费尔德。",
+            "sourceIds": ["letters", "diary"]
+          }
+        ]
+      },
+      {
+        "id": "j-1814-to-frankfurt",
+        "name": "到法兰克福",
+        "stop": "weimar-2",
+        "date": "1814 年 9 月 12 日",
+        "parts": [
+          {
+            "name": "1814 年威斯巴登到法兰克福的路",
+            "ways": ["w-8l-wiesbaden-hochheim-hadersheim", "-w-frankfurtammain-hadersheim"],
+            "class": "text",
+            "basis": "1814 年 9 月 12 日离开威斯巴登，过霍赫海姆和一处硫磺泉，中午在路上吃饭，当天到法兰克福：他当天的日记，路过的地方也写了，没有写钟点。霍赫海姆见于他后来的一封信；他写给家里的信还说，这一天有一位同伴同车。",
+            "sourceIds": ["letters", "diary"]
+          }
+        ]
+      },
+      {
+        "id": "j-1814-to-heidelberg",
+        "name": "到海德堡",
+        "stop": "weimar-2",
+        "date": "1814 年 9 月 24 日",
+        "parts": [
+          {
+            "name": "1814 年法兰克福到海德堡的路",
+            "ways": ["w-frankfurtammain-darmstadt", "-w-weinheim-darmstadt", "w-weinheim-heidelberg"],
+            "class": "text",
+            "basis": "9 月 24 日早上六点离开法兰克福，过达姆施塔特，一站一站不停地走，过魏因海姆，太阳落山前到海德堡：他写给家里的信，是一天一天记的。",
+            "sourceIds": ["letters"]
+          }
+        ]
+      },
+      {
+        "id": "j-1814-rhine-back",
+        "name": "从海德堡回魏玛",
+        "stop": "weimar-2",
+        "date": "1814 年 10 月 9 日到 27 日",
+        "parts": [
+          {
+            "name": "1814 年海德堡到法兰克福的路",
+            "ways": ["-w-weinheim-heidelberg", "-w-8n-darmstadt-heppenheim-weinheim", "-w-8n-frankfurt-langen-darmstadt"],
+            "class": "text",
+            "basis": "10 月 9 日早上六点离开海德堡，过魏因海姆，在黑彭海姆吃了早饭，到达姆施塔特正赶上客店开饭；11 日从达姆施塔特坐车回法兰克福，车轮坏了，在朗根耽搁了一阵：他写给家里的信，是一天一天记的。年谱说 12 日到法兰克福，信里是 11 日。",
+            "sourceIds": ["letters", "chronik"]
+          },
+          {
+            "name": "1814 年法兰克福到魏玛的路",
+            "ways": ["-w-8n-fulda-frankfurt", "-w-8l-eisenach-berka-fulda", "w-eisenach-gotha", "-w-erfurt-gotha", "-w-weimar-erfurt"],
+            "class": "text",
+            "basis": "10 月 20 日离开法兰克福，在哈瑙住了几天，24 日到盖尔恩豪森，以后每天早上六点动身，26 日在爱森纳赫过夜，27 日下午四点回到魏玛：他的日记。他回来以后的信也说是 27 日到的。到爱森纳赫的那一天，日记没有写路过的地方，线照 7 月去的路画。",
+            "sourceIds": ["letters", "diary"]
+          }
+        ]
+      },
+      {
+        "id": "j-1815-rhine-out",
+        "name": "再去威斯巴登",
+        "stop": "weimar-2",
+        "date": "1815 年 5 月 24 日到 27 日",
+        "parts": [
+          {
+            "name": "1815 年魏玛到威斯巴登的路",
+            "ways": [
+              "w-weimar-erfurt",
+              "w-erfurt-gotha",
+              "-w-eisenach-gotha",
+              "w-8l-eisenach-berka-fulda",
+              "w-8n-fulda-frankfurt",
+              "w-frankfurtammain-hadersheim",
+              "-w-wiesbaden-hadersheim"
+            ],
+            "class": "text",
+            "basis": "1815 年再去威斯巴登：路上每一天从哪里走到哪里，他当天的日记都写了，多数日子还记了钟点。",
+            "sourceIds": ["diary"]
+          }
+        ]
+      },
+      {
+        "id": "j-1815-cologne-out",
+        "name": "从威斯巴登去科隆",
+        "stop": "weimar-2",
+        "date": "1815 年 7 月 21 日到 25 日",
+        "parts": [
+          {
+            "name": "1815 年威斯巴登到拿骚的路",
+            "ways": ["w-wiesbaden-limburg", "-w-nassau-limburg"],
+            "class": "text",
+            "basis": "7 月 21 日离开威斯巴登，过伊德施泰因，22 日到林堡，23 日到拿骚：他的日记。",
+            "sourceIds": ["diary"]
+          },
+          {
+            "name": "1815 年拿骚到埃伦布赖特施泰因的路",
+            "ways": ["-w-ems-nassau", "w-ems-thalehrenbreitstein"],
+            "class": "text",
+            "basis": "7 月 25 日坐车过埃姆斯到埃伦布赖特施泰因：他的日记。",
+            "sourceIds": ["diary"]
+          },
+          { "name": "1815 年埃伦布赖特施泰因到科隆的水路", "ways": ["w-8e-thal-koeln-boat"], "class": "text", "basis": "当天坐小船下莱茵河，在安德纳赫、林茨靠过岸，傍晚过波恩，夜里到科隆：他的日记。", "sourceIds": ["diary"] }
+        ]
+      },
+      {
+        "id": "j-1815-cologne-back",
+        "name": "从科隆回威斯巴登",
+        "stop": "weimar-2",
+        "date": "1815 年 7 月 27 日到 31 日",
+        "parts": [
+          { "name": "1815 年科隆到科布伦茨的路", "ways": ["w-koeln-koblenz"], "class": "text", "basis": "7 月 27 日到波恩，28 日过安德纳赫，绕到拉赫修道院，夜里到科布伦茨：他的日记。", "sourceIds": ["diary"] },
+          { "name": "1815 年科布伦茨到埃伦布赖特施泰因的水路", "ways": ["-w-thalehrenbreitstein-koblenz-boat"], "class": "text", "basis": "29 日坐摆渡过莱茵河：他的日记。", "sourceIds": ["diary"] },
+          {
+            "name": "1815 年埃伦布赖特施泰因到威斯巴登的路",
+            "ways": ["-w-ems-thalehrenbreitstein", "w-ems-nassau", "-w-wiesbaden-nassau"],
+            "class": "text",
+            "basis": "29 日过埃姆斯回到拿骚，31 日过施瓦尔巴赫回到威斯巴登：他的日记。",
+            "sourceIds": ["diary"]
+          }
+        ]
+      },
+      {
+        "id": "j-1815-to-frankfurt",
+        "name": "经美因茨到法兰克福",
+        "stop": "weimar-2",
+        "date": "1815 年 8 月 11 日到 12 日",
+        "parts": [
+          {
+            "name": "1815 年威斯巴登到法兰克福的路",
+            "ways": ["-w-mainz-wiesbaden", "w-mainz-hadersheim", "-w-frankfurtammain-hadersheim"],
+            "class": "text",
+            "basis": "1815 年 8 月 11 日离开威斯巴登，有一位朋友同车，当天住在美因茨；12 日从美因茨动身，穿过法兰克福，中午前后到了一处磨坊，在那里住下：他当天的日记，没有写钟点。",
+            "sourceIds": ["diary"]
+          }
+        ]
+      },
+      {
+        "id": "j-1815-to-heidelberg",
+        "name": "到海德堡",
+        "stop": "weimar-2",
+        "date": "1815 年 9 月 18 日到 20 日",
+        "parts": [
+          {
+            "name": "1815 年法兰克福到海德堡的路",
+            "ways": ["w-frankfurtammain-darmstadt", "-w-weinheim-darmstadt", "w-weinheim-heidelberg"],
+            "class": "text",
+            "basis": "1815 年到海德堡：路上每一天从哪里走到哪里，他当天的日记都写了，多数日子还记了钟点。",
+            "sourceIds": ["diary"]
+          }
+        ]
+      },
+      {
+        "id": "j-1815-rhine-back",
+        "name": "从海德堡回魏玛",
+        "stop": "weimar-2",
+        "date": "1815 年 10 月 7 日到 11 日",
+        "parts": [
+          {
+            "name": "1815 年海德堡到魏玛的路",
+            "ways": ["w-8l-heidelberg-wuerzburg-gotha", "-w-erfurt-gotha", "-w-weimar-erfurt"],
+            "class": "text",
+            "basis": "1815 年从海德堡回魏玛：路上每一天从哪里走到哪里，他当天的日记都写了，头三天还把路过的地方一个一个记了下来。",
+            "sourceIds": ["diary"]
+          }
+        ]
+      },
+      {
+        "id": "j-1816-tennstedt-out",
+        "name": "去滕施泰特",
+        "stop": "weimar-2",
+        "date": "1816 年 7 月 24 日",
+        "parts": [
+          {
+            "name": "1816 年魏玛到滕施泰特的路",
+            "ways": ["w-weimar-tennstedt"],
+            "class": "text",
+            "basis": "1816 年 7 月 24 日早上六点一刻坐车离开魏玛，十一点在半路的一个村子喂马，傍晚六点前到滕施泰特：他当天的日记，沿路的八个村子一个一个都写了，线就照这八个村子画。",
+            "sourceIds": ["diary"]
+          }
+        ]
+      },
+      {
+        "id": "j-1816-tennstedt-back",
+        "name": "从滕施泰特回魏玛",
+        "stop": "weimar-2",
+        "date": "1816 年 9 月 10 日",
+        "parts": [
+          {
+            "name": "1816 年滕施泰特到魏玛的路",
+            "ways": ["-w-weimar-tennstedt"],
+            "class": "text",
+            "basis": "1816 年 9 月 10 日早上七点半离开滕施泰特，十一点到半路的一个村子，下午四点半到魏玛：他当天的日记。线照他 7 月去的时候日记里写的那几个村子画。",
+            "sourceIds": ["diary"]
+          }
+        ]
+      },
+      {
+        "id": "j-1818-karlsbad-out",
+        "name": "去卡尔斯巴德",
+        "stop": "weimar-2",
+        "date": "1818 年 7 月 19 日到 26 日",
+        "parts": [
+          {
+            "name": "1818 年魏玛到卡尔斯巴德的路",
+            "ways": [
+              "w-weimar-koetschau",
+              "-w-jena-koetschau",
+              "w-jena-kahla",
+              "-w-poessneck-kahla",
+              "w-poessneck-schleiz",
+              "-w-hof-schleiz",
+              "w-hof-franzensbad",
+              "w-franzensbad-mariakulm",
+              "-w-zwota-mariakulm",
+              "-w-carlsbad-zwota"
+            ],
+            "class": "text",
+            "basis": "1818 年去卡尔斯巴德：路上每一天从哪里走到哪里，他当天的日记都写了；钟点只有头一天到耶拿的时候记了。",
+            "sourceIds": ["diary"]
+          }
+        ]
+      },
+      {
+        "id": "j-1818-karlsbad-back",
+        "name": "从卡尔斯巴德回魏玛",
+        "stop": "weimar-2",
+        "date": "1818 年 9 月 13 日到 17 日",
+        "parts": [
+          {
+            "name": "1818 年卡尔斯巴德到魏玛的路",
+            "ways": [
+              "w-carlsbad-zwota",
+              "w-zwota-mariakulm",
+              "-w-franzensbad-mariakulm",
+              "-w-hof-franzensbad",
+              "w-hof-schleiz",
+              "-w-poessneck-schleiz",
+              "w-poessneck-kahla",
+              "-w-jena-kahla",
+              "w-jena-koetschau",
+              "-w-weimar-koetschau"
+            ],
+            "class": "text",
+            "basis": "1818 年从卡尔斯巴德回魏玛：路上每一天从哪里走到哪里，他当天的日记都写了，多半只写早上、中午、傍晚，有两天记了钟点。",
+            "sourceIds": ["diary"]
+          }
+        ]
+      },
+      {
+        "id": "j-1819-karlsbad-out",
+        "name": "去卡尔斯巴德",
+        "stop": "weimar-2",
+        "date": "1819 年 8 月 26 日到 28 日",
+        "parts": [
+          {
+            "name": "1819 年耶拿到卡尔斯巴德的路",
+            "ways": [
+              "w-jena-kahla",
+              "-w-poessneck-kahla",
+              "w-poessneck-schleiz",
+              "-w-hof-schleiz",
+              "w-hof-franzensbad",
+              "w-franzensbad-mariakulm",
+              "-w-zwota-mariakulm",
+              "-w-carlsbad-zwota"
+            ],
+            "class": "text",
+            "basis": "1819 年去卡尔斯巴德：路上每一天从哪里走到哪里，他当天的日记都写了，多数日子还记了钟点。",
+            "sourceIds": ["diary"]
+          }
+        ]
+      },
+      {
+        "id": "j-1819-karlsbad-back",
+        "name": "从卡尔斯巴德回耶拿",
+        "stop": "weimar-2",
+        "date": "1819 年 9 月 26 日到 28 日",
+        "parts": [
+          {
+            "name": "1819 年卡尔斯巴德到耶拿的路",
+            "ways": [
+              "w-carlsbad-zwota",
+              "w-zwota-mariakulm",
+              "-w-franzensbad-mariakulm",
+              "-w-hof-franzensbad",
+              "w-hof-schleiz",
+              "-w-poessneck-schleiz",
+              "w-poessneck-kahla",
+              "-w-jena-kahla"
+            ],
+            "class": "text",
+            "basis": "1819 年从卡尔斯巴德回耶拿：路上每一天从哪里走到哪里，他当天的日记都写了，多数日子还记了钟点。",
+            "sourceIds": ["diary"]
+          }
+        ]
+      },
+      {
+        "id": "j-1820-marienbad-out",
+        "name": "经文西德尔到玛丽恩巴德",
+        "stop": "weimar-2",
+        "date": "1820 年 4 月 19 日到 27 日",
+        "parts": [
+          {
+            "name": "1820 年魏玛到玛丽恩巴德的路",
+            "ways": [
+              "w-weimar-koetschau",
+              "-w-jena-koetschau",
+              "w-jena-kahla",
+              "-w-poessneck-kahla",
+              "w-poessneck-schleiz",
+              "-w-hof-schleiz",
+              "w-8l-hof-marktleuthen-wunsiedel",
+              "w-8l-wunsiedel-schirnding-eger",
+              "-w-marienbad-eger"
+            ],
+            "class": "text",
+            "basis": "1820 年经文西德尔到玛丽恩巴德：路上每一天从哪里走到哪里，他当天的日记都写了，多数日子还记了钟点。",
+            "sourceIds": ["diary"]
+          }
+        ]
+      },
+      {
+        "id": "j-1820-to-karlsbad",
+        "name": "从玛丽恩巴德到卡尔斯巴德",
+        "stop": "weimar-2",
+        "date": "1820 年 4 月 28 日到 29 日",
+        "parts": [
+          {
+            "name": "1820 年玛丽恩巴德到卡尔斯巴德的路",
+            "ways": ["w-marienbad-eger", "w-eger-mariakulm", "-w-zwota-mariakulm", "-w-carlsbad-zwota"],
+            "class": "text",
+            "basis": "1820 年从玛丽恩巴德到卡尔斯巴德：路上每一天从哪里走到哪里，他当天的日记都写了，多数日子还记了钟点。",
+            "sourceIds": ["diary"]
+          }
+        ]
+      },
+      {
+        "id": "j-1820-karlsbad-back",
+        "name": "从卡尔斯巴德回耶拿",
+        "stop": "weimar-2",
+        "date": "1820 年 5 月 28 日到 31 日",
+        "parts": [
+          {
+            "name": "1820 年卡尔斯巴德到耶拿的路",
+            "ways": [
+              "w-carlsbad-zwota",
+              "w-zwota-mariakulm",
+              "-w-eger-mariakulm",
+              "w-eger-franzensbad",
+              "-w-hof-franzensbad",
+              "w-hof-schleiz",
+              "-w-poessneck-schleiz",
+              "w-poessneck-kahla",
+              "-w-jena-kahla"
+            ],
+            "class": "text",
+            "basis": "1820 年从卡尔斯巴德回耶拿：路上每一天从哪里走到哪里，他当天的日记都写了，多数日子还记了钟点。",
+            "sourceIds": ["diary"]
+          }
+        ]
+      },
+      {
+        "id": "j-1821-marienbad-out",
+        "name": "去玛丽恩巴德",
+        "stop": "weimar-2",
+        "date": "1821 年 7 月 26 日到 29 日",
+        "parts": [
+          {
+            "name": "1821 年魏玛到玛丽恩巴德的路",
+            "ways": [
+              "w-weimar-koetschau",
+              "-w-jena-koetschau",
+              "w-jena-kahla",
+              "-w-poessneck-kahla",
+              "w-poessneck-schleiz",
+              "-w-hof-schleiz",
+              "w-hof-franzensbad",
+              "-w-eger-franzensbad",
+              "-w-marienbad-eger"
+            ],
+            "class": "text",
+            "basis": "1821 年去玛丽恩巴德：路上每一天从哪里走到哪里，他当天的日记都写了，多数日子还记了钟点。",
+            "sourceIds": ["diary"]
+          }
+        ]
+      },
+      {
+        "id": "j-1821-to-eger",
+        "name": "到埃格尔",
+        "stop": "weimar-2",
+        "date": "1821 年 8 月 25 日",
+        "parts": [
+          {
+            "name": "1821 年玛丽恩巴德到埃格尔的路",
+            "ways": ["w-marienbad-eger"],
+            "class": "text",
+            "basis": "1821 年 8 月 25 日中午十二点半离开玛丽恩巴德，半路上停的驿站日记也写了，傍晚六点到埃格尔：他当天的日记。",
+            "sourceIds": ["diary"]
+          }
+        ]
+      },
+      {
+        "id": "j-1821-marienbad-back",
+        "name": "从埃格尔回耶拿",
+        "stop": "weimar-2",
+        "date": "1821 年 9 月 13 日到 15 日",
+        "parts": [
+          {
+            "name": "1821 年埃格尔到耶拿的路",
+            "ways": ["w-eger-franzensbad", "-w-hof-franzensbad", "w-hof-schleiz", "-w-poessneck-schleiz", "w-poessneck-kahla", "-w-jena-kahla"],
+            "class": "text",
+            "basis": "1821 年从埃格尔回耶拿：路上每一天从哪里走到哪里，他当天的日记都写了，多数日子还记了钟点。",
+            "sourceIds": ["diary"]
+          }
+        ]
+      },
+      {
+        "id": "j-1822-marienbad-out",
+        "name": "去玛丽恩巴德",
+        "stop": "weimar-2",
+        "date": "1822 年 6 月 16 日到 19 日",
+        "parts": [
+          {
+            "name": "1822 年魏玛到玛丽恩巴德的路",
+            "ways": [
+              "w-weimar-koetschau",
+              "-w-jena-koetschau",
+              "w-jena-kahla",
+              "-w-poessneck-kahla",
+              "w-poessneck-schleiz",
+              "-w-hof-schleiz",
+              "w-hof-franzensbad",
+              "-w-eger-franzensbad",
+              "-w-marienbad-eger"
+            ],
+            "class": "text",
+            "basis": "1822 年去玛丽恩巴德：路上每一天从哪里走到哪里，他当天的日记都写了，多数日子还记了钟点。",
+            "sourceIds": ["diary"]
+          }
+        ]
+      },
+      {
+        "id": "j-1822-to-eger",
+        "name": "到埃格尔",
+        "stop": "weimar-2",
+        "date": "1822 年 7 月 24 日",
+        "parts": [
+          { "name": "1822 年玛丽恩巴德到埃格尔的路", "ways": ["w-marienbad-eger"], "class": "text", "basis": "1822 年 7 月 24 日离开玛丽恩巴德，在半路上喂了马，当天到埃格尔：他当天的日记，没有写钟点。", "sourceIds": ["diary"] }
+        ]
+      },
+      {
+        "id": "j-1822-marienbad-back",
+        "name": "从埃格尔回魏玛",
+        "stop": "weimar-2",
+        "date": "1822 年 8 月下旬到 29 日",
+        "parts": [
+          {
+            "name": "1822 年埃格尔到珀斯内克的路",
+            "ways": ["w-eger-franzensbad", "-w-hof-franzensbad", "w-hof-schleiz", "-w-poessneck-schleiz"],
+            "class": "schematic",
+            "basis": "埃格尔到珀斯内克只知道两头：8 月 26 日还在埃格尔，27、28 两天日记是空的。",
+            "sourceIds": ["diary"]
+          },
+          {
+            "name": "1822 年珀斯内克到魏玛的路",
+            "ways": ["w-poessneck-kahla", "-w-jena-kahla", "w-jena-koetschau", "-w-weimar-koetschau"],
+            "class": "text",
+            "basis": "8 月 29 日早上六点离开珀斯内克，傍晚六点前后到魏玛：他的日记。",
+            "sourceIds": ["diary"]
+          }
+        ]
+      },
+      {
+        "id": "j-1823-bohemia-out",
+        "name": "最后一次去波希米亚",
+        "stop": "weimar-2",
+        "date": "1823 年 6 月 26 日到 7 月 2 日",
+        "parts": [
+          {
+            "name": "1823 年魏玛到玛丽恩巴德的路",
+            "ways": [
+              "w-weimar-koetschau",
+              "-w-jena-koetschau",
+              "w-jena-kahla",
+              "-w-poessneck-kahla",
+              "w-poessneck-schleiz",
+              "-w-hof-schleiz",
+              "w-hof-franzensbad",
+              "-w-eger-franzensbad",
+              "-w-marienbad-eger"
+            ],
+            "class": "text",
+            "basis": "1823 年最后一次去波希米亚：路上每一天从哪里走到哪里，他当天的日记都写了，多数日子还记了钟点。",
+            "sourceIds": ["diary"]
+          }
+        ]
+      },
+      {
+        "id": "j-1823-to-karlsbad",
+        "name": "经埃格尔到卡尔斯巴德",
+        "stop": "weimar-2",
+        "date": "1823 年 8 月 20 日到 25 日",
+        "parts": [
+          {
+            "name": "1823 年玛丽恩巴德到卡尔斯巴德的路",
+            "ways": ["w-marienbad-eger", "w-eger-mariakulm", "-w-zwota-mariakulm", "-w-carlsbad-zwota"],
+            "class": "text",
+            "basis": "1823 年经埃格尔到卡尔斯巴德：8 月 20 日下午三点前后离开玛丽恩巴德，日记没有写当天到了哪里；23 日的日记里他已经住在埃格尔。25 日早上六点三刻离开埃格尔，十点到茨沃道，下午一点再上路，四点前后到卡尔斯巴德：他当天的日记。",
+            "sourceIds": ["diary"]
+          }
+        ]
+      },
+      {
+        "id": "j-1823-bohemia-back",
+        "name": "最后一次从波希米亚回魏玛",
+        "stop": "weimar-2",
+        "date": "1823 年 9 月 5 日到 17 日",
+        "parts": [
+          {
+            "name": "1823 年卡尔斯巴德到魏玛的路",
+            "ways": [
+              "w-carlsbad-zwota",
+              "-w-eger-zwota",
+              "w-eger-franzensbad",
+              "-w-hof-franzensbad",
+              "w-hof-schleiz",
+              "-w-poessneck-schleiz",
+              "w-poessneck-kahla",
+              "-w-jena-kahla",
+              "w-jena-koetschau",
+              "-w-weimar-koetschau"
+            ],
+            "class": "text",
+            "basis": "1823 年最后一次从波希米亚回魏玛：路上每一天从哪里走到哪里，他当天的日记都写了，多数日子还记了钟点。",
+            "sourceIds": ["diary"]
+          }
+        ]
+      },
+      {
+        "id": "j-1828-dornburg-out",
+        "name": "去多恩堡",
+        "stop": "weimar-2",
+        "date": "1828 年 7 月 7 日",
+        "parts": [
+          {
+            "name": "1828 年魏玛到多恩堡的路",
+            "ways": ["w-weimar-koetschau", "-w-jena-koetschau", "w-jena-dornburg"],
+            "class": "text",
+            "basis": "1828 年 7 月 7 日早上六点多离开魏玛，先到耶拿，下午四点再上路，六点到多恩堡：他当天的日记。",
+            "sourceIds": ["diary"]
+          }
+        ]
+      },
+      {
+        "id": "j-1828-dornburg-back",
+        "name": "从多恩堡回魏玛",
+        "stop": "weimar-2",
+        "date": "1828 年 9 月 11 日",
+        "parts": [
+          {
+            "name": "1828 年多恩堡到魏玛的路",
+            "ways": ["w-dornburg-koetschau", "-w-weimar-koetschau"],
+            "class": "text",
+            "basis": "1828 年 9 月 11 日上午九点半离开多恩堡，在半路上吃了早饭，下午两点左右到魏玛：他当天的日记。",
+            "sourceIds": ["diary"]
+          }
+        ]
+      },
+      {
+        "id": "j-1831-ilmenau-out",
+        "name": "去伊尔默瑙",
+        "stop": "weimar-2",
+        "date": "1831 年 8 月 26 日",
+        "parts": [
+          {
+            "name": "1831 年魏玛到伊尔默瑙的路",
+            "ways": ["w-weimar-stadtilm", "-w-ilmenau-stadtilm"],
+            "class": "text",
+            "basis": "1831 年 8 月 26 日早上六点半离开魏玛，十二点多在半路上停下吃午饭，下午三点再走，六点多到伊尔默瑙：他当天的日记。",
+            "sourceIds": ["diary"]
+          }
+        ]
+      },
+      {
+        "id": "j-1831-ilmenau-back",
+        "name": "从伊尔默瑙回魏玛",
+        "stop": "weimar-2",
+        "date": "1831 年 8 月 31 日",
+        "parts": [
+          {
+            "name": "1831 年伊尔默瑙到魏玛的路",
+            "ways": ["w-ilmenau-stadtilm", "-w-berka-stadtilm", "-w-weimar-berka"],
+            "class": "text",
+            "basis": "1831 年 8 月 31 日早上六点半离开伊尔默瑙，十一点左右在半路上停下吃饭、歇息，十二点多再上路，后来又在路上停了一次，傍晚六点多到魏玛：他当天的日记。",
+            "sourceIds": ["diary"]
+          }
+        ]
+      }
+    ]
+  },
+  "sections": [
+    {
+      "heading": "全程",
+      "date": "1765 年到 1831 年",
+      "line": "画出来的路都在这里。陆路有记载的是实线，记载太少的是虚线；水路都是细点线。",
+      "camera": { "target": [12.33, 44.95], "distanceM": 53200, "pitch": 48, "bearing": 0, "fov": 18, "closest": 0.75, "mustShow": ["frame"] },
+      "strips": [
+        "s-frankfurt",
+        "s-strasbourg",
+        "s-weimar",
+        "s-valmy",
+        "s-karlsbad",
+        "s-rome",
+        "s-naples",
+        "s-alpen",
+        "s-adriatischesmeer",
+        "s-tyrrhenischesmeer",
+        "s-sizilien-whole"
+      ],
+      "explain": ["j-1788-home", "j-1787-sicily-out", "coast", "outings-from-home"]
+    },
+    {
+      "heading": "法兰克福",
+      "date": "1765 年 9 月到 1775 年 7 月",
+      "line": "从法兰克福到莱比锡的来回，沿兰河、莱茵河的路，过苏黎世到圣哥达山口的路。",
+      "camera": {
+        "target": [9.47, 48.62],
+        "distanceM": 13400,
+        "pitch": 46,
+        "bearing": 0,
+        "fov": 18,
+        "mustShow": [
+          "frankfurt",
+          "leipzig",
+          "wetzlar",
+          "duesseldorf",
+          "elberfeld",
+          "strasbourg",
+          "zuerich",
+          "gotthard",
+          "weimar",
+          "eisenach",
+          "rhein",
+          "lahn",
+          "heiligesroemischesreich",
+          "main"
+        ]
+      },
+      "strips": [
+        "s-frankfurt",
+        "s-leipzig",
+        "s-wetzlar",
+        "s-strasbourg",
+        "s-zuerich",
+        "s-gotthard",
+        "s-rhein",
+        "s-lahn",
+        "s-heiligesroemischesreich",
+        "s-eisenach",
+        "s-duesseldorf",
+        "s-main"
+      ],
+      "explain": ["j-1772-lahn", "j-1774-rhine-back", "j-1765-leipzig-out", "j-1775-swiss-out"],
+      "stop": "frankfurt"
+    },
+    {
+      "heading": "斯特拉斯堡",
+      "date": "1770 年 3 月底到夏天",
+      "line": "从法兰克福到斯特拉斯堡的路只知道两头，是虚线；还有骑马去萨尔布吕肯的一圈。",
+      "camera": {
+        "target": [7.76, 49.22],
+        "distanceM": 8000,
+        "pitch": 46,
+        "bearing": 0,
+        "fov": 18,
+        "mustShow": ["frankfurt", "strasbourg", "sesenheim", "hagenau", "zabern", "saarbrueck", "mannheim", "carlsruh", "rhein", "schwarzwald", "vogesen"]
+      },
+      "strips": ["s-strasbourg", "s-frankfurt", "s-sesenheim", "s-rhein", "s-schwarzwald", "s-frankreich-strasbourg", "s-hagenau", "s-zabern", "s-saarbrueck", "s-vogesen"],
+      "explain": ["j-1770-strasbourg-out", "j-1770-saarbruecken-ride", "strasbourg-rides", "rhine"],
+      "stop": "strasbourg"
+    },
+    {
+      "heading": "魏玛（上）",
+      "date": "1775 年 10 月到 1785 年 8 月",
+      "line": "从法兰克福到魏玛；三次上布罗肯峰；从魏玛去柏林、卡尔斯巴德；去瑞士的路出了画面。",
+      "camera": {
+        "target": [10.97, 50.32],
+        "distanceM": 10700,
+        "pitch": 42,
+        "bearing": 0,
+        "fov": 18,
+        "mustShow": [
+          "weimar",
+          "frankfurt",
+          "heidelberg",
+          "berlin",
+          "tegel",
+          "brocken",
+          "braunschweig",
+          "cassel",
+          "karlsbad",
+          "leipzig",
+          "woerlitz",
+          "harz",
+          "ilm",
+          "jena",
+          "saale",
+          "thueringerwald"
+        ]
+      },
+      "strips": ["s-weimar", "s-berlin", "s-brocken", "s-harz", "s-leipzig", "s-frankfurt", "s-karlsbad", "s-ilm", "s-heidelberg", "s-jena", "s-saale"],
+      "explain": ["j-1775-weimar", "j-1783-harz-out", "j-1784-harz-back", "outings-from-home"],
+      "stop": "weimar-1"
+    },
+    {
+      "heading": "卡尔斯巴德",
+      "date": "1786 年 7 月",
+      "line": "从魏玛过耶拿到卡尔斯巴德的路：耶拿以后没有记载，虚线照他后来去温泉的路画。",
+      "camera": {
+        "target": [12.1, 50.45],
+        "distanceM": 8000,
+        "pitch": 46,
+        "bearing": 0,
+        "fov": 18,
+        "mustShow": ["weimar", "jena", "hof", "eger", "karlsbad", "johanngeorgenstadt", "erzgebirge", "boehmen", "thueringerwald", "saale"]
+      },
+      "strips": ["s-karlsbad", "s-weimar", "s-jena", "s-eger", "s-erzgebirge", "s-boehmen", "s-hof", "s-thueringerwald", "s-saale"],
+      "explain": ["j-1786-karlsbad", "borders"],
+      "stop": "karlsbad"
+    },
+    {
+      "heading": "罗马",
+      "date": "1786 年 9 月到 10 月；1787 年 6 月",
+      "line": "从卡尔斯巴德翻布伦纳山口，过加尔达湖、威尼斯到罗马；还有从那不勒斯回罗马的路。",
+      "camera": {
+        "target": [12.58, 44.87],
+        "distanceM": 15200,
+        "pitch": 56,
+        "bearing": 0,
+        "fov": 18,
+        "mustShow": ["karlsbad", "regensburg", "muenchen", "brenner", "torbole", "venedig", "bologna", "rome", "naples", "gardasee", "tiber", "florenz", "kirchenstaat"]
+      },
+      "strips": ["s-rome", "s-karlsbad", "s-brenner", "s-gardasee", "s-venedig", "s-naples", "s-alpen-rome", "s-tiber", "s-muenchen", "s-bologna", "s-florenz", "s-kirchenstaat"],
+      "explain": ["j-1787-rome-back", "j-1786-rome", "coast"],
+      "stop": "rome"
+    },
+    {
+      "heading": "那不勒斯",
+      "date": "1787 年 2 月到 5 月",
+      "line": "从罗马到那不勒斯，渡海到巴勒莫，穿过西西里到墨西拿，再渡海回那不勒斯。",
+      "camera": {
+        "target": [14.08, 39.23],
+        "distanceM": 9800,
+        "pitch": 46,
+        "bearing": 0,
+        "fov": 18,
+        "mustShow": ["rome", "naples", "vesuv", "palermo", "girgenti", "catania", "messina", "segesta", "sizilien", "koenigreichneapel", "aetna", "capri", "tiber"]
+      },
+      "strips": [
+        "s-naples-own",
+        "s-rome",
+        "s-vesuv",
+        "s-palermo",
+        "s-girgenti",
+        "s-messina",
+        "s-sizilien",
+        "s-tyrrhenischesmeer",
+        "s-koenigreichneapel",
+        "s-aetna",
+        "s-capri",
+        "s-tiber-naples"
+      ],
+      "explain": ["j-1787-naples", "j-1787-sicily-out", "j-1787-sicily-back", "terrain", "levels"],
+      "stop": "naples"
+    },
+    {
+      "heading": "瓦尔密",
+      "date": "1792 年 8 月到 10 月",
+      "line": "从魏玛经法兰克福、特里尔、凡尔登到瓦尔密，再过凡尔登退回特里尔。",
+      "camera": {
+        "target": [8.04, 48.55],
+        "distanceM": 13200,
+        "pitch": 46,
+        "bearing": 0,
+        "fov": 18,
+        "mustShow": ["weimar", "frankfurt", "mainz", "trier", "luxenburg", "longwy", "verdun", "valmy", "sommetourbe", "dun", "maas", "rhein", "frankreich", "argonnen", "mosel"]
+      },
+      "strips": ["s-valmy", "s-weimar", "s-frankfurt", "s-trier", "s-verdun", "s-maas", "s-rhein", "s-frankreich", "s-mainz", "s-luxenburg", "s-argonnen", "s-mosel"],
+      "explain": ["j-1792-campaign-out", "j-1792-campaign-back", "borders"],
+      "stop": "valmy"
+    },
+    {
+      "heading": "魏玛（下）",
+      "date": "1788 年 4 月到 1831 年 8 月",
+      "line": "从魏玛到卡尔斯巴德、布雷斯劳、科隆的路；去意大利、瑞士和克拉科夫的路出了画面。",
+      "camera": {
+        "target": [12.01, 48.25],
+        "distanceM": 19100,
+        "pitch": 36,
+        "bearing": 0,
+        "fov": 18,
+        "mustShow": [
+          "weimar",
+          "breslau",
+          "pyrmont",
+          "duesseldorf",
+          "muenster",
+          "teplitz",
+          "marienbad",
+          "wiesbaden",
+          "jena",
+          "karlsbad",
+          "frankfurt",
+          "dresden",
+          "koeln",
+          "rhein",
+          "nuernberg",
+          "elbe"
+        ]
+      },
+      "strips": ["s-weimar-late", "s-jena", "s-karlsbad", "s-frankfurt", "s-dresden", "s-breslau", "s-koeln", "s-rhein", "s-marienbad", "s-teplitz", "s-nuernberg", "s-elbe"],
+      "explain": ["j-1794-dresden-back", "j-1792-home", "jena-moves", "outings-from-home"],
+      "stop": "weimar-2"
+    }
+  ],
+  "notDrawn": [
+    { "id": "jena-moves", "name": "魏玛和耶拿之间的来回", "why": "1809 年到 1820 年间他六次到耶拿长住，有几年从温泉回来也先到耶拿、再回魏玛。两地相隔不到二十公里，这些来回没有另画成路。", "sourceIds": [] },
+    { "id": "ettersburg-1779", "name": "1779 年魏玛到埃特斯堡的一小段", "why": "1779 年 9 月 12 日他是从魏玛北面的埃特斯堡动身的，日记里这样写。魏玛到埃特斯堡的七公里没有画。", "sourceIds": [] },
+    { "id": "silesia-sidetrips", "name": "1790 年从布雷斯劳出去的两趟", "why": "1790 年他在布雷斯劳的时候，8 月底去了格拉茨（今克沃兹科）一带，9 月中下旬去了巨人山（今克尔科诺谢山）。这两趟先后到过哪里、哪天到的没有查清，没有画。", "sourceIds": [] },
+    {
+      "id": "outings-from-home",
+      "name": "从家里出去的短途",
+      "why": "住在魏玛的那些年，他从家里出去不到两个星期的短途，像 1783 年 6 月去埃尔福特、哥达，1803 年 5 月去劳赫施泰特、哈雷，都没有画路，只有 1831 年 8 月去伊尔默瑙的那一趟画了；出去多久不清楚的几趟也没有画。",
+      "sourceIds": []
+    },
+    {
+      "id": "lauchstaedt-1803",
+      "name": "1803 年 5 月去劳赫施泰特、哈雷的一趟",
+      "why": "1803 年 5 月 1 日他从魏玛到耶拿，3 日下午到劳赫施泰特，5 日到 8 日在哈雷一带，10 日到梅泽堡、瑙姆堡，都是日记里记的。日记里这一趟记到 10 日为止，不到两个星期，没有画。",
+      "sourceIds": []
+    },
+    { "id": "outings-from-stays", "name": "住在外地时出去的几趟", "why": "他住在外地的时候，从住的地方出去又回来的短途，有好些没有画路：在斯特拉斯堡时去塞森海姆，在那不勒斯时上维苏威火山，都没有画。", "sourceIds": [] },
+    { "id": "dresden-1768", "name": "1768 年春天从莱比锡去德累斯顿", "why": "他 3 月的一封信里说，去了德累斯顿十二天，看了那里的画廊。路上经过哪里没有写；不到两个星期的出行，沙盘上没有画。", "sourceIds": [] },
+    {
+      "id": "strasbourg-rides",
+      "name": "住在斯特拉斯堡时去塞森海姆和附近各处的出行",
+      "why": "住在斯特拉斯堡的时候，他去过塞森海姆好多次；别的几次骑马出行只见于他多年以后写的《诗与真》，书里没有写日子，也没有写先后。这些出行都没有画，只画了 1770 年夏天去萨尔布吕肯的那一趟。",
+      "sourceIds": []
+    },
+    {
+      "id": "wetzlar-1772",
+      "name": "1772 年的两次小出行：从韦茨拉尔去吉森，11 月从法兰克福去韦茨拉尔",
+      "why": "去吉森见于他多年以后写的《诗与真》，书里没有写日子。11 月 6 日到 10 日去韦茨拉尔，回来时过弗里德贝格，见于凯斯特纳存下的书信。都只有几天，沙盘上没有画。",
+      "sourceIds": []
+    },
+    { "id": "ems-lavater-1774", "name": "1774 年 6 月底陪拉瓦特去埃姆斯", "why": "6 月 28 日到 30 日，拉瓦特的日记里写着过威斯巴登、施瓦尔巴赫、拿骚。从家里出去只有几天，沙盘上没有画；两个星期以后他再去埃姆斯，那条虚线就是照这条路画的。", "sourceIds": [] },
+    { "id": "langen-mainz-1774", "name": "1774 年从法兰克福出去的两次：8 月底去朗根，12 月去美因茨", "why": "8 月 27 日他在朗根写信，说在这里等一位朋友；12 月 13 日有一封信写在美因茨。都见于他当时的信，都只有一两天或几天，沙盘上没有画。", "sourceIds": [] },
+    { "id": "schneeberg-1786", "name": "1786 年 8 月从卡尔斯巴德去施内贝格", "why": "他当时的信里说去那里看矿井，8 月 16 日有一封信写在施内贝格，几天就回到卡尔斯巴德。从住的地方出去的小出行，沙盘上没有画。", "sourceIds": [] },
+    {
+      "id": "italy-outings",
+      "name": "在意大利各城住下时的小出行",
+      "why": "从维琴察、威尼斯、博洛尼亚、罗马、那不勒斯出去看附近的地方，当天或者几天就回来：像 1786 年 10 月在威尼斯坐船到潟湖外面的沙洲和潟湖的南头，1787 年在那不勒斯登维苏威火山。沙盘上没有画。",
+      "sourceIds": []
+    },
+    {
+      "id": "camps-1792-1793",
+      "name": "1792 年、1793 年从军营里出去的几次",
+      "why": "1792 年 8 月 28 日去隆维，9 月 3 日骑马进凡尔登城。1793 年在美因茨城外的军营，6 月中以前同人坐船沿莱茵河下到宾根，从陆路回来；7 月底去施瓦尔巴赫和威斯巴登住了几天。都是出去不久又回到军营，沙盘上没有画。",
+      "sourceIds": []
+    },
+    { "id": "swiss-1797", "name": "1797 年在瑞士路上的两次小出行", "why": "9 月 18 日从沙夫豪森去看莱茵瀑布，24 日从施泰法坐船去苏黎世湖里的一个小岛，都是当天来回，沙盘上没有画。10 月回程路过莱茵瀑布，那一段画在回程的线上。", "sourceIds": [] },
+    {
+      "id": "rhine-1814-1815",
+      "name": "1814 年、1815 年在莱茵河一带住下时的小出行",
+      "why": "1814 年 8 月从威斯巴登去过美因茨，15 日到 17 日去了宾根一带；9 月 1 日到 8 日住在莱茵河边的一个村子里，从那里又去过宾根；10 月 2 日从海德堡去曼海姆，当天夜里回来。都见于他写给家里的信；1815 年也有几次。沙盘上没有画。",
+      "sourceIds": []
+    },
+    { "id": "side-roads", "name": "路上岔出去又折回的小段", "why": "路上从住处岔出去、一两天又折回原路的小段没有画，像 1779 年在瑞士翻过大沙伊德格山口以后，顺着山谷走到古坦嫩过夜、第二天折回的那一段。", "sourceIds": [] },
+    {
+      "id": "stations-not-placed",
+      "name": "没有查到位置的驿站和上下船的地方",
+      "why": "日记里有几个驿站还没有查到位置，没有画进线里。有几处上船、下船的地方，记录里没有写：1772 年的兰河和莱茵河、1775 年的卢塞恩湖、楚格湖和施维茨山下的小湖、1779 年的卢塞恩湖、1788 年的科莫湖。这些地方，线画到湖头、最近的岸边，或者照他别的年份上船、下船的地方画。",
+      "sourceIds": []
+    },
+    { "id": "pontine", "name": "蓬蒂内沼泽", "why": "罗马和那不勒斯之间的蓬蒂内沼泽，他 1787 年 2 月路过时还是沼泽，20 世纪 30 年代排干了；沙盘上是今天的平地。", "sourceIds": [] },
+    { "id": "borders", "name": "国界", "why": "沙盘上不画国界。几个国名（神圣罗马帝国、法国、波希米亚、教皇国、那不勒斯王国）是示意的，只标出大致在哪一带；这些国家的疆界在他一生里变过好几次。", "sourceIds": [] },
+    { "id": "reservoirs", "name": "今天的水库", "why": "今天的水库（像瓦尔密南面的代尔-尚特科克湖）是后来才有的，没有画。", "sourceIds": [] },
+    { "id": "rhine", "name": "上莱茵河当时的河道", "why": "上莱茵河在 1817 到 1876 年间挖直了河道，短了 81 公里。他那时候见到的河，岔开的水道很多，弯也多；沙盘上画的是今天的河道。", "sourceIds": [] },
+    { "id": "fucino", "name": "富奇诺湖", "why": "罗马以东的富奇诺湖 1878 年排干了；沙盘上是今天的盆地，没有画湖。他没有到过那里。", "sourceIds": [] }
+  ],
+  "general": [
+    {
+      "id": "roads",
+      "text": "有记载的路，陆上画成实线：他当时的日记、书信（或者同行的人当时的记录）写到了这段路两头之间他到过、路过的地方，或者写了坐船走的是哪条河、哪个湖，或者记下了哪一天从这一头出发、哪一天到那一头。他多年以后写的书里写到的也算，另有一条说明。记载太少的路，陆上画成虚线：只知道两头，或者只记了出发或到达一头的日子，中间的线是示意的——有他别的年份记过的路，就照那条路画，没有就照地势画。水路不分实线、虚线，都画成细点线。一条长路，要是没有记下两头的日子，记录又只写到其中一段，就只有那一段算有记载，不到五十公里的一小段不单画；写到的两个地方隔着一百公里以上，中间这一截也算记载太少。有的城只是他写信的地方，信里没有说到了那里，或者只是他打算去的地方：凭据里照写城名，画线的时候不算他路过。驿站和驿站之间的线都是连出来的，当时的驿路没有逐段查。"
+    },
+    {
+      "id": "late",
+      "text": "有些路，怎么走的只见于他多年以后写的书（《诗与真》《意大利游记》《法国战役》）。书里写到了路上经过的地方，或者坐的什么船、走的哪条河，就同当时的记录一样算有记载；书里只写了坐车还是骑马、朝哪边走、到了哪里，或者只写到刚出城的一小段，还算记载太少。哪一段靠的是书、当时的信里又写到了什么，各段的凭据里都写了。书里的日子同当时的信对不上的地方，以信为准。"
+    },
+    {
+      "id": "outings",
+      "text": "从家里出去住了两个星期以上的几趟，也当作一趟路画了出来：1772 年去达姆施塔特，1784 年去爱森纳赫，1794 年去沃利茨、德绍、德累斯顿，1800 年去莱比锡，1801 年去上罗斯拉，1802 年和 1805 年去劳赫施泰特（1805 年还从那里到黑尔姆施泰特转了一圈），1814 年去贝尔卡。1770 年夏天从斯特拉斯堡骑马去萨尔布吕肯的一趟走得远，也画了出来。哪一段是实线、哪一段是虚线，各段的凭据里都写了；1794 年回程的虚线是照他的打算画的。不到两个星期的出行没有画。"
+    },
+    {
+      "id": "boats",
+      "text": "坐船的路画在水上，在他上船、下船的地方同陆路接起来；湖上、河上的线照水面画，船到底走的哪条线，多半没有记载。河上、湖上、海上的水路，都画成一样的细点线：有记载的和只知道两头的，线上看不出分别。哪一段只知道两头，那一段的说明或凭据里写着。1786 年 10 月从威尼斯到费拉拉的信使船，日记写了哪天夜里走、哪天早上到，也写到波河，是有记载的一段；船从潟湖怎样进的河没有写，潟湖里和海边的那一截是示意着画的。从帕多瓦沿布伦塔河到威尼斯的船，过潟湖的最后一截也是示意着画的。有两段画在船的线上，其实没有记载他是怎么走的：1790 年 5 月从威尼斯回帕多瓦，线照 3 月来的那趟船画；1797 年 10 月 21 日从施泰法回苏黎世，线照 9 月去的那趟船画。1775 年在施维茨山下小湖上的那趟船，线从城里画起，头一小段其实是陆地。"
+    },
+    {
+      "id": "sea",
+      "text": "两次渡海（1787 年 3 月底从那不勒斯到巴勒莫，5 月从墨西拿回那不勒斯）都有记载，线是示意的，只在海里拐了几个弯。去的那一趟，他当时记的一张小表写着 3 月 29 日上船、4 月 1 日巴勒莫；他多年以后写的《意大利游记》说是 4 月 2 日进的港，还写到天亮时船在伊斯基亚岛和卡普里岛之间，后来乌斯蒂卡岛落在左边，船再朝它开去。回的那一趟，他到那不勒斯第二天的信写了 5 月 14 日下船、船走了三天半，哪天开船信里没有写；书里写到船漂到卡普里岛附近——他 5 月底的一封信也写到卡普里岛后面的礁石，没有说是哪一趟。"
+    },
+    {
+      "id": "pass-1788",
+      "text": "1788 年回魏玛，米兰以北的线是照他 5 月 23 日、24 日在米兰写的打算画的：过科莫湖，翻施普吕根山口，到康斯坦茨。他确实到了康斯坦茨；过山以后写的东西没有找到，翻的是不是这个山口不能肯定。康斯坦茨到魏玛的路上只有一条记录：他记寄信的那张表里，6 月 9 日有一封信寄往林道，在哪里寄的没有写。6 月 18 日晚上十点回到魏玛，是赫尔德四天以后的一封信里写的。"
+    },
+    {
+      "id": "shore",
+      "text": "有几段路只知道两头，或者两头之间隔着湖和海湾，直着连线会从水上过去。这些地方在岸上补了拐点：比尔湖东南岸、日内瓦湖北岸（洛桑到罗勒、尼永到日内瓦）、博登湖西北头、康斯坦茨旁边的南岸和康斯坦茨到沙夫豪森之间的湖南面、苏黎世湖西边、博尔塞纳湖东岸、特拉西梅诺湖的北岸和东边，还有泰拉奇纳附近和它东南面的一处海湾边、夏卡、卡塔尼亚附近的海岸；康斯坦茨和库尔之间的莱茵河谷里、劳特布伦嫩和格林德尔瓦尔德两条山谷会合的地方，也各补了一个。这些拐点不是他记下的地方。"
+    },
+    { "id": "servant", "text": "1779 年 10 月 12 日到 15 日从大沙伊德格山口回伯尔尼的几天，用的是同行的仆人赛德尔当天记的日记；他让赛德尔抄出来，随信寄给了朋友。" },
+    { "id": "gazetteer", "text": "地点的位置取自今天的百科条目里的坐标，没有对照当时的地图。有四个靠水的地点（那不勒斯、泰拉奇纳、贝肯里德、施坦斯施塔德），百科里的坐标落在今天岸线数据的水里，往岸上挪了几百米到一公里多。岸线取稀以后，又有两个湖边的地点落进了水里，往岸上一个挪了三百多米，一个挪了不到两百米。" },
+    {
+      "id": "names",
+      "text": "地名用当时的叫法，换了语言或国家的另写今天的名字。中文译名对照了中文百科条目的标题，照标题写；没有中文条目的地方，有的照读音写了名字，有的不写名字，只说是一座小城、一个村子、一条河。《世界地名翻译大辞典》等工具书和地图集没有查。有九个名字没有照条目的标题，留的是另一种写法：瓦尔密（条目作瓦尔米）、塞森海姆（塞瑟奈姆）、教皇国（教宗国）、日内瓦湖（莱芒湖）、黑森林（黑林山）、艾因西德伦（艾恩西德尔恩）、魏因海姆（魏恩海姆）、格舍嫩（格申嫩）、约翰格奥尔根施塔特（约翰乔治城）。还有几十个名字只照了标题的一部分：标题里后来才加的“巴特”、“某某河畔”和括号里的说明没有照写，并进了别的市镇的地方用它自己的名字，岛、河、修道院这类名字有的添了或省了一两个字，人名不写全名。有三处写了“某某河畔”：奥拉河畔诺伊施塔特是他信上自己的写法，默兹河畔丹和威拉河畔贝尔卡是照今天的标题写全的（魏玛附近另有一个贝尔卡）。圣哥达山口在几趟路的名字里简写成圣哥达。"
+    },
+    { "id": "unidentified", "text": "他日记里的“Insberg”（1779 年）可能是今天的耶斯贝格，“Giredo”（1786 年）可能是今天巴贝里诺-迪穆杰洛的 Ghiereto，都没有核定。" },
+    {
+      "id": "chronicle",
+      "text": "有些日子只见于 1931 年出版的一部年谱——比德曼的《歌德生平年表》（Chronik von Goethes Leben），这部年谱对照日记和书信查过近一百处，有十四处不准；凡是只靠它的日子，凭据里都写明了。施泰格尔逐日编的《歌德生平》（Goethes Leben von Tag zu Tag）没有读到。"
+    },
+    { "id": "no-specialist", "text": "制作方里没有研究歌德或历史地理的专业人员，这座沙盘没有请专业的人审校。" }
+  ]
+}

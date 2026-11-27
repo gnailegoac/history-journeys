@@ -1,6 +1,7 @@
 // 给全程沙盘的地面上色的工具（tests/tools/route/paint.ts），在校验器的合格样本里那座小的全程沙盘上画一遍来查。
 // 样本：600 × 400 公里；东边是海；一条照今天画的河、一条示意的河、一条运河；一个湖裁掉西南角；一片只染水色的水；东边有一圈抹成海。
 // content/ 里真的那一座有三百多万个点，由 baked-fresh.test.ts 重画一遍和存着的比；这里只查画法自己。
+// 末尾另有一组：彩绘地形模型的画法（tests/tools/route/paintRelief.ts），在写着这种样式的那一座真的全程沙盘上查。
 
 import { describe, expect, it } from 'vitest';
 import { contentKey } from '../../src/domain/contentKey';
@@ -10,11 +11,12 @@ import type { LngLat } from '../../src/domain/types';
 import { hex } from '../../src/stage/ground/num';
 import { buildRouteGround, keepAt, readRouteDem, routePictureSize } from '../../src/stage/ground/route';
 import { STYLE_IDS, blankEdgeFor, styleFor } from './support/styles';
-import { readToday } from '../content/routeRules';
+import { pickedLines, readToday } from '../content/routeRules';
 import { readBytes } from '../support/readBytes';
 import { routeBakeParts } from '../tools/route/bakeRoute';
 import { SONG_QINGLV_PAINT, coverage, densify, gauss, paintRoute, riverPaths } from '../tools/route/paint';
 import { ROUTE_PAINTERS, routePainterFor, routeRiversFor } from '../tools/route/painters';
+import { RELIEF_PAINT, reliefReachProblems, reliefStrokes } from '../tools/route/paintRelief';
 import { realRouteScene, realSceneKeys } from './support/realScenes';
 
 const FIXTURE = 'tests/content/fixtures/good/figures/demo/scenes/';
@@ -316,5 +318,304 @@ describe.each(realSceneKeys('route').filter((key) => key === 'su-shi/route'))('%
       expect(blue(q), name).toBeGreaterThan(0);
       expect(blue(q), name).toBeLessThan(lake * 0.6);
     }
+  });
+});
+
+// ---------------------------------------------------------------- 彩绘地形模型的画法（tests/tools/route/paintRelief.ts），在歌德的那一座上查
+// 这种画法的河宽是一条线一条线照名字、照线的头一个点认的（有五条线靠头一个点认，“今天的海岸、湖、河”重做以后点会变）：
+// 认出来的每一笔多宽，在这里钉成数；认不出来的时候画法要停下来说，不悄悄换一个宽度。
+
+describe('goethe/route 的画法（彩绘地形模型）：河画多宽是钉住的数；单子对不上就停；雪只在圈里；海是一种颜色', () => {
+  const KEY = 'goethe/route';
+  const same = (a: LngLat, b: LngLat): boolean => a[0] === b[0] && a[1] === b[1];
+  let made: ReturnType<typeof setUp> | null = null;
+  function setUp() {
+    const R = realRouteScene(KEY);
+    const today = readToday({ today: new TextDecoder().decode(readBytes(R.todayPath)) }, 'today');
+    if (!today || 'problem' in today) throw new Error('今天的海岸、湖、河读不出来');
+    const k = R.scene.frame.scale / 1000;
+    /** 沙盘上的位置，换成地上的公里（东、南）。 */
+    const toKm = (p: LngLat): [number, number] => {
+      const [x, z] = R.coords.toLocal(p);
+      return [x * k, z * k];
+    };
+    const lengthKm = (line: LngLat[]): number => {
+      let sum = 0;
+      for (let i = 1; i < line.length; i++) sum += Math.hypot(toKm(line[i])[0] - toKm(line[i - 1])[0], toKm(line[i])[1] - toKm(line[i - 1])[1]);
+      return sum;
+    };
+    const rivers = today.features.flatMap((f) => (f.kind === 'river' ? f.lines.filter((line) => line.length >= 2).map((line) => ({ name: f.name, line })) : []));
+    return { R, features: today.features, toKm, lengthKm, rivers };
+  }
+  const get = (): ReturnType<typeof setUp> => (made ??= setUp());
+  let painted: { w: number; h: number; rgb: Uint8Array; mask: Uint8Array } | null = null;
+  const picture = (): { w: number; h: number; rgb: Uint8Array; mask: Uint8Array } => (painted ??= routeBakeParts(KEY).paint());
+
+  it('当河画的 72 条线，每一条画几笔、各多宽（公里）；照宽度数：4.4 的 23 笔、3.6 的 11 笔、3 的 9 笔、2.3 的 8 笔、2.2 的 4 笔、1.8 的 19 笔', () => {
+    const { R, toKm, rivers } = get();
+    expect(RELIEF_PAINT.riverWidths).toBe('rank');
+    const picked = new Set(R.scene.water.rivers.flatMap((river) => (river.today ?? []).flatMap((pick) => pick.names)));
+    const byName: Record<string, string[]> = {};
+    const byKm: Record<string, number> = {};
+    let lines = 0;
+    for (const { name, line } of rivers) {
+      if (!picked.has(name) && !RELIEF_PAINT.alsoRivers.includes(name)) continue;
+      lines += 1;
+      const strokes = reliefStrokes(name, line, R.scene, toKm);
+      (byName[name] ??= []).push(strokes.map((stroke) => `${stroke.widthKm}`).join('+'));
+      for (const stroke of strokes) byKm[`${stroke.widthKm}`] = (byKm[`${stroke.widthKm}`] ?? 0) + 1;
+    }
+    expect(lines).toBe(72);
+    expect(byKm).toEqual({ '4.4': 23, '3.6': 11, '3': 9, '2.3': 8, '2.2': 4, '1.8': 19 });
+    // 一个名字底下，文件里的线照先后各多宽；“1.8+3”是一条线分成两笔
+    expect(Object.fromEntries(Object.entries(byName).map(([name, row]) => [name, row.join(' ')]))).toEqual({
+      Aare: '1.8 1.8 2.3 2.3 2.3 1.8 1.8',
+      Adige: '1.8+3',
+      Aisne: '2.3 2.2',
+      Arno: '2.3',
+      Brenta: '2.2',
+      Danube: '4.4',
+      Donau: '4.4 4.4 4.4 4.4',
+      Eger: '1.8',
+      Elbe: '4.4 4.4 4.4 4.4 4.4 4.4 4.4 4.4 4.4 1.8',
+      Ill: '1.8',
+      Ilm: '2.2',
+      Inn: '1.8+3',
+      Isar: '2.3',
+      'Isarco / Eisack': '1.8 1.8',
+      Lahn: '1.8',
+      Maas: '3 3 3 3',
+      Main: '3',
+      Mosel: '3.6',
+      Neckar: '2.3',
+      Oder: '4.4 1.8',
+      Po: '3.6 3.6',
+      Reuss: '1.8 2.2',
+      Rhein: '4.4 4.4 4.4 1.8 1.8',
+      Rhin: '4.4',
+      Rhine: '4.4',
+      Rhône: '3.6 1.8 3.6 3.6 3.6 3.6',
+      Saale: '2.3',
+      Sill: '1.8',
+      Tevere: '3.6',
+      Unstrut: '1.8',
+      Vistula: '4.4 4.4 4.4',
+      Vltava: '3 3',
+      Werra: '3.6',
+      Weser: '3.6',
+    });
+  });
+
+  it('上游画窄的两条长线各分两笔：因河头 27 个点（到因斯布鲁克旁边）1.8、后面 3；阿迪杰河头 16 个点（到艾萨克河汇进来的地方）1.8、后面 3；接头的那个点两笔都有', () => {
+    const { R, toKm, lengthKm, rivers } = get();
+    const split = (name: string, from: LngLat) => {
+      const hit = rivers.filter((item) => item.name === name && same(item.line[0], from));
+      expect(hit, name).toHaveLength(1);
+      return { line: hit[0].line, strokes: reliefStrokes(name, hit[0].line, R.scene, toKm) };
+    };
+    const inn = split('Inn', [9.746, 46.403]);
+    expect(inn.strokes.map((stroke) => [stroke.widthKm, stroke.line.length])).toEqual([[1.8, 27], [3, 48]]);
+    expect(inn.strokes[0].line.at(-1)).toEqual([11.369, 47.275]);
+    expect(inn.strokes[1].line[0]).toEqual([11.369, 47.275]);
+    expect(inn.line).toHaveLength(74);
+    expect(lengthKm(inn.strokes[0].line)).toBeCloseTo(185.9, 1);
+    const adige = split('Adige', [10.711, 46.827]);
+    expect(adige.strokes.map((stroke) => [stroke.widthKm, stroke.line.length])).toEqual([[1.8, 16], [3, 53]]);
+    expect(adige.strokes[0].line.at(-1)).toEqual([11.307, 46.485]);
+    expect(adige.line).toHaveLength(68);
+    expect(lengthKm(adige.strokes[0].line)).toBeCloseTo(102.6, 1);
+    // 一律一个宽度的时候（只为并排比一比）：每一笔都是 riverKm，哪一条也不分两笔
+    (RELIEF_PAINT as { riverWidths: string }).riverWidths = 'single';
+    try {
+      for (const { name, line } of rivers) expect(reliefStrokes(name, line, R.scene, toKm).map((stroke) => stroke.widthKm), name).toEqual([RELIEF_PAINT.riverKm]);
+    } finally {
+      (RELIEF_PAINT as { riverWidths: string }).riverWidths = 'rank';
+    }
+  });
+
+  it('布伦纳山口两边的两条河各在山口前面 3 公里停住：留下的线上没有一段比 3 公里近，两个头相隔 5 公里出头；一律一个宽度的时候照样截', () => {
+    const { R, toKm, rivers } = get();
+    const pass = R.scene.places.find((place) => place.id === 'brenner');
+    if (!pass) throw new Error('场景里没有 brenner');
+    const c = toKm(pass.at);
+    const ends: [number, number][] = [];
+    expect(RELIEF_PAINT.passKm.map((item) => [item.name, item.place, item.km])).toEqual([['Sill', 'brenner', 3], ['Isarco / Eisack', 'brenner', 3]]);
+    const cut = (name: string, from: LngLat) => {
+      const hit = rivers.filter((item) => item.name === name && same(item.line[0], from));
+      expect(hit, name).toHaveLength(1);
+      const strokes = reliefStrokes(name, hit[0].line, R.scene, toKm);
+      expect(strokes, name).toHaveLength(1);
+      return { line: hit[0].line, kept: strokes[0].line, widthKm: strokes[0].widthKm };
+    };
+    for (const item of RELIEF_PAINT.passKm) {
+      const { line, kept, widthKm } = cut(item.name, item.from);
+      expect(widthKm, item.name).toBe(1.8);
+      // 原来的线从山口上过（离它不到半公里）；留下的线短了，头一个点正好离山口 3 公里
+      const far = (p: LngLat): number => Math.hypot(toKm(p)[0] - c[0], toKm(p)[1] - c[1]);
+      let nearest = Infinity;
+      for (let i = 1; i < line.length; i++) nearest = Math.min(nearest, far(line[i - 1]), far(line[i]));
+      expect(kept.length, item.name).toBeLessThan(line.length);
+      let keptNearest = Infinity;
+      for (let i = 1; i < kept.length; i++) {
+        const a = toKm(kept[i - 1]);
+        const b = toKm(kept[i]);
+        const dx = b[0] - a[0];
+        const dz = b[1] - a[1];
+        const t = Math.min(1, Math.max(0, ((c[0] - a[0]) * dx + (c[1] - a[1]) * dz) / (dx * dx + dz * dz || 1)));
+        keptNearest = Math.min(keptNearest, Math.hypot(a[0] + t * dx - c[0], a[1] + t * dz - c[1]));
+      }
+      expect(keptNearest, item.name).toBeCloseTo(3, 3);
+      const end = same(kept[kept.length - 1], line[line.length - 1]) ? kept[0] : kept[kept.length - 1];
+      expect(far(end), item.name).toBeCloseTo(3, 3);
+      ends.push(toKm(end));
+    }
+    expect(cut('Sill', [11.547, 46.991]).kept).toHaveLength(8);
+    expect(cut('Isarco / Eisack', [11.471, 47]).kept).toHaveLength(11);
+    const apart = Math.hypot(ends[0][0] - ends[1][0], ends[0][1] - ends[1][1]);
+    expect(apart).toBeGreaterThan(5);
+    expect(apart).toBeLessThan(5.2);
+    (RELIEF_PAINT as { riverWidths: string }).riverWidths = 'single';
+    try {
+      expect(cut('Sill', [11.547, 46.991]).kept).toHaveLength(8);
+      expect(cut('Sill', [11.547, 46.991]).widthKm).toBe(RELIEF_PAINT.riverKm);
+    } finally {
+      (RELIEF_PAINT as { riverWidths: string }).riverWidths = 'rank';
+    }
+  });
+
+  it('交给“船走在水上”的检查和做岸线的工具的河：还是场景挑出来的那些线，一个点不差，不分段、不在山口前面截短', () => {
+    const { R, features } = get();
+    const handed = routeRiversFor(R.scene.style)(R.scene, features, R.coords);
+    expect(handed.map((river) => river.id)).toEqual(R.scene.water.rivers.map((river) => river.id));
+    let lines = 0;
+    R.scene.water.rivers.forEach((river, i) => {
+      const want = pickedLines(features, river.today ?? []);
+      expect(handed[i].lines.length, river.id).toBe(want.length);
+      want.forEach((line, j) => {
+        lines += 1;
+        expect(handed[i].lines[j], river.id).toEqual(line.map((p) => R.coords.toLocal(p)));
+      });
+    });
+    expect(lines).toBeGreaterThan(0);
+    // 一条河最宽的一笔（莱茵河博登湖以上是 1.8，下面是 4.4）
+    expect(Object.fromEntries(handed.map((river) => [river.id, river.widthKm]))).toEqual({ lahn: 1.8, rhein: 4.4, mosel: 3.6, brenta: 2.2, po: 3.6, main: 3, saale: 2.3, maas: 3, ilm: 2.2, elbe: 4.4, tiber: 3.6 });
+  });
+
+  it('两张单子在这座沙盘上对得上；“今天的海岸、湖、河”或者场景变了、对不上的每一种，说得出是哪一条，画法停下来，一个点也不画', () => {
+    const { R, features } = get();
+    expect(reliefReachProblems(R.scene, features, R.coords)).toEqual([]);
+    expect(RELIEF_PAINT.reachKm).toHaveLength(13);
+    const paint = (scene: RouteScene, changed: typeof features): void => {
+      routePainterFor(R.scene.style)({ scene, coords: R.coords, ground: R.ground, features: changed, style: styleFor(R.scene.style) });
+    };
+    const withLine = (name: string, from: LngLat, change: (line: LngLat[]) => LngLat[]): typeof features =>
+      features.map((f) => (f.kind === 'river' && f.name === name ? { ...f, lines: f.lines.map((line) => (same(line[0], from) ? change(line) : line)) } : f));
+    const withPick = (river: string, box: { south?: number; north?: number; west?: number; east?: number }): RouteScene => ({
+      ...R.scene,
+      water: { ...R.scene.water, rivers: R.scene.water.rivers.map((item) => (item.id === river ? { ...item, today: (item.today ?? []).map((pick) => ({ ...pick, ...box })) } : item)) },
+    });
+    const cases: { what: string; scene: RouteScene; features: typeof features; problems: number; says: string }[] = [
+      { what: '因河的线上少了分段的那个点（换了抽稀的办法）', scene: R.scene, features: withLine('Inn', [9.746, 46.403], (line) => line.filter((p) => !same(p, [11.369, 47.275]))), problems: 1, says: '那条线上没有 to 这个点' },
+      { what: '罗讷河上游那条线的头一个点挪了千分之一度', scene: R.scene, features: withLine('Rhône', [8.379, 46.579], (line) => [[8.38, 46.579], ...line.slice(1)]), problems: 1, says: '从这个点起的线有 0 条，要正好一条' },
+      {
+        what: '阿勒河两湖之间的那条线同图恩湖里的那条并成了一条',
+        scene: R.scene,
+        features: withLine('Aare', [7.82, 46.68], () => []).map((f) => (f.kind === 'river' && f.name === 'Aare' ? { ...f, lines: f.lines.filter((line) => line.length > 0).map((line) => (same(line[0], [7.894, 46.706]) ? ([...line, [7.7, 46.7], [7.642, 46.75]] as LngLat[]) : line)) } : f)),
+        problems: 1,
+        says: '从这个点起的线有 0 条，要正好一条',
+      },
+      { what: '场景里没有 brenner 这个地名点', scene: { ...R.scene, places: R.scene.places.filter((p) => p.id !== 'brenner') }, features, problems: 2, says: '场景里没有这个地名点' },
+      { what: '锡尔河的线不再过山口（头一个点还在，后面往东北去了）', scene: R.scene, features: withLine('Sill', [11.547, 46.991], () => [[11.547, 46.991], [11.6, 47.05], [11.62, 47.15], [11.418, 47.278]]), problems: 1, says: '那条线走不到离它 3 公里以内' },
+      { what: '文件里没有叫 Isarco / Eisack 的河了', scene: R.scene, features: features.filter((f) => f.name !== 'Isarco / Eisack'), problems: 1, says: '从这个点起的线有 0 条，要正好一条' },
+      { what: '场景里莱茵河的取法写了范围，把博登湖以上的两条线留在了外面', scene: withPick('rhein', { north: 53, south: 47.6 }), features, problems: 2, says: '场景里的河“rhein”的取法写了范围，这条线整条在范围外面' },
+      { what: '场景里易北河的取法写了范围，把上游的那条线截短了', scene: withPick('elbe', { west: 16 }), features, problems: 1, says: '场景里的河“elbe”的取法写了范围，这条线被截短了' },
+    ];
+    for (const item of cases) {
+      const problems = reliefReachProblems(item.scene, item.features, R.coords);
+      expect(problems.length, `${item.what}：${problems.join('；')}`).toBe(item.problems);
+      expect(problems.join('；'), item.what).toContain(item.says);
+      expect(() => paint(item.scene, item.features), item.what).toThrow('对不上，不往下画');
+    }
+  });
+
+  it('雪的白只在圈里：阿尔卑斯山那一圈和埃特纳四周 45 公里以外，没有一个点白得像雪；圈里有几千个以上；水纹的标记整张是 0', { timeout: 300_000 }, () => {
+    const { R } = get();
+    const { cell } = R.ground;
+    const p = picture();
+    const snow = hex(RELIEF_PAINT.colours.snow);
+    const zone = RELIEF_PAINT.bands.highZone.map((q) => R.coords.toLocal(q));
+    const volcano = R.coords.toLocal(RELIEF_PAINT.bands.volcano.at);
+    const volcanoM = (RELIEF_PAINT.bands.volcano.km * 1000) / R.scene.frame.scale;
+    const inZone = (x: number, z: number): boolean => {
+      let hit = false;
+      for (let a = 0, b = zone.length - 1; a < zone.length; b = a++) {
+        if (zone[a][1] > z !== zone[b][1] > z && x < zone[a][0] + ((zone[b][0] - zone[a][0]) * (z - zone[a][1])) / (zone[b][1] - zone[a][1])) hit = !hit;
+      }
+      return hit;
+    };
+    let inside = 0;
+    let outside = 0;
+    let atVolcano = 0;
+    for (let j = 0; j < p.h; j++) {
+      for (let i = 0; i < p.w; i++) {
+        const o = (j * p.w + i) * 3;
+        // 白得像雪：三个颜色都离雪的颜色不到 14（留白的浅灰、岸边的浅色、海边的那道白都离得远）
+        if (Math.abs(p.rgb[o] - snow[0]) >= 14 || Math.abs(p.rgb[o + 1] - snow[1]) >= 14 || Math.abs(p.rgb[o + 2] - snow[2]) >= 14) continue;
+        const x = R.coords.x0 + (i * cell) / 3;
+        const z = R.coords.z0 + (j * cell) / 3;
+        if (Math.hypot(x - volcano[0], z - volcano[1]) < volcanoM) atVolcano += 1;
+        else if (inZone(x, z)) inside += 1;
+        else outside += 1;
+      }
+    }
+    console.log(`${KEY}：白得像雪的点——阿尔卑斯山那一圈里 ${inside} 个，埃特纳四周 ${atVolcano} 个，圈外 ${outside} 个`);
+    expect(outside).toBe(0);
+    expect(inside).toBeGreaterThan(5_000);
+    expect(atVolcano).toBeGreaterThan(0);
+    expect(p.mask.every((value) => value === 0)).toBe(true);
+  });
+
+  it('海是一种颜色：四周六十公里都是海的地方，画的是深一点的那一种海色（差不到 8）；落在留白的圈里的海也一样，不跟着留白变浅灰', { timeout: 300_000 }, () => {
+    const { R } = get();
+    const { nx, nz, land, blank } = R.ground;
+    const p = picture();
+    const deep = hex(RELIEF_PAINT.colours.seaDeep);
+    // 离岸远不远：四周 20 格（约 58 公里）以内没有陆地。先横着数、再竖着数（方的一块）
+    const N = nx * nz;
+    const rowClear = new Uint8Array(N);
+    const clear = new Uint8Array(N);
+    const REACH = 20;
+    for (let j = 0; j < nz; j++) {
+      for (let i = REACH; i < nx - REACH; i++) {
+        let ok = 1;
+        for (let d = -REACH; d <= REACH && ok; d++) if (land[j * nx + i + d]) ok = 0;
+        rowClear[j * nx + i] = ok;
+      }
+    }
+    for (let j = REACH; j < nz - REACH; j++) {
+      for (let i = 0; i < nx; i++) {
+        let ok = 1;
+        for (let d = -REACH; d <= REACH && ok; d++) if (!rowClear[(j + d) * nx + i]) ok = 0;
+        clear[j * nx + i] = ok;
+      }
+    }
+    let open = 0;
+    let inBlank = 0;
+    let worst = 0;
+    for (let j = 0; j < nz; j++) {
+      for (let i = 0; i < nx; i++) {
+        const k = j * nx + i;
+        if (!clear[k]) continue;
+        const o = (j * 3 * p.w + i * 3) * 3;
+        const off = Math.max(Math.abs(p.rgb[o] - deep[0]), Math.abs(p.rgb[o + 1] - deep[1]), Math.abs(p.rgb[o + 2] - deep[2]));
+        worst = Math.max(worst, off);
+        if (blank[k] < 0.2) inBlank += 1;
+        else open += 1;
+      }
+    }
+    console.log(`${KEY}：离岸六十公里以外的海，格点 ${open + inBlank} 个（其中落在留白里的 ${inBlank} 个），颜色离深的那一种海色最多差 ${worst}`);
+    expect(open).toBeGreaterThan(1000);
+    expect(inBlank).toBeGreaterThan(50);
+    expect(worst).toBeLessThan(8);
   });
 });

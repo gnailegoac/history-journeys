@@ -142,8 +142,10 @@ export function schematicWherePointed(scene: RouteScene, section: { strips: stri
  *（docs/data-spec.md“全程沙盘的场景数据”的“小节”）；写在这张表里，键是“人物/route”。给一座沙盘定一个比 15,000 小的数，
  * 就是认了它近看的那几节地面粗一些：定之前在真的图片上看过。
  * 苏轼的这一座是 15,000：再近，图上的一个点（6.66 米）在 900 像素高的栏里就超过 1.26 个像素。
+ * 歌德的这一座是 8,000：他有两站那几年走的路只有一二百公里宽（斯特拉斯堡、卡尔斯巴德），退到 15,000 路就太小了；在真的图片上看过，
+ * 8,000 米的时候图上的一个点（6.67 米）在 900 像素高的栏里是 2.4 个像素，地面还算结实，再近（五千多米）就糊了。
  */
-export const ROUTE_CAMERA_NEAREST_M: Readonly<Record<string, number>> = { 'su-shi/route': 15_000 };
+export const ROUTE_CAMERA_NEAREST_M: Readonly<Record<string, number>> = { 'su-shi/route': 15_000, 'goethe/route': 8_000 };
 /** 表里没有的沙盘照这个数查（就是苏轼的那个数）。 */
 export const ROUTE_CAMERA_NEAREST_DEFAULT_M = 15_000;
 

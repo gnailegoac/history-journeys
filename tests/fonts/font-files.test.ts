@@ -359,7 +359,8 @@ describe('放进仓库的字体文件和它的记录、样式表、许可全文�
   });
 
   it('src/fonts/ 里只有这几样', () => {
-    const want = [...shipped.record.files.map((item) => item.file), 'fonts.css', 'fonts.json', 'shipped.ts', 'probe.ts'].sort();
+    // 工具做的：字体文件、样式表、记录、给页面用的两个模块。另有手写的一个 scope.ts（页面把自己的字体归哪个范围写到 <html> 上）
+    const want = [...shipped.record.files.map((item) => item.file), 'fonts.css', 'fonts.json', 'shipped.ts', 'probe.ts', 'scope.ts'].sort();
     expect(readdirSync(at(`${FONTS_DIR}/`)).sort()).toEqual(want);
   });
 
@@ -559,6 +560,50 @@ describe('源文件里的写法', () => {
     // 苏轼用的那一块（tokens.css 里不写人物的 .stage-pane）：题签是竖着的纸条，字还是随站的楷体打头
     const written = /\n\.stage-pane \{[^}]*--figure-font:\s*([^;]+);/.exec(text('src/styles/tokens.css'))?.[1] ?? '';
     expect(written.startsWith("'Yanlu Kai'"), written).toBe(true);
+  });
+
+  it('留给“这一页自己那个范围的字体”的两个记号（--own-song、--own-sans）：只许由工具做的 fonts.css 写；只许在字体的记号里读——--font-song 和人物的 --figure-font 里读宋体的，--font-sans 里读黑体的，备用的写的就是随站的那一套；tokens.css 里四处都紧跟在随站的名称后面；现在哪一份样式表也没有写它们。别处读了、别处写了、读错了地方、备用的换了，都查得出来', () => {
+    const tokens = stripCssComments(text('src/styles/tokens.css'));
+    const value = (pattern: RegExp): string => pattern.exec(tokens)?.[1] ?? '';
+    // 四处：框架的两个记号，苏轼用的那一块（不写人物的），歌德的一块。每一处都是随站的名称打头，后面紧跟着读它，再后面才是设备自带的
+    expect(value(/:root \{[^}]*--font-song:\s*([^;]+);/)).toMatch(/^'Yanlu Song', var\(--own-song, 'Yanlu Song'\), 'Songti SC', /);
+    expect(value(/:root \{[^}]*--font-sans:\s*([^;]+);/)).toMatch(/^'Yanlu Sans', var\(--own-sans, 'Yanlu Sans'\), 'Noto Sans SC', /);
+    expect(value(/\n\.stage-pane \{[^}]*--figure-font:\s*([^;]+);/)).toMatch(/^'Yanlu Kai', .*'Yanlu Song', var\(--own-song, 'Yanlu Song'\), 'Songti SC', /);
+    expect(value(/\[data-figure='goethe'\] \.stage-pane \{[^}]*--figure-font:\s*([^;]+);/)).toMatch(/^'Yanlu Song', var\(--own-song, 'Yanlu Song'\), 'Songti SC', /);
+    expect(styles.reduce((sum, path) => sum + countIn(stripCssComments(text(path)), 'var(--own-'), 0)).toBe(4);
+    expect(countIn(tokens, 'var(--own-')).toBe(4);
+    // 现在没有谁写这两个记号（做字体的工具按范围分文件的开关关着，fonts.css 里也没有）：读到的都是备用的那一个，名单和原来是同一串字体
+    for (const path of [...styles, `${FONTS_DIR}/fonts.css`]) expect(stripCssComments(text(path)), path).not.toMatch(/--own-[a-z-]+\s*:/);
+    // 查得出来
+    const bad = `
+      :root { --font-song: 'Yanlu Song', var(--own-song, 'Songti SC'), serif; --font-sans: 'Yanlu Sans', var(--own-song, 'Yanlu Song'), sans-serif; }
+      .stage-pane { --figure-font: 'Yanlu Kai', var(--own-sans, 'Yanlu Sans'), serif; }
+      .reading { --font-song: 'Yanlu Song', var(--own-song, 'Yanlu Song'), serif; }
+      .prose { font-family: var(--own-song, 'Yanlu Song'); --own-song: 'Yanlu Song x'; }
+      .note { color: var(--own-ink); }
+      :root[data-fonts='x'] { --own-sans: 'Yanlu Sans x'; }
+    `;
+    expect(tally(scanStyle('src/styles/x.css', bad)).filter((line) => line.includes('| own-font |'))).toEqual([
+      // 备用的不是随站的宋体
+      "src/styles/x.css | own-font | --font-song: var(--own-song, 'Songti SC') × 1",
+      // 写法对，可是写在了 :root 以外的 --font-song 里
+      "src/styles/x.css | own-font | --font-song: var(--own-song, 'Yanlu Song') × 1",
+      // 黑体的名单里读了宋体的
+      "src/styles/x.css | own-font | --font-sans: var(--own-song, 'Yanlu Song') × 1",
+      // 人物的字体记号里读了黑体的
+      "src/styles/x.css | own-font | --figure-font: var(--own-sans, 'Yanlu Sans') × 1",
+      // 没有这样一个记号
+      'src/styles/x.css | own-font | color: var(--own-ink) × 1',
+      // 字体的记号以外读了
+      "src/styles/x.css | own-font | font-family: var(--own-song, 'Yanlu Song') × 1",
+      // 写在了工具做的那一份样式表以外
+      'src/styles/x.css | own-font | .prose { --own-song: … } × 1',
+      "src/styles/x.css | own-font | :root[data-fonts='x'] { --own-sans: … } × 1",
+    ].sort());
+    // 对的写法没有话说；工具做的那一份样式表里写这两个记号是许可的
+    const good = ":root { --font-song: 'Yanlu Song', var(--own-song, 'Yanlu Song'), serif; --font-sans: 'Yanlu Sans', var(--own-sans, 'Yanlu Sans'), sans-serif; } [data-figure='x'] .stage-pane { --figure-font: 'Yanlu Song', var(--own-song, 'Yanlu Song'), serif; }";
+    expect(tally(scanStyle('src/styles/x.css', good))).toEqual([]);
+    expect(tally(scanStyle('src/fonts/fonts.css', ":root[data-fonts='x'] { --own-sans: 'Yanlu Sans x'; --own-song: 'Yanlu Song x'; }"))).toEqual([]);
   });
 
   it('样式表里每一句 @media：照窗口的宽窄分版面的都带着“横着”（竖着拿的大平板够宽，可它是上下排的版面），没有老平板不认的写法', () => {

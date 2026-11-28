@@ -12,6 +12,22 @@
     -->
     <link rel="preload" href="/src/fonts/yanlu-sans.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="preload" href="/src/fonts/yanlu-song.woff2" as="font" type="font/woff2" crossorigin />
+    <!-- 这一页的字体归哪个范围，照地址先写到 <html> 上（人物、站）；页面的程序起来以后照同一条规矩再写（src/fonts/scope.ts），去掉这几行页面照样对。 -->
+    <script>
+      (function () {
+        var parts = location.hash.replace(/^#/, '').split('/');
+        var names = ['data-fonts', 'data-fonts-unit'];
+        var at = 0;
+        for (var i = 0; i < parts.length && at < 2; i++) {
+          var value = parts[i];
+          if (value === '') continue;
+          try {
+            value = decodeURIComponent(value);
+          } catch (error) {}
+          document.documentElement.setAttribute(names[at++], value);
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

@@ -8,6 +8,7 @@
 //             一段里是他的全程沙盘的 credits、他每一站的沙盘的 credits；在这一段里说过的不再印一遍（见 uniqueLines），
 //             两位人物都用到的一行在各人的一段里各印一遍。
 //   图片      每一站正文里的图片：是哪一站的、题记、作者、许可、出处的地址（那一站的 images）。
+//             这两栏是 sourcesLines.ts 收齐的（那个文件不用 React：做字体的工具也用它问这一页印些什么）。
 //   程序      两个程序库的许可全文：public/licences/ 里的两个文件。
 // 五份许可全文是网站自己带着的文本文件，链接直接打开它们。“字体的网站”“图片出处”是通到别的网站的平常链接，
 // 读者点了才去；页面自己不取它们。
@@ -16,62 +17,16 @@
 // 这个文件引入什么有讲究。点开才下载的一块里，不要引入页面那一块里自己又用到 react 的程序（src/app/ 的 router.ts、useLoaded.ts，
 // PageTitle.tsx 和别的组件）：打包的工具（rolldown 1.2）碰到这种引法，会把 React 的核心从页面那一块里单拆成一个文件，
 // 页面一打开要下载的程序凭空多出约 600 字节，还多一次请求（量过；tests/build/dist-size.test.ts 守着“页面的程序只有一个文件”）。
-// 所以这里要用的钩子直接从 react 引；读内容的函数（src/domain）、shipped.ts、sourcesText.ts 不用 react，可以引。
+// 所以这里要用的钩子直接从 react 引；读内容的函数（src/domain）、shipped.ts、sourcesText.ts、sourcesLines.ts 不用 react，可以引。
 
 import { useEffect, useState } from 'react';
-import { loadFigure, loadFigureCards, loadRouteTable, loadStop, loadStopTable } from '../domain';
-import type { StopImage } from '../domain';
 import { SHIPPED_FONTS } from '../fonts/shipped';
+import { loadFromContent } from './sourcesLines';
+import type { FromContent } from './sourcesLines';
 import { LIBRARY_LICENCES, SOURCES_TEXT } from './sourcesText';
 
-/**
- * 从内容里读出来的两栏：地形和水——一位人物一段（他的 id、卡片上的名字、他的沙盘的每一行，一段里不重复）；
- * 每一张图片和它是哪一站的（那一站的短名字）。
- */
-interface FromContent {
-  tables: { figureId: string; name: string; lines: string[] }[];
-  pictures: { stop: string; picture: StopImage }[];
-}
-
-/**
- * 说过的话只留头一回，先后不变。算“说过”的有两种：
- * 一模一样的一行（两座沙盘用的是同一份数据的时候，它们的出处是同一句话）；
- * 分号前面的半句，前面留下的哪一行就是这样开头的——同一份数据，全程的图片署过一遍，沙盘的凭据里又署一遍，
- * 后面带的半句是说给凭据里的读者听的（“裁剪和修整见上面的说明”），在这一页上“上面”没有那段说明。
- * 所以内容里一行出处要署的名都写在头一个分号前面；分号后面只写补充的话。
- * 给的是一位人物的那几行：说没说过只在他自己的一段里算。
- */
-export function uniqueLines(lines: string[]): string[] {
-  const kept: string[] = [];
-  for (const line of lines) {
-    const head = line.split('；')[0];
-    if (!kept.some((seen) => seen.startsWith(head))) kept.push(line);
-  }
-  return kept;
-}
-
-/** 把每位可以点进去的人物、他的每一站和每一座沙盘读一遍，收齐那两栏。 */
-async function loadFromContent(): Promise<FromContent> {
-  const tables: FromContent['tables'] = [];
-  const pictures: FromContent['pictures'] = [];
-  for (const card of await loadFigureCards()) {
-    const figure = card.available ? await loadFigure(card.id) : null;
-    if (!figure) continue;
-    // 这位人物的一段。全程沙盘的出处排在最前面，只印头一个分号前面署名的半句：后半句（“裁剪和修整见上面的说明”）是说给凭据里的读者听的
-    const lines: string[] = [];
-    for (const line of (await loadRouteTable(figure.id))?.scene.credits ?? []) lines.push(line.includes('；') ? `${line.split('；')[0]}。` : line);
-    const stops = await Promise.all(
-      figure.stops.map((stop) => Promise.all([loadStopTable(figure.id, stop.id), stop.status === 'complete' ? loadStop(figure.id, stop.id) : null, stop.shortTitle] as const)),
-    );
-    for (const [table, content, stop] of stops) {
-      if (table) lines.push(...table.scene.credits);
-      if (content) pictures.push(...content.images.map((picture) => ({ stop, picture })));
-    }
-    // 一座沙盘也没有的人物没有他的一段；只有一位人物的时候也是这样的一段，不另作一种样子
-    if (lines.length > 0) tables.push({ figureId: figure.id, name: card.name, lines: uniqueLines(lines) });
-  }
-  return { tables, pictures };
-}
+// 说过的话只留头一回的那个函数也从这里给出去（它和收齐两栏的函数都在 sourcesLines.ts 里）。
+export { uniqueLines } from './sourcesLines';
 
 /** 通到别的网站的链接：在新的一页打开，不把这一页的地址带过去。 */
 const OUTSIDE = { target: '_blank', rel: 'noopener noreferrer' } as const;

@@ -9,6 +9,7 @@ import type { RawSection } from '../../src/domain/body';
 import { ROUTE_SCENE_ID } from '../../src/domain/scene';
 import type { RouteScene, StopScene, TableScene } from '../../src/domain/scene';
 import type { Figure, FigureCard, StopExtras, StopMeta } from '../../src/domain/types';
+import { PRESSED_SUFFIX, scopeFileNames, scopeNameOwners } from '../support/fontNames';
 import { MADE_FILES_PENDING } from '../support/pendingTables';
 import { validateItinerary } from './itineraryRules';
 import { checkRouteScene, checkRouteShape, checkStopPlaces, isRouteLevel } from './routeRules';
@@ -96,7 +97,36 @@ export function validateContent(
     const match = /^figures\/([^/]+)\//.exec(path);
     if (match) figureIds.add(match[1]);
   }
-  return [...checkIndex(files), ...[...figureIds].sort().flatMap((id) => validateFigure(files, id, sizes, pictures, keys, madeFilesRequired, pending))];
+  return [...checkIndex(files), ...[...figureIds].sort().flatMap((id) => validateFigure(files, id, sizes, pictures, keys, madeFilesRequired, pending)), ...checkFontFileNames(files, [...figureIds].sort())];
+}
+
+/**
+ * 规则 0 里跨人物的一条：随站的字体按范围分文件的时候（做法见 docs/data-spec.md“随站的字体”，名字怎么拼在 tests/support/fontNames.ts），
+ * 文件是照人物和站的 id 起名的——yanlu-song-<人物>、yanlu-song-<人物>-<站>，点开才要的再接 -more。两个 id 拼出同一个名字，
+ * 后一个文件就把前一个盖掉了：人物 su 的一站 shi，和人物 su-shi，是同一个名字。照每位人物的 figure.json 里的 id 查，不看哪一站现在有没有正文。
+ * 已经另有一句话说的不在这里再说：叫 sources 的人物（RESERVED_FIGURE_IDS），叫 more 的站（RESERVED_STOP_IDS），同一位人物里两站同名（规则 2）。
+ * figure.json 读不出来、格式不对的人物不查（它的毛病另报）。撞上了的每个名字一处，记在后来的那一位人物的 figure.json 上。
+ */
+export function checkFontFileNames(files: ContentFiles, figureIds: readonly string[]): Violation[] {
+  /** 每位人物：他的 id；各站的 id 照 figure.json 里的先后（written）；拿去拼名字的（stops：重了的只算一回，叫 more 的不算）。 */
+  const figures: { id: string; written: string[]; stops: string[] }[] = [];
+  for (const id of figureIds) {
+    if (RESERVED_FIGURE_IDS.includes(id)) continue;
+    const file = `figures/${id}/figure.json`;
+    if (!has(files, file)) continue;
+    const read = readJson(files, file);
+    if (read.data === undefined || checkShape(read.data, FIGURE, file).length > 0) continue;
+    const written = (read.data as Figure).stops.map((stop) => stop.id);
+    figures.push({ id, written, stops: [...new Set(written)].filter((stop) => !RESERVED_STOP_IDS.includes(stop)) });
+  }
+  const names = scopeFileNames(figures);
+  return scopeNameOwners(names).map(({ name, owners }) => {
+    // 记在后来的那一位身上：是一站就指着那一站的 id，是人物就指着他的 id
+    const last = [...names].reverse().find((item) => item.name === name && item.figure !== null);
+    const figure = figures.find((item) => item.id === last?.figure);
+    const field = last?.stop && figure ? `stops[${figure.written.indexOf(last.stop)}].id` : 'id';
+    return violation(0, `figures/${figure?.id ?? figureIds[0]}/figure.json`, field, `人物和站的 id 拼出了同一个字体文件的名字：${name}.woff2 会被写两回（${owners.join('，和')}）。换掉其中一个 id`);
+  });
 }
 
 // ---------------------------------------------------------------- 首页卡片
@@ -106,6 +136,11 @@ export function validateContent(
  * 叫这个 id 的人物，他的人物页就打不开了。tests/unit/route.test.ts 对着页面读地址的程序把这张表核了一遍。
  */
 export const RESERVED_FIGURE_IDS: readonly string[] = ['sources'];
+/**
+ * 不能拿来做一站的 id 的词：随站的字体按范围分文件的时候，点开才要的文件名字末尾接的是 more（tests/support/fontNames.ts 的 PRESSED_SUFFIX）；
+ * 叫这个 id 的一站，它不用点开就要的那个文件就和人物点开才要的那个同名了。
+ */
+export const RESERVED_STOP_IDS: readonly string[] = [PRESSED_SUFFIX];
 
 export function checkIndex(files: ContentFiles): Violation[] {
   const file = 'figures/index.json';
@@ -181,6 +216,11 @@ export function validateFigure(
     out.push(violation(0, file, 'id', `“${figureId}”不能做人物的 id（文件夹也不能叫这个名字）：地址 #/${figureId} 是网站自己的一页（“来源”页），换一个`));
   }
   figure.stops.forEach((stop, i) => out.push(...duplicateIds(stop.localPlaces ?? [], file, `stops[${i}].localPlaces`)));
+  figure.stops.forEach((stop, i) => {
+    if (RESERVED_STOP_IDS.includes(stop.id)) {
+      out.push(violation(0, file, `stops[${i}].id`, `“${stop.id}”不能做一站的 id：随站的字体按范围分文件的时候，点开才要的文件名字末尾接的就是这个词，这一站的文件会和人物自己的那个重名，换一个`));
+    }
+  });
   out.push(...checkCoordinates(figure, file));
   out.push(...checkRoute(figure, file));
   out.push(...checkStopFiles(figure, files, dir));

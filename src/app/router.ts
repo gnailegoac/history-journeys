@@ -5,6 +5,7 @@
 //   #/sources               “来源”页（所以没有哪位人物的 id 可以叫 sources：内容校验守着，tests/content/rules.ts）
 
 import { useMemo, useSyncExternalStore } from 'react';
+import { nameFontScope } from '../fonts/scope';
 
 export type Route =
   | { page: 'home' }
@@ -52,6 +53,8 @@ export function hasNavigated(): boolean {
 function subscribe(onChange: () => void): () => void {
   const listener = () => {
     navigated = true;
+    // 换了页：新的一页还没画，先把它的字体归哪个范围写到 <html> 上（src/fonts/scope.ts）
+    nameFontScope(parseHash(currentHash()));
     onChange();
   };
   window.addEventListener('hashchange', listener);

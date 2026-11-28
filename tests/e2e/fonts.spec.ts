@@ -1117,3 +1117,125 @@ test('楷体的文件先要：一知道这一栏要摆沙盘，页面就叫浏�
     await context.close();
   }
 });
+
+test('页面的字体归哪个范围写在 <html> 上：首页写沙盘栏里摆着的那位人物，人物页写他，站点页再写上这一站，“来源”页写 sources；换页跟着换，一步一步退回来也对，照地址直接打开也对；现在还没有哪条样式读它们——一路上要的字体文件还是随站的那四个，一个也不多，各只要一次', async ({ page }) => {
+  test.setTimeout(180_000);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  // 每一个字体文件的请求（不管叫什么名字）
+  const asked: string[] = [];
+  page.on('request', (request) => {
+    const name = new URL(request.url()).pathname.split('/').pop() ?? '';
+    if (name.endsWith('.woff2')) asked.push(name);
+  });
+  const url = (hash: string): string => realUrl(hash, null, '&tier=still');
+  const scope = (): Promise<(string | null)[]> => page.evaluate(() => [document.documentElement.getAttribute('data-fonts'), document.documentElement.getAttribute('data-fonts-unit')]);
+  const at = async (where: string, want: (string | null)[]): Promise<void> => {
+    await expect.poll(scope, { message: `${where}：<html> 上的 data-fonts、data-fonts-unit` }).toEqual(want);
+  };
+  const cards = (JSON.parse(new TextDecoder().decode(readBytes('content/figures/index.json'))) as { id: string; sortYear: number; available: boolean }[]).sort((a, b) => a.sortYear - b.sortYear).filter((card) => card.available);
+  expect(cards.length, '内容里要有两位可以点进去的人物').toBeGreaterThanOrEqual(2);
+  const [first, second] = cards.map((card) => card.id);
+  const go = (hash: string): Promise<void> => page.evaluate((to) => void (window.location.hash = to), hash);
+
+  // 首页：名单读出来以后写的是沙盘栏里摆着的那位人物，和版面上记的是同一位
+  await page.goto(url('#/'));
+  await expect(page.locator('a.card[data-available="true"]').first()).toBeVisible();
+  await at('首页', [first, null]);
+  await expect(page.locator('.home-layout')).toHaveAttribute('data-figure', first);
+  await expect(stagePane(page)).toHaveAttribute('data-stage-picture', 'still', { timeout: 60_000 });
+  // 人物页，他的一站（写好了的），另一位人物，他的一站（还没写的），“来源”页
+  await go(`#/${first}`);
+  await at('头一位的人物页', [first, null]);
+  const written = await firstWrittenStop(page);
+  await go(`#/${first}/${written}`);
+  await at('写好了的一站', [first, written]);
+  await page.waitForFunction(() => document.querySelector('.text-section') !== null);
+  await go(`#/${second}`);
+  await at('另一位的人物页', [second, null]);
+  const other = page.locator('.stop-item').first();
+  await expect(other).toBeVisible();
+  const otherId = (await other.getAttribute('data-stop-id'))!;
+  await go(`#/${second}/${otherId}`);
+  await at('另一位的一站', [second, otherId]);
+  await go('#/sources');
+  await at('“来源”页', ['sources', null]);
+  await expect(page.locator('[data-sources="land"] .sources-figure').first()).toBeVisible();
+  await fontsReady(page);
+  // 一步一步退回来
+  for (const [where, want] of [
+    ['退回另一位的一站', [second, otherId]],
+    ['退回另一位的人物页', [second, null]],
+    ['退回写好了的一站', [first, written]],
+    ['退回头一位的人物页', [first, null]],
+    ['退回首页', [first, null]],
+  ] as [string, (string | null)[]][]) {
+    await page.goBack();
+    await at(where, want);
+  }
+  await expect(page.locator('.home-title')).toBeVisible();
+  await fontsReady(page);
+
+  // 这一路（一次打开，没有重新加载过）要的字体文件：正好是记录里的那几个，各一次，没有别的
+  const recorded = (JSON.parse(new TextDecoder().decode(readBytes('src/fonts/fonts.json'))) as { files: { file: string }[] }).files.map((item) => item.file.replace(/\.woff2$/, ''));
+  expect(asked.filter((name) => fontFileOf(`http://x/${name}`) === null), '要了一个不是随站的那几个的字体文件').toEqual([]);
+  const files = asked.map((name) => fontFileOf(`http://x/${name}`) as string);
+  expect([...files].sort(), `一路上要的字体文件（照要的先后：${asked.join('、')}）`).toEqual([...recorded].sort());
+  // 没有哪一条样式读这两个属性：换了范围，算出来的字体名单还是同一串
+  expect(await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--own-song') + getComputedStyle(document.documentElement).getPropertyValue('--own-sans'))).toBe('');
+
+  // 照地址直接打开：一站，和内容里没有的一位人物（照地址写，认不认由样式表定）
+  await page.goto(url(`#/${first}/${written}`));
+  await at('直接打开一站', [first, written]);
+  await page.goto(url('#/nobody-here'));
+  await at('内容里没有的人物', ['nobody-here', null]);
+});
+
+test('页面还在起来、路由还没开始听的那一下地址又变了（读者在页面还没出来的时候又按了一次“后退”）：页面追上去画新的一页，<html> 上写的也跟着换成新的一页，不留在原来那一页上；这样回到首页，写的是沙盘栏里摆着的那位人物', async ({ browser, baseURL }) => {
+  test.setTimeout(180_000);
+  const utf8 = new TextDecoder();
+  const cards = (JSON.parse(utf8.decode(readBytes('content/figures/index.json'))) as { id: string; sortYear: number; available: boolean }[]).sort((a, b) => a.sortYear - b.sortYear).filter((card) => card.available);
+  expect(cards.length, '内容里要有两位可以点进去的人物').toBeGreaterThanOrEqual(2);
+  const [first, second] = cards.map((card) => card.id);
+  const stopOf = (figure: string): string => (JSON.parse(utf8.decode(readBytes(`content/figures/${figure}/figure.json`))) as { stops: { id: string }[] }).stops[0].id;
+  // 从哪一页打开，页面的程序刚照它写完，地址就换成哪一页；那以后页面上该是什么、<html> 上该写什么
+  const cases: { from: string; to: string; shows: string; want: (string | null)[] }[] = [
+    { from: `#/${first}/${stopOf(first)}`, to: `#/${second}`, shows: `.figure-layout[data-figure="${second}"] .page-title`, want: [second, null] },
+    { from: `#/${second}/${stopOf(second)}`, to: `#/${first}`, shows: `.figure-layout[data-figure="${first}"] .page-title`, want: [first, null] },
+    { from: '#/sources', to: `#/${first}/${stopOf(first)}`, shows: `.stop-page[data-stop-id="${stopOf(first)}"]`, want: [first, stopOf(first)] },
+    { from: `#/${second}/${stopOf(second)}`, to: '#/', shows: `.home-layout[data-figure="${first}"]`, want: [first, null] },
+  ];
+  for (const one of cases) {
+    const where = `从 ${one.from} 打开，页面的程序刚写完就换到 ${one.to}`;
+    const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, reducedMotion: 'reduce', baseURL });
+    const page = await context.newPage();
+    // 盯着 <html> 上那两个属性：index.html 里那几行是文档还在读的时候写的，不算；文档读完以后头一回有人写（页面的程序），
+    // 紧跟着就把地址换掉——这时候页面一笔还没画，路由还没有开始听
+    await page.addInitScript((to) => {
+      const flags = window as unknown as { scopeChanged?: boolean };
+      const watch = (): void => {
+        new MutationObserver(() => {
+          if (flags.scopeChanged || document.readyState === 'loading') return;
+          flags.scopeChanged = true;
+          window.location.hash = to;
+        }).observe(document.documentElement, { attributes: true, attributeFilter: ['data-fonts', 'data-fonts-unit'] });
+      };
+      if (document.documentElement) watch();
+      else {
+        new MutationObserver((_records, observer) => {
+          if (!document.documentElement) return;
+          observer.disconnect();
+          watch();
+        }).observe(document, { childList: true });
+      }
+    }, one.to);
+    await page.goto(realUrl(one.from, null, '&tier=still'));
+    await page.waitForFunction(() => (window as unknown as { scopeChanged?: boolean }).scopeChanged === true, null, { timeout: 30_000 });
+    // 页面自己追上去了：画的是新的一页
+    await expect(page.locator(one.shows).first(), `${where}：页面上该是新的一页`).toBeVisible({ timeout: 30_000 });
+    expect(await page.evaluate(() => window.location.hash), where).toBe(one.to);
+    await expect
+      .poll(() => page.evaluate(() => [document.documentElement.getAttribute('data-fonts'), document.documentElement.getAttribute('data-fonts-unit')]), { message: `${where}：<html> 上的 data-fonts、data-fonts-unit 该是新的一页的` })
+      .toEqual(one.want);
+    await context.close();
+  }
+});

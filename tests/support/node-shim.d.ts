@@ -34,6 +34,13 @@ declare module 'node:buffer' {
   export const Buffer: { from(data: Uint8Array): Uint8Array };
 }
 
+// 裁剪字体的库用来压、解 WOFF2 的那个库（wawoff2）也没有带类型声明。只声明解开的那一个函数：
+// 按范围分字体文件的时候，拿做好的文件去和原字体比字形（tests/support/fontTool.ts 的 glyphComparer），要先把它还原成普通的字体文件。
+declare module 'wawoff2' {
+  const wawoff2: { decompress(data: Uint8Array): Promise<Uint8Array> };
+  export default wawoff2;
+}
+
 // 裁剪字体的库（subset-font）自己没有带类型声明。只声明用到的这一个函数和这几个选项。
 declare module 'subset-font' {
   export interface SubsetFontOptions {

@@ -2,12 +2,15 @@
 // 三个地方用它：做字体的工具（tests/tools/make-fonts.test.ts，npm run fonts）、它自己的测试（同一个文件，随 npm test 跑）、
 // 查放进仓库的字体文件的测试（tests/fonts/font-files.test.ts，随 npm test 跑）。只在 Node 里跑；src/ 里的程序不要用。
 //
-// 分四段：
+// 分五段（前四段是现在用着的；第五段是另一种分法，写好了，开关关着）：
 //   一、做法      用哪三个原字体、留哪些排版功能、名称怎么写。改了其中一样，RECIPE 加一。
 //   二、数字      网站上显示哪些字、各归哪一组。不靠人列字表：正文用页面解析正文的那段程序读，沙盘旁边的字、题签、
 //                 “沙盘上的东西”一栏用页面生成它们的那几个函数算；界面上的字是 src/ 里的程序原样写着的每一个字。
 //   三、做文件    给原字体换名称表、裁剪、压成 WOFF2；样式表、记录、给页面用的那个模块各是什么字。
 //   四、读回来    放进仓库的那几个文件读成什么样，网站要的字它们有没有。
+//   五、按范围分  字体文件照“一页显示什么”分范围的那一种分法（FONTS_BY_SCOPE，关着）：每一种页面显示哪些字、要做哪些文件、
+//                 照清单写的几样、格式 4 的记录；量“挨着别的字会变样的字”、拿做好的文件和原字体比字形（这两样要 HarfBuzz，做文件时才用）。
+//                 它的测试在 tests/fonts/font-scopes.test.ts。
 //
 // 原字体不进仓库：放在 .cache/fonts/（见 README）。第二段和第四段都不用原字体，所以 npm test 在没有原字体的机器上照样跑。
 
@@ -24,7 +27,9 @@ import { stopMarks } from '../../src/domain/stopMarks';
 import type { Figure, FigureCard, Source, StopContent } from '../../src/domain/types';
 import type { LabelKind } from '../../src/stage/overlay/types';
 import { labelKind } from '../../src/stage/styles';
+import { collectSources } from '../../src/ui/sourcesLines';
 import { SANS_LABELS, placeLabel } from '../../src/ui/text';
+import { SOURCES_SCOPE, scopeFileName, scopeIdProblems, scopeNameClashes } from './fontNames';
 import type { FontTables } from './sfnt';
 import { charactersOf, checkSfnt, cmapOf, englishName, featuresOf, glyphCountOf, hintingOf, namesOf, readSfnt, readWoff2, renameSfnt, weightOf } from './sfnt';
 
@@ -403,178 +408,11 @@ export function planFonts(
       labels.add(label);
     }
   };
-  /** 不用点开就看得见的。 */
-  const first = (home: string, label: string, text: string | undefined | null): void => put(`first:${home}`, label, text);
-  /** 点开才看得见的。 */
-  const more = (home: string, label: string, text: string | undefined | null): void => put(`more:${home}`, label, text);
-  /**
-   * 用楷体排的：只有沙盘上的题签和题签脚上的印。同一个字在头一组宋体里也放一份：楷体文件不预先声明，总比页面晚到，
-   * 它还在路上的那一会儿，这些字先用宋体显示，不能为这个去下载点开才要的那个文件。
-   */
-  const kai = (home: string, label: string, text: string | undefined | null): void => {
-    put('kai', label, text);
-    first(home, label, text);
-  };
-  /**
-   * 一座沙盘上的题签（连站号的印、小像旁边立出的名字）归哪里，照这座沙盘的题签是哪一种分：
-   *   竖着的纸条（strip）用楷体排：进楷体那一组（上面的 kai）；
-   *   平着的纸条（slip）用读正文的宋体排，圆点上的数字也是：不进楷体那一组，只归头一组宋体（不用点开就看得见）。
-   * 不知道是哪一座沙盘的（scene 没有给）照竖着的纸条。平着的纸条的字要是也放进楷体那一组，楷体的文件就白白大出一截，读苏轼的人也得下载。
-   */
-  const labelOn = (scene: TableScene | null | undefined): ((home: string, label: string, text: string | undefined | null) => void) => (scene && labelKindOf(scene.style) === 'slip' ? first : kai);
-  /**
-   * 用黑体排的。同一个字在头一组宋体里也记一份。道理和楷体不一样：楷体的文件还在路上时题签落到随站的宋体上，
-   * 黑体的名单（--font-sans）里没有宋体，黑体还在路上时顶着的是设备上的黑体。记这一份的规矩是：黑体的字不管点没点开都归头一组
-   * （小注的标题点开才看得见，也在头一组）；现在的内容里这些字本来就都在头一组宋体里，文件没有因此多一个字。
-   */
-  const sans = (home: string, label: string, text: string | undefined | null): void => {
-    put('sans', label, text);
-    first(home, label, text);
-  };
-
-  // ---- 界面：程序里原样写着的每一个字（注释不算），index.html 里的字，英文字母、数字和半角的符号
-  for (const [path, text] of Object.entries(site.sources)) {
-    const code = path.endsWith('.html') ? text.replace(/<!--[\s\S]*?-->/g, '') : text;
-    // 字要点了才看得见的文件（“来源”页上的话）：算作点开才看得见的。着色器的注释不算（见 SHADER_DIRS）
-    (pressedSources.includes(path) ? more : first)('common', `程序里（${path}）`, stripComments(code, { shaders: holdsShaders(path) }));
-  }
-  for (let code = 0x20; code < 0x7f; code++) first('common', '英文字母、数字和半角符号', String.fromCodePoint(code));
-  for (const label of site.sansLabels) sans('common', '界面上用黑体排的字', label);
-  for (const label of Object.values(SCENE_CLASS_LABEL)) sans('common', '沙盘上东西的类别名', label);
-  put('kai', '空格', ' ');
-  put('sans', '空格', ' ');
-  // 一行黑体的字放不下、被截掉的时候（现在只有沙盘旁边的时间那一行会截，.stage-date），浏览器自己在行尾添一个省略号：黑体文件里有它，
-  // 这个省略号才是黑体画的。没有的话 Chromium 改画三个半角的句点，用的是设备自带的字体（在浏览器里看过）。
-  // 题签不截，楷体的文件里不放省略号。
-  sans('common', '一行黑体截掉时行尾的省略号', '…');
-
-  // ---- 首页
-  for (const card of site.cards) {
-    for (const text of [card.name, card.era, card.years, card.tagline]) first('common', '首页的人物卡片', text);
-    sans('common', '首页的人物卡片', card.name);
-    // 朝代和年份那一行是黑体
-    for (const text of [card.era, card.years]) sans('common', '首页的人物卡片', text);
-  }
-
-  // ---- 每位人物
+  // 把网站走一遍，每一处的字放进它的篮子（在网站的哪一块上，这里用不着：按范围分文件的那一头才看，见 pageTexts）
+  walkSite(site, { pressedSources, labelKindOf }, put);
+  // 有正文或者有沙盘的站，照走到的先后
   const stopIds: string[] = [];
-  for (const { figure, stops, route, bar, itinerarySources } of site.figures) {
-    const page = `${figure.name}的人物页`;
-    for (const text of [figure.name, figure.era, figure.years, figure.tagline, ...figure.intro]) first('common', page, text);
-    sans('common', page, figure.name);
-    for (const text of [figure.era, figure.years]) sans('common', page, text);
-    for (const stop of figure.stops) {
-      // 目录里的一行；站点页的抬头、底下的上一站和下一站用的也是这几样
-      for (const text of [stop.years, stop.age, stop.summary, placeLabel(stop.place)]) first('common', `${page}（各站目录）`, text);
-      sans('common', `${page}（各站目录）`, stop.title);
-      sans('common', `${page}（各站目录）`, stop.shortTitle);
-      // 目录里每一行的时间、地点、年纪是黑体（站点页抬头里的同样几个字是宋体，所以两套里都有）
-      for (const text of [stop.years, stop.age, placeLabel(stop.place)]) sans('common', `${page}（各站目录）`, text);
-    }
-    // 全程沙盘上站名的题签脚上写着第几站的印（平着的纸条上是名字前头的圆点）：印上的字和题签是同一套字，照页面拼印的那个函数数（网址用不着，给个空的）
-    if (route) for (const mark of Object.values(stopMarks(figure, () => ''))) labelOn(route)('common', `${page}（全程沙盘的印）`, mark.label);
-
-    // ---- 每一站
-    for (const { id, content, scene } of stops) {
-      if (!stopIds.includes(id)) stopIds.push(id);
-      const stopName = figure.stops.find((stop) => stop.id === id)?.shortTitle ?? id;
-      const says = (what: string): string => `${stopName}的${what}`;
-
-      if (content) {
-        const cite = new Map(content.sources.map((source) => [source.id, source.cite]));
-        const cites = (ids: string[]): string[] => ids.flatMap((sourceId) => cite.get(sourceId) ?? []);
-        // 正文：小节标题是黑体，段落和引用是宋体
-        for (const section of content.sections) {
-          sans(id, says('正文'), section.heading);
-          for (const block of section.blocks) {
-            for (const text of block.type === 'quote' ? block.lines : block.segments.map((segment) => segment.text)) first(id, says('正文'), text);
-          }
-        }
-        // 小注：点开才有。标题是黑体
-        for (const note of content.notes) {
-          sans(id, says('小注'), note.title);
-          for (const text of [note.title, note.body, ...cites(note.sourceIds)]) more(id, says('小注'), text);
-        }
-        // 原文：标题印在折着的那一行上，别的点开才有
-        for (const original of content.originals) {
-          first(id, says('原文'), original.title);
-          for (const text of [original.date, original.text, original.plain]) more(id, says('原文'), text);
-        }
-        // 图片：题记、作者、许可印在图下面；alt 只在图片取不到时才显示
-        for (const image of content.images) {
-          for (const text of [image.caption, image.credit, image.license]) first(id, says('图片'), text);
-          more(id, says('图片'), image.alt);
-        }
-        // 凭据：点开才有。小节标题是黑体
-        for (const group of content.provenance) {
-          sans(id, says('凭据'), group.section);
-          more(id, says('凭据'), group.section);
-          for (const item of group.items) for (const text of [item.what, ...cites(item.sourceIds)]) more(id, says('凭据'), text);
-        }
-        for (const question of content.sampleQuestions) more(id, says('示例问题'), question);
-      }
-
-      // 出处：写好了正文的站在 stops/<站>.json 里；正文还没写的站在场景文件自己的 sources 里（没有这一句，凭据里的书名就不在第三个字体文件里）
-      if (scene) table(id, says, scene, content?.sources ?? scene.sources ?? []);
-    }
-
-    // ---- 全程沙盘：摆在人物页上（首页也用它），所以它的字归大家共用的那一拨，不归哪一站。出处是场景文件自己的 sources
-    if (route) table('common', (what) => `${page}（全程沙盘的${what}）`, route, route.sources);
-
-    // ---- 行迹：全程沙盘下面那一条时间轴上跟着日子变的字（时间轴摆在人物页和首页上，所以也归大家共用的那一拨）。
-    // 第一行是黑体：每一个农历年的年名、每一段的“在哪”、首页上排在最前面的名字（括号和数字是固定的字，在 SANS_LABELS 里）；
-    // 第二行的句子是宋体，拖到哪一段就印哪一句，不用点开就看得见；每一段里说不准的，点开时间轴的“图例”才看得见。
-    // 他站在线上、沙盘平时没有立名字的一处的时候，旁边立出那一处的名字（有今名的，读者选了“今名”就立今名）：是题签，楷体，
-    // 名字照行迹里写的数，不在这里另列
-    if (bar) {
-      const where = `${page}（时间轴）`;
-      sans('common', where, bar.name);
-      for (const [, name] of bar.years) sans('common', where, name);
-      for (const item of [bar.first, bar.last, ...bar.stretches]) {
-        sans('common', where, item.label);
-        first('common', where, item.says);
-      }
-      for (const stretch of bar.stretches) more('common', where, stretch.unsure);
-      for (const stretch of bar.stretches) for (const name of stretch.spot?.slice(2) ?? []) labelOn(route)('common', `${page}（小像旁边立出的名字）`, name as string);
-    }
-
-    // ---- 行迹的出处：全程沙盘的凭据最后的一段（一条出处、读了它的什么），点开才看得见
-    for (const source of itinerarySources ?? []) for (const text of [source.cite, source.read]) more('common', `${page}（凭据里行迹的出处）`, text);
-  }
-
-  /**
-   * 一座沙盘（站点沙盘，或者全程沙盘）要显示的字：都是页面生成它们的那几个函数算出来的。
-   * home 是这些字归谁（一站的 id，或者 common）；says 给出“用在哪”的叫法。
-   * 全程沙盘上站名的题签脚上还有写着站号的印：那几个数字是楷体的，在上面“每位人物”那一段里数（照页面拼印的函数）。
-   */
-  function table(home: string, says: (what: string) => string, scene: TableScene, sources: Source[]): void {
-    // 沙盘旁边的字：小节名和时间是黑体；
-    // 题记是一句话，和远处的那句话、一句说明的两种写法一样是宋体；完整的说明点开才有
-    for (const heading of sectionHeadings(scene)) {
-      const info = sectionInfo(scene, heading);
-      sans(home, says('沙盘'), info.section);
-      sans(home, says('沙盘'), info.date);
-      for (const text of [info.line, info.date, info.note.short, info.note.brief, ...info.far.map((far) => `${far.name}：${far.say}`)]) first(home, says('沙盘'), text);
-      for (const line of info.note.lines) more(home, says('“说明”'), line);
-      // 题签：古名、今名两种叫法。竖着的纸条归楷体那一组，平着的纸条只归头一组宋体（labelOn）
-      for (const names of ['ancient', 'modern'] as const) for (const strip of stripTexts(scene, heading, names)) labelOn(scene)(home, says('题签'), strip.text);
-    }
-    // 凭据里“沙盘上的东西”一栏：点开才有
-    const register = sceneRegister(scene, sources);
-    const column = says('“沙盘上的东西”');
-    for (const group of register.groups) {
-      for (const entry of group.entries) {
-        for (const text of [entry.name, entry.basis, ...entry.cites]) more(home, column, text);
-        if (entry.unsure) more(home, column, `${entry.name}的${entry.unsure}是示意。`);
-      }
-    }
-    for (const item of register.notDrawn) for (const text of [item.name, item.why, ...item.cites]) more(home, column, text);
-    for (const credit of register.credits) more(home, column, credit);
-    // 全程沙盘上的小像（场景文件最外面的 piece）：“记号”一栏里的三句
-    if (scene.level === 'route' && scene.piece) for (const text of [scene.piece.name, scene.piece.basis, scene.piece.note]) more(home, column, text);
-    // 全程沙盘的凭据开头的几条总的说明（场景文件最外面的 general）：印的是每一条的那段话（id 不印），点开才有
-    if (scene.level === 'route') for (const line of scene.general ?? []) more(home, column, line.text);
-  }
+  for (const { stops } of site.figures) for (const { id } of stops) if (!stopIds.includes(id)) stopIds.push(id);
 
   // ---- 分组
   const basket = (name: string): Map<string, Set<string>> => baskets.get(name) ?? new Map();
@@ -655,7 +493,231 @@ export function planFonts(
   return { files, onlyFromSrc, fallback: sortedString(fallbackUsed) };
 }
 
-/** src/ 里算作“界面”的程序文件：.ts 和 .tsx，不算这三个文件夹（替身和开发用的页面不是给读者看的；src/fonts/ 是工具做的）。 */
+/**
+ * 一处字在网站的哪一块上。数字的时候每一处都带着它：不拆的时候用不着；按范围分文件的时候（pageTexts），照它把字归到各种页面。
+ *   program    src/ 里的一个程序文件，或者 index.html
+ *   fixed      不跟着哪个文件的固定的字：英文字母、数字、半角符号，界面上用黑体排的字，沙盘上东西的类别名，空格，省略号
+ *   card       首页的一张人物卡片
+ *   name       人物的名字：人物页的抬头印它，他每一站的页面上（“位置”那一行、讲解员面板里）也印它
+ *   head       人物页抬头里别的几样：朝代、年份、一句话、简介
+ *   row        各站目录里的一行（summary 是 true 的是那一句摘要；别的几样——标题、短标题、年份、地点、年纪——站点页的抬头也印）
+ *   marks      全程沙盘上站名的题签脚上的印
+ *   route      全程沙盘：沙盘旁边的字、题签、“说明”、“沙盘上的东西”
+ *   bar        时间轴上跟着日子变的字，和小像旁边立出的名字
+ *   itinerary  凭据里行迹的出处
+ *   stop       一站自己的：正文、小注、原文、图片、凭据、示例问题，和它自己的沙盘
+ */
+export type SitePart =
+  | { at: 'program'; path: string }
+  | { at: 'fixed' }
+  | { at: 'card'; card: string }
+  | { at: 'name' | 'head' | 'marks' | 'route' | 'bar' | 'itinerary'; figure: string }
+  | { at: 'row'; figure: string; stop: string; summary: boolean }
+  | { at: 'stop'; figure: string; stop: string };
+
+/**
+ * 把网站走一遍：每一处显示的字交给 emit——进哪个篮子（sans；kai；first:<归谁>；more:<归谁>）、用在哪（给人看的叫法）、是什么字、在网站的哪一块上。
+ * 用的都是页面自己的函数（见文件开头）。数字的两头——不拆的四个文件（planFonts）和按范围分的文件（pageTexts）——走的是这同一遍。
+ */
+export function walkSite(
+  site: SiteText,
+  options: { pressedSources: readonly string[]; labelKindOf: (style: string | undefined) => LabelKind },
+  emit: (basket: string, label: string, text: string | undefined | null, part: SitePart) => void,
+): void {
+  const { pressedSources, labelKindOf } = options;
+  /** 现在走到网站的哪一块了。 */
+  let part: SitePart = { at: 'fixed' };
+  const put = (basket: string, label: string, text: string | undefined | null): void => emit(basket, label, text, part);
+  /** 不用点开就看得见的。 */
+  const first = (home: string, label: string, text: string | undefined | null): void => put(`first:${home}`, label, text);
+  /** 点开才看得见的。 */
+  const more = (home: string, label: string, text: string | undefined | null): void => put(`more:${home}`, label, text);
+  /**
+   * 用楷体排的：只有沙盘上的题签和题签脚上的印。同一个字在头一组宋体里也放一份：楷体文件不预先声明，总比页面晚到，
+   * 它还在路上的那一会儿，这些字先用宋体显示，不能为这个去下载点开才要的那个文件。
+   */
+  const kai = (home: string, label: string, text: string | undefined | null): void => {
+    put('kai', label, text);
+    first(home, label, text);
+  };
+  /**
+   * 一座沙盘上的题签（连站号的印、小像旁边立出的名字）归哪里，照这座沙盘的题签是哪一种分：
+   *   竖着的纸条（strip）用楷体排：进楷体那一组（上面的 kai）；
+   *   平着的纸条（slip）用读正文的宋体排，圆点上的数字也是：不进楷体那一组，只归头一组宋体（不用点开就看得见）。
+   * 不知道是哪一座沙盘的（scene 没有给）照竖着的纸条。平着的纸条的字要是也放进楷体那一组，楷体的文件就白白大出一截，读苏轼的人也得下载。
+   */
+  const labelOn = (scene: TableScene | null | undefined): ((home: string, label: string, text: string | undefined | null) => void) => (scene && labelKindOf(scene.style) === 'slip' ? first : kai);
+  /**
+   * 用黑体排的。同一个字在头一组宋体里也记一份。道理和楷体不一样：楷体的文件还在路上时题签落到随站的宋体上，
+   * 黑体的名单（--font-sans）里没有宋体，黑体还在路上时顶着的是设备上的黑体。记这一份的规矩是：黑体的字不管点没点开都归头一组
+   * （小注的标题点开才看得见，也在头一组）；现在的内容里这些字本来就都在头一组宋体里，文件没有因此多一个字。
+   */
+  const sans = (home: string, label: string, text: string | undefined | null): void => {
+    put('sans', label, text);
+    first(home, label, text);
+  };
+
+  // ---- 界面：程序里原样写着的每一个字（注释不算），index.html 里的字，英文字母、数字和半角的符号
+  for (const [path, text] of Object.entries(site.sources)) {
+    part = { at: 'program', path };
+    const code = path.endsWith('.html') ? text.replace(/<!--[\s\S]*?-->/g, '') : text;
+    // 字要点了才看得见的文件（“来源”页上的话）：算作点开才看得见的。着色器的注释不算（见 SHADER_DIRS）
+    (pressedSources.includes(path) ? more : first)('common', `程序里（${path}）`, stripComments(code, { shaders: holdsShaders(path) }));
+  }
+  part = { at: 'fixed' };
+  for (let code = 0x20; code < 0x7f; code++) first('common', '英文字母、数字和半角符号', String.fromCodePoint(code));
+  for (const label of site.sansLabels) sans('common', '界面上用黑体排的字', label);
+  for (const label of Object.values(SCENE_CLASS_LABEL)) sans('common', '沙盘上东西的类别名', label);
+  put('kai', '空格', ' ');
+  put('sans', '空格', ' ');
+  // 一行黑体的字放不下、被截掉的时候（现在只有沙盘旁边的时间那一行会截，.stage-date），浏览器自己在行尾添一个省略号：黑体文件里有它，
+  // 这个省略号才是黑体画的。没有的话 Chromium 改画三个半角的句点，用的是设备自带的字体（在浏览器里看过）。
+  // 题签不截，楷体的文件里不放省略号。
+  sans('common', '一行黑体截掉时行尾的省略号', '…');
+
+  // ---- 首页
+  for (const card of site.cards) {
+    part = { at: 'card', card: card.id };
+    for (const text of [card.name, card.era, card.years, card.tagline]) first('common', '首页的人物卡片', text);
+    sans('common', '首页的人物卡片', card.name);
+    // 朝代和年份那一行是黑体
+    for (const text of [card.era, card.years]) sans('common', '首页的人物卡片', text);
+  }
+
+  // ---- 每位人物
+  for (const { figure, stops, route, bar, itinerarySources } of site.figures) {
+    const page = `${figure.name}的人物页`;
+    // 名字单记一块：人物页的抬头印它，他每一站的页面上“位置”那一行、讲解员面板里也印它
+    part = { at: 'name', figure: figure.id };
+    first('common', page, figure.name);
+    part = { at: 'head', figure: figure.id };
+    for (const text of [figure.era, figure.years, figure.tagline, ...figure.intro]) first('common', page, text);
+    part = { at: 'name', figure: figure.id };
+    sans('common', page, figure.name);
+    part = { at: 'head', figure: figure.id };
+    for (const text of [figure.era, figure.years]) sans('common', page, text);
+    for (const stop of figure.stops) {
+      // 目录里的一行；站点页的抬头、底下的上一站和下一站用的也是这几样（那一句摘要除外：它只印在目录里，单记一块）
+      part = { at: 'row', figure: figure.id, stop: stop.id, summary: true };
+      first('common', `${page}（各站目录）`, stop.summary);
+      part = { at: 'row', figure: figure.id, stop: stop.id, summary: false };
+      for (const text of [stop.years, stop.age, placeLabel(stop.place)]) first('common', `${page}（各站目录）`, text);
+      sans('common', `${page}（各站目录）`, stop.title);
+      sans('common', `${page}（各站目录）`, stop.shortTitle);
+      // 目录里每一行的时间、地点、年纪是黑体（站点页抬头里的同样几个字是宋体，所以两套里都有）
+      for (const text of [stop.years, stop.age, placeLabel(stop.place)]) sans('common', `${page}（各站目录）`, text);
+    }
+    // 全程沙盘上站名的题签脚上写着第几站的印（平着的纸条上是名字前头的圆点）：印上的字和题签是同一套字，照页面拼印的那个函数数（网址用不着，给个空的）
+    part = { at: 'marks', figure: figure.id };
+    if (route) for (const mark of Object.values(stopMarks(figure, () => ''))) labelOn(route)('common', `${page}（全程沙盘的印）`, mark.label);
+
+    // ---- 每一站
+    for (const { id, content, scene } of stops) {
+      part = { at: 'stop', figure: figure.id, stop: id };
+      const stopName = figure.stops.find((stop) => stop.id === id)?.shortTitle ?? id;
+      const says = (what: string): string => `${stopName}的${what}`;
+
+      if (content) {
+        const cite = new Map(content.sources.map((source) => [source.id, source.cite]));
+        const cites = (ids: string[]): string[] => ids.flatMap((sourceId) => cite.get(sourceId) ?? []);
+        // 正文：小节标题是黑体，段落和引用是宋体
+        for (const section of content.sections) {
+          sans(id, says('正文'), section.heading);
+          for (const block of section.blocks) {
+            for (const text of block.type === 'quote' ? block.lines : block.segments.map((segment) => segment.text)) first(id, says('正文'), text);
+          }
+        }
+        // 小注：点开才有。标题是黑体
+        for (const note of content.notes) {
+          sans(id, says('小注'), note.title);
+          for (const text of [note.title, note.body, ...cites(note.sourceIds)]) more(id, says('小注'), text);
+        }
+        // 原文：标题印在折着的那一行上，别的点开才有
+        for (const original of content.originals) {
+          first(id, says('原文'), original.title);
+          for (const text of [original.date, original.text, original.plain]) more(id, says('原文'), text);
+        }
+        // 图片：题记、作者、许可印在图下面；alt 只在图片取不到时才显示
+        for (const image of content.images) {
+          for (const text of [image.caption, image.credit, image.license]) first(id, says('图片'), text);
+          more(id, says('图片'), image.alt);
+        }
+        // 凭据：点开才有。小节标题是黑体
+        for (const group of content.provenance) {
+          sans(id, says('凭据'), group.section);
+          more(id, says('凭据'), group.section);
+          for (const item of group.items) for (const text of [item.what, ...cites(item.sourceIds)]) more(id, says('凭据'), text);
+        }
+        for (const question of content.sampleQuestions) more(id, says('示例问题'), question);
+      }
+
+      // 出处：写好了正文的站在 stops/<站>.json 里；正文还没写的站在场景文件自己的 sources 里（没有这一句，凭据里的书名就不在第三个字体文件里）
+      if (scene) table(id, says, scene, content?.sources ?? scene.sources ?? []);
+    }
+
+    // ---- 全程沙盘：摆在人物页上（首页也用它），所以它的字归大家共用的那一拨，不归哪一站。出处是场景文件自己的 sources
+    part = { at: 'route', figure: figure.id };
+    if (route) table('common', (what) => `${page}（全程沙盘的${what}）`, route, route.sources);
+
+    // ---- 行迹：全程沙盘下面那一条时间轴上跟着日子变的字（时间轴摆在人物页和首页上，所以也归大家共用的那一拨）。
+    // 第一行是黑体：每一个农历年的年名、每一段的“在哪”、首页上排在最前面的名字（括号和数字是固定的字，在 SANS_LABELS 里）；
+    // 第二行的句子是宋体，拖到哪一段就印哪一句，不用点开就看得见；每一段里说不准的，点开时间轴的“图例”才看得见。
+    // 他站在线上、沙盘平时没有立名字的一处的时候，旁边立出那一处的名字（有今名的，读者选了“今名”就立今名）：是题签，楷体，
+    // 名字照行迹里写的数，不在这里另列
+    part = { at: 'bar', figure: figure.id };
+    if (bar) {
+      const where = `${page}（时间轴）`;
+      sans('common', where, bar.name);
+      for (const [, name] of bar.years) sans('common', where, name);
+      for (const item of [bar.first, bar.last, ...bar.stretches]) {
+        sans('common', where, item.label);
+        first('common', where, item.says);
+      }
+      for (const stretch of bar.stretches) more('common', where, stretch.unsure);
+      for (const stretch of bar.stretches) for (const name of stretch.spot?.slice(2) ?? []) labelOn(route)('common', `${page}（小像旁边立出的名字）`, name as string);
+    }
+
+    // ---- 行迹的出处：全程沙盘的凭据最后的一段（一条出处、读了它的什么），点开才看得见
+    part = { at: 'itinerary', figure: figure.id };
+    for (const source of itinerarySources ?? []) for (const text of [source.cite, source.read]) more('common', `${page}（凭据里行迹的出处）`, text);
+  }
+
+  /**
+   * 一座沙盘（站点沙盘，或者全程沙盘）要显示的字：都是页面生成它们的那几个函数算出来的。
+   * home 是这些字归谁（一站的 id，或者 common）；says 给出“用在哪”的叫法。
+   * 全程沙盘上站名的题签脚上还有写着站号的印：那几个数字是楷体的，在上面“每位人物”那一段里数（照页面拼印的函数）。
+   */
+  function table(home: string, says: (what: string) => string, scene: TableScene, sources: Source[]): void {
+    // 沙盘旁边的字：小节名和时间是黑体；
+    // 题记是一句话，和远处的那句话、一句说明的两种写法一样是宋体；完整的说明点开才有
+    for (const heading of sectionHeadings(scene)) {
+      const info = sectionInfo(scene, heading);
+      sans(home, says('沙盘'), info.section);
+      sans(home, says('沙盘'), info.date);
+      for (const text of [info.line, info.date, info.note.short, info.note.brief, ...info.far.map((far) => `${far.name}：${far.say}`)]) first(home, says('沙盘'), text);
+      for (const line of info.note.lines) more(home, says('“说明”'), line);
+      // 题签：古名、今名两种叫法。竖着的纸条归楷体那一组，平着的纸条只归头一组宋体（labelOn）
+      for (const names of ['ancient', 'modern'] as const) for (const strip of stripTexts(scene, heading, names)) labelOn(scene)(home, says('题签'), strip.text);
+    }
+    // 凭据里“沙盘上的东西”一栏：点开才有
+    const register = sceneRegister(scene, sources);
+    const column = says('“沙盘上的东西”');
+    for (const group of register.groups) {
+      for (const entry of group.entries) {
+        for (const text of [entry.name, entry.basis, ...entry.cites]) more(home, column, text);
+        if (entry.unsure) more(home, column, `${entry.name}的${entry.unsure}是示意。`);
+      }
+    }
+    for (const item of register.notDrawn) for (const text of [item.name, item.why, ...item.cites]) more(home, column, text);
+    for (const credit of register.credits) more(home, column, credit);
+    // 全程沙盘上的小像（场景文件最外面的 piece）：“记号”一栏里的三句
+    if (scene.level === 'route' && scene.piece) for (const text of [scene.piece.name, scene.piece.basis, scene.piece.note]) more(home, column, text);
+    // 全程沙盘的凭据开头的几条总的说明（场景文件最外面的 general）：印的是每一条的那段话（id 不印），点开才有
+    if (scene.level === 'route') for (const line of scene.general ?? []) more(home, column, line.text);
+  }
+}
+
+/** src/ 里算作“界面”的程序文件：.ts 和 .tsx，不算这三个文件夹（替身和开发用的页面不是给读者看的；src/fonts/ 是工具做的——那里唯一手写的 scope.ts 里没有给读者看的字）。 */
 export function isInterfaceSource(path: string): boolean {
   return /^src\/.*\.tsx?$/.test(path) && !path.startsWith('src/ui/dev/') && !path.startsWith('src/stage/dev/') && !path.startsWith(`${FONTS_DIR}/`);
 }
@@ -746,7 +808,7 @@ export function readOriginal(id: FontSourceId): Uint8Array {
  * 做一个字体文件：先在原字体里换上新的名称表，再裁剪到只剩这一组字、压成 WOFF2。返回 .woff2 的字节。
  * original 是原字体的字节（readOriginal 给的）。noHinting 只在比大小的时候用。
  */
-export async function makeFont(file: PlannedFile, original: Uint8Array, options: { noHinting?: boolean } = {}): Promise<Uint8Array> {
+export async function makeFont(file: Pick<PlannedFile, 'name' | 'source' | 'family' | 'postscript' | 'characters' | 'where'>, original: Uint8Array, options: { noHinting?: boolean } = {}): Promise<Uint8Array> {
   const source = FONT_SOURCES[file.source];
   const { tables } = readSfnt(original);
   const has = cmapOf(tables);
@@ -1047,7 +1109,10 @@ const FACT_NAMES = { weight: '粗细', features: '排版功能', hinting: '提�
  * 字数、字形数——和文件里再读出来的一样（记录被手改过、合并坏了的时候，文件的记号还对得上，这几样却不对：
  * 不查的话，测试说对不上，工具却说“已经是新的”）。read 给出一个文件的字节，不在是 null。都对是空的。
  */
-export function shippedFileProblems(record: FontRecord, read: (file: string) => Uint8Array | null): string[] {
+export function shippedFileProblems(
+  record: { files: readonly Pick<FontFileRecord, 'file' | 'family' | 'postscript' | 'source' | 'sha256' | 'weight' | 'features' | 'hinting' | 'bytes' | 'count' | 'glyphs'>[] },
+  read: (file: string) => Uint8Array | null,
+): string[] {
   const problems: string[] = [];
   for (const item of record.files) {
     const bytes = read(item.file);
@@ -1106,4 +1171,739 @@ export function englishNames(tables: FontTables): { names: Map<number, string>; 
   const all = namesOf(tables);
   const english = all.filter((n) => n.platform === 3 && n.lang === 0x409);
   return { names: new Map(english.map((n) => [n.nameId, n.text])), others: all.length - english.length };
+}
+
+// ================================================================ 五、按范围分文件（开关关着）
+//
+// 现在的四个文件是全站共用的：读哪位人物的人，都下载了每一位人物的字。这一段是另一种分法，写好了、有测试，开关关着：
+// 字体文件照“一页显示什么”分范围——框架的两个文件（程序自己印的字、每一张卡片），每位人物的（他的人物页不点开就看得见的、
+// 点开才看得见的，他的黑体，他的题签用的楷体），他每一站的（有正文或者有自己的沙盘的站：那一站的页面除了框架以外显示的字，整份，
+// 别的页面也有的字照样带着），“来源”页的。范围之间不比较：两个范围都用到的字，两个文件里各有一份。
+// 开关（FONTS_BY_SCOPE）关着的时候这一段只被测试叫到（tests/fonts/font-scopes.test.ts，随 npm test 跑，不看开关），
+// 做字体的工具走的还是上面四段，写的还是那四个文件和格式 3 的记录。
+
+/**
+ * 字体文件要不要按范围分。**现在关着**。看这个开关的只有一处：做字体的工具开头的那一处分叉（tests/tools/make-fonts.test.ts）。
+ * 关着：工具做的是全站共用的那四个文件，一个字节也不多写。
+ * 打开（改成 true，跑 npm run fonts）：工具照 planScopes 做文件，写 fonts.css（每个范围一条换名称的规则）、scopes/ 里点开才要的文件的样式表、
+ * scopes.ts、index.html 里先不生效的预先声明、格式 4 的记录。
+ * **现在还不能打开**，有两件事没有做完：
+ *   一、页面那一头。页面已经在 <html> 上写着自己的范围（src/fonts/scope.ts），样式表里的字体记号也留好了位置
+ *       （var(--own-song, …)、var(--own-sans, …)）；还没有做的是按范围去要文件（楷体的名称、点开才要的文件、probe.ts 里给页面的几样），
+ *       查放进仓库的字体、查构建结果、浏览器里走一遍的那几份测试也都还是照四个文件写的。
+ *   二、“来源”页的那个文件的名称。照现在的拼法它叫 yanlu-song-sources，写进文件里的 PostScript 名称就是 YanluSongSources-Regular，
+ *       里面有原字体保留的名字 Source（RESERVED_WORDS）：做文件的时候 fontFileProblems 查得出来，工具不肯写。这一条不能放松；
+ *       要先给这个文件另定一个写进文件里的名称（或者另定文件名），再打开。别的十五个文件没有这个毛病。
+ * 试做过一回（在仓库外面，把开关打开）：十六个文件，每个做两遍字节都一样，每个字的字形和现在的四个文件里的一样。
+ */
+export const FONTS_BY_SCOPE: boolean = false;
+/** 按范围分了以后记录的格式（多了 pages、home、joiners，每个文件那一项里多了 face、scope、unit、role、sheet）。开关关着的时候记录还是 RECORD_VERSION。 */
+export const SCOPE_RECORD_VERSION = 4;
+/** 各个范围自己的文件都在这个文件夹里（它在 src/fonts/ 里面）；框架的两个还在 src/fonts/ 这一层。 */
+export const SCOPES_DIR = 'scopes';
+
+/**
+ * PRESSED_SOURCES 里的每个文件，按范围分的时候它的字归哪里：
+ *   sources  “来源”页自己的话：归“来源”页，在那一页上不用点开就看得见；
+ *   bar      时间轴的“图例”里的话：归每一位有时间轴的人物，点开才看得见。
+ * PRESSED_SOURCES 里的文件都要在这里写明；不在 PRESSED_SOURCES 里的界面文件归框架。
+ */
+export const PRESSED_SOURCE_SCOPES: Readonly<Record<string, 'sources' | 'bar'>> = { 'src/ui/sourcesText.ts': 'sources', 'src/timebar/barNoteText.ts': 'bar' };
+
+/** 字 → 用在哪几处。 */
+export type Uses = Map<string, Set<string>>;
+
+const addUses = (uses: Uses, label: string, chars: Iterable<string>): void => {
+  for (const ch of chars) {
+    let labels = uses.get(ch);
+    if (!labels) uses.set(ch, (labels = new Set()));
+    labels.add(label);
+  }
+};
+const mergeUses = (parts: readonly (Uses | undefined)[]): Uses => {
+  const out: Uses = new Map();
+  for (const part of parts) for (const [ch, labels] of part ?? []) for (const label of labels) addUses(out, label, [ch]);
+  return out;
+};
+
+/**
+ * 页面有这几种：
+ *   frame    只有框架的字的页面（没找到人物的那一页）
+ *   home     首页：框架的字以外，沙盘栏里摆着头一位可以点进去的人物的全程沙盘和时间轴
+ *   figure   一位人物的人物页
+ *   unit     有正文或者有自己的沙盘的一站：它有自己的文件
+ *   stop     两样都没有的一站：没有自己的文件，用的是这位人物的
+ *   sources  “来源”页
+ */
+export type PageKind = 'frame' | 'home' | 'figure' | 'unit' | 'stop' | 'sources';
+
+/** 一种页面显示的字，四组（和不拆的时候同一条规矩：黑体的字、楷体的字在 rest 里也各记一份）。 */
+export interface PageText {
+  kind: PageKind;
+  /** 是哪位人物的页面（首页：沙盘栏里摆着的那一位）；没有是 null。 */
+  figure: string | null;
+  /** 是哪一站的页面；不是站点页是 null。 */
+  stop: string | null;
+  /** 这一页的叫法（给“哪个字不在字体里”那句话用）。 */
+  name: string;
+  /** 不用点开就看得见的。 */
+  rest: Uses;
+  /** 点开才看得见的。 */
+  pressed: Uses;
+  /** 用黑体排的。 */
+  sans: Uses;
+  /** 用楷体排的（竖着的题签和印）。 */
+  kai: Uses;
+}
+
+/** 全站的字，按页面分好。 */
+export interface SiteTexts {
+  /** 框架：程序自己印的字、英文字母数字和半角符号、界面上用黑体排的字、每一张人物卡片。哪一页都带着。 */
+  frame: { song: Uses; sans: Uses };
+  /** 首页的沙盘栏里摆着哪位人物（头一位可以点进去的）；没有是 null。 */
+  home: string | null;
+  /** 每一种页面：只有框架的，首页，每位人物的人物页和他的每一站，“来源”页。 */
+  pages: PageText[];
+  /** 记在 FALLBACK_OK 里、网站上又真的用到了的字。 */
+  fallback: string;
+}
+
+export interface ScopeOptions {
+  fallbackOk?: Readonly<Record<string, string>>;
+  pressedSources?: readonly string[];
+  pressedScopes?: Readonly<Record<string, 'sources' | 'bar'>>;
+  labelKindOf?: (style: string | undefined) => LabelKind;
+}
+
+/**
+ * 每一种页面显示哪些字。走的是 planFonts 的那同一遍（walkSite），只是照“在网站的哪一块上”把字归到页面：
+ *   人物页    抬头，各站目录的每一行，印，全程沙盘，时间轴；点开才有的：全程沙盘的“说明”和“沙盘上的东西”，时间轴上说不准的，
+ *             行迹的出处，有时间轴的还有“图例”里的话
+ *   首页      他的印、全程沙盘、时间轴（卡片和首页自己的话在框架里）
+ *   一站      人物的名字（“位置”那一行印它），它在目录里那一行的几样（标题、短标题、年份、地点、年纪；摘要不印），它的正文和它自己的沙盘；
+ *             没有自己的沙盘的，沙盘栏里摆的是全程沙盘：全程沙盘和印整份算进来。黑体那一组另有上一站、下一站的名字
+ *   “来源”页  那一页自己的话（sourcesText.ts），和页面收齐两栏的那个函数（src/ui/sourcesLines.ts 的 collectSources）给出的每一行、
+ *             每一张图片是哪一站的、题记、作者、许可
+ */
+export function pageTexts(site: SiteText, options: ScopeOptions = {}): SiteTexts {
+  const fallbackOk = options.fallbackOk ?? FALLBACK_OK;
+  const pressedSources = options.pressedSources ?? PRESSED_SOURCES;
+  const pressedScopes = options.pressedScopes ?? PRESSED_SOURCE_SCOPES;
+  const labelKindOf = options.labelKindOf ?? ((style: string | undefined): LabelKind => labelKind(style));
+  for (const path of pressedSources) {
+    if (!Object.hasOwn(pressedScopes, path)) throw new Error(`${path} 列在 PRESSED_SOURCES 里，按范围分的时候它的字归哪里没有写：在 tests/support/fontTool.ts 的 PRESSED_SOURCE_SCOPES 里写明`);
+  }
+
+  // 每一块、每一组各一个篮子：<组>|<块> → 字 → 用在哪。组是 first、more、sans、kai
+  const bins = new Map<string, Uses>();
+  const fallbackUsed = new Set<string>();
+  const keep = (text: string): string[] =>
+    shippable(text).filter((ch) => {
+      if (!Object.hasOwn(fallbackOk, ch)) return true;
+      fallbackUsed.add(ch);
+      return false;
+    });
+  const blockOf = (part: SitePart): string => {
+    if (part.at === 'program') return `program|${part.path}`;
+    if (part.at === 'fixed') return 'fixed';
+    if (part.at === 'card') return 'card';
+    if (part.at === 'row') return `row|${part.figure}|${part.stop}|${part.summary ? 'summary' : 'head'}`;
+    if (part.at === 'stop') return `stop|${part.figure}|${part.stop}`;
+    return `${part.at}|${part.figure}`;
+  };
+  walkSite(site, { pressedSources, labelKindOf }, (basket, label, text, part) => {
+    if (text === undefined || text === null) return;
+    const group = basket.startsWith('first:') ? 'first' : basket.startsWith('more:') ? 'more' : basket;
+    const key = `${group}|${blockOf(part)}`;
+    let uses = bins.get(key);
+    if (!uses) bins.set(key, (uses = new Map()));
+    addUses(uses, label, keep(text));
+  });
+  const pick = (group: 'first' | 'more' | 'sans' | 'kai', blocks: readonly string[]): Uses => mergeUses(blocks.map((block) => bins.get(`${group}|${block}`)));
+  const programs = (scope: 'sources' | 'bar'): string[] => pressedSources.filter((path) => pressedScopes[path] === scope).map((path) => `program|${path}`);
+
+  const frame = {
+    song: pick('first', [...Object.keys(site.sources).filter((path) => !pressedSources.includes(path)).map((path) => `program|${path}`), 'fixed', 'card']),
+    sans: pick('sans', ['fixed', 'card']),
+  };
+  const none = (): Uses => new Map();
+  const pages: PageText[] = [{ kind: 'frame', figure: null, stop: null, name: '只有框架的字的页面', rest: mergeUses([frame.song]), pressed: none(), sans: mergeUses([frame.sans]), kai: none() }];
+
+  const homeCard = site.cards.find((card) => card.available);
+  const home = (homeCard && site.figures.find((item) => item.figure.id === homeCard.id)?.figure.id) ?? null;
+  const figurePages: PageText[] = [];
+  // 人物照 id 的先后（给进来的先后不算数：同样的网站，列出来的总是同样的先后）
+  for (const { figure, stops, bar } of [...site.figures].sort((a, b) => (a.figure.id < b.figure.id ? -1 : a.figure.id > b.figure.id ? 1 : 0))) {
+    const f = figure.id;
+    const table = [`marks|${f}`, `route|${f}`, `bar|${f}`];
+    const legend = bar ? programs('bar') : [];
+    const row = (stop: string): string => `row|${f}|${stop}|head`;
+    if (f === home) {
+      pages.push({ kind: 'home', figure: f, stop: null, name: '首页', rest: pick('first', table), pressed: pick('more', [`route|${f}`, `bar|${f}`, ...legend]), sans: pick('sans', table), kai: pick('kai', table) });
+    }
+    figurePages.push({
+      kind: 'figure',
+      figure: f,
+      stop: null,
+      name: `${figure.name}的人物页`,
+      rest: pick('first', [`name|${f}`, `head|${f}`, ...figure.stops.flatMap((stop) => [`row|${f}|${stop.id}|summary`, row(stop.id)]), ...table]),
+      pressed: pick('more', [`route|${f}`, `bar|${f}`, `itinerary|${f}`, ...legend]),
+      sans: pick('sans', [`name|${f}`, `head|${f}`, ...figure.stops.map((stop) => row(stop.id)), ...table]),
+      kai: pick('kai', table),
+    });
+    figure.stops.forEach((stop, index) => {
+      const own = stops.find((item) => item.id === stop.id);
+      const block = `stop|${f}|${stop.id}`;
+      // 没有自己的沙盘的一站，沙盘栏里摆的是全程沙盘（连印）：整份算进来。时间轴不在站点页上
+      const pane = own?.scene ? [] : [`route|${f}`, `marks|${f}`];
+      const neighbours = [figure.stops[index - 1], figure.stops[index + 1]].flatMap((other) => (other ? [row(other.id)] : []));
+      figurePages.push({
+        kind: own ? 'unit' : 'stop',
+        figure: f,
+        stop: stop.id,
+        name: `${figure.name}的${stop.shortTitle}`,
+        rest: pick('first', [`name|${f}`, row(stop.id), block, ...pane]),
+        pressed: pick('more', [block, ...(own?.scene ? [] : [`route|${f}`])]),
+        sans: pick('sans', [`name|${f}`, row(stop.id), block, ...pane, ...neighbours]),
+        kai: pick('kai', [block, ...pane]),
+      });
+    });
+  }
+  if (!home) pages.push({ kind: 'home', figure: null, stop: null, name: '首页', rest: none(), pressed: none(), sans: none(), kai: none() });
+  pages.push(...figurePages);
+
+  // “来源”页：那一页自己的话，和页面收齐两栏的那个函数给出的东西（给它的是页面读到的那几样：可以点进去的人物，照卡片的先后）
+  const found = collectSources(
+    site.cards.flatMap((card) => {
+      const item = card.available ? site.figures.find((entry) => entry.figure.id === card.id) : undefined;
+      if (!item) return [];
+      const stops = item.figure.stops.map((stop) => {
+        const own = item.stops.find((entry) => entry.id === stop.id);
+        return { name: stop.shortTitle, table: own?.scene?.credits ?? null, pictures: stop.status === 'complete' ? (own?.content?.images ?? null) : null };
+      });
+      return [{ figureId: card.id, name: card.name, route: item.route?.credits ?? null, stops }];
+    }),
+  );
+  const sources: PageText = { kind: 'sources', figure: null, stop: null, name: '“来源”页', rest: pick('more', programs('sources')), pressed: none(), sans: none(), kai: none() };
+  for (const table of found.tables) {
+    // 每一段的小标题是黑体：卡片上的名字（后面的“的沙盘”是那一页自己的话）
+    addUses(sources.sans, `“来源”页（${table.name}的一段的小标题）`, keep(table.name));
+    addUses(sources.rest, `“来源”页（${table.name}的一段的小标题）`, keep(table.name));
+    for (const line of table.lines) addUses(sources.rest, `“来源”页（${table.name}的沙盘的出处）`, keep(line));
+  }
+  for (const { stop, picture } of found.pictures) for (const text of [stop, picture.caption, picture.credit, picture.license]) addUses(sources.rest, '“来源”页（图片）', keep(text));
+  pages.push(sources);
+
+  return { frame, home, pages, fallback: sortedString(fallbackUsed) };
+}
+
+// 各个文件叫什么（scopeFileName）、照 id 可能写出来哪些名字、哪些重了，在 ./fontNames.ts 里（内容校验也用它们）；从这里也给出去。
+export { SOURCES_SCOPE, scopeFileName, scopeFileNames, scopeIdProblems, scopeNameClashes } from './fontNames';
+
+/** 一个范围的一套字在样式表里的名称：框架的是文件里写的那个名称（Yanlu Song），别的在后面接上范围和站（Yanlu Song su-shi xuzhou）。 */
+export function scopeFace(source: FontSourceId, scope: string, unit: string | null): string {
+  return [FONT_SOURCES[source].family, ...(scope === 'frame' ? [] : [scope]), ...(unit === null ? [] : [unit])].join(' ');
+}
+
+/** 按范围分的时候要做的一个字体文件。前六样和 PlannedFile 的同名的那几样是一回事（做文件的 makeFont 只看它们）。 */
+export interface ScopeFile {
+  /** 文件名，不带 .woff2。 */
+  name: string;
+  source: FontSourceId;
+  /** 写进文件里的名称（Yanlu Song、Yanlu Sans、Yanlu Kai：哪个范围的文件都一样）和 PostScript 名称（各是各的）。 */
+  family: string;
+  postscript: string;
+  weight: number;
+  characters: string;
+  where: Map<string, string[]>;
+  /** 样式表里的名称：这个范围自己的（scopeFace）。 */
+  face: string;
+  /** 归哪个范围：frame，一位人物的 id，或者 sources。 */
+  scope: string;
+  /** 归哪一站；不归哪一站是 null。 */
+  unit: string | null;
+  /** rest 不用点开就要的；pressed 点开才要的。 */
+  role: 'rest' | 'pressed';
+  /** 样式表里带不带 unicode-range：只有点开才要的带。 */
+  range: boolean;
+  /** 在 index.html 里怎么声明：always 框架的两个，一打开就取；scope 先不生效，地址合得上才取；none 不声明。 */
+  preload: 'always' | 'scope' | 'none';
+  /** 它的 @font-face 写在哪一份样式表里（相对 src/fonts/）：不用点开就要的都在 fonts.css，点开才要的各在自己范围的那一份。 */
+  sheet: string;
+}
+
+/** 一种页面拿到哪几个文件。 */
+export interface ScopePage {
+  kind: PageKind;
+  figure: string | null;
+  stop: string | null;
+  name: string;
+  /** 不用点开就要的文件（名字，不带 .woff2），照要的先后：框架的两个，这位人物的黑体，楷体（这一页上有竖着的题签才要），宋体。 */
+  rest: string[];
+  /** 点开以后才会取的文件。 */
+  pressed: string[];
+}
+
+export interface ScopePlan {
+  files: ScopeFile[];
+  pages: ScopePage[];
+  home: string | null;
+  /** 挨着别的字会变样的字（做文件的时候在原字体里一对一对量出来的）：都放在框架的宋体文件里。 */
+  joiners: string;
+  fallback: string;
+}
+
+/**
+ * 照范围列出要做的文件，和每一种页面拿到哪几个。规矩只有这几条，范围之间不比较：
+ *   框架的宋体 = 框架的字 + joiners；框架的黑体 = 框架里用黑体排的字。
+ *   一个范围不用点开就要的宋体文件 = 用这个范围的页面不点开就显示的字 − 框架的宋体；
+ *   点开才要的 = 那些页面点开才显示的字 − 框架的宋体 − 前一个文件。
+ *   人物的范围管三种页面：他的人物页，摆着他的全程沙盘的首页，他没有自己的文件的站。一站的范围只管那一站的页面，整份。
+ *   人物的黑体 = 他每一种页面上用黑体排的字合起来 − 框架的黑体；人物的楷体 = 他每一种页面上的题签和印合起来，加一个空格（没有题签用楷体的不做）。
+ *   空文件不做。先后：框架；人物照 id 的先后；一位人物里先是他自己的（黑体、楷体、宋体两个），再照站的先后是各站的；“来源”页最后。
+ * 多大、哪一天做的、谁先谁后来的，都不进这些规矩：同样的网站，列出来的总是同样的文件。
+ * 人物和站的 id 原样写进文件名和照清单写的每一样里：有一个 id 带了小写英文字母、数字、连字符以外的字，就停下来（scopeIdProblems）；
+ * 拼出来的文件名重了也停下来。
+ */
+export function planScopes(site: SiteText, options: ScopeOptions & { joiners: string }): ScopePlan {
+  const badIds = scopeIdProblems(site.figures.map(({ figure }) => ({ id: figure.id, stops: figure.stops.map((stop) => stop.id) })));
+  if (badIds.length > 0) throw new Error(`按范围分的字体文件写不了：${badIds.join('；')}。人物和站的 id 要改。`);
+  const texts = pageTexts(site, options);
+  const fallbackOk = options.fallbackOk ?? FALLBACK_OK;
+  const frameSong = mergeUses([texts.frame.song]);
+  const joiners = sortedString(shippable(options.joiners).filter((ch) => !Object.hasOwn(fallbackOk, ch)));
+  addUses(frameSong, '挨着别的字会变样的字', joiners);
+  const frameSans = texts.frame.sans;
+
+  const files: ScopeFile[] = [];
+  const add = (source: FontSourceId, scope: string, unit: string | null, role: 'rest' | 'pressed', uses: Uses, minus: readonly { has(ch: string): boolean }[] = []): string | null => {
+    const characters = sortedString([...uses.keys()].filter((ch) => !minus.some((set) => set.has(ch))));
+    if (characters === '') return null; // 不做空文件
+    const name = scopeFileName(source, scope, unit, role);
+    files.push({
+      name,
+      source,
+      family: FONT_SOURCES[source].family,
+      postscript: postscriptName(name, FONT_SOURCES[source].weight),
+      weight: FONT_SOURCES[source].weight,
+      characters,
+      where: new Map([...characters].map((ch) => [ch, [...(uses.get(ch) ?? [])]])),
+      face: scopeFace(source, scope, unit),
+      scope,
+      unit,
+      role,
+      range: role === 'pressed',
+      preload: scope === 'frame' ? 'always' : role === 'rest' && source !== 'kai' ? 'scope' : 'none',
+      sheet: role === 'rest' ? 'fonts.css' : `${SCOPES_DIR}/${unit === null ? scope : `${scope}.${unit}`}.css`,
+    });
+    return name;
+  };
+  const list = (...names: (string | null)[]): string[] => names.filter((name): name is string => name !== null);
+
+  const frameFiles = list(add('sans', 'frame', null, 'rest', frameSans), add('song', 'frame', null, 'rest', frameSong));
+  const pages: ScopePage[] = [];
+  const page = (text: PageText, rest: (string | null)[], pressed: (string | null)[]): void => {
+    pages.push({ kind: text.kind, figure: text.figure, stop: text.stop, name: text.name, rest: [...frameFiles, ...list(...rest)], pressed: list(...pressed) });
+  };
+  for (const text of texts.pages) if (text.kind === 'frame' || (text.kind === 'home' && text.figure === null)) page(text, [], []);
+
+  const figureIds = [...new Set(texts.pages.flatMap((text) => (text.figure === null ? [] : [text.figure])))].sort();
+  for (const f of figureIds) {
+    const all = texts.pages.filter((text) => text.figure === f);
+    /** 用这位人物自己的文件的页面：他的人物页，摆着他的全程沙盘的首页，他没有自己的文件的站。 */
+    const base = all.filter((text) => text.kind !== 'unit');
+    const sans = add('sans', f, null, 'rest', mergeUses(all.map((text) => text.sans)), [frameSans]);
+    const kaiUses = mergeUses(all.map((text) => text.kai));
+    if (kaiUses.size > 0) addUses(kaiUses, '空格', ' ');
+    const kai = add('kai', f, null, 'rest', kaiUses);
+    const restUses = mergeUses(base.map((text) => text.rest));
+    const rest = add('song', f, null, 'rest', restUses, [frameSong]);
+    const pressed = add('song', f, null, 'pressed', mergeUses(base.map((text) => text.pressed)), [frameSong, restUses]);
+    for (const text of base) page(text, [sans, text.kai.size > 0 ? kai : null, rest], [pressed]);
+    for (const text of all.filter((item) => item.kind === 'unit')) {
+      const unitRest = add('song', f, text.stop, 'rest', text.rest, [frameSong]);
+      const unitPressed = add('song', f, text.stop, 'pressed', text.pressed, [frameSong, text.rest]);
+      page(text, [sans, text.kai.size > 0 ? kai : null, unitRest], [unitPressed]);
+    }
+  }
+  for (const text of texts.pages.filter((item) => item.kind === 'sources')) {
+    const sans = add('sans', SOURCES_SCOPE, null, 'rest', text.sans, [frameSans]);
+    const rest = add('song', SOURCES_SCOPE, null, 'rest', text.rest, [frameSong]);
+    const pressed = add('song', SOURCES_SCOPE, null, 'pressed', text.pressed, [frameSong, text.rest]);
+    page(text, [sans, rest], [pressed]);
+  }
+  // 页面照 pageTexts 的先后排回去（上面是照范围的先后做的）
+  const order = new Map(texts.pages.map((text, index) => [`${text.kind}|${text.figure}|${text.stop}`, index]));
+  pages.sort((a, b) => (order.get(`${a.kind}|${a.figure}|${a.stop}`) ?? 0) - (order.get(`${b.kind}|${b.figure}|${b.stop}`) ?? 0));
+
+  const clashes = scopeNameClashes(files.map((file) => ({ name: file.name, of: file.unit === null ? file.scope : `${file.scope} 的 ${file.unit}` })));
+  if (clashes.length > 0) throw new Error(`按范围分的字体文件名重了：${clashes.join('；')}。人物和站的 id 要改（内容校验的规则 0 守着这一条）。`);
+  return { files, pages, home: texts.home, joiners, fallback: texts.fallback };
+}
+
+/**
+ * 每一种页面显示的字，在不在给它的文件里：每个不在的字一句话，都在是空的。范围之间不借：只在别的范围的文件里有的字不算数。
+ *   不用点开就看得见的   框架的宋体文件，或者这一页不用点开就要的那个宋体文件；
+ *   点开才看得见的       上面两个，或者这一页点开才要的那个；
+ *   用黑体排的           框架的黑体文件，或者这位人物（这个范围）的黑体文件；
+ *   用楷体排的           这位人物的楷体文件。
+ * has 给出一个文件里真有哪些字（不写就照要做的清单算；开关打开以后给放进仓库的文件读出来的）。
+ */
+export function missingOnPages(texts: SiteTexts, plan: ScopePlan, has: (name: string) => { has(ch: string): boolean } | undefined = (name) => charactersByName(plan).get(name)): string[] {
+  const sourceOf = new Map(plan.files.map((file) => [file.name, file.source]));
+  const problems: string[] = [];
+  for (const text of texts.pages) {
+    const given = plan.pages.find((item) => item.kind === text.kind && item.figure === text.figure && item.stop === text.stop);
+    if (!given) {
+      problems.push(`${text.name}：要做的清单里没有说这一页拿哪几个文件`);
+      continue;
+    }
+    const check = (uses: Uses, source: FontSourceId, names: readonly string[], what: string): void => {
+      const from = names.filter((name) => sourceOf.get(name) === source);
+      const sets = from.flatMap((name) => has(name) ?? []);
+      for (const [ch, labels] of uses) {
+        if (sets.some((set) => set.has(ch))) continue;
+        problems.push(`“${ch}”（${codeOf(ch)}，${[...labels].slice(0, 3).join('、')}里）是${text.name}上${what}，不在这一页拿到的字体文件里（${from.map((name) => `${name}.woff2`).join('、') || '一个也没有'}）`);
+      }
+    };
+    check(text.rest, 'song', given.rest, '不用点开就看得见的字');
+    check(text.pressed, 'song', [...given.rest, ...given.pressed], '点开才看得见的字');
+    check(text.sans, 'sans', given.rest, '用黑体排的字');
+    check(text.kai, 'kai', given.rest, '用楷体排的字');
+  }
+  return problems;
+}
+
+/**
+ * 要做的清单里，写进文件里的两个名称带着原字体保留的名字（RESERVED_WORDS）的文件：每处一句话，都没有是空的。
+ * 做出来的文件 fontFileProblems 会再查一遍名称表（那时工具不肯写）；这里照清单查，不用原字体，做文件以前就知道。
+ */
+export function reservedNameProblems(files: readonly Pick<ScopeFile, 'name' | 'family' | 'postscript'>[]): string[] {
+  const problems: string[] = [];
+  for (const file of files) {
+    for (const [what, written] of [['字体名称', file.family], ['PostScript 名称', file.postscript]] as const) {
+      for (const word of RESERVED_WORDS) if (written.includes(word)) problems.push(`${file.name}：${what} ${written} 里有原字体保留的名字“${word}”（写进文件里的名称不许带它）`);
+    }
+  }
+  return problems;
+}
+
+/** 要做的清单里每个文件的字：文件名 → 字。 */
+export function charactersByName(plan: Pick<ScopePlan, 'files'>): Map<string, Set<string>> {
+  return new Map(plan.files.map((file) => [file.name, new Set(file.characters)]));
+}
+
+/** 一个文件在 src/fonts/ 里的路径：框架的两个就在那里，别的在 scopes/ 里。 */
+export function scopeFilePath(file: Pick<ScopeFile, 'name' | 'scope'>): string {
+  return file.scope === 'frame' ? `${file.name}.woff2` : `${SCOPES_DIR}/${file.name}.woff2`;
+}
+
+const faceRule = (file: Pick<ScopeFile, 'name' | 'face' | 'weight' | 'range' | 'characters'>, url: string): string =>
+  [
+    '@font-face {',
+    `  font-family: '${file.face}';`,
+    `  src: url('${url}') format('woff2');`,
+    `  font-weight: ${file.weight};`,
+    '  font-style: normal;',
+    '  font-display: swap;',
+    ...(file.range ? [`  unicode-range: ${[...file.characters].map(rangeOf).join(', ')};`] : []),
+    '}',
+  ].join('\n');
+
+/** 按范围分的时候各个范围，照文件的先后：每个范围一项，它的黑体、宋体各叫什么名称（没有那一种文件的是 null）。框架不算。 */
+function scopesOf(files: readonly Pick<ScopeFile, 'source' | 'face' | 'scope' | 'unit'>[]): { scope: string; unit: string | null; sans: string | null; song: string | null }[] {
+  const scopes: { scope: string; unit: string | null; sans: string | null; song: string | null }[] = [];
+  for (const file of files) {
+    if (file.scope === 'frame' || file.source === 'kai') continue;
+    let entry = scopes.find((item) => item.scope === file.scope && item.unit === file.unit);
+    if (!entry) scopes.push((entry = { scope: file.scope, unit: file.unit, sans: null, song: null }));
+    entry[file.source] = file.face;
+  }
+  return scopes;
+}
+
+/**
+ * 按范围分的时候 fonts.css 的字：框架的两条在前；每个范围不用点开就要的文件各一条，名称各是各的，都不带 unicode-range；
+ * 最后每个范围一条换名称的规则——页面在 <html> 上写着自己的范围（data-fonts、data-fonts-unit），哪一条合得上，
+ * 就把那个范围的名称交给 --own-sans、--own-song（tokens.css 里三个字体记号都在框架的名称后面读它们）。
+ * 一站的规则比人物的多一个条件，所以站点页上宋体换成那一站的，黑体还是人物的。楷体不在这里换：人物的那一块记号自己写它的名称。
+ */
+export function scopeFontsCss(files: readonly ScopeFile[]): string {
+  const rest = files.filter((file) => file.role === 'rest');
+  const rule = (entry: ReturnType<typeof scopesOf>[number]): string => {
+    const selector = `:root[data-fonts='${entry.scope}']${entry.unit === null ? '' : `[data-fonts-unit='${entry.unit}']`}`;
+    const sets = [...(entry.sans ? [`--own-sans: '${entry.sans}';`] : []), ...(entry.song ? [`--own-song: '${entry.song}';`] : [])];
+    return `${selector} { ${sets.join(' ')} }`;
+  };
+  return [
+    '/* 工具做的（npm run fonts），不要手改。说明见 docs/data-spec.md“随站的字体”。',
+    '   框架的两个文件在前；后面是每个范围不用点开就要的文件，名称各是各的，都不带 unicode-range（点开才要的在 scopes/ 里各自的样式表里）；',
+    '   最后每个范围一条规则：页面在 <html> 上写着自己的范围，合得上的那一条把这个范围的名称接到框架的后面。 */',
+    ...rest.map((file) => faceRule(file, `./${scopeFilePath(file)}`)),
+    ...scopesOf(files).map(rule),
+    '',
+  ].join('\n');
+}
+
+/** 点开才要的一个文件的样式表（scopes/ 里，和文件在一起）：一条 @font-face，带着 unicode-range，逐个列着它里面的字。 */
+export function pressedSheetCss(file: ScopeFile): string {
+  return ['/* 工具做的（npm run fonts），不要手改。这个范围点开才要的字：页面上用到其中的字时浏览器才下载那个文件。 */', faceRule(file, `./${file.name}.woff2`), ''].join('\n');
+}
+
+/**
+ * scopes.ts 的字：每个范围点开才要的那个文件——它的样式表（用到时才引入，所以这张表自成一小块，不跟着页面一打开就下载的程序长大），
+ * 和它里面编码最小的一个字（页面拿它叫浏览器先把那个文件取来）。范围的叫法：人物的 id，一站是“人物/站”。
+ */
+export function scopesTs(files: readonly ScopeFile[]): string {
+  const pressed = files.filter((file) => file.role === 'pressed');
+  return [
+    '// 工具做的（npm run fonts），不要手改。说明见 docs/data-spec.md“随站的字体”。',
+    '// 每个范围点开才要的那个字体文件：它的样式表（用到时才引入），和它里面的一个字（页面拿它叫浏览器先把那个文件取来）。',
+    '',
+    'export const SCOPE_PRESSED: Record<string, { sheet: () => Promise<unknown>; probe: string }> = {',
+    ...pressed.map((file) => `  '${file.unit === null ? file.scope : `${file.scope}/${file.unit}`}': { sheet: () => import('./${file.sheet}'), probe: '${[...file.characters][0]}' },`),
+    '};',
+    '',
+  ].join('\n');
+}
+
+/** index.html 里工具写的那一段的头尾两行记号。 */
+export const PRELOAD_BLOCK = { start: '<!-- fonts:scopes 起：这一段是工具做的（npm run fonts），不要手改 -->', end: '<!-- fonts:scopes 止 -->' } as const;
+
+/**
+ * index.html 里那一段的字：每个范围不用点开就要的黑体、宋体文件各一行预先声明，先不生效（media="not all"），
+ * 行上写着它归哪个范围；首页的沙盘栏里摆着的那位人物的几行另有 data-fonts-home。页面开头的那几行脚本照地址把合得上的几行抄一份生效的。
+ */
+export function preloadBlock(files: readonly ScopeFile[], home: string | null, indent = '    '): string {
+  const lines = files
+    .filter((file) => file.preload === 'scope')
+    .map((file) => `<link rel="preload" href="/${FONTS_DIR}/${scopeFilePath(file)}" as="font" type="font/woff2" crossorigin media="not all" data-fonts="${file.scope}"${file.unit === null ? '' : ` data-fonts-unit="${file.unit}"`}${file.unit === null && file.scope === home ? ' data-fonts-home' : ''} />`);
+  return [PRELOAD_BLOCK.start, ...lines, PRELOAD_BLOCK.end].map((line) => `${indent}${line}`).join('\n');
+}
+
+/** 把那一段放进 index.html 的原文：已经有的换掉；还没有的，接在最后一行预先声明字体的 <link> 后面。找不到地方就抛出错误。 */
+export function withPreloadBlock(html: string, block: string): string {
+  const start = html.indexOf(PRELOAD_BLOCK.start);
+  const end = html.indexOf(PRELOAD_BLOCK.end);
+  if (start >= 0 && end > start) {
+    const lineStart = html.lastIndexOf('\n', start) + 1;
+    return `${html.slice(0, lineStart)}${block}${html.slice(end + PRELOAD_BLOCK.end.length)}`;
+  }
+  const links = [...html.matchAll(/^[ \t]*<link rel="preload"[^>]*as="font"[^>]*>[ \t]*$/gm)];
+  const last = links[links.length - 1];
+  if (!last || last.index === undefined) throw new Error('index.html 里没有预先声明字体的 <link>：那一段不知道接在哪');
+  const at = last.index + last[0].length;
+  return `${html.slice(0, at)}\n${block}${html.slice(at)}`;
+}
+
+/** 格式 4 的记录里一个字体文件的那一项。 */
+export interface ScopeFileRecord {
+  /** 在 src/fonts/ 里的路径：yanlu-song.woff2，scopes/yanlu-song-su-shi.woff2。 */
+  file: string;
+  face: string;
+  family: string;
+  postscript: string;
+  source: FontSourceId;
+  scope: string;
+  unit: string | null;
+  role: 'rest' | 'pressed';
+  range: boolean;
+  preload: 'always' | 'scope' | 'none';
+  sheet: string;
+  weight: number;
+  bytes: number;
+  sha256: string;
+  count: number;
+  glyphs: number;
+  characters: string;
+  onlyFromSrc: string;
+  features: string[];
+  hinting: 'kept' | 'none';
+}
+
+/** 格式 4 的记录里一种页面的那一项：不用点开就要哪几个文件、点开以后还会取哪几个（都是 file 那一栏的写法）、前一拨合计多少字节。 */
+export interface ScopePageRecord {
+  kind: Exclude<PageKind, 'stop'>;
+  figure: string | null;
+  unit: string | null;
+  rest: string[];
+  pressed: string[];
+  bytes: number;
+}
+
+/** 格式 4 的记录。 */
+export interface ScopeRecord {
+  tool: number;
+  recipe: number;
+  made: Record<string, string>;
+  sources: Record<FontSourceId, Omit<FontSource, 'family'>>;
+  /** 首页的沙盘栏里摆着哪位人物。 */
+  home: string | null;
+  /** 挨着别的字会变样的字。 */
+  joiners: string;
+  pages: ScopePageRecord[];
+  files: ScopeFileRecord[];
+}
+
+/** 从做好的文件写出格式 4 的记录里的一项。 */
+export function scopeFileRecord(file: ScopeFile, woff2: Uint8Array, onlyFromSrc: string): ScopeFileRecord {
+  const { tables } = readWoff2(woff2);
+  const characters = charactersOf(tables);
+  return {
+    file: scopeFilePath(file),
+    face: file.face,
+    family: file.family,
+    postscript: file.postscript,
+    source: file.source,
+    scope: file.scope,
+    unit: file.unit,
+    role: file.role,
+    range: file.range,
+    preload: file.preload,
+    sheet: file.sheet,
+    weight: weightOf(tables),
+    bytes: woff2.length,
+    sha256: sha256(woff2),
+    count: [...characters].length,
+    glyphs: glyphCountOf(tables),
+    characters,
+    onlyFromSrc: sortedString([...onlyFromSrc].filter((ch) => characters.includes(ch))),
+    features: [...new Set([...featuresOf(tables, 'GSUB'), ...featuresOf(tables, 'GPOS')])].sort(),
+    hinting: hintingOf(tables),
+  };
+}
+
+/** 一种页面拿到的文件，从名字换成 file 那一栏的写法（scopeFilePath：只有这一处拼路径）。清单里没有的名字原样接上 .woff2——查大小、写记录的地方认不出它，会说出来。 */
+export function scopePagePaths(plan: Pick<ScopePlan, 'files'>, names: readonly string[]): string[] {
+  const path = new Map(plan.files.map((file) => [file.name, scopeFilePath(file)]));
+  return names.map((name) => path.get(name) ?? `${name}.woff2`);
+}
+
+/**
+ * 整份格式 4 的记录。没有自己的文件的站不单列（它们用的是人物的那一项）。
+ * 一种页面要的文件，files 里没有它的那一项（名字对不上）：不当成 0 字节记下来，停下来说是哪一页、哪个文件。
+ */
+export function scopeRecord(plan: ScopePlan, files: ScopeFileRecord[], made: Record<string, string>): ScopeRecord {
+  const bytes = new Map(files.map((item) => [item.file, item.bytes]));
+  const pages = plan.pages.flatMap((page): ScopePageRecord[] => {
+    if (page.kind === 'stop') return [];
+    const rest = scopePagePaths(plan, page.rest);
+    const pressed = scopePagePaths(plan, page.pressed);
+    const unknown = [...rest, ...pressed].filter((file) => !bytes.has(file));
+    if (unknown.length > 0) throw new Error(`${page.name}要的字体文件 ${unknown.join('、')} 不在做出来的文件里（名字对不上）：它的字节没处算，记录不能这样写`);
+    return [{ kind: page.kind, figure: page.figure, unit: page.stop, rest, pressed, bytes: rest.reduce((sum, file) => sum + (bytes.get(file) ?? 0), 0) }];
+  });
+  return { tool: SCOPE_RECORD_VERSION, recipe: RECIPE, made, sources: { sans: sourceRecord('sans'), song: sourceRecord('song'), kai: sourceRecord('kai') }, home: plan.home, joiners: plan.joiners, pages, files };
+}
+
+/** 格式 4 的记录是不是照现在的字、现在的做法做的。说不是的时候给出头一条理由。joiners 不在这里比：它是做文件的时候量的，要做的清单用的就是记录里的那一串。 */
+export function scopeRecordIsFresh(plan: ScopePlan, record: ScopeRecord, made: Record<string, string>): { fresh: boolean; why: string } {
+  const no = (why: string): { fresh: boolean; why: string } => ({ fresh: false, why });
+  if (record.tool !== SCOPE_RECORD_VERSION) return no('记录的格式换了');
+  if (record.recipe !== RECIPE) return no('做法改过了');
+  if (JSON.stringify(record.made) !== JSON.stringify(made)) return no('裁剪字体的库换了版本');
+  for (const id of FONT_SOURCE_IDS) if (JSON.stringify(record.sources[id]) !== JSON.stringify(sourceRecord(id))) return no(`${FONT_SOURCES[id].name} 换了，或者它的说明、许可、留哪些排版功能改过了（FONT_SOURCES）`);
+  if (record.files.map((file) => file.file).join() !== plan.files.map(scopeFilePath).join()) return no('要做的文件和记录里的不是同一些');
+  for (const file of plan.files) {
+    const recorded = record.files.find((item) => item.file === scopeFilePath(file));
+    if (recorded?.characters !== file.characters) return no(`${file.name} 的字变了`);
+    const flags = (item: Pick<ScopeFileRecord, 'face' | 'family' | 'postscript' | 'source' | 'scope' | 'unit' | 'role' | 'range' | 'preload' | 'sheet'>): string =>
+      JSON.stringify([item.face, item.family, item.postscript, item.source, item.scope, item.unit, item.role, item.range, item.preload, item.sheet]);
+    if (recorded && flags(recorded) !== flags(file)) return no(`${file.name} 的说明变了（名称、归哪个范围、带不带 unicode-range、怎么声明、样式表）`);
+  }
+  if (record.home !== plan.home) return no('首页的沙盘栏里摆着的人物换了');
+  const pages = scopeRecord(plan, record.files, made).pages;
+  if (JSON.stringify(record.pages) !== JSON.stringify(pages)) return no('每一种页面拿哪几个文件变了');
+  return { fresh: true, why: '' };
+}
+
+/** 照要做的清单写的几样（都用不到原字体）：fonts.css，scopes/ 里点开才要的文件的样式表（路径 → 字），scopes.ts，index.html 里的那一段。 */
+export function writtenForScopes(plan: Pick<ScopePlan, 'files' | 'home'>): { css: string; sheets: Record<string, string>; scopes: string; preloads: string } {
+  return {
+    css: scopeFontsCss(plan.files),
+    sheets: Object.fromEntries(plan.files.filter((file) => file.role === 'pressed').map((file) => [file.sheet, pressedSheetCss(file)])),
+    scopes: scopesTs(plan.files),
+    preloads: preloadBlock(plan.files, plan.home),
+  };
+}
+
+/** HarfBuzz（裁剪字体的库自己带的那一份）排一串字：每个字形是哪一个、往前走多少、挪了多少。script 是 Hani 或者 Latn。 */
+type Shaped = { gid: number; cluster: number; xAdvance: number; yAdvance: number; xOffset: number; yOffset: number }[];
+async function shaper(sfnt: Uint8Array): Promise<{ shape: (text: string, script: string) => Shaped; path: (gid: number) => string }> {
+  const hb = await import('harfbuzzjs');
+  const font = new hb.Font(new hb.Face(new hb.Blob(sfnt)));
+  return {
+    shape: (text, script) => {
+      const buffer = new hb.Buffer();
+      buffer.addText(text);
+      buffer.guessSegmentProperties();
+      buffer.setScript(script);
+      buffer.setLanguage('zh-cn');
+      hb.shape(font, buffer);
+      const infos = buffer.getGlyphInfos();
+      const positions = buffer.getGlyphPositions();
+      return infos.map((info, index) => ({ gid: info.codepoint, cluster: info.cluster, ...positions[index] }));
+    },
+    path: (gid) => font.glyphToPath(gid),
+  };
+}
+
+/** 把一个 WOFF2 还原成普通的字体文件（HarfBuzz 只读这一种）。 */
+async function unpackWoff2(woff2: Uint8Array): Promise<Uint8Array> {
+  const { default: wawoff2 } = await import('wawoff2');
+  return wawoff2.decompress(woff2);
+}
+
+/**
+ * 挨着别的字会变样的字：把这些字一对一对排一遍（每一对两种先后，汉字的排法和拉丁字母的排法各一遍），
+ * 两个字放在一起和各自单放，字形、往前走多少、挪了多少有一样不同，这两个字就都算。
+ * font 是装着这些字的一个字体文件（WOFF2，照做随站字体的同一个做法做的：留下的排版功能一样，量到的才是浏览器里会有的）。
+ * 这些字要是分在两个文件里，浏览器就把它们分开排，挨着时该有的那一点挪动就没了：所以它们都放进框架的宋体文件，哪一页都在一个文件里。
+ */
+export async function joinersIn(font: Uint8Array, characters: string): Promise<{ joiners: string; pairs: number; differing: number }> {
+  const { shape } = await shaper(await unpackWoff2(font));
+  const chars = [...characters];
+  const involved = new Set<string>();
+  let differing = 0;
+  for (const script of ['Hani', 'Latn']) {
+    const solo = new Map(chars.map((ch) => [ch, shape(ch, script)]));
+    const same = (got: Shaped, alone: Shaped | undefined): boolean =>
+      got.length === 1 && alone?.length === 1 && got[0].gid === alone[0].gid && got[0].xAdvance === alone[0].xAdvance && got[0].yAdvance === alone[0].yAdvance && got[0].xOffset === alone[0].xOffset && got[0].yOffset === alone[0].yOffset;
+    for (const a of chars) {
+      // 一行一对，一次排完这个字打头的每一对；cluster 是这个字形从第几个 UTF-16 单元来的
+      const glyphs = shape(chars.map((b) => `${a}${b}\n`).join(''), script);
+      const byCluster = new Map<number, Shaped>();
+      for (const glyph of glyphs) byCluster.set(glyph.cluster, [...(byCluster.get(glyph.cluster) ?? []), glyph]);
+      let offset = 0;
+      for (const b of chars) {
+        if (!same(byCluster.get(offset) ?? [], solo.get(a)) || !same(byCluster.get(offset + a.length) ?? [], solo.get(b))) {
+          differing++;
+          involved.add(a);
+          involved.add(b);
+        }
+        offset += a.length + b.length + 1;
+      }
+    }
+  }
+  return { joiners: sortedString(involved), pairs: chars.length ** 2 * 2, differing };
+}
+
+/**
+ * 拿一个字体（against：WOFF2，或者原字体那样的普通字体文件）当样子，给出一个比字形的函数：做好的一个文件（WOFF2）里的每个字，
+ * 字形和样子里同一个字的是不是一个样——轮廓一样，往前走的一样。不一样的、样子里没有的，每个字一句话；都一样是空的。
+ */
+export async function glyphComparer(against: Uint8Array): Promise<(file: string, made: Uint8Array, characters: string) => Promise<string[]>> {
+  const unpack = async (bytes: Uint8Array): Promise<Uint8Array> => (bytes[0] === 0x77 && bytes[1] === 0x4f && bytes[2] === 0x46 && bytes[3] === 0x32 ? unpackWoff2(bytes) : bytes);
+  const theirs = await shaper(await unpack(against));
+  return async (file, made, characters) => {
+    const mine = await shaper(await unpack(made));
+    const problems: string[] = [];
+    for (const ch of characters) {
+      const [a] = mine.shape(ch, 'Hani');
+      const [b] = theirs.shape(ch, 'Hani');
+      if (!a || !b || a.gid === 0 || b.gid === 0) problems.push(`${file}：“${ch}”（${codeOf(ch)}）没处比：${!b || b.gid === 0 ? '拿来比的字体里没有这个字' : '做好的文件里没有这个字'}`);
+      else if (a.xAdvance !== b.xAdvance || a.yAdvance !== b.yAdvance || mine.path(a.gid) !== theirs.path(b.gid)) problems.push(`${file}：“${ch}”（${codeOf(ch)}）的字形和拿来比的字体里的不一样`);
+    }
+    return problems;
+  };
 }

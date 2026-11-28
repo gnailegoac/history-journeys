@@ -42,6 +42,21 @@ export const FONT_FILE_MAX_BYTES = 300 * 1024;
 /** 一个字体文件过了这么多字节，提醒一句（还算合格）：280 KB。到了这条线，就把宋体按站拆开，不抬上限。 */
 export const FONT_FILE_WARN_BYTES = 280 * 1024;
 
+// 下面六个数是字体文件按范围分了以后的上限（tests/support/fontTool.ts 的 FONTS_BY_SCOPE，现在关着）。现在的四个文件不照它们查：
+// 查的还是上面三个。开关打开的时候，做字体的工具和查字体的测试改照 fontScopeReport 查，首次打开的 450 KB 那一条就不用了。
+// 一个文件的 300 KB 和 280 KB 两头都是上面那两个数。
+/** 按范围分了以后，一种页面首次打开要下载的字体（框架的两个，加上这一页自己那个范围不用点开就要的）合计最大多少字节：360 KB。每一种页面各算各的。 */
+export const FONT_PAGE_FIRST_MAX_BYTES = 360 * 1024;
+/** 一种页面首次打开的合计过了这么多字节，提醒一句：330 KB。到了这条线，把这位人物的黑体和楷体也按站分开。 */
+export const FONT_PAGE_FIRST_WARN_BYTES = 330 * 1024;
+/** 框架的两个文件（哪一页都要下载的）合计最大多少字节：170 KB。 */
+export const FONT_FRAME_MAX_BYTES = 170 * 1024;
+/** 框架的两个文件合计过了这么多字节，提醒一句：160 KB。到了这条线，把人物卡片上的字从框架里挪到首页自己的一个文件里。 */
+export const FONT_FRAME_WARN_BYTES = 160 * 1024;
+/** 一个范围点开才要的文件的样式表（逐个列着它里面的字），压缩以后最大多少字节，过了多少提醒一句。 */
+export const FONT_SHEET_GZIP_MAX = 4096;
+export const FONT_SHEET_GZIP_WARN = 3584;
+
 // ---------------------------------------------------------------- 程序自己的下载量
 
 /**
@@ -218,6 +233,57 @@ export function fontReport(files: FontFileSize[]): SizeReport {
   report.lines.push(`首次打开要下载的字体（${firstNames}）：${withCommas(firstBytes)} 字节，上限 ${withCommas(FONT_FIRST_MAX_BYTES)}（用了 ${firstShare}%）`);
   if (firstBytes > FONT_FIRST_MAX_BYTES) report.fails.push(`首次打开要下载的字体合计 ${withCommas(firstBytes)} 字节，超过了上限 ${withCommas(FONT_FIRST_MAX_BYTES)}`);
   report.lines.push(`全部字体文件合计：${withCommas(files.reduce((sum, item) => sum + item.bytes, 0))} 字节（没有上限）`);
+  return report;
+}
+
+/** 按范围分了以后要查的东西：每个文件多大、是不是框架的；每一种页面不用点开就要哪几个文件、点开以后还会取哪几个；点开才要的文件的样式表压缩以后多大。 */
+export interface FontScopeSizes {
+  files: { file: string; bytes: number; frame: boolean }[];
+  pages: { name: string; rest: string[]; pressed: string[] }[];
+  sheets: { file: string; gzip: number }[];
+}
+
+/**
+ * 字体文件按范围分了以后（tests/support/fontTool.ts 的 FONTS_BY_SCOPE），对着上限查一遍：
+ *   每个文件      300 KB，过了 280 KB 提醒（和不分的时候同一个数）；
+ *   每一种页面    首次打开要下载的（这一页不用点开就要的那几个文件）合计 360 KB，过了 330 KB 提醒——每一种页面各算各的，
+ *                 不是取最大的一种：哪一页超了说哪一页；
+ *   框架的两个    合计 170 KB，过了 160 KB 提醒；
+ *   样式表        点开才要的文件的样式表，压缩以后 4,096 字节，过了 3,584 提醒。
+ * 另外印两个没有上限的数：全部文件合计，每一种页面把每一折都点开一共多少。
+ * 一种页面要的文件要是不在 files 里（名字对不上），算一条不合格：不把它当成 0 字节。
+ */
+export function fontScopeReport(sizes: FontScopeSizes): SizeReport {
+  const report: SizeReport = { lines: [], fails: [], warns: [] };
+  const bytesOf = new Map(sizes.files.map((item) => [item.file, item.bytes]));
+  const sum = (files: string[]): number => files.reduce((total, file) => total + (bytesOf.get(file) ?? 0), 0);
+  const check = (what: string, value: number, max: number, warnAbove: number, advice: string, unit = '字节'): void => {
+    const result = verdict(value, max, warnAbove);
+    if (result === 'fail') report.fails.push(`${what}有 ${withCommas(value)} ${unit}，超过了上限 ${withCommas(max)}`);
+    if (result === 'warn') report.warns.push(`${what}有 ${withCommas(value)} ${unit}，快到上限 ${withCommas(max)} 了（过了 ${withCommas(warnAbove)} 就提醒）${advice}`);
+  };
+  for (const { file, bytes } of sizes.files) {
+    report.lines.push(`${file}：${withCommas(bytes)} 字节，上限 ${withCommas(FONT_FILE_MAX_BYTES)}（用了 ${Math.round((bytes / FONT_FILE_MAX_BYTES) * 100)}%）`);
+    check(`字体文件 ${file} `, bytes, FONT_FILE_MAX_BYTES, FONT_FILE_WARN_BYTES, '：点开才要的文件照折着的那几块再分开');
+  }
+  const frame = sizes.files.filter((item) => item.frame);
+  const frameBytes = frame.reduce((total, item) => total + item.bytes, 0);
+  report.lines.push(`框架的字体（${frame.map((item) => item.file).join('、')}，哪一页都要下载）：${withCommas(frameBytes)} 字节，上限 ${withCommas(FONT_FRAME_MAX_BYTES)}（用了 ${Math.round((frameBytes / FONT_FRAME_MAX_BYTES) * 100)}%）`);
+  check('框架的字体合计', frameBytes, FONT_FRAME_MAX_BYTES, FONT_FRAME_WARN_BYTES, '：把人物卡片上的字从框架里挪到首页自己的一个文件里');
+  for (const page of sizes.pages) {
+    // 这一页要的文件，量过大小的文件里没有（名字拼得不一样）：它的字节算不进去，不能当成 0 字节放过去
+    for (const file of [...page.rest, ...page.pressed]) {
+      if (!bytesOf.has(file)) report.fails.push(`${page.name}要的字体文件 ${file} 不在量过大小的文件里（名字对不上）：它的字节没有算进这一页的合计`);
+    }
+    const first = sum(page.rest);
+    report.lines.push(`${page.name}首次打开要下载的字体（${page.rest.length} 个文件）：${withCommas(first)} 字节，上限 ${withCommas(FONT_PAGE_FIRST_MAX_BYTES)}（用了 ${Math.round((first / FONT_PAGE_FIRST_MAX_BYTES) * 100)}%）；每一折都点开一共 ${withCommas(first + sum(page.pressed))} 字节（没有上限）`);
+    check(`${page.name}首次打开要下载的字体合计`, first, FONT_PAGE_FIRST_MAX_BYTES, FONT_PAGE_FIRST_WARN_BYTES, '：把这位人物的黑体和楷体也按站分开');
+  }
+  for (const { file, gzip } of sizes.sheets) {
+    report.lines.push(`${file}（压缩以后）：${withCommas(gzip)} 字节，上限 ${withCommas(FONT_SHEET_GZIP_MAX)}`);
+    check(`点开才要的字的样式表 ${file} 压缩以后`, gzip, FONT_SHEET_GZIP_MAX, FONT_SHEET_GZIP_WARN, '');
+  }
+  report.lines.push(`全部字体文件合计：${withCommas(sizes.files.reduce((total, item) => total + item.bytes, 0))} 字节（没有上限）`);
   return report;
 }
 

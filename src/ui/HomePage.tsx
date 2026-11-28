@@ -2,11 +2,12 @@
 // 版面和人物页是同一种：宽屏上文字栏在左、沙盘栏在右；别的窗口上沙盘栏在上、文字栏在下。
 // 沙盘栏就是人物页用的那一栏（StagePane），交给它的是第一位可以点进去的人物的全程沙盘和各站的印，和人物页上是同一座。
 
-import { useEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useState } from 'react';
 import { figureHref, sourcesHref, stopHref } from '../app/router';
 import { useLoaded } from '../app/useLoaded';
 import { lacksItinerary, loadFigure, loadFigureCards, stopMarks } from '../domain';
 import type { FigureCard } from '../domain';
+import { nameFontScope } from '../fonts/scope';
 import { StagePane } from './StagePane';
 import { pickRouteTable } from './stageEngineSource';
 import { NOT_WRITTEN, SITE_LINE, SITE_TITLE, SOURCES_LABEL, START_READING, START_ROADS } from './text';
@@ -27,6 +28,11 @@ export function HomePage() {
   useEffect(() => {
     document.title = SITE_TITLE;
   }, []);
+
+  // 首页的字体归沙盘栏里摆着的这位人物的范围：名单读出来了，告诉写 <html> 上那两个属性的地方（src/fonts/scope.ts）
+  useLayoutEffect(() => {
+    if (id) nameFontScope(undefined, id);
+  }, [id]);
 
   return (
     <div className="figure-layout home-layout" data-figure={id || undefined}>

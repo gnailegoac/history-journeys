@@ -5,7 +5,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Figure, FigureCard, StopExtras } from '../../src/domain/types';
 import { toContentFiles } from './files';
-import { RESERVED_FIGURE_IDS, checkBody, checkRoute, formatReport, formatViolation, lngLatProblem, validateContent as validateAll } from './rules';
+import { RESERVED_FIGURE_IDS, RESERVED_STOP_IDS, checkBody, checkFontFileNames, checkRoute, formatReport, formatViolation, lngLatProblem, validateContent as validateAll } from './rules';
 import type { ContentFiles, Violation } from './rules';
 
 const texts = import.meta.glob<string>('./fixtures/**/*.{json,md}', { query: '?raw', import: 'default', eager: true });
@@ -129,6 +129,44 @@ describe('格式：文件读得出来，字段齐全，id 对得上', () => {
     expect(found).toContain('0 figures/index.json › [0].id');
     expect(found).toContain('0 figures/sources/figure.json › id');
     expect(found.filter((line) => !line.startsWith('0 '))).toEqual([]);
+  });
+
+  it('一站的 id 不能是 more：随站的字体按范围分文件的时候，点开才要的文件名字末尾接的就是这个词，这一站的文件会和人物自己的那个重名', () => {
+    expect(RESERVED_STOP_IDS).toEqual(['more']);
+    const files = editFigure((figure) => {
+      figure.stops[2].id = 'more';
+      if (figure.legs) figure.legs[1].to = 'more';
+    });
+    const found = validateContent(files);
+    expect(found.map((v) => `${v.rule} ${v.file} › ${v.field}`)).toEqual(['0 figures/demo/figure.json › stops[2].id']);
+    expect(found[0].problem).toContain('“more”不能做一站的 id');
+    // 只说这一句：同一个毛病不在“文件名重了”那一条里再说一遍
+    expect(found[0].problem).not.toContain('拼出了同一个字体文件的名字');
+  });
+
+  it('人物和站的 id 拼出来的字体文件名不许重样：同一位人物的两站（pass 和 pass-more），两位人物之间（demo 的一站 pass，和叫 demo-pass 的人物），都查得出来，记在后来的那一位身上；合格的样本、现在的内容里一处也没有', () => {
+    expect(checkFontFileNames(GOOD, ['demo'])).toEqual([]);
+    // 同一位人物：pass 这一站点开才要的文件，和 pass-more 这一站不用点开的文件，都叫 yanlu-song-demo-pass-more
+    const twoStops = editFigure((figure) => {
+      figure.stops[2].id = 'pass-more';
+      if (figure.legs) figure.legs[1].to = 'pass-more';
+    });
+    const inOne = validateContent(twoStops);
+    expect(inOne.map((v) => `${v.rule} ${v.file} › ${v.field}`)).toEqual(['0 figures/demo/figure.json › stops[2].id']);
+    expect(inOne[0].problem).toBe('人物和站的 id 拼出了同一个字体文件的名字：yanlu-song-demo-pass-more.woff2 会被写两回（demo 的 pass 这一站，和demo 的 pass-more 这一站）。换掉其中一个 id');
+    // 两位人物之间：另一位人物叫 demo-pass（各站都还没写，只有一份 figure.json）。两个名字撞上：不用点开的，和点开才要的
+    const other: Figure = { ...goodFigure(), id: 'demo-pass', stops: goodFigure().stops.slice(1), legs: [] };
+    const twoFigures = withFile('figures/demo-pass/figure.json', JSON.stringify(other));
+    const across = checkFontFileNames(twoFigures, ['demo', 'demo-pass']);
+    expect(across.map((v) => `${v.rule} ${v.file} › ${v.field}`)).toEqual(['0 figures/demo-pass/figure.json › id', '0 figures/demo-pass/figure.json › id']);
+    expect(across.map((v) => v.problem)).toEqual([
+      '人物和站的 id 拼出了同一个字体文件的名字：yanlu-song-demo-pass.woff2 会被写两回（demo 的 pass 这一站，和人物 demo-pass）。换掉其中一个 id',
+      '人物和站的 id 拼出了同一个字体文件的名字：yanlu-song-demo-pass-more.woff2 会被写两回（demo 的 pass 这一站，和人物 demo-pass）。换掉其中一个 id',
+    ]);
+    // 整份校验里也报出来（这位只有一份 figure.json 的人物别的毛病不在这里看）
+    expect(validateContent(twoFigures).filter((v) => v.problem.includes('拼出了同一个字体文件的名字'))).toHaveLength(2);
+    // 那位人物换一个 id 就好了
+    expect(checkFontFileNames(withFile('figures/demo-two/figure.json', JSON.stringify({ ...other, id: 'demo-two' })), ['demo', 'demo-two'])).toEqual([]);
   });
 
   it('卡片标了可以点进去，却没有 figure.json', () => {

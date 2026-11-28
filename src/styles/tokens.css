@@ -50,9 +50,12 @@
      文件和 @font-face 在 src/fonts/（工具做的，npm run fonts），说明见 docs/data-spec.md“随站的字体”。
      名单里排在后面的是设备自带的：随站的文件还在路上、或者没取到的时候先顶着。设备自带的黑体的名字只写在 --font-sans 这一行里，别处一律用记号。
      黑体的文件只有 500 这一种粗细：哪一条样式用了 --font-sans，就在同一条里写上 font-weight: var(--weight-sans)；
-     黑体的元素里面套着宋体的字的地方，把粗细写回 400。 */
-  --font-song: 'Yanlu Song', 'Songti SC', 'STSong', 'Noto Serif CJK SC', 'Source Han Serif SC', 'SimSun', serif;
-  --font-sans: 'Yanlu Sans', 'Noto Sans SC', 'Source Han Sans SC', 'Noto Sans CJK SC', 'PingFang SC', 'Microsoft YaHei UI', 'Microsoft YaHei', sans-serif;
+     黑体的元素里面套着宋体的字的地方，把粗细写回 400。
+     随站的名称后面紧跟着的 var(--own-song, …)、var(--own-sans, …) 是留给“这一页自己那个范围的字体”的位置（页面在 <html> 上写着自己的范围，
+     见 src/fonts/scope.ts）。--own-song、--own-sans 只许由 src/fonts/fonts.css 写；现在哪里也没有写，读到的是括号里备用的那个——还是随站的这一套，
+     名单和没有这一截的时候是同一串字体。 */
+  --font-song: 'Yanlu Song', var(--own-song, 'Yanlu Song'), 'Songti SC', 'STSong', 'Noto Serif CJK SC', 'Source Han Serif SC', 'SimSun', serif;
+  --font-sans: 'Yanlu Sans', var(--own-sans, 'Yanlu Sans'), 'Noto Sans SC', 'Source Han Sans SC', 'Noto Sans CJK SC', 'PingFang SC', 'Microsoft YaHei UI', 'Microsoft YaHei', sans-serif;
   --weight-sans: 500;
 
   /* 字号。这里写的是竖着拿的平板（和更窄的窗口）上的；宽屏上不一样的几个见后面。这里最小的是 14px，
@@ -161,7 +164,7 @@
   --figure-water: #3e6072; /* 题签上水的名字 */
   --figure-leader: #28231f; /* 引线，它指着的那一点，摆不下时画的圈，朝外的小箭头 */
   --figure-halo: #f5eedd; /* 垫在引线、圈和箭头底下的衬边，和那一点外面的一圈 */
-  --figure-font: 'Yanlu Kai', 'Kaiti SC', 'STKaiti', 'KaiTi', 'Yanlu Song', 'Songti SC', 'Noto Serif CJK SC', 'SimSun', serif; /* 题签和印上的字：楷体 */
+  --figure-font: 'Yanlu Kai', 'Kaiti SC', 'STKaiti', 'KaiTi', 'Yanlu Song', var(--own-song, 'Yanlu Song'), 'Songti SC', 'Noto Serif CJK SC', 'SimSun', serif; /* 题签和印上的字：楷体。随站的宋体后面留着这一页自己那个范围的宋体的位置（见上面 --font-song 的说明） */
 }
 
 /* 歌德的一套：一座上了色的地形模型摆在素胡桃木匣里，名字写在平着的素纸签上，站号是胭脂红的圆点。
@@ -174,6 +177,6 @@
   --figure-water: #274c66; /* 纸签上水的名字：蓝墨 */
   --figure-leader: #2a2521; /* 引线，和它指着的那一点 */
   --figure-halo: #fbf7ea; /* 垫在引线底下的衬边，和那一点外面的一圈 */
-  --figure-font: 'Yanlu Song', 'Songti SC', 'STSong', 'Noto Serif CJK SC', 'Source Han Serif SC', 'SimSun', serif; /* 纸签和圆点上的字：宋体，平常的粗细 */
+  --figure-font: 'Yanlu Song', var(--own-song, 'Yanlu Song'), 'Songti SC', 'STSong', 'Noto Serif CJK SC', 'Source Han Serif SC', 'SimSun', serif; /* 纸签和圆点上的字：宋体，平常的粗细。后面留着这一页自己那个范围的宋体的位置 */
   --figure-line: rgb(42 37 33 / 0.5); /* 纸签四边的那道细线：半透的墨色（就是纸签上的字的那种墨） */
 }

@@ -133,6 +133,18 @@ const FONT_STARTS: [string, string[]][] = [
   ['--figure-font', ['Yanlu Kai', 'Yanlu Song']],
 ];
 
+/**
+ * 留给“这一页自己那个范围的字体”的两个记号（页面在 <html> 上写着自己的范围，见 src/fonts/scope.ts）：
+ * 各许在哪几个字体记号的值里读，读的写法只有哪一种——备用的写的就是随站的那一套，所以没有谁写它的时候名单和原来是同一串字体。
+ * 宋体的可以在 --font-song 里读，也可以在人物的 --figure-font 里读（题签的名单里本来就有随站的宋体）；黑体的只在 --font-sans 里读。
+ */
+const OWN_FONT_READS: Record<string, { tokens: string[]; read: string }> = {
+  '--own-song': { tokens: ['--font-song', '--figure-font'], read: "var(--own-song, 'Yanlu Song')" },
+  '--own-sans': { tokens: ['--font-sans'], read: "var(--own-sans, 'Yanlu Sans')" },
+};
+/** 这两个记号只许由这一份样式表写：做字体的工具写的那一份。 */
+const OWN_FONT_WRITER = /(^|\/)src\/fonts\/fonts\.css$/;
+
 /** 一条规则的选择器，一个一个分开（括号里的逗号不算）。 */
 function selectorsOf(prelude: string): string[] {
   const list: string[] = [];
@@ -256,6 +268,9 @@ function seamFindings(declarations: Declaration[], add: (rule: string, what: str
  *   font-family   不是两个记号的（题签的规则里是人物自己的那一个）；别的 --font-… 记号；--font-sans、--font-song 写在了 :root 以外；
  *                 三个字体记号的值不是随站的那一套打头（--font-sans 是 'Yanlu Sans'，--font-song 是 'Yanlu Song'，
  *                 --figure-font 是网站自己带的题签用的字：'Yanlu Kai' 或者 'Yanlu Song'）
+ *   own-font      --own-song、--own-sans（这一页自己那个范围的字体）写在了工具做的 src/fonts/fonts.css 以外；在三个字体记号的值以外读了它们；
+ *                 读错了地方（黑体的只在 --font-sans 里读，宋体的在 --font-song 和人物的 --figure-font 里读）；
+ *                 读的写法不是 var(--own-song, 'Yanlu Song')、var(--own-sans, 'Yanlu Sans')（备用的要是随站的那一套）
  *   sans          system-ui、sans-serif、PingFang、YaHei 这几个词写在了 :root 上的 --font-sans 的值以外
  *   seam          框架的规则读了人物的记号，题签的规则读了框架的记号，人物的记号写在了沙盘栏以外，人物的那一块里写了框架的记号，
  *                 题签和别的东西写在了同一条规则里（见 seamFindings）
@@ -292,6 +307,13 @@ export function scanStyle(file: string, css: string): Finding[] {
     // 框架的两个字体记号只在 :root 上写一次；三个字体记号的值都得是随站的那一套打头
     if (FONT_TOKENS.includes(property) && selector !== ':root') add('font-family', `${selector} { ${property}: … }`);
     for (const [mark, families] of FONT_STARTS) if (property === mark && (selector === ':root' || mark === '--figure-font') && !families.some((family) => value.startsWith(`'${family}'`))) add('font-family', line);
+    // 这一页自己那个范围的字体的两个记号：只许由工具做的那一份样式表写；只许在字体的记号里读（框架的两个在 :root 上，人物的在他那一块里），写法只有一种
+    if (property.startsWith('--own-') && !OWN_FONT_WRITER.test(file)) add('own-font', `${selector} { ${property}: … }`);
+    for (const [, read, name] of value.matchAll(/(var\(\s*(--own-[A-Za-z0-9-]*)[^)]*\))/g)) {
+      const allowed = OWN_FONT_READS[name];
+      const inToken = FONT_TOKENS.includes(property) ? selector === ':root' : property === '--figure-font' && isFigureBlock(selector);
+      if (!allowed || !allowed.tokens.includes(property) || !inToken || read !== allowed.read) add('own-font', `${property}: ${read}`);
+    }
     if (property === 'font-family') lastFamily.set(rule, { selector, value });
     if (property === 'font-weight') lastWeight.set(rule, { selector, value });
     if (property === '--font-sans' && selector === ':root') sansValue += ` ${value}`;

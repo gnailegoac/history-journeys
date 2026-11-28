@@ -39,6 +39,11 @@ export const SOURCES_TEXT = {
   failed: '这一栏没能读出来。',
   noPictures: '现在还没有用到别处的图片。',
   pictureSource: '图片出处',
+  /**
+   * “地形和水”里一位人物那一段前面的小标题：卡片上他的名字，加“的沙盘”。黑体排的：名字在黑体的文件里（首页的卡片上就是黑体），
+   * 后面这三个字列在 text.ts 的 SANS_LABELS 里（从这里引用，名字给空的）。
+   */
+  tableOf: (name: string): string => `${name}的沙盘`,
   /** 一张图片那一条的头一句：先说是哪一站的（那一站的短名字），后面是它在正文里的题记。 */
   picture: (stop: string, caption: string): string => `${stop}：${caption}`,
 

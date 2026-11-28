@@ -710,7 +710,7 @@ details[open] > summary .fold-mark :first-child {
 
 /* ---------------------------------------------------------------- “来源”页 */
 
-/* 这一页没有沙盘栏：文字那一栏立在页面正中（base.css 的 .plain-page）。标题和四个小标题是黑体；字是宋体 17px。
+/* 这一页没有沙盘栏：文字那一栏立在页面正中（base.css 的 .plain-page）。标题、四个小标题和每位人物那一段的小标题是黑体；字是宋体 17px。
    每一条下面的链接自己占一行，一个挨一个：每个都有 44px 高，手指点得准。链接下面是一道墨蓝的线。 */
 .sources {
   padding-top: var(--gap-2);
@@ -742,6 +742,20 @@ details[open] > summary .fold-mark :first-child {
 
 .sources-item + p {
   margin-top: var(--gap-3);
+}
+
+/* “地形和水”里一位人物一段：前面的小标题（“苏轼的沙盘”）是黑体的小字，和凭据里每一小节的名字一个样；
+   两段之间空得比一段里的两行之间多，看得出是两段。 */
+.sources-figure + .sources-figure {
+  margin-top: var(--gap-5);
+}
+
+.sources-figure h3 {
+  margin-bottom: var(--gap-2);
+  font-family: var(--font-sans);
+  font-size: var(--size-label);
+  font-weight: var(--weight-sans);
+  letter-spacing: 0.04em;
 }
 
 .sources-credit {

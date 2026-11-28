@@ -10,8 +10,10 @@
 //     窗口再窄、放不下的时候折在年份的前面，年份不拆开：另拿一个很窄的窗口查）；可以点进去的是链接，是一块白底的板，
 //     写着“从第一站读起”，点了进人物页；还没写的不是链接，只是单子上的一行，标着“还没写”，点了哪也不去。页面不比窗口宽。
 //     （能点的东西够不够 44 像素见方在 tests/e2e/leaf.spec.ts：首页和“来源”页都在那里一个一个点。）
-// 二、“来源”页：一栏字立在页面正中（最宽 640 像素，和屏幕一样高），没有沙盘栏，页面的底是平的一种颜色。标题和四个小标题是黑体，字是宋体 17 像素。
-//     三套字体各一条（黑体、宋体、楷体），名字、版本就是 shipped.ts 里的；每位可以点进去的人物的全程图片、每一座沙盘写的每一行都在，不重复；
+// 二、“来源”页：一栏字立在页面正中（最宽 640 像素，和屏幕一样高），没有沙盘栏，页面的底是平的一种颜色。标题、四个小标题和“地形和水”里每位人物的那个小标题是黑体，字是宋体 17 像素。
+//     三套字体各一条（黑体、宋体、楷体），名字、版本就是 shipped.ts 里的；“地形和水”里一位可以点进去的人物一段，照卡片的先后，
+//     小标题是卡片上他的名字加“的沙盘”（黑体的小字），他的全程图片、每一座沙盘写的每一行都在这一段里，一段里不重复，
+//     两位人物都用到的一行在各人的一段里各印一遍；
 //     每一站正文里的每一张图片都在。五份许可全文的链接答的是 200，是文本，和 public/licences/ 里的文件一个字不差；
 //     点了就在这一页打开。“字体的网站”“图片出处”是新开一页的平常链接，页面自己不去取。链接是强调色的字，下面一道强调色的线。
 // 三、“来源”页里面的那一段程序是点进这一页才下载的：在首页、人物页、站点页上都没有取；从首页、人物页的目录后面、
@@ -336,16 +338,20 @@ test('首页，四种标准的窗口上：文字栏（网站的名字、一句�
   console.log(['首页：', ...rows].join('\n'));
 });
 
-test('“来源”页：一栏字立在页面正中，没有沙盘栏；三套字体照 shipped.ts，地形和水、图片照内容，一条不少；五份许可全文答的是 200、是文本；通到别的网站的只是链接', async ({ page, baseURL }) => {
+// 2026-11-27 以前这一条的名字里是“地形和水、图片照内容，一条不少”：那时“地形和水”是一张不分人物的单子，说没说过在整张单子里算。
+// 现在一位人物一段：每一行照旧对着文件查、先后照旧查、“见上面的说明”照旧不许有；说没说过只在一段里算（一段里没有重复的行、
+// 没有两行一样开头），另查每一段的小标题和它的字、段的先后、这一栏里没有落在段外面的行、两位人物都用到的一行在各人的一段里各印一遍。
+test('“来源”页：一栏字立在页面正中，没有沙盘栏；三套字体照 shipped.ts，地形和水照内容一位人物一段（小标题是他的名字加“的沙盘”，黑体）、图片照内容，一条不少；五份许可全文答的是 200、是文本；通到别的网站的只是链接', async ({ page, baseURL }) => {
   test.setTimeout(180_000);
   const requests: string[] = [];
   page.on('request', (request) => requests.push(request.url()));
 
-  // 要有的每一行，从文件里读
-  const lines: string[] = [];
+  // 要有的每一行，从文件里读：一位可以点进去的人物一段，照卡片的先后
+  const wantedTables: { id: string; heading: string; lines: string[] }[] = [];
   const pictures: { stop: string; picture: StopExtras['images'][number] }[] = [];
   let scenes = 0;
-  for (const figure of FIGURES) {
+  for (const [i, figure] of FIGURES.entries()) {
+    const lines: string[] = [];
     // 全程沙盘的出处排在最前面，只印头一个分号前面署名的半句
     for (const line of routeOnDisk(figure.id)?.credits ?? []) lines.push(line.includes('；') ? `${line.split('；')[0]}。` : line);
     for (const stop of figure.stops) {
@@ -356,13 +362,21 @@ test('“来源”页：一栏字立在页面正中，没有沙盘栏；三套�
       }
       if (stop.status === 'complete') pictures.push(...readJson<StopExtras>(`content/figures/${figure.id}/stops/${stop.id}.json`).images.map((picture) => ({ stop: stop.shortTitle, picture })));
     }
+    // 说过的不再印，只在这位人物的一段里算：一模一样的一行，和“分号前面的半句，这一段前面哪一行就是这样开头的”的一行
+    // （同一份数据在沙盘的凭据里又署了一遍，后半句“见上面的说明”是说给凭据里的读者听的）
+    const wanted: string[] = [];
+    for (const line of lines) if (!wanted.some((seen) => seen.startsWith(line.split('；')[0]))) wanted.push(line);
+    expect(OPEN[i].id, '人物和卡片对不上').toBe(figure.id);
+    // 一座沙盘也没有的人物没有他的一段
+    if (wanted.length > 0) wantedTables.push({ id: figure.id, heading: `${OPEN[i].name}的沙盘`, lines: wanted });
   }
-  // 说过的不再印：一模一样的一行，和“分号前面的半句，前面哪一行就是这样开头的”的一行（同一份数据在沙盘的凭据里又署了一遍，
-  // 后半句“见上面的说明”是说给凭据里的读者听的）
-  const wantedLines: string[] = [];
-  for (const line of lines) if (!wantedLines.some((seen) => seen.startsWith(line.split('；')[0]))) wantedLines.push(line);
+  const wantedLines = wantedTables.flatMap((table) => table.lines);
   expect(scenes, 'content/ 里要有沙盘，才查得到东西').toBeGreaterThan(0);
   expect(pictures.length, 'content/ 里要有图片，才查得到东西').toBeGreaterThan(0);
+  // 现在的内容里正有两位人物都用到的一行（两座全程沙盘的海岸、河、湖用的是同一家的数据）：不分段的时候它只印一遍，现在各印一遍
+  expect(wantedTables.length, '可以点进去、有沙盘的人物要有两位，才查得到“各印一遍”').toBeGreaterThanOrEqual(2);
+  const shared = [...new Set(wantedLines)].filter((line) => wantedTables.filter((table) => table.lines.includes(line)).length >= 2);
+  expect(shared.length, '内容里要有两位人物都用到的一行，才查得到“各印一遍”').toBeGreaterThan(0);
 
   // 这一页的标题和站点页的大标题一样大：电脑上 40，竖着拿的平板上 36（tests/e2e/titles.spec.ts 量的是站点页的）
   const TITLE_PX: Record<string, number> = { '1440 × 900': 40, '768 × 1024': 36 };
@@ -406,6 +420,22 @@ test('“来源”页：一栏字立在页面正中，没有沙盘栏；三套�
         fonts: Array.from(section('fonts').querySelectorAll<HTMLElement>('.sources-item')).map((item) => ({ family: item.getAttribute('data-font'), says: item.querySelector('p')!.textContent, type: type(item.querySelector('p')!), links: linksOf(item) })),
         subset: section('fonts').lastElementChild!.textContent,
         land: Array.from(section('land').querySelectorAll('.sources-list li')).map((li) => li.textContent),
+        landChildren: Array.from(section('land').children).map((child) => child.tagName.toLowerCase()),
+        landHeadings: Array.from(section('land').querySelectorAll('h3')).map((h) => h.textContent),
+        tables: Array.from(section('land').querySelectorAll<HTMLElement>('.sources-figure')).map((group) => {
+          const heading = group.querySelector('h3');
+          const list = group.querySelector('.sources-list');
+          return {
+            id: group.getAttribute('data-figure-id'),
+            children: Array.from(group.children).map((child) => child.tagName.toLowerCase()),
+            heading: heading ? { ...type(heading), text: heading.textContent, bottom: heading.getBoundingClientRect().bottom, left: heading.getBoundingClientRect().left } : null,
+            listTop: list ? list.getBoundingClientRect().top : null,
+            listLeft: list ? list.getBoundingClientRect().left : null,
+            top: group.getBoundingClientRect().top,
+            bottom: group.getBoundingClientRect().bottom,
+            lines: Array.from(group.querySelectorAll('.sources-list li')).map((li) => ({ text: li.textContent, type: type(li) })),
+          };
+        }),
         pictures: Array.from(section('pictures').querySelectorAll('.sources-list li')).map((li) => ({ paragraphs: Array.from(li.querySelectorAll('p')).slice(0, 2).map((p) => p.textContent), links: linksOf(li) })),
         program: { says: section('program').querySelector('p')!.textContent, links: linksOf(section('program')), last: section('program').lastElementChild!.textContent },
         pageWidth: document.documentElement.scrollWidth,
@@ -446,10 +476,32 @@ test('“来源”页：一栏字立在页面正中，没有沙盘栏；三套�
     }
     expect(got.subset).toBe(SOURCES_TEXT.subset(SHIPPED_FONTS.sans, SHIPPED_FONTS.song, SHIPPED_FONTS.kai));
 
-    // ---- 地形和水：每一行都在，不重复
+    // ---- 地形和水：一位人物一段，照卡片的先后；每一行都在，一段里不重复
     expect(got.land, `${where}：地形和水`).toEqual(wantedLines);
-    expect(new Set(got.land).size, `${where}：地形和水里有重复的行`).toBe(got.land.length);
-    expect(new Set(got.land.map((line) => (line ?? '').split('；')[0])).size, `${where}：地形和水里有两行是一样开头的（像同一句印了两遍）`).toBe(got.land.length);
+    expect(got.tables.map((table) => table.id), `${where}：地形和水里一位人物一段，照卡片的先后`).toEqual(wantedTables.map((table) => table.id));
+    // 这一栏里只有标题和这几段：没有落在段外面的行，小标题只有这几个
+    expect(got.landChildren, `${where}：地形和水里只有标题和各位人物的一段`).toEqual(['h2', ...wantedTables.map(() => 'div')]);
+    expect(got.landHeadings, `${where}：地形和水里的小标题`).toEqual(wantedTables.map((table) => table.heading));
+    for (const [i, table] of wantedTables.entries()) {
+      const shown = got.tables[i];
+      const lines = shown.lines.map((line) => line.text);
+      expect(shown.children, `${where}：${table.heading}那一段里是一个小标题、一张单子`).toEqual(['h3', 'ul']);
+      // 小标题：卡片上他的名字加“的沙盘”；黑体的小字（15 像素），字的颜色；站在这一段的单子上面，左边和单子对齐
+      expect(shown.heading, `${where}：${table.id} 那一段的小标题`).toMatchObject({ text: table.heading, family: 'Yanlu Sans', size: 15, colour: FRAME_INK });
+      expect(shown.heading!.bottom, `${where}：${table.heading}在它的单子上面`).toBeLessThanOrEqual(shown.listTop!);
+      expect(Math.abs(shown.heading!.left - shown.listLeft!), `${where}：${table.heading}和它的单子左边对齐`).toBeLessThan(1);
+      expect(lines, `${where}：${table.heading}`).toEqual(table.lines);
+      for (const line of shown.lines) expect(line.type, `${where}：${table.heading}里的一行`).toEqual({ family: 'Yanlu Song', size: 17, colour: FRAME_INK });
+      // 说过的不再印，只在一段里算：一段里没有重复的行，也没有两行是一样开头的（像同一句印了两遍）
+      expect(new Set(lines).size, `${where}：${table.heading}里有重复的行`).toBe(lines.length);
+      expect(new Set(lines.map((line) => (line ?? '').split('；')[0])).size, `${where}：${table.heading}里有两行是一样开头的（像同一句印了两遍）`).toBe(lines.length);
+      // 两位人物都用到的一行，在这位人物的一段里印了，只印一遍
+      for (const line of shared.filter((one) => table.lines.includes(one))) expect(lines.filter((one) => one === line), `${where}：${table.heading}里的“${line}”`).toHaveLength(1);
+      // 下一段在这一段下面，不叠着
+      if (i > 0) expect(shown.top, `${where}：${table.heading}在上一段下面`).toBeGreaterThanOrEqual(got.tables[i - 1].bottom);
+    }
+    // 整栏里一行印了几遍，就是有几位人物用到它
+    for (const line of new Set(got.land)) expect(got.land.filter((one) => one === line).length, `${where}：“${line}”印的遍数`).toBe(wantedTables.filter((table) => table.lines.includes(line ?? '')).length);
     for (const line of got.land) expect(line, `${where}：“见上面的说明”在这一页上指不到东西`).not.toContain('见上面的说明');
 
     // ---- 图片：每一张都在
@@ -494,7 +546,7 @@ test('“来源”页：一栏字立在页面正中，没有沙盘栏；三套�
   const base = new URL(baseURL ?? page.url()).origin;
   expect(requests.length).toBeGreaterThan(10);
   expect(requests.filter((url) => !/^(data|blob|about):/.test(url) && new URL(url).origin !== base), '出了网站自己地址的请求').toEqual([]);
-  console.log(`“来源”页：字体 ${Object.keys(SHIPPED_FONTS).length} 条，地形和水 ${wantedLines.length} 行（${scenes} 座沙盘、${FIGURES.length} 位人物），图片 ${pictures.length} 张；许可全文：${said.join('，')}；${requests.length} 个请求都是网站自己的地址`);
+  console.log(`“来源”页：字体 ${Object.keys(SHIPPED_FONTS).length} 条，地形和水 ${wantedLines.length} 行（${wantedTables.map((table) => `${table.heading} ${table.lines.length} 行`).join('，')}；${scenes} 座站点沙盘、${FIGURES.length} 位人物），图片 ${pictures.length} 张；许可全文：${said.join('，')}；${requests.length} 个请求都是网站自己的地址`);
 });
 
 test('“来源”页里面的那一段程序点进去才下载：首页、人物页、站点页上都不取；从首页、人物页、一站的末尾三处都点得进去，只取一次', async ({ page }) => {

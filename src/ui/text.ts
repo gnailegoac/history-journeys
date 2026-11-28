@@ -121,7 +121,7 @@ export function stageDebugLine(perf: StageReadout['perf'], readySeconds: number 
  * 楷体没有这样一张表：楷体只有沙盘上的题签和题签脚上的印在用，那些字工具照页面拼题签、拼印的函数去数。
  *
  * 前面几项就是上面那些常数（“沙盘上的东西”“没有画的”两项在 foldText.ts 里：它们跟着点开才下载的那一段程序走；
- * “来源”页的四个小标题在 sourcesText.ts 里，跟着那一页的程序走）；
+ * “来源”页的四个小标题和每位人物那一段的小标题在 sourcesText.ts 里，跟着那一页的程序走）；
  * 后面直接写着字的几项，现在还写在各个组件里。目录上圆点里的数字（“一二三……”那一项）写在
  * src/ui/FigureContents.tsx 里，“读原文”“凭据”写在用到它们的地方（StopText.tsx、Provenance.tsx），
  * “问讲解员”“发送”在 GuidePanel.tsx、GuideBody.tsx。
@@ -166,6 +166,8 @@ function sansLabels(): string[] {
     START_ROADS,
     SOURCES_LABEL,
     ...SOURCES_TEXT.headings,
+    // “来源”页“地形和水”里每位人物那一段的小标题：名字后面的几个字（名字自己照卡片归黑体）
+    SOURCES_TEXT.tableOf(''),
     '一二三四五六七八九十',
     // 小标签
     NOT_WRITTEN,

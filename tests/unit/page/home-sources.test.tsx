@@ -286,12 +286,14 @@ describe('“来源”页', () => {
     await page.unmount();
   });
 
-  it('地形和水：每位可以点进去的人物的全程沙盘（只印署名的半句）、他每一站的沙盘写的每一行都在，说过的只印一遍；图片：每一站正文里的每一张都在', { timeout: 30_000 }, async () => {
-    // 要有的每一行，从文件里读
-    const lines: string[] = [];
-    const pictures: { stop: string; picture: StopExtras['images'][number] }[] = [];
-    let sceneFiles = 0;
-    for (const figure of figures) {
+  /**
+   * “地形和水”一栏要有的东西，从文件里读：一位可以点进去的人物一段（照卡片的先后），小标题是卡片上他的名字加“的沙盘”，
+   * 下面是他的全程沙盘的每一行（带分号的只印前半句）、他每一站的沙盘的每一行，在这一段里说过的不再印。
+   * all 是去掉说过的以前的每一行，dropped 是因为说过而没有印的；sceneFiles 是他的站点沙盘有几座。
+   */
+  function landOnDisk(): { id: string; heading: string; lines: string[]; all: string[]; dropped: string[]; sceneFiles: number }[] {
+    return figures.map((figure, i) => {
+      const lines: string[] = [];
       // 全程沙盘的出处排在最前面，只印头一个分号前面署名的半句（后半句说的“上面的说明”在这一页上没有）
       const routeFile = `content/figures/${figure.id}/scenes/route.json`;
       const scenes = jsonIn(`content/figures/${figure.id}/scenes`);
@@ -303,30 +305,70 @@ describe('“来源”页', () => {
       // 各站的沙盘照这位人物走的先后排（页面是照 figure.stops 一站一站取的），不照文件名：有了第二座沙盘（黄州）才分得出来
       const stopFiles = figure.stops.map((stop) => `content/figures/${figure.id}/scenes/${stop.id}.json`).filter((path) => scenes.includes(path));
       expect(stopFiles.length, '每个站点沙盘的文件名都是一站的 id').toBe(scenes.length - 1);
-      for (const path of stopFiles) {
-        sceneFiles++;
-        lines.push(...readJson<StopScene>(path).credits);
-      }
+      for (const path of stopFiles) lines.push(...readJson<StopScene>(path).credits);
+      // 说过的不再印，只在这位人物的一段里算：一模一样的一行，和“分号前面的半句，这一段前面哪一行就是这样开头的”的一行（同一份数据在沙盘的凭据里又署了一遍）
+      const wanted: string[] = [];
+      for (const line of lines) if (!wanted.some((seen) => seen.startsWith(line.split('；')[0]))) wanted.push(line);
+      const dropped = lines.filter((line) => !wanted.includes(line));
+      // 少印的每一行，它署的名一个字不少地在这一段前面的哪一行里
+      for (const line of dropped) expect(wanted.some((seen) => seen.startsWith(line.split('；')[0])), line).toBe(true);
+      // figures 和 open 是同一个先后：小标题里的名字是卡片上的
+      expect(open[i].id, '人物和卡片对不上').toBe(figure.id);
+      return { id: figure.id, heading: `${open[i].name}的沙盘`, lines: wanted, all: lines, dropped, sceneFiles: stopFiles.length };
+    });
+  }
+
+  // 2026-11-27 以前这一条的名字是“地形和水：每位可以点进去的人物的全程沙盘（只印署名的半句）、他每一站的沙盘写的每一行都在，说过的只印一遍；图片：每一站正文里的每一张都在”。
+  // 那时这一栏是一张不分人物的单子，说没说过在整张单子里算。现在一位人物一段：每一行照旧对着文件查、先后照旧查，“见上面的说明”照旧不许有；
+  // 说没说过只在一段里算，另查每一段的小标题、段的先后、这一栏里没有落在段外面的行、两位人物都用到的一行在各人的一段里各印一遍。
+  it('地形和水：一位可以点进去的人物一段，照卡片的先后，小标题是卡片上他的名字加“的沙盘”；一段里他的全程沙盘（只印署名的半句）、他每一站的沙盘写的每一行都在，在这一段里说过的只印一遍，两位人物都用到的一行在各人的一段里各印一遍；图片：每一站正文里的每一张都在', { timeout: 30_000 }, async () => {
+    // 要有的每一行，从文件里读
+    const tables = landOnDisk();
+    const pictures: { stop: string; picture: StopExtras['images'][number] }[] = [];
+    for (const figure of figures) {
       for (const stop of figure.stops) {
         if (stop.status === 'complete') pictures.push(...readJson<StopExtras>(`content/figures/${figure.id}/stops/${stop.id}.json`).images.map((picture) => ({ stop: stop.shortTitle, picture })));
       }
     }
-    // 说过的不再印：一模一样的一行，和“分号前面的半句，前面哪一行就是这样开头的”的一行（同一份数据在沙盘的凭据里又署了一遍）
-    const wanted: string[] = [];
-    for (const line of lines) if (!wanted.some((seen) => seen.startsWith(line.split('；')[0]))) wanted.push(line);
-    // 现在的内容里正有这样的一行（徐州的沙盘和全程沙盘用的是同一份地形）：页面上少了它，可它署的名一个字不少地在前面那一行里
-    const dropped = lines.filter((line) => !wanted.includes(line));
-    expect(dropped.length, '内容里要有一行说过的出处，这一项才查得到东西').toBeGreaterThan(0);
-    for (const line of dropped) expect(wanted.some((seen) => seen.startsWith(line.split('；')[0])), line).toBe(true);
+    const sceneFiles = tables.reduce((n, table) => n + table.sceneFiles, 0);
+    // 现在的内容里正有一行说过的（徐州的沙盘和同一位人物的全程沙盘用的是同一份地形）：页面上少了它，可它署的名一个字不少地在这一段前面那一行里
+    expect(tables.reduce((n, table) => n + table.dropped.length, 0), '内容里要有一行说过的出处，这一项才查得到东西').toBeGreaterThan(0);
     expect(sceneFiles, 'content/ 里要有沙盘，这一项才查得到东西').toBeGreaterThan(0);
-    expect(lines.length).toBeGreaterThan(sceneFiles);
+    expect(tables.reduce((n, table) => n + table.all.length, 0)).toBeGreaterThan(sceneFiles);
     expect(pictures.length, 'content/ 里要有图片，这一项才查得到东西').toBeGreaterThan(0);
+    // 现在的内容里也正有两位人物都用到的一行（两座全程沙盘的海岸、河、湖用的是同一家的数据）：不分段的时候它只印一遍，现在各印一遍
+    expect(tables.length, '可以点进去的人物要有两位，这一项才查得到“各印一遍”').toBeGreaterThanOrEqual(2);
+    const shared = [...new Set(tables.flatMap((table) => table.lines))].filter((line) => tables.filter((table) => table.lines.includes(line)).length >= 2);
+    expect(shared.length, '内容里要有两位人物都用到的一行，这一项才查得到“各印一遍”').toBeGreaterThan(0);
 
     const page = await mount('?stage=fake', 'sources');
     await waitFor(() => page.all('.sources-list').length > 0 && page.all('main .quiet').length === 0);
     const section = (name: string) => page.all('section').find((one) => attr(one, 'data-sources') === name)!;
+    // 一位人物一段，照卡片的先后；一段里只有两样：小标题，下面一张单子
+    const groups = section('land').querySelectorAll('.sources-figure');
+    expect(groups.map((group) => attr(group, 'data-figure-id'))).toEqual(tables.map((table) => table.id));
+    expect(tables.map((table) => table.id)).toEqual(open.map((card) => card.id));
+    for (const [i, table] of tables.entries()) {
+      const group = groups[i];
+      expect(group.childNodes.map((node) => (node as MiniElement).localName), table.heading).toEqual(['h3', 'ul']);
+      expect(group.querySelector('h3')!.textContent, table.id).toBe(table.heading);
+      const shownLines = group.querySelectorAll('.sources-list li').map((li) => li.textContent);
+      expect(shownLines, table.heading).toEqual(table.lines);
+      // 一段里没有重复的行，也没有两行是一样开头的（像同一句印了两遍）
+      expect(new Set(shownLines).size, `${table.heading}里有重复的行`).toBe(shownLines.length);
+      expect(new Set(shownLines.map((line) => (line ?? '').split('；')[0])).size, `${table.heading}里有两行是一样开头的`).toBe(shownLines.length);
+      // 两位人物都用到的一行，在这位人物的一段里印了，只印一遍
+      for (const line of shared.filter((one) => table.lines.includes(one))) expect(shownLines.filter((one) => one === line), `${table.heading}：${line}`).toHaveLength(1);
+    }
+    // 这一栏从上到下就是各段接起来的：没有落在段外面的行，小标题只有这几个
     const land = section('land').querySelectorAll('.sources-list li').map((li) => li.textContent);
-    expect(land).toEqual(wanted);
+    expect(land).toEqual(tables.flatMap((table) => table.lines));
+    expect(section('land').querySelectorAll('h3').map((heading) => heading.textContent)).toEqual(tables.map((table) => table.heading));
+    expect(section('land').childNodes.map((node) => (node as MiniElement).localName)).toEqual(['h2', ...tables.map(() => 'div')]);
+    // 小标题用黑体排：名字后面的几个字在黑体的名单里（名字是卡片上的，做字体的工具照卡片归黑体）
+    expect(SOURCES_TEXT.tableOf('')).toBe('的沙盘');
+    expect(SANS_LABELS).toContain(SOURCES_TEXT.tableOf(''));
+    for (const [i, table] of tables.entries()) expect(table.heading).toBe(SOURCES_TEXT.tableOf(open[i].name));
     // “见上面的说明”是说给凭据里的读者听的，这一页上没有那段说明：这半句不该印出来
     for (const line of land) expect(line, '“来源”页上指不到东西的半句').not.toContain('见上面的说明');
 
@@ -343,6 +385,26 @@ describe('“来源”页', () => {
       expect(links.map((link) => [link.textContent, attr(link, 'href'), attr(link, 'target'), attr(link, 'rel')])).toEqual([['图片出处', picture.sourceUrl, '_blank', 'noopener noreferrer']]);
     }
     await page.unmount();
+  });
+
+  it('地形和水：可以点进去的只有一位的时候也是这样的一段——同一个小标题、同样的几行，页面不另作一种样子；一位人物的一段里印什么，不看别的人物可不可以点进去', { timeout: 30_000 }, async () => {
+    const tables = landOnDisk();
+    expect(tables.length).toBeGreaterThanOrEqual(1);
+    for (const table of tables) {
+      // 只把这一位的卡片留着开，别的都合上（卡片上别的字一个不动）
+      (globalThis as any).__cards = cards.map((card) => ({ ...card, available: card.id === table.id }));
+      const page = await mount('?stage=fake', 'sources');
+      // 等这一栏读出来（不等“一句灰字也没有”：只有一位人物、他又没有图片的时候，图片那一栏里站着一句“现在还没有用到别处的图片”）
+      await waitFor(() => page.all('.sources-figure').length > 0);
+      const land = page.all('section').find((one) => attr(one, 'data-sources') === 'land')!;
+      const groups = land.querySelectorAll('.sources-figure');
+      expect(groups.map((group) => attr(group, 'data-figure-id')), table.heading).toEqual([table.id]);
+      expect(land.childNodes.map((node) => (node as MiniElement).localName), table.heading).toEqual(['h2', 'div']);
+      expect(groups[0].querySelector('h3')!.textContent).toBe(table.heading);
+      expect(groups[0].querySelectorAll('.sources-list li').map((li) => li.textContent), table.heading).toEqual(table.lines);
+      await page.unmount();
+      (globalThis as any).__cards = undefined;
+    }
   });
 
   it('说过的出处只印一遍，先后不变：一模一样的一行，和分号前面的半句前面已经有一行这样开头的（拿编出来的几行查）', async () => {

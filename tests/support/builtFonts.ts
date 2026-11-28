@@ -8,6 +8,9 @@
 //   二、预先声明少了 crossorigin，浏览器取来的那一份样式表用不上，也会再取一遍。
 //   三、构建的工具会改写样式表：把分开写的 text-decoration-line、-style、-color 合回一句，Safari 26.2 以前就不认了
 //      （带虚线的词会没有线）；@container 和 cqw 老平板（iPadOS 15）不认，一处也不许有。
+//   四、字体文件是按范围分的：不用点开就要的文件的 @font-face 都在页面一打开就读的那一份样式表里，点开才要的各在自己的一份里
+//       （并进了页面那一份，它的 unicode-range 那一长串就成了每位读者一打开都要下载的）；index.html 里各个范围的预先声明先不生效，
+//       行上写着它是给谁的——构建以后这几样还得是这样。
 // Safari 在这台机器上跑不了，这几条靠“写成什么样”来守。
 
 import { countIn, mediaProblems, mediaQueries, readCss } from './sourceScan';
@@ -19,6 +22,13 @@ export interface FontPreload {
   as: string;
   type: string;
   crossorigin: boolean;
+  /** media 属性写的什么；没有写是 null。写着 not all 的是先不生效的一行。 */
+  media: string | null;
+  /** 先不生效的一行上写着它是给谁的：范围、哪一站（没有写是 null，写着空的是空的）、黑体还是宋体、是不是首页也要。 */
+  fonts: string | null;
+  unit: string | null;
+  family: string | null;
+  home: boolean;
 }
 
 /** 样式表里的一条 @font-face。 */
@@ -40,7 +50,28 @@ export function fontPreloads(html: string): FontPreload[] {
       return match ? (match[1] ?? match[2] ?? match[3] ?? '') : null;
     };
     if (attr('rel') !== 'preload' || attr('as') !== 'font') continue;
-    found.push({ href: attr('href') ?? '', as: attr('as') ?? '', type: attr('type') ?? '', crossorigin: /\scrossorigin(?=[\s=/>])/.test(tag) });
+    found.push({
+      href: attr('href') ?? '',
+      as: attr('as') ?? '',
+      type: attr('type') ?? '',
+      crossorigin: /\scrossorigin(?=[\s=/>])/.test(tag),
+      media: attr('media'),
+      fonts: attr('data-fonts'),
+      unit: attr('data-fonts-unit'),
+      family: attr('data-fonts-family'),
+      home: /\sdata-fonts-home(?=[\s=/>])/.test(tag),
+    });
+  }
+  return found;
+}
+
+/** 一段 HTML 里挂着的样式表（<link rel="stylesheet">）的地址，按先后。注释里的不算。 */
+export function styleSheetLinks(html: string): string[] {
+  const found: string[] = [];
+  for (const [tag] of html.replace(/<!--[\s\S]*?-->/g, '').matchAll(/<link\b[^>]*>/g)) {
+    if (!/\srel\s*=\s*["']?stylesheet["']?(?=[\s/>])/.test(tag)) continue;
+    const href = /\shref\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/.exec(tag);
+    if (href) found.push(href[1] ?? href[2] ?? href[3] ?? '');
   }
   return found;
 }
@@ -79,23 +110,30 @@ export interface BuiltSite {
   fonts: Record<string, { bytes: number; sha256: string }>;
 }
 
-/** 放进仓库的一个字体文件（src/fonts/fonts.json 里记的）。 */
+/** 放进仓库的一个字体文件（src/fonts/fonts.json 里记的，格式 4）。 */
 export interface CommittedFont {
+  /** 在 src/fonts/ 里的路径：yanlu-song.woff2，scopes/yanlu-song-su-shi.woff2。 */
   file: string;
   sha256: string;
-  /** 样式表里有没有给它写 unicode-range。 */
+  /** 样式表里有没有给它写 unicode-range（只有点开才要的有）。 */
   range: boolean;
-  /** 要不要在 index.html 里预先声明（做字体的工具定的，tests/support/fontTool.ts 的 PRELOAD_GROUPS）。 */
-  preload: boolean;
-  /** 装的是不是不用点开就看得见的字；只归哪一站（宋体按站拆开以后才有，大家共用的是 null）。算首次打开要下载多少时用。 */
-  first: boolean;
-  stop: string | null;
+  /**
+   * 在 index.html 里怎么声明（做字体的工具定的）：always 框架的两个，一打开就取；scope 各个范围不用点开就要的黑体、宋体，
+   * 先不生效，地址合得上才取；none 不声明（楷体，和点开才要的）。
+   */
+  preload: 'always' | 'scope' | 'none';
+  /** 它的 @font-face 写在哪一份样式表里（相对 src/fonts/）：fonts.css 是页面一打开就读的那一份；别的是这个范围点开才要的字自己的一份。 */
+  sheet: string;
+  /** 归哪个范围（frame、人物的 id、sources），哪一站（不归哪一站是 null），是照哪个原字体做的（sans、song、kai）。 */
+  scope: string;
+  unit: string | null;
+  source: string;
 }
 
 export interface BuiltFonts {
   /** 不对的地方，一句一条；都对是空的。 */
   problems: string[];
-  /** dist/ 里的每个字体文件：是放进仓库的哪一个，多少字节，是不是一打开就下载的（index.html 里预先声明了的）。 */
+  /** dist/ 里的每个字体文件：是放进仓库的哪一个，多少字节，是不是一打开就下载的（index.html 里预先声明了、生效的）。 */
   files: { file: string; built: string; bytes: number; first: boolean }[];
 }
 
@@ -110,9 +148,11 @@ export const CQW_MAX = 0;
 /**
  * 构建出来的网站里的字体对着放进仓库的查一遍：
  *   dist/ 里的 .woff2 正好是放进仓库的那几个（一个字节不差），不多不少；
- *   index.html 预先声明的，正好是记录里说要预先声明的那几个（不是“不带 unicode-range 的都声明”：有的文件不带 unicode-range、
- *   也不预先声明，页面上用到那套字体时浏览器才取），地址和样式表里写的是同一个文件，都带 crossorigin、type；
- *   每一条 @font-face 指着 dist/ 里有的文件，都是 font-display: swap；带 unicode-range 的和放进仓库的记录一致。
+ *   每一条 @font-face 指着 dist/ 里有的文件，都是 font-display: swap；带不带 unicode-range 和放进仓库的记录一致；
+ *   不用点开就要的文件的 @font-face 都在页面一打开就读的那一份样式表里（index.html 挂着的），点开才要的各在别的一份里、一份只有它一条；
+ *   index.html 里生效的预先声明，正好是记录里说一打开就取的那几个（框架的两个），地址和样式表里写的是同一个文件，都带 crossorigin、type；
+ *   先不生效的预先声明（media="not all"），正好是记录里各个范围不用点开就要的黑体、宋体文件各一行，地址也是样式表里写的那个文件，
+ *   行上写着的范围、站、黑体还是宋体和记录里的一样（“来源”页的那一行写着空的站）。
  */
 export function builtFonts(site: BuiltSite, committed: CommittedFont[]): BuiltFonts {
   const problems: string[] = [];
@@ -131,6 +171,7 @@ export function builtFonts(site: BuiltSite, committed: CommittedFont[]): BuiltFo
   for (const item of committed) if (!builtOf.has(item.file)) say(`放进仓库的 ${item.file} 不在 dist/ 里：页面没有用上它`);
 
   // 样式表里的 @font-face
+  const pageSheets = styleSheetLinks(site.html).map((href) => inDist(href, 'index.html'));
   const faces = Object.entries(site.sheets).flatMap(([sheet, css]) => fontFaces(css).map((face) => ({ ...face, sheet, path: inDist(face.url, sheet) })));
   if (faces.length !== committed.length) say(`构建出来的样式表里有 ${faces.length} 条 @font-face，放进仓库的字体文件是 ${committed.length} 个`);
   for (const face of faces) {
@@ -140,14 +181,21 @@ export function builtFonts(site: BuiltSite, committed: CommittedFont[]): BuiltFo
     else {
       const source = committed.find((item) => builtOf.get(item.file) === face.path);
       if (source && source.range !== face.ranged) say(`${where}（${source.file}）${face.ranged ? '带着' : '没有'} unicode-range，和放进仓库的记录不一样`);
+      // 不用点开就要的在页面一打开就读的那一份里；点开才要的不在那一份里，自己的一份里只有它一条
+      const onPage = pageSheets.includes(face.sheet);
+      if (source && source.sheet === 'fonts.css' && !onPage) say(`${where}（${source.file}）不在页面一打开就读的那一份样式表里：这一页要它的时候还得等另一份样式表`);
+      if (source && source.sheet !== 'fonts.css' && onPage) say(`${where}（${source.file}）是点开才要的字，却并进了页面一打开就读的那一份样式表：它那一长串 unicode-range 每位读者一打开都要下载`);
+      if (source && source.sheet !== 'fonts.css' && !onPage && faces.filter((other) => other.sheet === face.sheet).length !== 1) say(`${face.sheet} 里不止一条 @font-face：点开才要的字的样式表一个范围一份，一份只有它自己的一条`);
     }
     if (face.display !== 'swap') say(`${where}的 font-display 是“${face.display}”，应该是 swap（字体文件来得晚，字先用别的字体显示，不能空着）`);
   }
 
-  // index.html 里预先声明的
-  const preloads = fontPreloads(site.html).map((link) => ({ ...link, path: inDist(link.href, 'index.html') }));
-  // 要预先声明的：记录里标着 preload 的那几个文件，在样式表里的那一条指着的地址
-  const preloadFiles = committed.filter((item) => item.preload).map((item) => builtOf.get(item.file));
+  // index.html 里预先声明的：生效的，和先不生效的（media="not all"）
+  const all = fontPreloads(site.html).map((link) => ({ ...link, path: inDist(link.href, 'index.html') }));
+  const preloads = all.filter((link) => link.media !== 'not all');
+  const inert = all.filter((link) => link.media === 'not all');
+  // 要预先声明的：记录里标着一打开就取的那几个文件，在样式表里的那一条指着的地址
+  const preloadFiles = committed.filter((item) => item.preload === 'always').map((item) => builtOf.get(item.file));
   const firstFaces = faces.filter((face) => face.path !== null && preloadFiles.includes(face.path)).map((face) => face.path as string);
   for (const link of preloads) {
     const where = `index.html 里预先声明的 ${link.href}`;
@@ -156,12 +204,40 @@ export function builtFonts(site: BuiltSite, committed: CommittedFont[]): BuiltFo
     else if (!firstFaces.includes(link.path)) say(`${where}不是记录里说要预先声明的字体文件（要预先声明的是 ${firstFaces.join('、') || '没有'}）：会多下载一个文件，或者下载得太早`);
     if (!link.crossorigin) say(`${where}没有 crossorigin：浏览器取来的这一份样式表用不上，会再取一遍`);
     if (link.type !== 'font/woff2') say(`${where}的 type 是“${link.type}”，应该是 font/woff2`);
+    if (link.media !== null) say(`${where}写着 media="${link.media}"：一打开就取的不写 media，先不生效的写 not all`);
   }
   for (const path of firstFaces) if (!preloads.some((link) => link.path === path)) say(`记录里说要预先声明的 ${path} 没有在 index.html 里预先声明`);
   // 带 unicode-range 的文件用到它里面的字时才下载：记录里把它标成要预先声明，是记错了
-  for (const item of committed) if (item.preload && item.range) say(`${item.file} 带着 unicode-range（用到时才下载），记录里却说要预先声明`);
-  const paths = preloads.map((link) => link.path);
+  for (const item of committed) if (item.preload !== 'none' && item.range) say(`${item.file} 带着 unicode-range（用到时才下载），记录里却说要预先声明`);
+  const paths = all.map((link) => link.path);
   if (paths.some((path, i) => path !== null && paths.indexOf(path) !== i)) say('index.html 里同一个字体文件预先声明了两次');
+
+  // 先不生效的那几行：正好是记录里各个范围不用点开就要的黑体、宋体文件，一个一行，照记录的先后
+  const scoped = committed.filter((item) => item.preload === 'scope');
+  for (const link of inert) {
+    const where = `index.html 里先不生效的预先声明 ${link.href}`;
+    const source = scoped.find((item) => link.path !== null && builtOf.get(item.file) === link.path);
+    if (link.path === null) say(`${where}指着别的网站`);
+    else if (!Object.hasOwn(site.fonts, link.path)) say(`${where}，dist/ 里没有这个文件`);
+    else if (!source) say(`${where}不是记录里哪个范围不用点开就要的黑体、宋体文件`);
+    else if (!faces.some((face) => face.path === link.path)) say(`${where}和样式表里写的不是同一个文件`);
+    else {
+      const wantUnit = source.unit ?? (source.scope === 'sources' ? '' : null);
+      if (link.fonts !== source.scope || link.unit !== wantUnit || link.family !== source.source) {
+        say(`${where}（${source.file}）行上写的是范围“${link.fonts ?? '（没有）'}”、站“${link.unit ?? '（没有）'}”、${link.family ?? '（没有）'}，记录里是范围“${source.scope}”、站“${wantUnit ?? '（没有）'}”、${source.source}：页面开头的脚本照这几样认这一行是给谁的`);
+      }
+    }
+    if (!link.crossorigin) say(`${where}没有 crossorigin：浏览器取来的这一份样式表用不上，会再取一遍`);
+    if (link.type !== 'font/woff2') say(`${where}的 type 是“${link.type}”，应该是 font/woff2`);
+  }
+  for (const item of scoped) if (!inert.some((link) => link.path !== null && link.path === builtOf.get(item.file))) say(`${item.file} 是一个范围不用点开就要的文件，index.html 里没有它那一行先不生效的预先声明`);
+  // 首页的地址里没有人物：首页要的几行带着 data-fonts-home，是同一位人物不归哪一站的文件——他的宋体，有黑体的话还有黑体；
+  // 一行也没有就是首页没有摆着谁
+  const home = inert.filter((link) => link.home);
+  const homeFamilies = [...home.map((link) => link.family)].sort().join();
+  if (home.length > 0 && (new Set(home.map((link) => link.fonts)).size !== 1 || home.some((link) => link.unit !== null) || (homeFamilies !== 'sans,song' && homeFamilies !== 'song'))) {
+    say(`index.html 里带着 data-fonts-home 的预先声明应该是同一位人物的黑体和宋体各一行，现在是 ${home.map((link) => [link.fonts, link.unit, link.family].filter((part) => part !== null && part !== '').join(' ')).join('、')}`);
+  }
 
   const first = new Set(preloads.map((link) => link.path));
   const files = committed.flatMap((item) => {

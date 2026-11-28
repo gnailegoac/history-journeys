@@ -628,8 +628,12 @@ test('第一行的三种样子：栏 939、583、495 像素宽', async ({ page }
 test('把每一段走一遍，不去取点开才用的那个宋体文件；点开“图例”才取', async ({ page }) => {
   test.setTimeout(240_000);
   const asked: string[] = [];
+  // 点开才用的那个宋体文件：字体文件是按范围分的，这一页上是这位人物自己的那一个（scopes/yanlu-song-<人物>-more，构建以后名字后面多一串字符）。
+  // 别的范围点开才用的文件（名字末尾也是 -more）也记：这一页上一个都不该取
+  const MORE_FILE = /\/assets\/yanlu-song-[a-z0-9-]*more-[\w-]{8}\.woff2$/;
+  const OWN_MORE = new RegExp(`/assets/yanlu-song-${FIGURE_ID}-more-[\\w-]{8}\\.woff2$`);
   page.on('request', (request) => {
-    if (/\/assets\/yanlu-song-more-[^/]*\.woff2$/.test(request.url())) asked.push(request.url());
+    if (MORE_FILE.test(request.url())) asked.push(request.url());
   });
   // 不用沙盘的替身（它上面给测试看的字会把那个文件引来）：真的页面，只放图片，时间轴本来就在
   await page.goto(realUrl(`#/${FIGURE_ID}`, null, '&tier=still'));
@@ -665,6 +669,8 @@ test('把每一段走一遍，不去取点开才用的那个宋体文件；点�
   await fontsReady(page);
   await page.waitForTimeout(500);
   expect(asked).toHaveLength(1);
+  // 取的是这位人物自己点开才用的那一个
+  expect(OWN_MORE.test(asked[0]), asked[0]).toBe(true);
 });
 
 // ================================================================ 播放

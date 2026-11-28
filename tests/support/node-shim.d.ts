@@ -1,6 +1,6 @@
 // 测试和制作用的工具要从磁盘读写文件（地形文件、先画好的地面、定格图、构建出来的 dist/）、压缩和解压，
 // 用的是 Node 自带的 fs 和 zlib。这个项目没有装 Node 的类型声明，这里只声明用到的几个函数。
-// 只给 tests/ 里的程序用（在 Node 里跑）；src/ 里的程序不要用。
+// 只给 tests/ 里的程序和 vite.config.ts 用（都在 Node 里跑；vite.config.ts 用它改构建清单）；src/ 里的程序不要用。
 declare module 'node:fs' {
   export function readFileSync(path: string | URL): Uint8Array;
   export function statSync(path: string | URL): { size: number };

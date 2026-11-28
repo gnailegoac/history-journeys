@@ -55,6 +55,8 @@ const FIGURE_SLIP = 'rgb(250, 245, 231)';
 const FIGURE_INK = 'rgb(40, 35, 31)';
 const FIGURE_MARK = 'rgb(176, 58, 42)';
 const FIGURE_WATER = 'rgb(62, 96, 114)';
+/** 题签用的字体，名单里打头的那一个：随站的楷体里这位人物自己的（字体文件按范围分，楷体跟着人物走，名称后面带着他的 id）。 */
+const FIGURE_KAI = 'Yanlu Kai su-shi';
 const FRAME_INK = 'rgb(35, 34, 31)';
 const FRAME_SOFT = 'rgb(92, 90, 85)';
 const FRAME_ACCENT = 'rgb(31, 75, 110)';
@@ -665,7 +667,7 @@ test('按钮是白底的板，古名今名选中的是墨蓝的字加实心的�
     for (const strip of strips) {
       const at = `“${heading}”的题签“${strip.text}”`;
       tones.add(strip.tone);
-      expect({ ground: strip.ground, size: strip.size, family: strip.family, edge: strip.edge, pad: strip.pad }, at).toEqual({ ground: FIGURE_SLIP, size: '17px', family: 'Yanlu Kai', edge: '0px', pad: '6px 6px 16px 6px' });
+      expect({ ground: strip.ground, size: strip.size, family: strip.family, edge: strip.edge, pad: strip.pad }, at).toEqual({ ground: FIGURE_SLIP, size: '17px', family: FIGURE_KAI, edge: '0px', pad: '6px 6px 16px 6px' });
       expect(strip.seal, `${at}脚上的印`).toBe(`6px × 6px ${FIGURE_MARK} 5px`);
       expect(strip.colour, `${at}的字`).toBe(strip.tone === 'water' ? FIGURE_WATER : FIGURE_INK);
       expect(strip.outline, `${at}的边`).toBe(strip.tone === 'far' ? 'dashed' : 'none');

@@ -124,13 +124,14 @@ const familyAllowed = (value: string, strips: boolean): boolean => /^var\(--font
 const SANS_WORDS = ['system-ui', 'sans-serif', 'PingFang', 'YaHei'];
 /**
  * 三个字体记号的值各是哪一套随站的字体打头（工具写进字体文件里的名字，src/fonts/fonts.css）。
- * 人物的字体记号（--figure-font）是题签上的字：打头的要是网站自己带的一套字——随站的楷体（竖着的纸条；tokens.css 里不写人物的那一块现在是它，
- * tests/fonts/font-files.test.ts 另有一条钉着），或者读正文的宋体（平着的纸条用它）。原来这里只认楷体。
+ * 人物的字体记号（--figure-font）是题签上的字：打头的要是网站自己带的一套字——随站的楷体（竖着的纸条），或者读正文的宋体（平着的纸条用它）。
+ * 随站的楷体是按人物分的文件，样式表里的名称后面带着人物的 id（'Yanlu Kai su-shi'）：光写 'Yanlu Kai' 不算，没有哪个文件叫这个名称，
+ * 写了它题签就落到设备自带的楷体上。写的是不是这位人物自己的那一个，tests/fonts/font-files.test.ts 另有一条钉着。
  */
-const FONT_STARTS: [string, string[]][] = [
-  ['--font-sans', ['Yanlu Sans']],
-  ['--font-song', ['Yanlu Song']],
-  ['--figure-font', ['Yanlu Kai', 'Yanlu Song']],
+const FONT_STARTS: [string, RegExp[]][] = [
+  ['--font-sans', [/^'Yanlu Sans'/]],
+  ['--font-song', [/^'Yanlu Song'/]],
+  ['--figure-font', [/^'Yanlu Kai [a-z0-9-]+'/, /^'Yanlu Song'/]],
 ];
 
 /**
@@ -267,7 +268,7 @@ function seamFindings(declarations: Declaration[], add: (rule: string, what: str
  *   font          简写（只许 font: inherit）
  *   font-family   不是两个记号的（题签的规则里是人物自己的那一个）；别的 --font-… 记号；--font-sans、--font-song 写在了 :root 以外；
  *                 三个字体记号的值不是随站的那一套打头（--font-sans 是 'Yanlu Sans'，--font-song 是 'Yanlu Song'，
- *                 --figure-font 是网站自己带的题签用的字：'Yanlu Kai' 或者 'Yanlu Song'）
+ *                 --figure-font 是网站自己带的题签用的字：一位人物自己的楷体 'Yanlu Kai <人物的 id>'，或者 'Yanlu Song'）
  *   own-font      --own-song、--own-sans（这一页自己那个范围的字体）写在了工具做的 src/fonts/fonts.css 以外；在三个字体记号的值以外读了它们；
  *                 读错了地方（黑体的只在 --font-sans 里读，宋体的在 --font-song 和人物的 --figure-font 里读）；
  *                 读的写法不是 var(--own-song, 'Yanlu Song')、var(--own-sans, 'Yanlu Sans')（备用的要是随站的那一套）
@@ -306,7 +307,7 @@ export function scanStyle(file: string, css: string): Finding[] {
     if (property.startsWith('--font-') && !FONT_TOKENS.includes(property)) add('font-family', `${property}: …`);
     // 框架的两个字体记号只在 :root 上写一次；三个字体记号的值都得是随站的那一套打头
     if (FONT_TOKENS.includes(property) && selector !== ':root') add('font-family', `${selector} { ${property}: … }`);
-    for (const [mark, families] of FONT_STARTS) if (property === mark && (selector === ':root' || mark === '--figure-font') && !families.some((family) => value.startsWith(`'${family}'`))) add('font-family', line);
+    for (const [mark, families] of FONT_STARTS) if (property === mark && (selector === ':root' || mark === '--figure-font') && !families.some((family) => family.test(value))) add('font-family', line);
     // 这一页自己那个范围的字体的两个记号：只许由工具做的那一份样式表写；只许在字体的记号里读（框架的两个在 :root 上，人物的在他那一块里），写法只有一种
     if (property.startsWith('--own-') && !OWN_FONT_WRITER.test(file)) add('own-font', `${selector} { ${property}: … }`);
     for (const [, read, name] of value.matchAll(/(var\(\s*(--own-[A-Za-z0-9-]*)[^)]*\))/g)) {

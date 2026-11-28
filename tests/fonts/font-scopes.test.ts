@@ -1,10 +1,10 @@
-// 字体文件按范围分（一页显示什么，就给它哪几个文件）：规矩写好了，开关关着（tests/support/fontTool.ts 的 FONTS_BY_SCOPE）。
-// 这一份测试不看开关，随 npm test 跑：不用原字体，不连网，什么也不写。分五组：
+// 字体文件按范围分（一页显示什么，就给它哪几个文件）：做字体的工具照这一套规矩做文件（tests/support/fontTool.ts 第五段）。
+// 这一份测试查的是规矩本身，随 npm test 跑：不用原字体，不连网，什么也不写。分五组：
 //   一、编出来的网站上的规矩：哪些字归哪个范围的文件，哪一种页面拿哪几个文件。
 //   二、隔开：动一位人物，别的范围的文件一个字不变，框架只跟着他的卡片变。
 //   三、仓库里真的这个网站：每一种页面显示的每一个字，都在给这一页的文件里。
 //   四、照清单写的几样：fonts.css、点开才要的字的样式表、scopes.ts、index.html 里的那一段、格式 4 的记录。
-//   五、上限，和开关。
+//   五、上限，和开关（开着，关不回去）。
 
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
@@ -40,9 +40,13 @@ import {
   planScopes,
   preloadBlock,
   pressedSheetCss,
-  readShipped,
+  postscriptName,
+  readScoped,
   readSite,
   reservedNameProblems,
+  SOURCES_SCOPE,
+  SOURCES_SLUG,
+  scopeFileName,
   scopeFileNames,
   scopeFilePath,
   scopeFontsCss,
@@ -51,6 +55,8 @@ import {
   scopePagePaths,
   scopeRecord,
   scopeRecordIsFresh,
+  scopeReservedNames,
+  scopeSlug,
   scopesTs,
   shippable,
   sortedString,
@@ -183,7 +189,7 @@ describe('字体文件按范围分：哪些字归哪个文件（编出来的两�
       'yanlu-song-bob',
       'yanlu-song-bob-b1',
       'yanlu-song-bob-b1-more',
-      'yanlu-song-sources',
+      'yanlu-song-credits',
     ]);
     // 给进来的人物换个先后，列出来的一个字不差
     const turned = plan(madeUpSite((site) => site.figures.reverse()));
@@ -216,7 +222,8 @@ describe('字体文件按范围分：哪些字归哪个文件（编出来的两�
       ['yanlu-song-bob', 'Yanlu Song', 'Yanlu Song bob', 'YanluSongBob-Regular', 'bob', null, 'rest', false, 'scope', 'fonts.css'],
       ['yanlu-song-bob-b1', 'Yanlu Song', 'Yanlu Song bob b1', 'YanluSongBobB1-Regular', 'bob', 'b1', 'rest', false, 'scope', 'fonts.css'],
       ['yanlu-song-bob-b1-more', 'Yanlu Song', 'Yanlu Song bob b1', 'YanluSongBobB1More-Regular', 'bob', 'b1', 'pressed', true, 'none', 'scopes/bob.b1.css'],
-      ['yanlu-song-sources', 'Yanlu Song', 'Yanlu Song sources', 'YanluSongSources-Regular', 'sources', null, 'rest', false, 'scope', 'fonts.css'],
+      // “来源”页的范围还叫 sources（页面写在 <html> 上的那个词），工具写出来的名字里它叫 credits：只有这一处例外，见 fontNames.ts 的 SOURCES_SLUG
+      ['yanlu-song-credits', 'Yanlu Song', 'Yanlu Song credits', 'YanluSongCredits-Regular', 'sources', null, 'rest', false, 'scope', 'fonts.css'],
     ]);
     // 每个文件里的字按编码的先后连成一串，没有重的
     for (const item of made.files) expect(item.characters, item.name).toBe(sortedString(item.characters));
@@ -404,18 +411,19 @@ describe('字体文件按范围分：哪些字归哪个文件（编出来的两�
 
   it('“来源”页的文件：那一页自己的话，和页面收齐两栏的那个函数给出的每一行、每一张图片是哪一站的、题记、作者、许可——只算可以点进去的人物的；小标题上的名字是黑体，都在框架的黑体里，这个范围没有黑体文件', () => {
     const made = plan();
-    expect(has(made, 'yanlu-song-sources', '甗鹭鸬')).toBe(true);
+    expect(has(made, 'yanlu-song-credits', '甗鹭鸬')).toBe(true);
     const route = routeSample();
     const credits = sortedString(shippable(route.credits.map((line) => line.split('；')[0]).join('')));
     const frame = new Set(file(made, 'yanlu-song').characters);
-    expect([...credits].filter((ch) => !frame.has(ch) && !file(made, 'yanlu-song-sources').characters.includes(ch))).toEqual([]);
+    expect([...credits].filter((ch) => !frame.has(ch) && !file(made, 'yanlu-song-credits').characters.includes(ch))).toEqual([]);
     // “图例”里的话、人物的正文不在
-    expect(hasNone(made, 'yanlu-song-sources', '甑鲸鳄')).toBe(true);
-    expect(names(made)).not.toContain('yanlu-sans-sources');
-    expect(page(made, 'sources', null, null)).toEqual({ kind: 'sources', figure: null, stop: null, name: '“来源”页', rest: ['yanlu-sans', 'yanlu-song', 'yanlu-song-sources'], pressed: [] });
+    expect(hasNone(made, 'yanlu-song-credits', '甑鲸鳄')).toBe(true);
+    expect(names(made)).not.toContain('yanlu-sans-credits');
+    expect(names(made).filter((name) => name.includes('sources'))).toEqual([]);
+    expect(page(made, 'sources', null, null)).toEqual({ kind: 'sources', figure: null, stop: null, name: '“来源”页', rest: ['yanlu-sans', 'yanlu-song', 'yanlu-song-credits'], pressed: [] });
     // 甲人点不进去了：他的图片不印在那一页上
     const closed = plan(madeUpSite((site) => (site.cards[0].available = false)));
-    expect(hasNone(closed, 'yanlu-song-sources', '鹭鸬')).toBe(true);
+    expect(hasNone(closed, 'yanlu-song-credits', '鹭鸬')).toBe(true);
   });
 
   it('挨着别的字会变样的字都放进框架的宋体文件，别的文件里不再有；用设备自带的字显示的字哪个文件里都没有', () => {
@@ -467,8 +475,9 @@ describe('字体文件按范围分：哪些字归哪个文件（编出来的两�
       '字体文件 yanlu-song-su-shi.woff2 会被写两回：su 的 shi 这一站，和人物 su-shi',
       '字体文件 yanlu-song-su-shi-more.woff2 会被写两回：su 的 shi 这一站，和人物 su-shi',
     ]);
-    // 没有哪位人物可以叫 sources（那是“来源”页的范围）
+    // 没有哪位人物可以叫 sources（那是“来源”页的范围），也不能叫 credits（那是“来源”页的文件名字里的那个词）
     expect(scopeNameClashes(scopeFileNames([{ id: 'sources', stops: [] }])).length).toBeGreaterThan(0);
+    expect(scopeNameClashes(scopeFileNames([{ id: 'credits', stops: [] }]))).toContain('字体文件 yanlu-song-credits.woff2 会被写两回：人物 credits，和“来源”页');
     expect(scopeNameClashes(scopeFileNames([{ id: 'ann', stops: ['a1', 'a2'] }, { id: 'bob', stops: ['b1'] }]))).toEqual([]);
   });
 
@@ -498,14 +507,23 @@ describe('字体文件按范围分：哪些字归哪个文件（编出来的两�
     expect(scopeIdProblems([{ id: 'a.b', stops: ['c'] }, { id: 'a', stops: ['b.c'] }])).toHaveLength(2);
   });
 
-  it('写进文件里的名称不许带原字体保留的名字，照清单就查得出来（不用等到做文件）。现在有一处：“来源”页的那个文件照这一套拼法叫 yanlu-song-sources，PostScript 名称里就有了 Source——做文件的时候工具不肯写，开关打开以前要先给它另定名称；别的文件都没有', { timeout: 30_000 }, async () => {
-    const SOURCES = ['yanlu-song-sources：PostScript 名称 YanluSongSources-Regular 里有原字体保留的名字“Source”（写进文件里的名称不许带它）'];
-    expect(reservedNameProblems(plan().files)).toEqual(SOURCES);
-    expect(reservedNameProblems(planScopes(await readSite(), { joiners: '' }).files)).toEqual(SOURCES);
+  it('写进文件里的名称不许带原字体保留的名字，照清单就查得出来（不用等到做文件）。原来有一处：“来源”页的那个文件照范围的名字拼就叫 yanlu-song-sources，PostScript 名称里就有了 Source——所以工具写出来的东西里这个范围叫 credits（只有这一处例外，写在 fontNames.ts 里），现在一处也没有了；照 sources 拼的话还是查得出来', { timeout: 30_000 }, async () => {
+    expect(reservedNameProblems(plan().files)).toEqual([]);
+    expect(reservedNameProblems(planScopes(await readSite(), { joiners: '' }).files)).toEqual([]);
+    // 那一处例外：范围叫 sources，文件、样式表里的名称、PostScript 名称、点开才要的字的样式表里都是 credits；别的范围原样
+    expect([SOURCES_SCOPE, SOURCES_SLUG, scopeSlug(SOURCES_SCOPE), scopeSlug('su-shi'), scopeSlug('frame')]).toEqual(['sources', 'credits', 'credits', 'su-shi', 'frame']);
+    expect([scopeFileName('song', SOURCES_SCOPE, null, 'rest'), scopeFileName('song', SOURCES_SCOPE, null, 'pressed'), scopeFileName('sans', SOURCES_SCOPE, null, 'rest')]).toEqual(['yanlu-song-credits', 'yanlu-song-credits-more', 'yanlu-sans-credits']);
+    const credits = file(plan(), 'yanlu-song-credits');
+    expect([credits.scope, credits.face, credits.postscript]).toEqual(['sources', 'Yanlu Song credits', 'YanluSongCredits-Regular']);
+    // 照 sources 拼出来的那个名称，还是查得出来的那一句（原来清单里的那一处就是它）
+    expect(reservedNameProblems([{ name: 'yanlu-song-sources', family: 'Yanlu Song', postscript: postscriptName('yanlu-song-sources') }])).toEqual(['yanlu-song-sources：PostScript 名称 YanluSongSources-Regular 里有原字体保留的名字“Source”（写进文件里的名称不许带它）']);
+    // 照 id 就查得出来（内容校验用的是这一个函数）：叫 noto 的站、叫 source-… 的人物；合格的 id 没有
+    expect(scopeReservedNames([{ id: 'ann', stops: ['a1', 'noto'] }]).map((item) => `${item.of}：${item.postscript}（${item.words.join('、')}）`)).toEqual(['ann 的 noto 这一站：YanluSongAnnNoto-Regular（Noto）', 'ann 的 noto 这一站：YanluSongAnnNotoMore-Regular（Noto）']);
+    expect(scopeReservedNames([{ id: 'source-book', stops: [] }]).length).toBe(4);
+    expect(scopeReservedNames([{ id: 'ann', stops: ['a1', 'a2'] }, { id: 'su-shi', stops: ['xuzhou'] }])).toEqual([]);
     // 查得出来：人物、站的 id 拼进名称里带出保留的名字（noto 开头大写就是 Noto）；名称本身带着的也算
     expect(reservedNameProblems([{ name: 'yanlu-song-noto-a', family: 'Yanlu Song', postscript: 'YanluSongNotoA-Regular' }])).toEqual(['yanlu-song-noto-a：PostScript 名称 YanluSongNotoA-Regular 里有原字体保留的名字“Noto”（写进文件里的名称不许带它）']);
     expect(reservedNameProblems([{ name: 'x', family: 'LXGW Song', postscript: 'X-Regular' }])).toEqual(['x：字体名称 LXGW Song 里有原字体保留的名字“LXGW”（写进文件里的名称不许带它）']);
-    expect(reservedNameProblems(plan().files.filter((item) => item.scope !== 'sources'))).toEqual([]);
   });
 
   it('同样的网站列两遍，清单和照它写的每一样都一个字不差', () => {
@@ -610,7 +628,7 @@ describe('字体文件按范围分：仓库里真的这个网站', () => {
     const moved = planScopes(real, { joiners });
     expect(missingOnPages(by, moved)).toEqual([]);
     for (const ch of joiners) expect(moved.files.filter((item) => item.source === 'song' && item.characters.includes(ch)).map((item) => item.name), ch).toEqual(['yanlu-song']);
-    console.log(['字体文件按范围分的话（开关关着，这是照现在的内容列的清单）', ...made.files.map((item) => `  ${item.name}：${[...item.characters].length} 个字`)].join('\n'));
+    console.log(['字体文件按范围分（照现在的内容列的清单，挨着会变样的字一个也不算的时候）',...made.files.map((item) => `  ${item.name}：${[...item.characters].length} 个字`)].join('\n'));
   });
 
   it('查得出来：一站的文件里少了它的页面上的一个字；那个字只在别的范围的文件里有，不算数；人物的黑体、楷体里少一个字', { timeout: 60_000 }, async () => {
@@ -652,12 +670,19 @@ describe('字体文件按范围分：仓库里真的这个网站', () => {
     expect(missingOnPages(by, made, (name) => inFiles.get(name))).toEqual(missing);
   });
 
-  it('现在放进仓库的还是全站共用的四个文件：照范围要的每一个字它们里面都有（黑体的在黑体里，楷体的在楷体里，宋体的在两个宋体文件之一里）', { timeout: 60_000 }, async () => {
+  it('放进仓库的就是照范围做的这些文件：照现在的内容列的清单里每个文件要的每一个字，放进仓库的同名的那个文件里都有（黑体的在那个黑体文件里，楷体的在那个楷体文件里，宋体的在那个宋体文件里——不是“哪个文件里有就行”）', { timeout: 60_000 }, async () => {
     const real = await site;
-    const made = planScopes(real, { joiners: '' });
-    const shipped = readShipped();
-    const inSource = (source: string): Set<string> => new Set(shipped.files.filter((item) => item.record.source === source).flatMap((item) => [...item.characters]));
-    for (const item of made.files) expect([...item.characters].filter((ch) => !inSource(item.source).has(ch)), item.name).toEqual([]);
+    const shipped = readScoped();
+    // 挨着会变样的字照记录里量到的那一串（做文件的时候量的）
+    const made = planScopes(real, { joiners: shipped.record.joiners });
+    expect(shipped.record.files.map((item) => item.file)).toEqual(made.files.map(scopeFilePath));
+    for (const item of made.files) {
+      const own = shipped.files.find((entry) => entry.record.file === scopeFilePath(item));
+      expect(own?.record.source, item.name).toBe(item.source);
+      expect([...item.characters].filter((ch) => !own?.characters.has(ch)), item.name).toEqual([]);
+    }
+    // 每一种页面的每一个字，在给这一页的、放进仓库的文件里（不是清单里，是文件里真有的字）
+    expect(missingOnPages(pageTexts(real), made, (name) => shipped.files.find((entry) => entry.record.file.replace(/^.*\//, '') === `${name}.woff2`)?.characters)).toEqual([]);
   });
 });
 
@@ -690,7 +715,8 @@ describe('字体文件按范围分：照清单写的几样', () => {
       ":root[data-fonts='ann'][data-fonts-unit='a2'] { --own-song: 'Yanlu Song ann a2'; }",
       ":root[data-fonts='bob'] { --own-sans: 'Yanlu Sans bob'; --own-song: 'Yanlu Song bob'; }",
       ":root[data-fonts='bob'][data-fonts-unit='b1'] { --own-song: 'Yanlu Song bob b1'; }",
-      ":root[data-fonts='sources'] { --own-song: 'Yanlu Song sources'; }",
+      // “来源”页的那一条只认没有写着站的时候：地址 #/sources/… 不是哪一页，那里不要这个文件；名称里它叫 credits
+      ":root[data-fonts='sources']:not([data-fonts-unit]) { --own-song: 'Yanlu Song credits'; }",
     ]);
     // 规则里写的名称，前面都有 @font-face 写着
     for (const name of rules.flatMap((rule) => Array.from(rule.matchAll(/: '([^']+)';/g), (match) => match[1]))) expect(css).toContain(`font-family: '${name}';`);
@@ -713,30 +739,39 @@ describe('字体文件按范围分：照清单写的几样', () => {
     }
   });
 
-  it('scopes.ts：每个范围点开才要的那个文件一行——它的样式表（用到时才引入）和它里面编码最小的一个字；范围的叫法是人物的 id，一站是“人物/站”', () => {
+  it('scopes.ts：每个范围点开才要的那个文件一行——它的样式表的地址（照地址引的，页面用到时才挂上去）、它里面编码最小的一个字、它在样式表里的名称；范围的叫法是人物的 id，一站是“人物/站”', () => {
     expect(written.scopes).toBe(scopesTs(made.files));
+    const pressed = made.files.filter((item) => item.role === 'pressed');
     const rows = written.scopes.split('\n').filter((line) => line.startsWith("  '"));
-    expect(rows).toEqual(made.files.filter((item) => item.role === 'pressed').map((item) => `  '${item.unit === null ? item.scope : `${item.scope}/${item.unit}`}': { sheet: () => import('./${item.sheet}'), probe: '${[...item.characters][0]}' },`));
+    expect(rows).toEqual(pressed.map((item, index) => `  '${item.unit === null ? item.scope : `${item.scope}/${item.unit}`}': { sheet: sheet${index}, probe: '${[...item.characters][0]}', face: '${item.face}' },`));
+    // 样式表是照地址引的（?url），一份一句；这个文件里没有 import(…)：有的话打包的工具会把页面的程序拆成两块
+    expect(written.scopes.split('\n').filter((line) => line.startsWith('import '))).toEqual(pressed.map((item, index) => `import sheet${index} from './${item.sheet}?url';`));
+    expect(written.scopes).not.toContain('import(');
     expect(rows.map((row) => row.match(/^ {2}'([^']+)'/)?.[1])).toEqual(['ann', 'ann/a1', 'ann/a2', 'bob/b1']);
   });
 
-  it('index.html 里的那一段：每个范围不用点开就要的黑体、宋体文件各一行，先不生效，写着归哪个范围；首页摆着的那位人物的几行另有记号；楷体和点开才要的不在；放进 index.html 是接在最后一行预先声明后面，再放一次是换掉原来的', () => {
+  it('index.html 里的那一段：每个范围不用点开就要的黑体、宋体文件各一行，先不生效，写着归哪个范围、哪一站、是黑体还是宋体（“来源”页的那一行写着空的站：只给地址里没有站的那一页）；首页摆着的那位人物的几行另有记号；楷体和点开才要的不在；放进 index.html 是接在最后一行预先声明后面，再放一次是换掉原来的', () => {
     expect(written.preloads).toBe(preloadBlock(made.files, made.home));
     const rows = written.preloads.split('\n').map((line) => line.trim());
     expect(rows[0]).toBe(PRELOAD_BLOCK.start);
     expect(rows[rows.length - 1]).toBe(PRELOAD_BLOCK.end);
     expect(rows.slice(1, -1)).toEqual([
-      '<link rel="preload" href="/src/fonts/scopes/yanlu-sans-ann.woff2" as="font" type="font/woff2" crossorigin media="not all" data-fonts="ann" data-fonts-home />',
-      '<link rel="preload" href="/src/fonts/scopes/yanlu-song-ann.woff2" as="font" type="font/woff2" crossorigin media="not all" data-fonts="ann" data-fonts-home />',
-      '<link rel="preload" href="/src/fonts/scopes/yanlu-song-ann-a1.woff2" as="font" type="font/woff2" crossorigin media="not all" data-fonts="ann" data-fonts-unit="a1" />',
-      '<link rel="preload" href="/src/fonts/scopes/yanlu-song-ann-a2.woff2" as="font" type="font/woff2" crossorigin media="not all" data-fonts="ann" data-fonts-unit="a2" />',
-      '<link rel="preload" href="/src/fonts/scopes/yanlu-sans-bob.woff2" as="font" type="font/woff2" crossorigin media="not all" data-fonts="bob" />',
-      '<link rel="preload" href="/src/fonts/scopes/yanlu-song-bob.woff2" as="font" type="font/woff2" crossorigin media="not all" data-fonts="bob" />',
-      '<link rel="preload" href="/src/fonts/scopes/yanlu-song-bob-b1.woff2" as="font" type="font/woff2" crossorigin media="not all" data-fonts="bob" data-fonts-unit="b1" />',
-      '<link rel="preload" href="/src/fonts/scopes/yanlu-song-sources.woff2" as="font" type="font/woff2" crossorigin media="not all" data-fonts="sources" />',
+      '<link rel="preload" href="/src/fonts/scopes/yanlu-sans-ann.woff2" as="font" type="font/woff2" crossorigin media="not all" data-fonts="ann" data-fonts-family="sans" data-fonts-home />',
+      '<link rel="preload" href="/src/fonts/scopes/yanlu-song-ann.woff2" as="font" type="font/woff2" crossorigin media="not all" data-fonts="ann" data-fonts-family="song" data-fonts-home />',
+      '<link rel="preload" href="/src/fonts/scopes/yanlu-song-ann-a1.woff2" as="font" type="font/woff2" crossorigin media="not all" data-fonts="ann" data-fonts-unit="a1" data-fonts-family="song" />',
+      '<link rel="preload" href="/src/fonts/scopes/yanlu-song-ann-a2.woff2" as="font" type="font/woff2" crossorigin media="not all" data-fonts="ann" data-fonts-unit="a2" data-fonts-family="song" />',
+      '<link rel="preload" href="/src/fonts/scopes/yanlu-sans-bob.woff2" as="font" type="font/woff2" crossorigin media="not all" data-fonts="bob" data-fonts-family="sans" />',
+      '<link rel="preload" href="/src/fonts/scopes/yanlu-song-bob.woff2" as="font" type="font/woff2" crossorigin media="not all" data-fonts="bob" data-fonts-family="song" />',
+      '<link rel="preload" href="/src/fonts/scopes/yanlu-song-bob-b1.woff2" as="font" type="font/woff2" crossorigin media="not all" data-fonts="bob" data-fonts-unit="b1" data-fonts-family="song" />',
+      '<link rel="preload" href="/src/fonts/scopes/yanlu-song-credits.woff2" as="font" type="font/woff2" crossorigin media="not all" data-fonts="sources" data-fonts-unit="" data-fonts-family="song" />',
     ]);
-    // 放进真的 index.html：原来的每一行都还在、先后不变，那一段接在两行预先声明的后面
-    const html = text('index.html');
+    // 放进一份还没有这一段的 index.html（真的那一份，把工具写的那一段拿掉）：原来的每一行都还在、先后不变，那一段接在两行预先声明的后面
+    const real = text('index.html');
+    const start = real.lastIndexOf('\n', real.indexOf(PRELOAD_BLOCK.start));
+    const html = real.slice(0, start) + real.slice(real.indexOf(PRELOAD_BLOCK.end) + PRELOAD_BLOCK.end.length);
+    expect(real).toContain(PRELOAD_BLOCK.start);
+    expect(html).not.toContain(PRELOAD_BLOCK.start);
+    expect(html).not.toMatch(/<link rel="preload"[^>]*media="not all"/);
     const once = withPreloadBlock(html, written.preloads);
     expect(once.replace(`\n${written.preloads}`, '')).toBe(html);
     expect(once.indexOf(PRELOAD_BLOCK.start)).toBeGreaterThan(once.indexOf('yanlu-song.woff2'));
@@ -917,19 +952,24 @@ describe('字体文件按范围分：上限和开关', () => {
     expect(beyondAscii("// 注释\nexport const WORD = '鑫'; /* 也是注释 */\n")).toEqual(['鑫']);
   });
 
-  it('开关关着：做字体的工具做的还是全站共用的四个文件，记录是格式 3，src/fonts/ 里没有按范围分的东西；PRESSED_SOURCES 里的每个文件都写明了按范围分的时候归哪里', () => {
-    // 打开以前页面那一头要先接上（页面按范围去要文件）。接上了再打开，同时把这一项改成查打开以后的样子。
-    expect(FONTS_BY_SCOPE, '字体文件按范围分的开关现在不能打开：页面那一头还没有按范围去要文件').toBe(false);
-    const shipped = readShipped();
-    expect(shipped.record.tool).toBe(RECORD_VERSION);
-    expect(RECORD_VERSION).toBe(3);
-    expect(shipped.record.files.map((item) => item.file)).toEqual(['yanlu-sans.woff2', 'yanlu-song.woff2', 'yanlu-kai.woff2', 'yanlu-song-more.woff2']);
-    expect(Object.keys(shipped.record as unknown as Record<string, unknown>)).toEqual(['tool', 'recipe', 'made', 'sources', 'files']);
-    expect(text('index.html')).not.toContain(PRELOAD_BLOCK.start);
-    expect(text('src/fonts/fonts.css')).not.toContain('--own-');
+  it('开关开着：做字体的工具做的是按范围分的文件，记录是格式 4，src/fonts/ 里是按范围分的那些（框架的两个在这一层，别的在 scopes/ 里），全站共用的那两个旧文件（楷体、点开才要的宋体）不在了；关不回去——工具里关着的那一头只有一句话；PRESSED_SOURCES 里的每个文件都写明了按范围分的时候归哪里', () => {
+    // 页面那一头是按范围要文件的（src/fonts/scope.ts）：所以这个开关关不回去
+    expect(FONTS_BY_SCOPE, '字体文件按范围分的开关关不回去：页面是按范围要文件的，全站共用的那四个文件已经不做了').toBe(true);
+    const shipped = readScoped();
+    expect(shipped.record.tool).toBe(SCOPE_RECORD_VERSION);
+    expect([RECORD_VERSION, SCOPE_RECORD_VERSION]).toEqual([3, 4]);
+    expect(shipped.record.files.slice(0, 2).map((item) => item.file)).toEqual(['yanlu-sans.woff2', 'yanlu-song.woff2']);
+    expect(shipped.record.files.length).toBeGreaterThan(4);
+    expect(shipped.record.files.slice(2).every((item) => item.file.startsWith('scopes/'))).toBe(true);
+    expect(shipped.record.files.map((item) => item.file).filter((name) => name === 'yanlu-kai.woff2' || name === 'yanlu-song-more.woff2')).toEqual([]);
+    expect(Object.keys(shipped.record as unknown as Record<string, unknown>)).toEqual(['tool', 'recipe', 'made', 'sources', 'home', 'joiners', 'pages', 'files']);
+    expect(text('index.html')).toContain(PRELOAD_BLOCK.start);
+    expect(text('src/fonts/fonts.css')).toContain('--own-');
     expect(Object.keys(PRESSED_SOURCE_SCOPES).sort()).toEqual([...PRESSED_SOURCES].sort());
-    // 看这个开关的只有一处：做字体的工具开头的那一处分叉。页面的程序里没有谁提到它
-    expect(countIn(text('tests/tools/make-fonts.test.ts'), 'if (FONTS_BY_SCOPE)')).toBe(1);
+    // 看这个开关的只有一处：做字体的工具开头。开着走按范围分的那一条路；紧跟着的一句是关着的那一头——停下来说一句话，什么也不做。页面的程序里没有谁提到它
+    const tool = text('tests/tools/make-fonts.test.ts');
+    expect(countIn(tool, 'if (FONTS_BY_SCOPE)')).toBe(1);
+    expect(tool).toMatch(/if \(FONTS_BY_SCOPE\) return makeByScope\(\{ say, trial, outDir \}\);\n\s*throw new Error\(/);
     expect(countIn(text('tests/support/fontTool.ts'), 'if (FONTS_BY_SCOPE')).toBe(0);
     for (const path of sourceFiles()) expect(text(path).includes('FONTS_BY_SCOPE'), path).toBe(false);
   });

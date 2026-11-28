@@ -158,34 +158,96 @@ describe('页面的字体归哪个范围，写在 <html> 上', () => {
     expect(attrs()).toEqual([HOME, null]);
   });
 
-  it('index.html 里先写一遍的那几行脚本：照地址写的两个属性，和页面的程序写的一模一样（首页的人物它不知道，不写）；它在页面的程序前面', () => {
+  it('index.html 里先写一遍的那几行脚本：照地址写的两个属性，和页面的程序写的一模一样（首页的人物它不知道，不写）；它在页面的程序前面；写完再照地址把那一段先不生效的预先声明里合得上的几行抄一份生效的——正好是记录里这一种页面不用点开就要的黑体、宋体文件（框架的两个本来就生效，楷体不在那一段里）：一站自己有宋体的，人物的宋体那一行让给它；没有自己的文件的一站取人物的两行；首页取带着记号的两行；不是哪一页的地址一行也不抄', () => {
     const html = utf8.decode(readBytes('index.html'));
     const script = /<script>\s*(\(function \(\) \{\s*var parts = location\.hash[\s\S]*?\}\)\(\);)\s*<\/script>/.exec(html);
     expect(script, 'index.html 里照地址写那两个属性的几行脚本').not.toBeNull();
     if (!script) return;
     expect(html.indexOf(script[0])).toBeLessThan(html.indexOf('<script type="module"'));
     expect(html.indexOf(script[0])).toBeLessThan(html.indexOf('</head>'));
+    // 那一段先不生效的预先声明在这几行脚本前面（脚本跑的时候它们已经在页面上了）
+    const block = html.slice(html.indexOf('<!-- fonts:scopes 起'), html.indexOf('<!-- fonts:scopes 止'));
+    expect(html.indexOf('<!-- fonts:scopes 止')).toBeGreaterThan(-1);
+    expect(html.indexOf('<!-- fonts:scopes 止')).toBeLessThan(html.indexOf(script[0]));
+    /** 那一段里的每一行，照 index.html 里写的读出来：地址和行上的几个属性。 */
+    const lines = [...block.matchAll(/<link\b[^>]*>/g)].map(([tag]) => Object.fromEntries([...tag.matchAll(/\s([a-z-]+)(?:="([^"]*)")?/g)].map((match) => [match[1], match[2] ?? ''])) as Record<string, string>);
+    expect(lines.length).toBeGreaterThan(0);
+    for (const line of lines) expect(line.media, line.href).toBe('not all');
     const run = new Function('location', 'document', script[1]) as (location: { hash: string }, document: unknown) => void;
-    const early = (hash: string): [string, string] => {
+    /** 在一个编出来的页面上跑这几行：<html> 上写了什么，哪几行被抄了一份生效的（抄出来的那一份没有 media，放在原来那一行前面）。 */
+    const early = (hash: string): { scope: [string, string]; live: string[] } => {
       const set: Record<string, string> = {};
-      run({ hash }, { documentElement: { setAttribute: (name: string, value: string) => void (set[name] = value) } });
+      const live: string[] = [];
+      const element = (attributes: Record<string, string>) => ({
+        getAttribute: (name: string): string | null => (name in attributes ? attributes[name] : null),
+        hasAttribute: (name: string): boolean => name in attributes,
+        removeAttribute: (name: string) => void delete attributes[name],
+        cloneNode: () => element({ ...attributes }),
+        attributes,
+        parentNode: {
+          insertBefore: (copy: { attributes: Record<string, string> }, before: { attributes: Record<string, string> }) => {
+            expect(before.attributes.media).toBe('not all');
+            expect('media' in copy.attributes, '抄出来的那一份不该还带着 media').toBe(false);
+            expect({ ...copy.attributes, media: 'not all' }).toEqual(before.attributes);
+            live.push(copy.attributes.href);
+          },
+        },
+      });
+      const all = lines.map((line) => element({ ...line }));
+      run(
+        { hash },
+        {
+          documentElement: { setAttribute: (name: string, value: string) => void (set[name] = value) },
+          querySelectorAll: (selector: string) => {
+            expect(selector).toBe('link[media="not all"]');
+            return all;
+          },
+        },
+      );
       expect(Object.keys(set).filter((name) => name !== 'data-fonts' && name !== 'data-fonts-unit')).toEqual([]);
-      return [set['data-fonts'] ?? '', set['data-fonts-unit'] ?? ''];
+      // 原来的那几行一行没动（还是先不生效的）
+      for (const item of all) expect(item.attributes.media).toBe('not all');
+      return { scope: [set['data-fonts'] ?? '', set['data-fonts-unit'] ?? ''], live };
     };
     for (const hash of ['', '#', '#/', '#/su-shi', '#/su-shi/', '#/su-shi/xuzhou', '#/goethe/valmy', '#/sources', '#/nobody', '#/su-shi/nowhere', '#//su-shi//xuzhou', '#/%E7%94%B2/%E4%B9%99/more', '#/%zz/%E4%B9', 'su-shi/xuzhou']) {
-      expect(early(hash), hash).toEqual(fontScope(parseHash(hash), ''));
+      expect(early(hash).scope, hash).toEqual(fontScope(parseHash(hash), ''));
     }
+    // 抄出来生效的几行，对着记录里每一种页面的那一项查：这一页不用点开就要的文件里，范围自己的黑体和宋体（框架的、楷体的不算）
+    const record = JSON.parse(utf8.decode(readBytes('src/fonts/fonts.json'))) as {
+      home: string | null;
+      files: { file: string; scope: string; source: string }[];
+      pages: { kind: string; figure: string | null; unit: string | null; rest: string[] }[];
+    };
+    const own = (page: (typeof record.pages)[number]): string[] => page.rest.filter((path) => record.files.some((item) => item.file === path && item.scope !== 'frame' && item.source !== 'kai')).map((path) => `/src/fonts/${path}`);
+    const kinds: string[] = [];
+    for (const page of record.pages) {
+      if (page.kind === 'frame') continue;
+      kinds.push(page.kind);
+      const hash = page.kind === 'home' ? '#/' : page.kind === 'sources' ? '#/sources' : page.unit ? `#/${page.figure}/${page.unit}` : `#/${page.figure}`;
+      expect([...early(hash).live].sort(), hash).toEqual(own(page).sort());
+      expect(own(page).length, hash).toBeGreaterThan(0);
+    }
+    expect([...new Set(kinds)].sort()).toEqual(['figure', 'home', 'sources', 'unit']);
+    // 首页的地址里没有人物：不写地址（空的）也是首页
+    expect(early('').live).toEqual(early('#/').live);
+    // 没有自己的文件的一站：人物的黑体和宋体两行
+    const figure = record.pages.find((page) => page.kind === 'figure' && page.figure === 'su-shi');
+    expect(early('#/su-shi/mizhou').live.sort()).toEqual(figure ? own(figure).sort() : []);
+    // 一站自己有宋体的：人物的黑体，和这一站的宋体——人物的宋体那一行不抄
+    expect(early('#/su-shi/xuzhou').live).toEqual(['/src/fonts/scopes/yanlu-sans-su-shi.woff2', '/src/fonts/scopes/yanlu-song-su-shi-xuzhou.woff2']);
+    // 不是哪一页的地址：一行也不抄
+    for (const hash of ['#/nobody', '#/nobody/xuzhou', '#/sources/x', '#/xuzhou']) expect(early(hash).live, hash).toEqual([]);
     // 这几行里没有汉字（做字体的工具照 index.html 里的字数，注释不算）
     expect([...script[1]].filter((ch) => (ch.codePointAt(0) ?? 0) > 0x7e)).toEqual([]);
   });
 
-  it('页面的程序（src/main.tsx）一起来就照地址写、并且从这时起自己听着地址：这一句在把页面画出来的那一句前面（去掉 index.html 里那几行页面照样对，靠的就是它）', () => {
+  it('页面的程序（src/main.tsx）一起来就照地址写、并且从这时起自己听着地址：这一句在把页面画出来的那一句前面（去掉 index.html 里那几行页面照样对，靠的就是它）；同一句里把“每个范围点开才要的文件的那张表怎么引进来”交给它——用到时才引入（import(…)），引入的那一句写在 main.tsx 里', () => {
     // 去掉注释再看（注释里也提到这几个名字）
     const code = utf8
       .decode(readBytes('src/main.tsx'))
       .replace(/\/\*[\s\S]*?\*\//g, '')
       .replace(/^\s*\/\/.*$/gm, '');
-    const call = /followFontScope\(\s*\(\)\s*=>\s*parseHash\(window\.location\.hash\)\s*\)/.exec(code);
+    const call = /followFontScope\(\s*\(\)\s*=>\s*parseHash\(window\.location\.hash\)\s*,\s*\(\)\s*=>\s*import\('\.\/fonts\/scopes'\)\s*\)/.exec(code);
     expect(call, 'src/main.tsx 里叫 followFontScope 的那一句').not.toBeNull();
     if (!call) return;
     const render = code.indexOf('createRoot(');

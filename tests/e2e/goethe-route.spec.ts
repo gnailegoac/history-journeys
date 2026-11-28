@@ -30,6 +30,7 @@ import { DRAW_CALLS_MAX } from '../stage/support/budgets';
 import { STANDARD_PANES, engineSize } from '../stage/support/standardPanes';
 import type { StandardPane } from '../stage/support/standardPanes';
 import { namesIn, readBytes } from '../support/readBytes';
+import { FONT_RECORD, fontFileOf, plainName } from './fontHelpers';
 import { expectRealTable, firstOpenFigureOnDisk, fontsReady, foldBodiesReady, realUrl, routeOnDisk, stagePane, stageReadout, stopsWithScenes } from './helpers';
 
 const env = (globalThis as { process?: { env: Record<string, string | undefined> } }).process?.env ?? {};
@@ -66,6 +67,15 @@ const SLIPS = chunk('slips');
 const BAR = chunk('TimeBar');
 const LISTS = chunk('contentLists');
 const KAI_FILE = /yanlu-kai[^/]*\.woff2/;
+/** 他的页面可以取的字体文件，照记录（src/fonts/fonts.json）：框架的两个，和范围是他的那几个（名字不带文件夹、不带 .woff2）。 */
+const HIS_FONTS = FONT_RECORD.files.filter((item) => item.scope === 'frame' || item.scope === FIGURE).map((item) => plainName(item.file));
+/**
+ * 一串请求里别的范围的字体文件：字体文件是按范围分的，他的页面只该取框架的两个（yanlu-sans、yanlu-song）和他自己的
+ *（yanlu-sans-<他的 id>、yanlu-song-<他的 id>、yanlu-song-<他的 id>-more）。别人的一个也不该取。
+ * 一个请求要的是哪个文件照记录认（fontFileOf：先试长的名字，构建以后名字后面多的那一串八个字符才不会和别人的 id 认混——
+ * 光看名字的样子，yanlu-song-<八个字符的 id>.woff2 和构建出来的框架的宋体分不开）；记录里没有的 .woff2 也算别人的。
+ */
+const othersFonts = (urls: string[]): string[] => urls.map(fontFileOf).filter((name): name is string => name !== null && !HIS_FONTS.includes(name));
 
 /** 这个浏览器有没有 WebGL2。没有时：发布流程里算没通过，自己的机器上跳过。 */
 async function needWebGL2(page: Page): Promise<void> {
@@ -224,6 +234,8 @@ test.describe('歌德的全程沙盘', () => {
     expect(requests.of(BAR), '时间轴的那一段程序').toEqual([]);
     for (const row of STYLES.filter((one) => one.id !== HIS_STYLE)) expect(requests.of(chunk(`${row.id}(-route)?`)), `别的样式 ${row.id}`).toEqual([]);
     expect(requests.of(KAI_FILE), '楷体的文件').toEqual([]);
+    // 字体文件是按范围分的：他的人物页上，另一位人物的、“来源”页的字体文件一个也没有取
+    expect(othersFonts(requests.all()), '别的范围的字体文件').toEqual([]);
 
     // 五种窗口：改窗口的大小，等沙盘程序拿到的画面换成这种栏里面的那一块，再看
     const windows: StandardPane[] = [...STANDARD_PANES, { name: '820 × 661', window: { width: 820, height: 1180 }, size: { width: 820, height: 661 }, insets: STANDARD_PANES[2].insets }];
@@ -661,8 +673,10 @@ test.describe('歌德的全程沙盘', () => {
     await expect(stagePane(page)).toHaveAttribute('data-stage-section', viewOf(figure.stops[4].id), { timeout: SECTION_MS });
     await expectSlips(page, '.stage-still-host', slipsOf(viewOf(figure.stops[4].id), 'ancient'), '一站的页面');
     await check(`一站的页面（${figure.stops[4].id}）`, 30);
-    // 这三样看下来，楷体的文件一次也没有取
+    // 这三样看下来，楷体的文件一次也没有取；另一位人物的、“来源”页的字体文件也一个没有取（他的页面只取框架的两个和他自己的）
     expect(requests.of(KAI_FILE), '楷体的文件').toEqual([]);
+    expect(othersFonts(requests.all()), '别的范围的字体文件').toEqual([]);
+    expect(requests.of(new RegExp(`yanlu-song-${FIGURE}-more[^/]*\\.woff2`)), '点开了凭据：他自己点开才要的那个字体文件取了一次').toHaveLength(1);
   });
 
   test('不出网站：他的人物页、一站的页面、点开的凭据，另一位人物的首页、人物页、一站的页面，每一个请求都是网站自己的；另一位人物的页面上没有取他的哪一个文件', async ({ page, baseURL }) => {

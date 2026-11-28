@@ -9,7 +9,7 @@ import type { RawSection } from '../../src/domain/body';
 import { ROUTE_SCENE_ID } from '../../src/domain/scene';
 import type { RouteScene, StopScene, TableScene } from '../../src/domain/scene';
 import type { Figure, FigureCard, StopExtras, StopMeta } from '../../src/domain/types';
-import { PRESSED_SUFFIX, scopeFileNames, scopeNameOwners } from '../support/fontNames';
+import { PRESSED_SUFFIX, scopeFileNames, scopeIdProblems, scopeNameOwners, scopeReservedNames } from '../support/fontNames';
 import { MADE_FILES_PENDING } from '../support/pendingTables';
 import { validateItinerary } from './itineraryRules';
 import { checkRouteScene, checkRouteShape, checkStopPlaces, isRouteLevel } from './routeRules';
@@ -129,6 +129,35 @@ export function checkFontFileNames(files: ContentFiles, figureIds: readonly stri
   });
 }
 
+/**
+ * 规则 0 里管 id 写法的两条。随站的字体是照人物和站的 id 起名的，id 原样写进文件名、样式表里的规则和名称、字体文件里的 PostScript 名称
+ *（拼法在 tests/support/fontNames.ts）：
+ *   一、人物的 id、站的 id 里只许有小写的英文字母、数字和连字符。带了引号、点、空格、大写字母、汉字的，那几样东西写出来是坏的。
+ *   二、id 不许把原字体保留的名字带进文件的名称：一截 id 开头大写以后正好是 Noto、Source、LXGW 这些词（noto-…、source…、sources…），
+ *       做出来的字体文件的名称里就有了它，许可不许这样。
+ * 人物的 id 自己就带出来的只说一处（记在 id 上），不再一站一站说；别的记在那一站的 id 上。
+ */
+export function checkFontIds(figure: Figure, file: string): Violation[] {
+  const out: Violation[] = [];
+  const field = (stop: string | null): string => (stop === null ? 'id' : `stops[${figure.stops.findIndex((item) => item.id === stop)}].id`);
+  // 一、能用的字
+  if (scopeIdProblems([{ id: figure.id, stops: [] }]).length > 0) out.push(violation(0, file, 'id', `人物的 id “${figure.id}”里只许有小写的英文字母、数字和连字符：随站的字体文件的名字、样式表里的规则都照 id 原样写`));
+  figure.stops.forEach((stop, i) => {
+    if (scopeIdProblems([{ id: 'x', stops: [stop.id] }]).length > 0) out.push(violation(0, file, `stops[${i}].id`, `站的 id “${stop.id}”里只许有小写的英文字母、数字和连字符：随站的字体文件的名字、样式表里的规则都照 id 原样写`));
+  });
+  // 二、不带出原字体保留的名字
+  const reserved = scopeReservedNames([{ id: figure.id, stops: [...new Set(figure.stops.map((stop) => stop.id))] }]);
+  const own = reserved.find((item) => item.figure === figure.id && item.stop === null);
+  const said = new Set<string>();
+  for (const item of own ? [own] : reserved.filter((entry) => entry.figure === figure.id)) {
+    const at = field(item.stop);
+    if (said.has(at)) continue;
+    said.add(at);
+    out.push(violation(0, file, at, `${item.stop === null ? '人物' : '站'}的 id “${item.stop ?? figure.id}”会把原字体保留的名字“${item.words.join('”“')}”带进随站的字体文件的名称（${item.postscript}），许可不许这样：换一个 id`));
+  }
+  return out;
+}
+
 // ---------------------------------------------------------------- 首页卡片
 
 /**
@@ -221,6 +250,7 @@ export function validateFigure(
       out.push(violation(0, file, `stops[${i}].id`, `“${stop.id}”不能做一站的 id：随站的字体按范围分文件的时候，点开才要的文件名字末尾接的就是这个词，这一站的文件会和人物自己的那个重名，换一个`));
     }
   });
+  out.push(...checkFontIds(figure, file));
   out.push(...checkCoordinates(figure, file));
   out.push(...checkRoute(figure, file));
   out.push(...checkStopFiles(figure, files, dir));

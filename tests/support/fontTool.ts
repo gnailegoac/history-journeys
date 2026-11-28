@@ -2,17 +2,19 @@
 // 三个地方用它：做字体的工具（tests/tools/make-fonts.test.ts，npm run fonts）、它自己的测试（同一个文件，随 npm test 跑）、
 // 查放进仓库的字体文件的测试（tests/fonts/font-files.test.ts，随 npm test 跑）。只在 Node 里跑；src/ 里的程序不要用。
 //
-// 分五段（前四段是现在用着的；第五段是另一种分法，写好了，开关关着）：
+// 分五段。做字体的工具现在照第五段做文件（字体文件按范围分）；前四段里它还用着的是：做法，把网站走一遍数字的那一遍（walkSite），
+// 做一个文件（makeFont），读回来查一个文件（fontFileProblems、shippedFileProblems）。前四段里“全站共用四个文件”的那一种分法
+//（planFonts 分的四组、fontsCss、记录的格式 3、servedBy……）工具不再照它写文件：留着的是数字的那一遍和它的测试，按范围分的清单拿它对账。
 //   一、做法      用哪三个原字体、留哪些排版功能、名称怎么写。改了其中一样，RECIPE 加一。
 //   二、数字      网站上显示哪些字、各归哪一组。不靠人列字表：正文用页面解析正文的那段程序读，沙盘旁边的字、题签、
 //                 “沙盘上的东西”一栏用页面生成它们的那几个函数算；界面上的字是 src/ 里的程序原样写着的每一个字。
-//   三、做文件    给原字体换名称表、裁剪、压成 WOFF2；样式表、记录、给页面用的那个模块各是什么字。
-//   四、读回来    放进仓库的那几个文件读成什么样，网站要的字它们有没有。
-//   五、按范围分  字体文件照“一页显示什么”分范围的那一种分法（FONTS_BY_SCOPE，关着）：每一种页面显示哪些字、要做哪些文件、
-//                 照清单写的几样、格式 4 的记录；量“挨着别的字会变样的字”、拿做好的文件和原字体比字形（这两样要 HarfBuzz，做文件时才用）。
+//   三、做文件    给原字体换名称表、裁剪、压成 WOFF2；（不分的时候）样式表、记录、给页面用的那个模块各是什么字。
+//   四、读回来    一个放进仓库的文件读成什么样；（不分的时候）网站要的字四个文件里有没有。
+//   五、按范围分  字体文件照“一页显示什么”分范围：每一种页面显示哪些字、要做哪些文件、照清单写的几样、格式 4 的记录；
+//                 量“挨着别的字会变样的字”、拿做好的文件和原字体比字形（这两样要 HarfBuzz，做文件时才用）。
 //                 它的测试在 tests/fonts/font-scopes.test.ts。
 //
-// 原字体不进仓库：放在 .cache/fonts/（见 README）。第二段和第四段都不用原字体，所以 npm test 在没有原字体的机器上照样跑。
+// 原字体不进仓库：放在 .cache/fonts/（见 README）。数字、列清单、读回来都不用原字体，所以 npm test 在没有原字体的机器上照样跑。
 
 import { Buffer } from 'node:buffer';
 import { createHash } from 'node:crypto';
@@ -29,7 +31,7 @@ import type { LabelKind } from '../../src/stage/overlay/types';
 import { labelKind } from '../../src/stage/styles';
 import { collectSources } from '../../src/ui/sourcesLines';
 import { SANS_LABELS, placeLabel } from '../../src/ui/text';
-import { SOURCES_SCOPE, scopeFileName, scopeIdProblems, scopeNameClashes } from './fontNames';
+import { RESERVED_WORDS, SOURCES_SCOPE, postscriptName, scopeFileName, scopeIdProblems, scopeNameClashes, scopeSlug } from './fontNames';
 import type { FontTables } from './sfnt';
 import { charactersOf, checkSfnt, cmapOf, englishName, featuresOf, glyphCountOf, hintingOf, namesOf, readSfnt, readWoff2, renameSfnt, weightOf } from './sfnt';
 
@@ -58,22 +60,6 @@ export const RECORD_VERSION = 3;
 export const RECIPE = 1;
 
 /**
- * 宋体要不要按站拆开。现在不拆，而且**还不能直接打开**：这里写好的只是前一半。
- * 写好了、有测试的：哪个字归哪个文件（planFonts）、样式表里各文件的 unicode-range（fontsCss）、
- * “字都在不在”认哪几个文件（servedBy）、首次打开要下载多少按站分开算（budgetRules.ts 的 fontReport）、
- * 构建以后查的是记录里的那几个文件（tests/build/dist-size.test.ts）。
- * 打开以前还要做的三件事（都要动页面，所以没有先做）：
- *   一、给页面用的模块（probe.ts）现在只带大家共用的那个“点开才要”的文件里的一个字，页面空下来时只会把那一个文件先取来；
- *       一站自己的 …-<站>-more 要各带一个字，src/ui/StopPage.tsx 按站去取。
- *   二、一站自己的头一个文件带着 unicode-range，index.html 里没法预先声明它（index.html 只有一份）：
- *       这一站一打开，它比头两个文件晚到一步，要看一看那一会儿的样子，决定要不要由页面去催。
- *   三、tests/e2e/fonts.spec.ts 里“第三个字体文件什么时候取”那一项是照现在的四个文件写的，要照新的文件重写。
- * 做完这三件，再改成 true、跑 npm run fonts，并把 tests/fonts/font-files.test.ts 里守着这个开关的那一项删掉。
- * 规矩见 docs/data-spec.md“随站的字体·大小”。
- */
-export const SPLIT_SONG_BY_STOP = false;
-
-/**
  * 原字体里没有、网站上又非用不可的字：字 → 为什么。这些字不进字体文件，用设备自带的字显示。现在一个也没有。
  * 没有记在这里的字要是原字体里没有，工具会停下来。
  */
@@ -82,10 +68,10 @@ export const FALLBACK_OK: Readonly<Record<string, string>> = {};
 /**
  * 界面的程序里，字要点了才看得见的那几个文件：“来源”页上的话（读者从链接点进那一页才看得见），
  * 时间轴的“图例”点开的那一块里的几句话。
- * 这几个文件里的字算作“点开才看得见的”：别处不点就看得见的字里没有它的话，它归点开才要的那个宋体文件（yanlu-song-more），
- * 不进每位读者一打开网站就要下载的那一个（yanlu-song）。那一页打开的时候，浏览器照 unicode-range 自己去取那个文件。
- * 列在这里的文件里只许写点了才看得见的字。有一个字其实不点也看得见、别处又没有，它就会让那个页面提前去取那个文件：
- * tests/e2e/fonts.spec.ts（首页、人物页上那个文件不许被取）会发现。
+ * 这几个文件里的字不进框架的宋体文件（每位读者一打开网站就要下载的那一个）。按范围分的时候各归各的去处（PRESSED_SOURCE_SCOPES）：
+ * “来源”页上的话归“来源”页自己的文件；“图例”里的话归每一位有时间轴的人物点开才要的那个文件。
+ * 列在这里的文件里只许写那一页、那一块里才看得见的字。有一个字其实别的页面不点也看得见、别处又没有，那个页面上它就落到设备自带的字上：
+ * tests/e2e/fonts.spec.ts 走一遍网站的那一项会发现。
  */
 export const PRESSED_SOURCES: readonly string[] = ['src/ui/sourcesText.ts', 'src/timebar/barNoteText.ts'];
 
@@ -208,11 +194,8 @@ export function subsetSentence(source: Pick<FontSource, 'name' | 'version' | 'si
   return `Subset of ${source.name} ${source.version} (${source.site}) with only the characters one website uses. Not the original font.`;
 }
 
-/**
- * 原字体保留的名字（霞鹜文楷的许可里写的四个中文名和 LXGW；Adobe 发行的思源宋体保留的 Source；
- * Noto 是 Google 的商标，宋体和黑体的原字体名称表第 7 条里都写着）。做出来的文件写名称的那几条里不能有。
- */
-export const RESERVED_WORDS = ['霞鹜', '霞鶩', '落霞孤鹜', '落霞孤鶩', 'LXGW', 'Source', 'Noto'] as const;
+// 原字体保留的名字（RESERVED_WORDS：做出来的文件写名称的那几条里不能有）写在 ./fontNames.ts 里——内容校验也照它查人物和站的 id；从这里也给出去。
+export { RESERVED_WORDS, postscriptName } from './fontNames';
 /** 名称表里写“这是什么字体”的那几条：这几条里不能有保留的名字（有的话读者的字体菜单里就会出现它）。 */
 export const NAMING_IDS = [1, 3, 4, 6, 16, 17, 18] as const;
 /** 做出来的文件里，名称表正好是这几条（原字体里没有的那一条就没有）。 */
@@ -371,14 +354,11 @@ export interface FontPlan {
   fallback: string;
 }
 
-/** 文件名对应的 PostScript 名称：yanlu-song-more → YanluSongMore-Regular；粗细是 500 的（黑体）结尾写 Medium：yanlu-sans → YanluSans-Medium。 */
-export function postscriptName(name: string, weight = 400): string {
-  return `${name.split('-').map((part) => part.charAt(0).toUpperCase() + part.slice(1)).join('')}-${weight === 500 ? 'Medium' : 'Regular'}`;
-}
-
 /**
- * 数出网站上显示的字，分好组，列出要做哪几个文件。
- * splitByStop：宋体要不要按站拆开（不写就照 SPLIT_SONG_BY_STOP）。fallbackOk：不进字体的字（不写就照 FALLBACK_OK）。
+ * 数出网站上显示的字，分好组，列出（全站共用的那一种分法）要做哪几个文件。做字体的工具不再照这一份清单写文件（它照 planScopes 的写）；
+ * 它还用这里数出来的两样——只在程序里出现的字、全站的宋体字——，按范围分的清单也拿这四组对账（tests/fonts/font-scopes.test.ts）。
+ * splitByStop：宋体按站拆开的那一种老分法（一个字只有一个去处；早先想过、没有用上，换成了按范围分。不写就是不拆；留着是因为它的规矩有测试守着）。
+ * fallbackOk：不进字体的字（不写就照 FALLBACK_OK）。
  * pressedSources：界面的程序里字要点了才看得见的文件（不写就照 PRESSED_SOURCES）。
  * labelKindOf：写着这种样式的沙盘题签是哪一种（不写就照样式的登记表查，src/stage/styles.ts 的 labelKind——页面查的也是它；测试交编出来的）。
  */
@@ -386,7 +366,7 @@ export function planFonts(
   site: SiteText,
   options: { splitByStop?: boolean; fallbackOk?: Readonly<Record<string, string>>; pressedSources?: readonly string[]; labelKindOf?: (style: string | undefined) => LabelKind } = {},
 ): FontPlan {
-  const splitByStop = options.splitByStop ?? SPLIT_SONG_BY_STOP;
+  const splitByStop = options.splitByStop ?? false;
   const fallbackOk = options.fallbackOk ?? FALLBACK_OK;
   const pressedSources = options.pressedSources ?? PRESSED_SOURCES;
   const labelKindOf = options.labelKindOf ?? ((style: string | undefined): LabelKind => labelKind(style));
@@ -1173,31 +1153,23 @@ export function englishNames(tables: FontTables): { names: Map<number, string>; 
   return { names: new Map(english.map((n) => [n.nameId, n.text])), others: all.length - english.length };
 }
 
-// ================================================================ 五、按范围分文件（开关关着）
+// ================================================================ 五、按范围分文件
 //
-// 现在的四个文件是全站共用的：读哪位人物的人，都下载了每一位人物的字。这一段是另一种分法，写好了、有测试，开关关着：
 // 字体文件照“一页显示什么”分范围——框架的两个文件（程序自己印的字、每一张卡片），每位人物的（他的人物页不点开就看得见的、
 // 点开才看得见的，他的黑体，他的题签用的楷体），他每一站的（有正文或者有自己的沙盘的站：那一站的页面除了框架以外显示的字，整份，
 // 别的页面也有的字照样带着），“来源”页的。范围之间不比较：两个范围都用到的字，两个文件里各有一份。
-// 开关（FONTS_BY_SCOPE）关着的时候这一段只被测试叫到（tests/fonts/font-scopes.test.ts，随 npm test 跑，不看开关），
-// 做字体的工具走的还是上面四段，写的还是那四个文件和格式 3 的记录。
+// 读一位人物的人只下载框架的两个文件和他那一页自己的范围的文件，别的人物的字一个也不下载。
+// 做字体的工具照这一段做文件；它的规矩的测试在 tests/fonts/font-scopes.test.ts（随 npm test 跑，不用原字体）。
 
 /**
- * 字体文件要不要按范围分。**现在关着**。看这个开关的只有一处：做字体的工具开头的那一处分叉（tests/tools/make-fonts.test.ts）。
- * 关着：工具做的是全站共用的那四个文件，一个字节也不多写。
- * 打开（改成 true，跑 npm run fonts）：工具照 planScopes 做文件，写 fonts.css（每个范围一条换名称的规则）、scopes/ 里点开才要的文件的样式表、
- * scopes.ts、index.html 里先不生效的预先声明、格式 4 的记录。
- * **现在还不能打开**，有两件事没有做完：
- *   一、页面那一头。页面已经在 <html> 上写着自己的范围（src/fonts/scope.ts），样式表里的字体记号也留好了位置
- *       （var(--own-song, …)、var(--own-sans, …)）；还没有做的是按范围去要文件（楷体的名称、点开才要的文件、probe.ts 里给页面的几样），
- *       查放进仓库的字体、查构建结果、浏览器里走一遍的那几份测试也都还是照四个文件写的。
- *   二、“来源”页的那个文件的名称。照现在的拼法它叫 yanlu-song-sources，写进文件里的 PostScript 名称就是 YanluSongSources-Regular，
- *       里面有原字体保留的名字 Source（RESERVED_WORDS）：做文件的时候 fontFileProblems 查得出来，工具不肯写。这一条不能放松；
- *       要先给这个文件另定一个写进文件里的名称（或者另定文件名），再打开。别的十五个文件没有这个毛病。
- * 试做过一回（在仓库外面，把开关打开）：十六个文件，每个做两遍字节都一样，每个字的字形和现在的四个文件里的一样。
+ * 字体文件按范围分。**开着**，而且关不回去：页面是按范围要文件的（src/fonts/scope.ts、src/ui/StagePane.tsx、src/ui/StopPage.tsx，
+ * 样式表里人物的题签字体叫的也是他自己的楷体），全站共用的那四个文件已经不做了。看这个开关的只有一处：做字体的工具开头
+ *（tests/tools/make-fonts.test.ts）——改成 false，工具停下来说这句话，什么也不写。
+ * 开着：工具照 planScopes 做文件，写 fonts.css（每个范围一条换名称的规则）、scopes/ 里点开才要的文件的样式表、
+ * scopes.ts、probe.ts、index.html 里先不生效的预先声明、格式 4 的记录。
  */
-export const FONTS_BY_SCOPE: boolean = false;
-/** 按范围分了以后记录的格式（多了 pages、home、joiners，每个文件那一项里多了 face、scope、unit、role、sheet）。开关关着的时候记录还是 RECORD_VERSION。 */
+export const FONTS_BY_SCOPE: boolean = true;
+/** 按范围分的记录的格式（比格式 3 多了 pages、home、joiners，每个文件那一项里多了 face、scope、unit、role、sheet）。 */
 export const SCOPE_RECORD_VERSION = 4;
 /** 各个范围自己的文件都在这个文件夹里（它在 src/fonts/ 里面）；框架的两个还在 src/fonts/ 这一层。 */
 export const SCOPES_DIR = 'scopes';
@@ -1397,12 +1369,15 @@ export function pageTexts(site: SiteText, options: ScopeOptions = {}): SiteTexts
   return { frame, home, pages, fallback: sortedString(fallbackUsed) };
 }
 
-// 各个文件叫什么（scopeFileName）、照 id 可能写出来哪些名字、哪些重了，在 ./fontNames.ts 里（内容校验也用它们）；从这里也给出去。
-export { SOURCES_SCOPE, scopeFileName, scopeFileNames, scopeIdProblems, scopeNameClashes } from './fontNames';
+// 各个文件叫什么（scopeFileName）、照 id 可能写出来哪些名字、哪些重了、哪些带出了保留的名字，在 ./fontNames.ts 里（内容校验也用它们）；从这里也给出去。
+export { SOURCES_SCOPE, SOURCES_SLUG, scopeFileName, scopeFileNames, scopeIdProblems, scopeNameClashes, scopeReservedNames, scopeSlug } from './fontNames';
 
-/** 一个范围的一套字在样式表里的名称：框架的是文件里写的那个名称（Yanlu Song），别的在后面接上范围和站（Yanlu Song su-shi xuzhou）。 */
+/**
+ * 一个范围的一套字在样式表里的名称：框架的是文件里写的那个名称（Yanlu Song），别的在后面接上范围和站（Yanlu Song su-shi xuzhou）。
+ * “来源”页的范围在这里叫 credits（Yanlu Song credits）：工具写出来的东西里它都叫这个名字，见 fontNames.ts 的 SOURCES_SLUG。
+ */
 export function scopeFace(source: FontSourceId, scope: string, unit: string | null): string {
-  return [FONT_SOURCES[source].family, ...(scope === 'frame' ? [] : [scope]), ...(unit === null ? [] : [unit])].join(' ');
+  return [FONT_SOURCES[source].family, ...(scope === 'frame' ? [] : [scopeSlug(scope)]), ...(unit === null ? [] : [unit])].join(' ');
 }
 
 /** 按范围分的时候要做的一个字体文件。前六样和 PlannedFile 的同名的那几样是一回事（做文件的 makeFont 只看它们）。 */
@@ -1494,7 +1469,7 @@ export function planScopes(site: SiteText, options: ScopeOptions & { joiners: st
       role,
       range: role === 'pressed',
       preload: scope === 'frame' ? 'always' : role === 'rest' && source !== 'kai' ? 'scope' : 'none',
-      sheet: role === 'rest' ? 'fonts.css' : `${SCOPES_DIR}/${unit === null ? scope : `${scope}.${unit}`}.css`,
+      sheet: role === 'rest' ? 'fonts.css' : `${SCOPES_DIR}/${unit === null ? scopeSlug(scope) : `${scopeSlug(scope)}.${unit}`}.css`,
     });
     return name;
   };
@@ -1627,11 +1602,12 @@ function scopesOf(files: readonly Pick<ScopeFile, 'source' | 'face' | 'scope' | 
  * 最后每个范围一条换名称的规则——页面在 <html> 上写着自己的范围（data-fonts、data-fonts-unit），哪一条合得上，
  * 就把那个范围的名称交给 --own-sans、--own-song（tokens.css 里三个字体记号都在框架的名称后面读它们）。
  * 一站的规则比人物的多一个条件，所以站点页上宋体换成那一站的，黑体还是人物的。楷体不在这里换：人物的那一块记号自己写它的名称。
+ * “来源”页的那一条只认没有写着站的时候（:not([data-fonts-unit])）：地址 #/sources/… 不是哪一页，那里不要这个文件。
  */
 export function scopeFontsCss(files: readonly ScopeFile[]): string {
   const rest = files.filter((file) => file.role === 'rest');
   const rule = (entry: ReturnType<typeof scopesOf>[number]): string => {
-    const selector = `:root[data-fonts='${entry.scope}']${entry.unit === null ? '' : `[data-fonts-unit='${entry.unit}']`}`;
+    const selector = `:root[data-fonts='${entry.scope}']${entry.unit === null ? (entry.scope === SOURCES_SCOPE ? ':not([data-fonts-unit])' : '') : `[data-fonts-unit='${entry.unit}']`}`;
     const sets = [...(entry.sans ? [`--own-sans: '${entry.sans}';`] : []), ...(entry.song ? [`--own-song: '${entry.song}';`] : [])];
     return `${selector} { ${sets.join(' ')} }`;
   };
@@ -1651,18 +1627,38 @@ export function pressedSheetCss(file: ScopeFile): string {
 }
 
 /**
- * scopes.ts 的字：每个范围点开才要的那个文件——它的样式表（用到时才引入，所以这张表自成一小块，不跟着页面一打开就下载的程序长大），
- * 和它里面编码最小的一个字（页面拿它叫浏览器先把那个文件取来）。范围的叫法：人物的 id，一站是“人物/站”。
+ * scopes.ts 的字：每个范围点开才要的那个文件——它的样式表的地址（页面用到时才把这份样式表挂上去；这张表是页面用到时才引入的一小块，
+ * 不跟着页面一打开就下载的程序长大），它里面编码最小的一个字，和它在样式表里的名称（页面拿这两样叫浏览器先把那个文件取来）。
+ * 范围的叫法是页面写在 <html> 上的那两个词：人物的 id，一站是“人物/站”。
+ * 样式表是照地址引的（?url），不写成 import('….css')：那样写，这一小块自己也要用“先把样式表取来”的那一段程序，打包的工具就把那一段
+ * 从页面的程序里拆出去单成一块，页面一打开多一次请求（tests/build/dist-size.test.ts 守着页面的程序只有一块）。
  */
 export function scopesTs(files: readonly ScopeFile[]): string {
   const pressed = files.filter((file) => file.role === 'pressed');
   return [
     '// 工具做的（npm run fonts），不要手改。说明见 docs/data-spec.md“随站的字体”。',
-    '// 每个范围点开才要的那个字体文件：它的样式表（用到时才引入），和它里面的一个字（页面拿它叫浏览器先把那个文件取来）。',
+    '// 每个范围点开才要的那个字体文件：它的样式表的地址（页面用到时才挂上去），它里面的一个字和它在样式表里的名称（页面拿这两样叫浏览器先把那个文件取来）。',
     '',
-    'export const SCOPE_PRESSED: Record<string, { sheet: () => Promise<unknown>; probe: string }> = {',
-    ...pressed.map((file) => `  '${file.unit === null ? file.scope : `${file.scope}/${file.unit}`}': { sheet: () => import('./${file.sheet}'), probe: '${[...file.characters][0]}' },`),
+    ...pressed.map((file, index) => `import sheet${index} from './${file.sheet}?url';`),
+    '',
+    'export const SCOPE_PRESSED: Record<string, { sheet: string; probe: string; face: string }> = {',
+    ...pressed.map((file, index) => `  '${file.unit === null ? file.scope : `${file.scope}/${file.unit}`}': { sheet: sheet${index}, probe: '${[...file.characters][0]}', face: '${file.face}' },`),
     '};',
+    '',
+  ].join('\n');
+}
+
+/**
+ * 按范围分的时候 probe.ts 的字：页面一打开就下载的程序要的只有一样——写在楷体的字体文件里的名称。
+ * 页面叫浏览器先去取一位人物的楷体的时候，在它后面接上人物的 id（样式表里那一条 @font-face 的名称就是这样拼的，见 scopeFace）。
+ */
+export function scopeProbeTs(): string {
+  return [
+    '// 工具做的（npm run fonts），不要手改。说明见 docs/data-spec.md“随站的字体”。',
+    '// 页面一打开就下载的程序用的一样，单放在这里：三套字体的那张表（shipped.ts）只有“来源”页用，不跟着进那一块程序。',
+    '',
+    '/** 写在楷体的字体文件里的名称（题签和印上的字）。一位人物的楷体在样式表里的名称是它后面接上人物的 id：页面叫浏览器先去取的时候这样拼。 */',
+    `export const KAI_FAMILY = '${FONT_SOURCES.kai.family}';`,
     '',
   ].join('\n');
 }
@@ -1671,13 +1667,18 @@ export function scopesTs(files: readonly ScopeFile[]): string {
 export const PRELOAD_BLOCK = { start: '<!-- fonts:scopes 起：这一段是工具做的（npm run fonts），不要手改 -->', end: '<!-- fonts:scopes 止 -->' } as const;
 
 /**
- * index.html 里那一段的字：每个范围不用点开就要的黑体、宋体文件各一行预先声明，先不生效（media="not all"），
- * 行上写着它归哪个范围；首页的沙盘栏里摆着的那位人物的几行另有 data-fonts-home。页面开头的那几行脚本照地址把合得上的几行抄一份生效的。
+ * index.html 里那一段的字：每个范围不用点开就要的黑体、宋体文件各一行预先声明，先不生效（media="not all"）。
+ * 每一行写着它是给谁的：data-fonts 是范围（页面写在 <html> 上的那个词），data-fonts-unit 是哪一站，data-fonts-family 是黑体（sans）还是宋体（song）。
+ *   没有写 data-fonts-unit 的（人物的两行）：这位人物的每一页都用——只是一站自己有宋体的那一行时，人物的宋体那一行让给它；
+ *   写着站的：只给那一站的页面；
+ *   写着空的 data-fonts-unit=""（“来源”页的那一行）：只给地址里没有站的那一页（#/sources/… 不是哪一页，不取）。
+ * 首页的沙盘栏里摆着的那位人物的两行另有 data-fonts-home（首页的地址里没有人物）。页面开头的那几行脚本照地址把合得上的几行抄一份生效的。
  */
 export function preloadBlock(files: readonly ScopeFile[], home: string | null, indent = '    '): string {
+  const unit = (file: ScopeFile): string => (file.unit !== null ? ` data-fonts-unit="${file.unit}"` : file.scope === SOURCES_SCOPE ? ' data-fonts-unit=""' : '');
   const lines = files
     .filter((file) => file.preload === 'scope')
-    .map((file) => `<link rel="preload" href="/${FONTS_DIR}/${scopeFilePath(file)}" as="font" type="font/woff2" crossorigin media="not all" data-fonts="${file.scope}"${file.unit === null ? '' : ` data-fonts-unit="${file.unit}"`}${file.unit === null && file.scope === home ? ' data-fonts-home' : ''} />`);
+    .map((file) => `<link rel="preload" href="/${FONTS_DIR}/${scopeFilePath(file)}" as="font" type="font/woff2" crossorigin media="not all" data-fonts="${file.scope}"${unit(file)} data-fonts-family="${file.source}"${file.unit === null && file.scope === home ? ' data-fonts-home' : ''} />`);
   return [PRELOAD_BLOCK.start, ...lines, PRELOAD_BLOCK.end].map((line) => `${indent}${line}`).join('\n');
 }
 
@@ -1817,13 +1818,30 @@ export function scopeRecordIsFresh(plan: ScopePlan, record: ScopeRecord, made: R
   return { fresh: true, why: '' };
 }
 
-/** 照要做的清单写的几样（都用不到原字体）：fonts.css，scopes/ 里点开才要的文件的样式表（路径 → 字），scopes.ts，index.html 里的那一段。 */
-export function writtenForScopes(plan: Pick<ScopePlan, 'files' | 'home'>): { css: string; sheets: Record<string, string>; scopes: string; preloads: string } {
+/** 照要做的清单写的几样（都用不到原字体）：fonts.css，scopes/ 里点开才要的文件的样式表（路径 → 字），scopes.ts，probe.ts，index.html 里的那一段。 */
+export function writtenForScopes(plan: Pick<ScopePlan, 'files' | 'home'>): { css: string; sheets: Record<string, string>; scopes: string; probe: string; preloads: string } {
   return {
     css: scopeFontsCss(plan.files),
     sheets: Object.fromEntries(plan.files.filter((file) => file.role === 'pressed').map((file) => [file.sheet, pressedSheetCss(file)])),
     scopes: scopesTs(plan.files),
+    probe: scopeProbeTs(),
     preloads: preloadBlock(plan.files, plan.home),
+  };
+}
+
+/**
+ * 读 src/fonts/ 里按范围分的记录（格式 4）和它写的每个字体文件（dir 不写就是 src/fonts）。缺了哪个文件就抛出错误。
+ * 每个文件读出来的样子和不分的时候是同一种（readShipped）。
+ */
+export function readScoped(dir: string = FONTS_DIR): { record: ScopeRecord; files: { record: ScopeFileRecord; bytes: Uint8Array; tables: FontTables; characters: Set<string> }[] } {
+  const record = JSON.parse(readText(`${dir}/fonts.json`)) as ScopeRecord;
+  return {
+    record,
+    files: record.files.map((item) => {
+      const bytes = readFileSync(new URL(`${dir}/${item.file}`, ROOT));
+      const { tables } = readWoff2(bytes);
+      return { record: item, bytes, tables, characters: new Set(charactersOf(tables)) };
+    }),
   };
 }
 
@@ -1859,8 +1877,10 @@ async function unpackWoff2(woff2: Uint8Array): Promise<Uint8Array> {
  * 两个字放在一起和各自单放，字形、往前走多少、挪了多少有一样不同，这两个字就都算。
  * font 是装着这些字的一个字体文件（WOFF2，照做随站字体的同一个做法做的：留下的排版功能一样，量到的才是浏览器里会有的）。
  * 这些字要是分在两个文件里，浏览器就把它们分开排，挨着时该有的那一点挪动就没了：所以它们都放进框架的宋体文件，哪一页都在一个文件里。
+ * apart 给了的时候只算它说“这两个字不在同一个文件里”的那些对（黑体是这样查的：黑体的字不往框架里挪，只查有没有一对被分在了
+ * 框架的黑体和一个范围的黑体两个文件里——有的话做字体的工具停下来）。
  */
-export async function joinersIn(font: Uint8Array, characters: string): Promise<{ joiners: string; pairs: number; differing: number }> {
+export async function joinersIn(font: Uint8Array, characters: string, apart?: (a: string, b: string) => boolean): Promise<{ joiners: string; pairs: number; differing: number }> {
   const { shape } = await shaper(await unpackWoff2(font));
   const chars = [...characters];
   const involved = new Set<string>();
@@ -1876,7 +1896,7 @@ export async function joinersIn(font: Uint8Array, characters: string): Promise<{
       for (const glyph of glyphs) byCluster.set(glyph.cluster, [...(byCluster.get(glyph.cluster) ?? []), glyph]);
       let offset = 0;
       for (const b of chars) {
-        if (!same(byCluster.get(offset) ?? [], solo.get(a)) || !same(byCluster.get(offset + a.length) ?? [], solo.get(b))) {
+        if ((!same(byCluster.get(offset) ?? [], solo.get(a)) || !same(byCluster.get(offset + a.length) ?? [], solo.get(b))) && (!apart || apart(a, b))) {
           differing++;
           involved.add(a);
           involved.add(b);

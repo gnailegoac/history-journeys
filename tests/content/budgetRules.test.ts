@@ -13,7 +13,12 @@ import {
   ENGINE_GZIP_WARN,
   FONT_FILE_MAX_BYTES,
   FONT_FILE_WARN_BYTES,
-  FONT_FIRST_MAX_BYTES,
+  FONT_FRAME_MAX_BYTES,
+  FONT_FRAME_WARN_BYTES,
+  FONT_PAGE_FIRST_MAX_BYTES,
+  FONT_PAGE_FIRST_WARN_BYTES,
+  FONT_SHEET_GZIP_MAX,
+  FONT_SHEET_GZIP_WARN,
   PAGE_ENTRY,
   PAGE_GZIP_MAX,
   PAGE_GZIP_WARN,
@@ -23,7 +28,7 @@ import {
   STYLE_GZIP_WARN,
   TABLE_FILES_MAX_BYTES,
   edgeTooLong,
-  fontReport,
+  fontScopeReport,
   kilobytes,
   megabytes,
   programReport,
@@ -60,9 +65,13 @@ describe('上限是哪几个数', () => {
     expect([DIST_MAX_BYTES, DIST_WARN_BYTES]).toEqual([943_718_400, 524_288_000]);
   });
 
-  it('随站的字体（字体文件自己的字节数）：首次打开要下载的合计 450 KB，一个文件 300 KB，过了 280 KB 提醒', () => {
-    expect(FONT_FIRST_MAX_BYTES).toBe(460_800);
+  it('随站的字体（字体文件自己的字节数）：每一种页面首次打开要下载的合计 360 KB、过了 330 KB 提醒（文件还是全站共用四个的时候是合计 450 KB，按范围分以后降下来了），框架的两个文件合计 170 KB、过了 160 KB 提醒，一个文件 300 KB、过了 280 KB 提醒，点开才要的字的样式表压缩以后 4,096、过了 3,584 提醒', () => {
+    expect([FONT_PAGE_FIRST_MAX_BYTES, FONT_PAGE_FIRST_WARN_BYTES]).toEqual([368_640, 337_920]);
+    // 降下来了：原来那一条是 460,800
+    expect(FONT_PAGE_FIRST_MAX_BYTES).toBeLessThan(460_800);
+    expect([FONT_FRAME_MAX_BYTES, FONT_FRAME_WARN_BYTES]).toEqual([174_080, 163_840]);
     expect([FONT_FILE_MAX_BYTES, FONT_FILE_WARN_BYTES]).toEqual([307_200, 286_720]);
+    expect([FONT_SHEET_GZIP_MAX, FONT_SHEET_GZIP_WARN]).toEqual([4_096, 3_584]);
   });
 });
 
@@ -571,69 +580,115 @@ describe('自己有上限的两小块：内容的清单那一块，时间轴的�
 });
 
 describe('字体文件对着上限查', () => {
-  /** 四个文件，照工具排的先后：黑体、头一个宋体、楷体、点开才要的宋体。黑体不说就是 49,000 字节。 */
-  const files = (kai: number, song: number, more: number, sans = 49_000) => [
-    { file: 'yanlu-sans.woff2', bytes: sans, first: true },
-    { file: 'yanlu-song.woff2', bytes: song, first: true },
-    { file: 'yanlu-kai.woff2', bytes: kai, first: true },
-    { file: 'yanlu-song-more.woff2', bytes: more, first: false },
-  ];
+  /**
+   * 按范围分的文件，照工具排的先后：框架的黑体、宋体；一位人物的黑体、楷体、他的人物页的宋体（不用点开的、点开才要的）；他一站的宋体两个。
+   * 三种页面：只有框架的字的，人物页，那一站。数不说就是下面这几个。
+   */
+  const sizes = (over: Partial<Record<'sans' | 'song' | 'own' | 'kai' | 'figure' | 'figureMore' | 'stop' | 'stopMore', number>> = {}) => {
+    const bytes = { sans: 30_000, song: 116_000, own: 30_000, kai: 32_000, figure: 56_000, figureMore: 128_000, stop: 72_000, stopMore: 150_000, ...over };
+    return {
+      files: [
+        { file: 'yanlu-sans.woff2', bytes: bytes.sans, frame: true },
+        { file: 'yanlu-song.woff2', bytes: bytes.song, frame: true },
+        { file: 'scopes/yanlu-sans-p.woff2', bytes: bytes.own, frame: false },
+        { file: 'scopes/yanlu-kai-p.woff2', bytes: bytes.kai, frame: false },
+        { file: 'scopes/yanlu-song-p.woff2', bytes: bytes.figure, frame: false },
+        { file: 'scopes/yanlu-song-p-more.woff2', bytes: bytes.figureMore, frame: false },
+        { file: 'scopes/yanlu-song-p-s.woff2', bytes: bytes.stop, frame: false },
+        { file: 'scopes/yanlu-song-p-s-more.woff2', bytes: bytes.stopMore, frame: false },
+      ],
+      pages: [
+        { name: '只有框架的字的页面', rest: ['yanlu-sans.woff2', 'yanlu-song.woff2'], pressed: [] },
+        { name: '某人的人物页', rest: ['yanlu-sans.woff2', 'yanlu-song.woff2', 'scopes/yanlu-sans-p.woff2', 'scopes/yanlu-kai-p.woff2', 'scopes/yanlu-song-p.woff2'], pressed: ['scopes/yanlu-song-p-more.woff2'] },
+        { name: '某人的甲站', rest: ['yanlu-sans.woff2', 'yanlu-song.woff2', 'scopes/yanlu-sans-p.woff2', 'scopes/yanlu-kai-p.woff2', 'scopes/yanlu-song-p-s.woff2'], pressed: ['scopes/yanlu-song-p-s-more.woff2'] },
+      ],
+      sheets: [],
+    };
+  };
 
-  it('都在上限里：每个文件一行，首次打开的合计一行，全部合计一行', () => {
-    const report = fontReport(files(56_000, 243_000, 186_000));
+  it('都在上限里：每个文件一行，框架的两个合计一行，每一种页面首次打开的合计一行，全部合计一行', () => {
+    const report = fontScopeReport(sizes());
     expect(report.fails).toEqual([]);
     expect(report.warns).toEqual([]);
     expect(report.lines).toEqual([
-      'yanlu-sans.woff2：49,000 字节，上限 307,200（用了 16%）',
-      'yanlu-song.woff2：243,000 字节，上限 307,200（用了 79%）',
-      'yanlu-kai.woff2：56,000 字节，上限 307,200（用了 18%）',
-      'yanlu-song-more.woff2：186,000 字节，上限 307,200（用了 61%）',
-      '首次打开要下载的字体（yanlu-sans.woff2、yanlu-song.woff2、yanlu-kai.woff2）：348,000 字节，上限 460,800（用了 76%）',
-      '全部字体文件合计：534,000 字节（没有上限）',
+      'yanlu-sans.woff2：30,000 字节，上限 307,200（用了 10%）',
+      'yanlu-song.woff2：116,000 字节，上限 307,200（用了 38%）',
+      'scopes/yanlu-sans-p.woff2：30,000 字节，上限 307,200（用了 10%）',
+      'scopes/yanlu-kai-p.woff2：32,000 字节，上限 307,200（用了 10%）',
+      'scopes/yanlu-song-p.woff2：56,000 字节，上限 307,200（用了 18%）',
+      'scopes/yanlu-song-p-more.woff2：128,000 字节，上限 307,200（用了 42%）',
+      'scopes/yanlu-song-p-s.woff2：72,000 字节，上限 307,200（用了 23%）',
+      'scopes/yanlu-song-p-s-more.woff2：150,000 字节，上限 307,200（用了 49%）',
+      '框架的字体（yanlu-sans.woff2、yanlu-song.woff2，哪一页都要下载）：146,000 字节，上限 174,080（用了 84%）',
+      '只有框架的字的页面首次打开要下载的字体（2 个文件）：146,000 字节，上限 368,640（用了 40%）；每一折都点开一共 146,000 字节（没有上限）',
+      '某人的人物页首次打开要下载的字体（5 个文件）：264,000 字节，上限 368,640（用了 72%）；每一折都点开一共 392,000 字节（没有上限）',
+      '某人的甲站首次打开要下载的字体（5 个文件）：280,000 字节，上限 368,640（用了 76%）；每一折都点开一共 430,000 字节（没有上限）',
+      '全部字体文件合计：614,000 字节（没有上限）',
     ]);
   });
 
   it('一个文件正好 300 KB 算合格（只是提醒），多一个字节就不合格；过了 280 KB 提醒', () => {
-    expect(fontReport(files(56_000, FONT_FILE_MAX_BYTES, 186_000)).fails).toEqual([]);
-    expect(fontReport(files(56_000, FONT_FILE_MAX_BYTES + 1, 186_000)).fails).toEqual(['字体文件 yanlu-song.woff2 有 307,201 字节，超过了上限 307,200']);
-    expect(fontReport(files(56_000, 243_000, FONT_FILE_MAX_BYTES + 1)).fails).toEqual(['字体文件 yanlu-song-more.woff2 有 307,201 字节，超过了上限 307,200']);
-    expect(fontReport(files(56_000, FONT_FILE_WARN_BYTES, 186_000)).warns).toEqual([]);
-    expect(fontReport(files(56_000, FONT_FILE_WARN_BYTES + 1, 186_000)).warns).toEqual([
-      '字体文件 yanlu-song.woff2 有 286,721 字节，快到上限 307,200 了（过了 286,720 就提醒）：该把宋体按站拆开了（打开以前还要做什么，写在 tests/support/fontTool.ts 的 SPLIT_SONG_BY_STOP 上面）',
+    expect(fontScopeReport(sizes({ stopMore: FONT_FILE_MAX_BYTES })).fails).toEqual([]);
+    expect(fontScopeReport(sizes({ stopMore: FONT_FILE_MAX_BYTES })).warns).toHaveLength(1);
+    expect(fontScopeReport(sizes({ stopMore: FONT_FILE_MAX_BYTES + 1 })).fails).toEqual(['字体文件 scopes/yanlu-song-p-s-more.woff2 有 307,201 字节，超过了上限 307,200']);
+    expect(fontScopeReport(sizes({ figureMore: FONT_FILE_MAX_BYTES + 1 })).fails).toEqual(['字体文件 scopes/yanlu-song-p-more.woff2 有 307,201 字节，超过了上限 307,200']);
+    expect(fontScopeReport(sizes({ stopMore: FONT_FILE_WARN_BYTES })).warns).toEqual([]);
+    expect(fontScopeReport(sizes({ stopMore: FONT_FILE_WARN_BYTES + 1 })).warns).toEqual([
+      '字体文件 scopes/yanlu-song-p-s-more.woff2 有 286,721 字节，快到上限 307,200 了（过了 286,720 就提醒）：点开才要的文件照折着的那几块再分开',
     ]);
-    // “该把宋体按站拆开了”只对宋体的文件说：黑体、楷体的文件大了，只提醒，不出这个主意
-    expect(fontReport(files(56_000, 100_000, 186_000, FONT_FILE_WARN_BYTES + 1)).warns).toEqual(['字体文件 yanlu-sans.woff2 有 286,721 字节，快到上限 307,200 了（过了 286,720 就提醒）']);
-    expect(fontReport(files(FONT_FILE_WARN_BYTES + 1, 100_000, 186_000)).warns).toEqual(['字体文件 yanlu-kai.woff2 有 286,721 字节，快到上限 307,200 了（过了 286,720 就提醒）']);
-    expect(fontReport(files(56_000, 100_000, FONT_FILE_WARN_BYTES + 1)).warns[0]).toContain('yanlu-song-more.woff2');
-    expect(fontReport(files(56_000, 100_000, FONT_FILE_WARN_BYTES + 1)).warns[0]).toContain('该把宋体按站拆开了');
+    // “照折着的那几块再分开”只对点开才要的文件说：别的文件（框架的、人物的黑体、楷体、不用点开的宋体）大了，只提醒，不出这个主意。
+    //（这样大的一个文件，用到它的页面首次打开的合计也过了线：那是另一句，下一项查）
+    const fileWarns = (over: Parameters<typeof sizes>[0]): string[] => fontScopeReport(sizes(over)).warns.filter((line) => line.startsWith('字体文件 '));
+    expect(fileWarns({ sans: FONT_FILE_WARN_BYTES + 1 })).toEqual(['字体文件 yanlu-sans.woff2 有 286,721 字节，快到上限 307,200 了（过了 286,720 就提醒）']);
+    expect(fileWarns({ kai: FONT_FILE_WARN_BYTES + 1 })).toEqual(['字体文件 scopes/yanlu-kai-p.woff2 有 286,721 字节，快到上限 307,200 了（过了 286,720 就提醒）']);
+    expect(fileWarns({ stop: FONT_FILE_WARN_BYTES + 1 })).toEqual(['字体文件 scopes/yanlu-song-p-s.woff2 有 286,721 字节，快到上限 307,200 了（过了 286,720 就提醒）']);
+    expect(fileWarns({ figureMore: FONT_FILE_WARN_BYTES + 1 })[0]).toContain('scopes/yanlu-song-p-more.woff2');
+    expect(fileWarns({ figureMore: FONT_FILE_WARN_BYTES + 1 })[0]).toContain('点开才要的文件照折着的那几块再分开');
   });
 
-  it('首次打开要下载的合计正好 450 KB 算合格，多一个字节就不合格；点开才下载的不算在里面', () => {
-    // 黑体 49,000 + 宋体 300,000 + 楷体 111,800 = 460,800
-    expect(fontReport(files(111_800, 300_000, 300_000)).fails).toEqual([]);
-    expect(fontReport(files(111_801, 300_000, 0)).fails).toEqual(['首次打开要下载的字体合计 460,801 字节，超过了上限 460,800']);
+  it('一种页面首次打开要下载的合计正好 360 KB 算合格，多一个字节就不合格，说的是哪一页；过了 330 KB 提醒；点开才下载的不算在里面', () => {
+    // 那一站：框架 146,000 + 人物的黑体 30,000 + 楷体 32,000 = 208,000；它自己的宋体 160,640 时正好 368,640
+    expect(fontScopeReport(sizes({ stop: 160_640 })).fails).toEqual([]);
+    expect(fontScopeReport(sizes({ stop: 160_641 })).fails).toEqual(['某人的甲站首次打开要下载的字体合计有 368,641 字节，超过了上限 368,640']);
+    expect(fontScopeReport(sizes({ stop: 129_920 })).warns).toEqual([]);
+    expect(fontScopeReport(sizes({ stop: 129_921 })).warns).toEqual(['某人的甲站首次打开要下载的字体合计有 337,921 字节，快到上限 368,640 了（过了 337,920 就提醒）：把这位人物的黑体和楷体也按站分开']);
+    // 点开才下载的两个再大（各到一个文件的上限），哪一页的合计都不变
+    expect(fontScopeReport(sizes({ figureMore: 300_000, stopMore: 300_000 })).fails).toEqual([]);
+    // 框架的两个文件另有一条：合计正好 170 KB 算合格，多一个字节就不合格
+    expect(fontScopeReport(sizes({ song: 144_080 })).fails).toEqual([]);
+    expect(fontScopeReport(sizes({ song: 144_081 })).fails).toEqual(['框架的字体合计有 174,081 字节，超过了上限 174,080']);
   });
 
-  it('宋体按站拆开以后：首次打开的合计是大家共用的三个，加上自己的文件最大的那一站的；不是各站的都加起来', () => {
-    // 黑体 49 KB，大家共用的宋体 205 KB，楷体 56 KB，八站各有自己的 35 到 42 KB：都加起来早过了 450 KB，可是没有谁一次要下载八站的
-    const split = [
-      { file: 'yanlu-sans.woff2', bytes: 49_000, first: true, stop: null },
-      { file: 'yanlu-song.woff2', bytes: 205_000, first: true, stop: null },
-      { file: 'yanlu-kai.woff2', bytes: 56_000, first: true, stop: null },
-      ...Array.from({ length: 8 }, (_, i) => ({ file: `yanlu-song-s${i + 1}.woff2`, bytes: 35_000 + i * 1_000, first: true, stop: `s${i + 1}` })),
-      { file: 'yanlu-song-more.woff2', bytes: 34_000, first: false, stop: null },
-      ...Array.from({ length: 8 }, (_, i) => ({ file: `yanlu-song-s${i + 1}-more.woff2`, bytes: 95_000, first: false, stop: `s${i + 1}` })),
-    ];
-    expect(split.filter((item) => item.first).reduce((sum, item) => sum + item.bytes, 0)).toBeGreaterThan(460_800);
-    const report = fontReport(split);
+  it('按范围分以后：每一种页面首次打开的合计各算各的——框架的两个，加上这一页自己那个范围不用点开就要的；不是各站的都加起来，也不是只看最大的一页：哪一页超了说哪一页', () => {
+    // 框架的两个 146 KB，人物的黑体 30 KB、楷体 32 KB，八站各有自己的宋体 35 到 42 KB：不用点开就要的都加起来早过了 360 KB，可是没有谁一次要下载八站的
+    const stops = Array.from({ length: 8 }, (_, i) => ({ id: `s${i + 1}`, bytes: 35_000 + i * 1_000 }));
+    const own = ['yanlu-sans.woff2', 'yanlu-song.woff2', 'scopes/yanlu-sans-p.woff2', 'scopes/yanlu-kai-p.woff2'];
+    const split = (change: (id: string, bytes: number) => number = (_id, bytes) => bytes, more = 95_000) => ({
+      files: [
+        { file: 'yanlu-sans.woff2', bytes: 30_000, frame: true },
+        { file: 'yanlu-song.woff2', bytes: 116_000, frame: true },
+        { file: 'scopes/yanlu-sans-p.woff2', bytes: 30_000, frame: false },
+        { file: 'scopes/yanlu-kai-p.woff2', bytes: 32_000, frame: false },
+        ...stops.flatMap((stop) => [
+          { file: `scopes/yanlu-song-p-${stop.id}.woff2`, bytes: change(stop.id, stop.bytes), frame: false },
+          { file: `scopes/yanlu-song-p-${stop.id}-more.woff2`, bytes: more, frame: false },
+        ]),
+      ],
+      pages: stops.map((stop) => ({ name: `某人的${stop.id}`, rest: [...own, `scopes/yanlu-song-p-${stop.id}.woff2`], pressed: [`scopes/yanlu-song-p-${stop.id}-more.woff2`] })),
+      sheets: [],
+    });
+    const all = split();
+    expect(all.files.filter((item) => !item.file.endsWith('-more.woff2')).reduce((sum, item) => sum + item.bytes, 0)).toBeGreaterThan(368_640);
+    const report = fontScopeReport(all);
     expect(report.fails).toEqual([]);
-    expect(report.lines).toHaveLength(split.length + 2);
-    expect(report.lines[split.length]).toBe('首次打开要下载的字体（yanlu-sans.woff2、yanlu-song.woff2、yanlu-kai.woff2，加上自己的文件最大的一站（s8）的 yanlu-song-s8.woff2）：352,000 字节，上限 460,800（用了 76%）');
-    // 一站自己的文件大到连同大家共用的过了上限：通不过，说的是合计；正好到上限算合格
-    const withS3 = (bytes: number) => split.map((item) => (item.file === 'yanlu-song-s3.woff2' ? { ...item, bytes } : item));
-    expect(fontReport(withS3(150_801)).fails).toEqual(['首次打开要下载的字体合计 460,801 字节，超过了上限 460,800']);
-    expect(fontReport(withS3(150_800)).fails).toEqual([]);
+    // 每个文件一行，框架一行，每一站一行，全部合计一行
+    expect(report.lines).toHaveLength(all.files.length + 1 + stops.length + 1);
+    expect(report.lines[all.files.length + stops.length]).toBe('某人的s8首次打开要下载的字体（5 个文件）：250,000 字节，上限 368,640（用了 68%）；每一折都点开一共 345,000 字节（没有上限）');
+    // 一站自己的文件大到连同框架的、人物的过了上限：通不过，说的是那一站的合计，别的站不受连累；正好到上限算合格
+    const withS3 = (bytes: number) => split((id, was) => (id === 's3' ? bytes : was));
+    expect(fontScopeReport(withS3(160_641)).fails).toEqual(['某人的s3首次打开要下载的字体合计有 368,641 字节，超过了上限 368,640']);
+    expect(fontScopeReport(withS3(160_640)).fails).toEqual([]);
     // 点开才下载的那些，哪一站的都不算在里面
-    expect(fontReport(split.map((item) => (item.first ? item : { ...item, bytes: 300_000 }))).fails).toEqual([]);
+    expect(fontScopeReport(split(undefined, 300_000)).fails).toEqual([]);
   });
 });

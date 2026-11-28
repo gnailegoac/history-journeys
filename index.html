@@ -5,26 +5,60 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>沿着他走过的路</title>
     <!--
-      随站的字体里一打开就要用的两个文件：黑体（标题、标签、按钮），和不用点开就看得见的宋体。先在这里说一声，浏览器不等样式表读完就去取。
+      随站的字体里哪一页都要用的两个文件（框架的）：黑体（标题、标签、按钮），和宋体（成句的话）。先在这里说一声，浏览器不等样式表读完就去取。
       都是网站自己的文件。crossorigin 不能少：取字体一律按“跨站”的规矩取，少了它，这里取来的那一份样式表用不上，会再取一遍。
-      另外两个文件不在这里：楷体只有沙盘上的题签在用，页面知道要摆沙盘了才叫浏览器去取（src/ui/StagePane.tsx）；点开才看得见的字，页面上用到时才取，
-      站点页空下来以后也会先取来（src/ui/StopPage.tsx）。
+      各个范围自己的文件（一位人物的、他的一站的、“来源”页的）在下面那一段里，先不生效（media="not all"）：照地址合得上的几行，
+      由后面那几行脚本抄一份生效的。楷体不在这里：页面知道要摆沙盘了才叫浏览器去取（src/ui/StagePane.tsx）；点开才看得见的字，
+      页面上用到时才取，站点页空下来以后也会先取来（src/ui/StopPage.tsx）。
     -->
     <link rel="preload" href="/src/fonts/yanlu-sans.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="preload" href="/src/fonts/yanlu-song.woff2" as="font" type="font/woff2" crossorigin />
-    <!-- 这一页的字体归哪个范围，照地址先写到 <html> 上（人物、站）；页面的程序起来以后照同一条规矩再写（src/fonts/scope.ts），去掉这几行页面照样对。 -->
+    <!-- fonts:scopes 起：这一段是工具做的（npm run fonts），不要手改 -->
+    <link rel="preload" href="/src/fonts/scopes/yanlu-sans-goethe.woff2" as="font" type="font/woff2" crossorigin media="not all" data-fonts="goethe" data-fonts-family="sans" />
+    <link rel="preload" href="/src/fonts/scopes/yanlu-song-goethe.woff2" as="font" type="font/woff2" crossorigin media="not all" data-fonts="goethe" data-fonts-family="song" />
+    <link rel="preload" href="/src/fonts/scopes/yanlu-sans-su-shi.woff2" as="font" type="font/woff2" crossorigin media="not all" data-fonts="su-shi" data-fonts-family="sans" data-fonts-home />
+    <link rel="preload" href="/src/fonts/scopes/yanlu-song-su-shi.woff2" as="font" type="font/woff2" crossorigin media="not all" data-fonts="su-shi" data-fonts-family="song" data-fonts-home />
+    <link rel="preload" href="/src/fonts/scopes/yanlu-song-su-shi-meishan.woff2" as="font" type="font/woff2" crossorigin media="not all" data-fonts="su-shi" data-fonts-unit="meishan" data-fonts-family="song" />
+    <link rel="preload" href="/src/fonts/scopes/yanlu-song-su-shi-xuzhou.woff2" as="font" type="font/woff2" crossorigin media="not all" data-fonts="su-shi" data-fonts-unit="xuzhou" data-fonts-family="song" />
+    <link rel="preload" href="/src/fonts/scopes/yanlu-song-su-shi-huangzhou.woff2" as="font" type="font/woff2" crossorigin media="not all" data-fonts="su-shi" data-fonts-unit="huangzhou" data-fonts-family="song" />
+    <link rel="preload" href="/src/fonts/scopes/yanlu-song-credits.woff2" as="font" type="font/woff2" crossorigin media="not all" data-fonts="sources" data-fonts-unit="" data-fonts-family="song" />
+    <!-- fonts:scopes 止 -->
+    <!--
+      这一页的字体归哪个范围，照地址先写到 <html> 上（人物、站），再把上面那一段里这个范围的几行抄一份生效的：这位人物的黑体，
+      和这一站自己的宋体（它没有自己的，就是人物的）；首页的地址里没有人物，取的是带着 data-fonts-home 的两行。
+      页面的程序起来以后照同一条规矩再写、再要（src/fonts/scope.ts），去掉这几行页面照样对，只是晚一步。
+    -->
     <script>
       (function () {
         var parts = location.hash.replace(/^#/, '').split('/');
         var names = ['data-fonts', 'data-fonts-unit'];
-        var at = 0;
-        for (var i = 0; i < parts.length && at < 2; i++) {
+        var own = [];
+        for (var i = 0; i < parts.length && own.length < 2; i++) {
           var value = parts[i];
           if (value === '') continue;
           try {
             value = decodeURIComponent(value);
           } catch (error) {}
-          document.documentElement.setAttribute(names[at++], value);
+          document.documentElement.setAttribute(names[own.length], value);
+          own.push(value);
+        }
+        var links = document.querySelectorAll('link[media="not all"]');
+        var mine = [];
+        var unitSong = false;
+        for (i = 0; i < links.length; i++) {
+          var link = links[i];
+          var unit = link.getAttribute('data-fonts-unit');
+          if (own.length ? link.getAttribute('data-fonts') === own[0] && (unit === null || unit === (own[1] || '')) : link.hasAttribute('data-fonts-home')) {
+            mine.push(link);
+            if (unit) unitSong = true;
+          }
+        }
+        for (i = 0; i < mine.length; i++) {
+          link = mine[i];
+          if (unitSong && !link.getAttribute('data-fonts-unit') && link.getAttribute('data-fonts-family') === 'song') continue;
+          var live = link.cloneNode(false);
+          live.removeAttribute('media');
+          link.parentNode.insertBefore(live, link);
         }
       })();
     </script>

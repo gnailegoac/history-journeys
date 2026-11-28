@@ -5,7 +5,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Figure, FigureCard, StopExtras } from '../../src/domain/types';
 import { toContentFiles } from './files';
-import { RESERVED_FIGURE_IDS, RESERVED_STOP_IDS, checkBody, checkFontFileNames, checkRoute, formatReport, formatViolation, lngLatProblem, validateContent as validateAll } from './rules';
+import { RESERVED_FIGURE_IDS, RESERVED_STOP_IDS, checkBody, checkFontFileNames, checkFontIds, checkRoute, formatReport, formatViolation, lngLatProblem, validateContent as validateAll } from './rules';
 import type { ContentFiles, Violation } from './rules';
 
 const texts = import.meta.glob<string>('./fixtures/**/*.{json,md}', { query: '?raw', import: 'default', eager: true });
@@ -167,6 +167,49 @@ describe('格式：文件读得出来，字段齐全，id 对得上', () => {
     expect(validateContent(twoFigures).filter((v) => v.problem.includes('拼出了同一个字体文件的名字'))).toHaveLength(2);
     // 那位人物换一个 id 就好了
     expect(checkFontFileNames(withFile('figures/demo-two/figure.json', JSON.stringify({ ...other, id: 'demo-two' })), ['demo', 'demo-two'])).toEqual([]);
+  });
+
+  it('人物的 id、站的 id 里只许有小写的英文字母、数字和连字符（它们原样写进随站的字体文件的名字、样式表里的规则）：带了大写字母、点、下划线、汉字的站，带了大写字母的人物，都查得出来，记在那个 id 上；合格的样本里一处也没有', () => {
+    expect(checkFontIds(goodFigure(), 'figures/demo/figure.json')).toEqual([]);
+    for (const bad of ['Pass', 'pa.ss', 'pa_ss', '山口', 'pa ss', "pa'ss"]) {
+      const files = editFigure((figure) => {
+        figure.stops[2].id = bad;
+        if (figure.legs) figure.legs[1].to = bad;
+      });
+      const found = validateContent(files).filter((v) => v.problem.includes('只许有小写的英文字母、数字和连字符'));
+      expect(found.map((v) => `${v.rule} ${v.file} › ${v.field}`), bad).toEqual(['0 figures/demo/figure.json › stops[2].id']);
+      expect(found[0].problem, bad).toBe(`站的 id “${bad}”里只许有小写的英文字母、数字和连字符：随站的字体文件的名字、样式表里的规则都照 id 原样写`);
+    }
+    // 人物的 id（文件夹也叫这个名字）
+    const figure: Figure = { ...goodFigure(), id: 'Demo' };
+    expect(checkFontIds(figure, 'figures/Demo/figure.json').map((v) => `${v.rule} ${v.file} › ${v.field}：${v.problem}`)).toEqual([
+      '0 figures/Demo/figure.json › id：人物的 id “Demo”里只许有小写的英文字母、数字和连字符：随站的字体文件的名字、样式表里的规则都照 id 原样写',
+    ]);
+    // 数字、连字符都行
+    expect(checkFontIds({ ...goodFigure(), id: 'demo-2' }, 'figures/demo-2/figure.json')).toEqual([]);
+  });
+
+  it('id 不许把原字体保留的名字带进随站的字体文件的名称：叫 noto 的站、叫 source-book 的站，开头大写以后就是 Noto、Source；人物叫 noto-… 的记在人物的 id 上、只说一处；合格的样本、叫 notes 的站没有事', () => {
+    const at = (stop: string): string[] => {
+      const files = editFigure((figure) => {
+        figure.stops[2].id = stop;
+        if (figure.legs) figure.legs[1].to = stop;
+      });
+      return validateContent(files).filter((v) => v.problem.includes('原字体保留的名字')).map((v) => `${v.rule} ${v.file} › ${v.field}：${v.problem}`);
+    };
+    expect(at('noto')).toEqual(['0 figures/demo/figure.json › stops[2].id：站的 id “noto”会把原字体保留的名字“Noto”带进随站的字体文件的名称（YanluSongDemoNoto-Regular），许可不许这样：换一个 id']);
+    expect(at('source-book')).toEqual(['0 figures/demo/figure.json › stops[2].id：站的 id “source-book”会把原字体保留的名字“Source”带进随站的字体文件的名称（YanluSongDemoSourceBook-Regular），许可不许这样：换一个 id']);
+    // 一截 id 开头是别的字母，拼不出那个词
+    expect(at('notes')).toEqual([]);
+    expect(at('resource')).toEqual([]);
+    // 人物的 id 自己就带出来了：只说一处，不再一站一站说（它每一站的文件名里也都有这个词）
+    const figure: Figure = { ...goodFigure(), id: 'noto-fan' };
+    expect(checkFontIds(figure, 'figures/noto-fan/figure.json').map((v) => `${v.rule} ${v.file} › ${v.field}：${v.problem}`)).toEqual([
+      '0 figures/noto-fan/figure.json › id：人物的 id “noto-fan”会把原字体保留的名字“Noto”带进随站的字体文件的名称（YanluSansNotoFan-Medium），许可不许这样：换一个 id',
+    ]);
+    // 保留的名字里全是大写的那一个（LXGW）和四个中文名，照小写的 id 拼不出来：不会报
+    expect(checkFontIds({ ...goodFigure(), id: 'lxgw-fan' }, 'figures/lxgw-fan/figure.json')).toEqual([]);
+    expect(checkFontIds(goodFigure(), 'figures/demo/figure.json')).toEqual([]);
   });
 
   it('卡片标了可以点进去，却没有 figure.json', () => {

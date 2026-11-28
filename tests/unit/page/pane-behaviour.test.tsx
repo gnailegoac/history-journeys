@@ -638,16 +638,17 @@ describe('题签用的楷体：什么时候叫浏览器先去取（document.font
     await render(first);
     return { render, pane: () => container.querySelector('.stage-pane')!, unmount: () => act(async () => root.unmount()) };
   }
-  const WANT = `1em "${KAI_FAMILY}"`;
+  // 楷体是按人物分的文件：要的是这位人物的那一个——做字体的工具写的名称后面接上人物的 id（这里的沙盘的键是 f/s，人物是 f）
+  const WANT = `1em "${KAI_FAMILY} ${table.key.split('/')[0]}"`;
   const NO_ROUTE = { state: 'ready', value: null };
   const READY = { state: 'ready', value: table };
 
-  it('数据还在读的时候不取；没有沙盘可摆的栏不取；一知道要摆哪一座就取，只取一次，说的是楷体的名称', { timeout: 30_000 }, async () => {
+  it('数据还在读的时候不取；没有沙盘可摆的栏不取；一知道要摆哪一座就取，只取一次，说的是这位人物的楷体的名称（做字体的工具写的那个名称后面接上人物的 id）', { timeout: 30_000 }, async () => {
     win.location.search = '?stage=fake';
     const fonts = stubFonts();
     try {
       // 名称是做字体的工具写的那一个，带着引号，前面是随便一个字号（浏览器要一个完整的写法）
-      expect(WANT).toBe('1em "Yanlu Kai"');
+      expect(WANT).toBe('1em "Yanlu Kai f"');
 
       // 一站的页面，这一站自己的沙盘的数据还在读
       const page = await show({ onStopPage: true, table: { state: 'loading' }, route: NO_ROUTE });

@@ -1,19 +1,24 @@
 // 随站的字体，在真的页面上查。字体文件本身对不对在 tests/fonts/font-files.test.ts（随 npm test 跑，不开浏览器）；
-// 这里看的是浏览器真的拿哪个字体画了哪些字。
+// 这里看的是浏览器真的拿哪个字体画了哪些字。字体文件是按范围分的（一页只拿框架的两个和它自己那个范围的）：
+// 每一种页面来要了哪几个文件、什么时候要，在 tests/e2e/font-scopes.spec.ts；这里和它共用 fontHelpers.ts。
 //
-// 一、每一个字都是随站的字体画的。走一遍网站：首页、人物页、“来源”页、每一站（写好的两站把每一条小注、每一篇原文、凭据都点开，
-//     讲解员面板也打开）、有沙盘的那一站每一小节的题记和“说明”、两种“没找到”的页面；有沙盘的那一站另外用“只放图片”的样子
-//     把每一小节的题签按古名、今名各看一遍，再摆一次真的沙盘。上面这些都在电脑的窗口（1440 × 900）里看。另外看：
+// 一、每一个字都是随站的字体画的，而且是这一页拿到的文件画的。走一遍网站：首页、人物页、“来源”页、每一站（写好的两站把每一条小注、
+//     每一篇原文、凭据都点开，讲解员面板也打开）、有沙盘的那一站每一小节的题记和“说明”、两种“没找到”的页面；有沙盘的那一站另外用
+//     “只放图片”的样子把每一小节的题签按古名、今名各看一遍，再摆一次真的沙盘。上面这些都在电脑的窗口（1440 × 900）里看。另外看：
 //     沙盘栏平常看不到的几种样子（浏览器画不了、太慢、读者要来的沙盘、画面断了、没摆出来、图片先垫着——那一行话，
 //     和“试试立体的沙盘”“重新摆出来”“再试一次”“换回图片”这几个按钮）；竖着拿的平板（多“收起沙盘”“展开沙盘”）、
 //     横着拿的平板、一个手机那么窄的窗口（题记是窄的排法，老平板上都是这一种）；页面的程序起不来时的那两句话。
-//     没有看的：“加载中…”和“没能读出来”那几句（要把取内容的请求压住、掐断才出得来；它们是宋体，字都在头一个宋体文件里，
+//     再把每一位可以点进去的人物用“只放图片”的样子走一遍（题签是真的）：人物页和他的每一站，刚打开看一遍，
+//     把“说明”、凭据、原文、小注都点开再看一遍——点开才看得见的字也得是这一页拿到的文件画的。
+//     没有看的：“加载中…”和“没能读出来”那几句（要把取内容的请求压住、掐断才出得来；它们是宋体，字都在框架的宋体文件里，
 //     由 tests/fonts/font-files.test.ts 守着）。
 //     每到一处，问浏览器：页面上显出来的每一段字，各用了哪些字体、
 //     画了几个字形（用的是 Chromium 自己的调试接口 CSS.getPlatformFontsForNode，一段字一段字地问）。要求：
 //       · 用到的每一个字体都是网页自己带的（isCustomFont），名字是 Yanlu Sans、Yanlu Song 或者 Yanlu Kai：
 //         有一个字掉到了设备自带的字体上，这里就通不过，说出是哪一段字、掉到了哪个字体上；
-//       · 样式里写着用黑体的，只用了黑体那一个文件（黑体文件里没有的字不能排成黑体）；写着用楷体的，只用了楷体那一个文件，
+//       · 画它的那个文件（照浏览器报的 PostScript 名字认，每个文件的各不相同）是这一页拿到的文件之一——照记录里这一种页面的那一项：
+//         框架的两个，这一页自己那个范围的。字体的名单里没有别的范围的文件，做字体的工具把这一页显示的字数漏了一个，这里通不过；
+//       · 样式里写着用黑体的，只用了黑体的文件（黑体文件里没有的字不能排成黑体）；写着用楷体的，只用了楷体的文件，
 //         而且只在题签上（.strip，题签脚上的印也在里面）：框架里没有楷体；别的只用了宋体的文件；
 //       · 每套字体只有它自己的那一种粗细：黑体 500，宋体和楷体 400；没有斜体。
 //     另有两处问的是整个元素：故意把题记写长、让它被截掉，行尾那个浏览器自己添的省略号也得是那一行的字体画的——
@@ -25,24 +30,25 @@
 //     量出来的 200 像素，靠的是文件里没有把标点挤窄的排版功能（halt、chws 这些；由 tests/fonts/font-files.test.ts 守着）：
 //     在这个浏览器里，样式表里那一句 text-spacing-trim: space-all 写不写，量出来都是 200（两个数都印出来）。
 //     黑体不一样：它的文件里留着 halt（标题上要用它把全角标点收成半个字宽）。所以黑体量四个数（冒号和前括号），
-//     照字体的名字量一遍，照样式表里的记号（--font-sans）再量一遍：
+//     照字体的名字量一遍（框架的黑体，后面跟着这一页那位人物的黑体：冒号在人物的文件里，前括号在框架的文件里），
+//     照样式表里的记号（--font-sans）再量一遍：
 //     照页面的写法、不开 halt，两个挨着是 200——这回靠的就是 html 上那一句 text-spacing-trim: space-all（去掉那一句是多少也印出来）；
 //     开着 halt，“州：大”是 250，冒号和前括号挨着是 100；不开，“州：大”是 300。
 //     页面上哪里开着 halt：一页的大标题和目录里各站的标题（.page-title、.stop-title），别的黑体的字都不开。
 //     楷体不量：题签上的字里没有标点。照记录查——楷体的文件里一个全角的标点也没有；哪天题签上写进了标点，这一句通不过，
 //     那时再回来量它（不能照旧拿 --font-kai 量：那个记号没有了，量到的是宋体，永远是 200）。
 // 三、从打开网站走到最后，没有一个请求出了网站自己的地址。
-// 四、第三个字体文件（点开才看得见的字）什么时候取：首页、人物页上等五秒也不取；还没写的站上等三秒半也不取；
-//     写好的站上，从点开算起不到两秒不取，字体到齐以后五秒之内自己取来，只取一次；以后点开什么、换到哪一站，都不再取。
-//     黑体和头一个宋体文件各只取一次（index.html 里预先声明的那一份，样式表接着用）；楷体的文件不预先声明，页面一知道
-//     沙盘栏要摆沙盘就叫浏览器去取（不等图片、不等沙盘程序；另有一项把这两样压住来查），题签摆出来不再取第二次，
-//     也只取一次。这一项不用沙盘的替身：替身上那几行给测试看的字
-//     不在头两个文件里，有它在，第三个文件一打开就会被取来。用的是“只放图片”的样子。
-//     “来源”页上的话是点进那一页才看得见的，它们独有的字在第三个文件里（tests/support/fontTool.ts 的 PRESSED_SOURCES）：
+// 四、点开才要的字的文件什么时候取：首页、人物页上等五秒也不取；还没写的站上等三秒半也不取；
+//     写好的站上，从点开算起不到两秒不取，字体到齐以后五秒之内自己取来（取的是这一站自己的那一个），只取一次；
+//     以后在这一站点开什么都不再取。框架的两个文件各只取一次（index.html 里预先声明的那一份，样式表接着用）；
+//     这位人物的黑体、宋体各只取一次；楷体的文件不预先声明，页面一知道沙盘栏要摆沙盘就叫浏览器去取
+//     （不等图片、不等沙盘程序；另有一项把这两样压住来查），题签摆出来不再取第二次，也只取一次。这一项不用沙盘的替身：
+//     替身上那几行给测试看的字不在这一页的文件里。用的是“只放图片”的样子。
+//     “来源”页上的话在它自己的文件里（tests/support/fontTool.ts 的 PRESSED_SOURCE_SCOPES）：
 //     另有一项看，在首页上等着不取，点进“来源”页才取、只取一次，那一页里面的那一段程序也是点进去才下载的；
-//     直接打开“来源”页（那一页上没有沙盘）楷体的文件一次也不取。
-// 五、网慢的时候：把黑体文件压住不给，过一秒看，沙盘栏的按钮、底下“问讲解员”的按钮、标题上都有字
-//    （先用别的字体顶着，不空着），正文也有字；放行以后换成随站的黑体。把头两个文件（黑体和头一个宋体）都压住，也一样。
+//     直接打开“来源”页（那一页上没有沙盘）楷体的文件、哪位人物的文件一次也不取。
+// 五、网慢的时候：把黑体的文件（框架的，和这位人物的）压住不给，过一秒看，沙盘栏的按钮、底下“问讲解员”的按钮、标题上都有字
+//    （先用别的字体顶着，不空着），正文也有字；放行以后换成随站的黑体。把这一页不用点开就要的黑体、宋体文件都压住，也一样。
 //     楷体的文件不预先声明，总比页面晚到，这是平常的样子：把它压住，题签上照样有字（设备上有楷体就先用它，没有就先用随站的宋体），
 //     放行以后换成随站的楷体；换的前后每一条题签还在原处、还是那么大（差不过半个像素）。各拍一张照（拍的是字体还没到的样子）。
 //
@@ -58,6 +64,8 @@ import type { ItineraryBar } from '../../src/domain/itinerary';
 import { SHIPPED_FONTS } from '../../src/fonts/shipped';
 import { SOURCES_TEXT } from '../../src/ui/sourcesText';
 import { PANE_QUERIES, PANE_SAYS, expectPane, notice, stopUrl } from './paneHelpers';
+import { FONT_RECORD, KAI, SANS, SONG, debugger_, fileOfFont, fontFileOf, fontsOfRuns, holdFonts, isShipped, ownOf, pageFiles, recorded, watchFonts } from './fontHelpers';
+import type { Run, UsedFont } from './fontHelpers';
 
 /** 页面的主程序（构建以后的，或者开发服务上的）。 */
 const MAIN_SCRIPT = /\/(assets\/index-[\w-]+\.js|src\/main\.tsx)(\?.*)?$/;
@@ -67,97 +75,6 @@ const DIR = env.SHOTS_DIR ?? 'tests/shots/fonts';
 
 /** “来源”页上说楷体的那一条（照 shipped.ts 里的名字和版本拼出来的原话）。 */
 const SOURCES_KAI_LINE = SOURCES_TEXT.kai(SHIPPED_FONTS.kai);
-
-/** 工具写进字体文件里的三个名字（src/fonts/fonts.css 的 font-family）。 */
-const KAI = 'Yanlu Kai';
-const SONG = 'Yanlu Song';
-const SANS = 'Yanlu Sans';
-
-/** 页面上显出来的一段字：在哪个元素里，开头是什么，那个元素的样式算出来的字体、粗细、正斜。 */
-interface Run {
-  where: string;
-  text: string;
-  family: string;
-  weight: string;
-  style: string;
-  /** 是不是在题签上（.strip 里面；题签脚上的印也算）。 */
-  onStrip: boolean;
-}
-
-/** 浏览器说的：一段字用了哪个字体、画了几个字形。 */
-interface UsedFont {
-  familyName: string;
-  postScriptName: string;
-  isCustomFont: boolean;
-  glyphCount: number;
-}
-
-/** 一个请求要的是哪个字体文件（构建以后文件名里多了一串字符，照名字的开头认）；不是字体文件是 null。 */
-function fontFileOf(url: string): 'yanlu-sans' | 'yanlu-kai' | 'yanlu-song' | 'yanlu-song-more' | null {
-  const name = new URL(url).pathname.split('/').pop() ?? '';
-  if (!name.endsWith('.woff2')) return null;
-  if (name.startsWith('yanlu-song-more')) return 'yanlu-song-more';
-  if (name.startsWith('yanlu-song')) return 'yanlu-song';
-  if (name.startsWith('yanlu-kai')) return 'yanlu-kai';
-  if (name.startsWith('yanlu-sans')) return 'yanlu-sans';
-  return null;
-}
-
-/**
- * 找出页面上显出来的每一段字（文字节点），按在页面里的先后，记在 window.__fontRuns 里，给出每一段的说明。
- * within 是只看哪些元素里面的（不写是整页）。不算：沙盘和定格图的替身；没显出来的（折着的原文和凭据里面的、
- * display: none 的）；只有空白的。
- */
-async function markRuns(page: Page, within: string | null): Promise<Run[]> {
-  return page.evaluate((within) => {
-    const found: { where: string; text: string; family: string; weight: string; style: string; onStrip: boolean }[] = [];
-    const nodes: Text[] = [];
-    const nameOf = (el: Element): string => `${el.tagName.toLowerCase()}${typeof el.className === 'string' && el.className.trim() !== '' ? `.${el.className.trim().split(/\s+/).join('.')}` : ''}`;
-    const roots = within === null ? [document.body] : Array.from(document.querySelectorAll(within));
-    for (const root of roots) {
-      const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
-      for (let node = walker.nextNode(); node; node = walker.nextNode()) {
-        const text = (node.textContent ?? '').trim();
-        const el = node.parentElement;
-        if (text === '' || !el) continue;
-        if (el.closest('.fake-stage, .fake-still, script, style, noscript')) continue;
-        if (el.getClientRects().length === 0) continue;
-        if (!el.checkVisibility({ visibilityProperty: true, checkVisibilityCSS: true })) continue;
-        const style = getComputedStyle(el);
-        const above = el.parentElement ? `${nameOf(el.parentElement)} > ` : '';
-        nodes.push(node as Text);
-        found.push({ where: above + nameOf(el), text: text.length > 28 ? `${text.slice(0, 28)}…` : text, family: style.fontFamily, weight: style.fontWeight, style: style.fontStyle, onStrip: el.closest('.strip') !== null });
-      }
-    }
-    (window as Window & { __fontRuns?: Text[] }).__fontRuns = nodes;
-    return found;
-  }, within);
-}
-
-/**
- * 页面上显出来的每一段字各用了哪些字体。问的是文字节点自己：问元素的话，浏览器会把它里面两层以内别的元素的字也算进来
- *（标题里嵌着的小标签就会算到标题头上）。settle 是先不先等字体到齐（看“字体还没到的样子”时不等）。
- */
-async function fontsOfRuns(page: Page, client: CDPSession, within: string | null = null, settle = true): Promise<{ run: Run; fonts: UsedFont[] }[]> {
-  if (settle) await fontsReady(page);
-  const runs = await markRuns(page, within);
-  await client.send('DOM.getDocument', { depth: 0 });
-  const { result: list } = (await client.send('Runtime.evaluate', { expression: 'window.__fontRuns', returnByValue: false })) as { result: { objectId?: string } };
-  if (!list.objectId) throw new Error('页面上没有记下那些字');
-  const { result: properties } = (await client.send('Runtime.getProperties', { objectId: list.objectId, ownProperties: true })) as { result: { name: string; value?: { objectId?: string } }[] };
-  const handles = new Map(properties.filter((property) => /^\d+$/.test(property.name)).map((property) => [Number(property.name), property.value?.objectId]));
-  expect(handles.size, '记下来的那些字，调试接口拿到的个数不一样（页面在这中间变了）').toBe(runs.length);
-  const result: { run: Run; fonts: UsedFont[] }[] = [];
-  for (const [i, run] of runs.entries()) {
-    const objectId = handles.get(i);
-    if (!objectId) throw new Error(`第 ${i} 段字没有拿到`);
-    const { nodeId } = (await client.send('DOM.requestNode', { objectId })) as { nodeId: number };
-    const { fonts } = (await client.send('CSS.getPlatformFontsForNode', { nodeId })) as { fonts: UsedFont[] };
-    result.push({ run, fonts });
-  }
-  await client.send('Runtime.releaseObject', { objectId: list.objectId });
-  return result;
-}
 
 /**
  * 一个元素（照选择器找头一个）用了哪些字体。和上面不一样，这里问的是元素：它里面的字，连同浏览器自己添在行尾的省略号
@@ -169,16 +86,6 @@ async function fontsOfElement(client: CDPSession, selector: string): Promise<Use
   if (!nodeId) throw new Error(`页面上没有 ${selector}`);
   const { fonts } = (await client.send('CSS.getPlatformFontsForNode', { nodeId })) as { fonts: UsedFont[] };
   return fonts;
-}
-
-/**
- * 浏览器报的这个字体是不是随站的那一套。名字照工具写进文件里的认：family 是 Yanlu Kai / Yanlu Song / Yanlu Sans，
- * 或者 PostScript 名字是 YanluKai-Regular / YanluSong-Regular / YanluSongMore-Regular / YanluSans-Medium。
- * 两样认一样就算：调试接口只说名字是“系统报上来的”，Windows 上两样都是我们写的名字，别的系统上哪一样靠得住没有试过。
- */
-function isShipped(font: UsedFont, family: string): boolean {
-  const postScript = family === KAI ? ['YanluKai-Regular'] : family === SANS ? ['YanluSans-Medium'] : ['YanluSong-Regular', 'YanluSongMore-Regular'];
-  return font.isCustomFont && (font.familyName === family || postScript.includes(font.postScriptName));
 }
 
 /** 样式里写的是哪一套字体打头：黑体、楷体，别的都算宋体。 */
@@ -200,15 +107,21 @@ interface Tally {
   glyphs: number;
   sansGlyphs: number;
   kaiGlyphs: number;
+  /** 这一趟里画过字的字体文件（照记录里的名字）。 */
+  files: Set<string>;
 }
 
 /**
  * 查一页：显出来的每一段字都只用了随站的字体，黑体的只用黑体，楷体的只用楷体、而且只在题签上，别的只用宋体；
+ * 画它的那个文件是这一页拿到的文件之一（照记录里这一种页面的那一项：不用点开就要的，和点开以后才取的）；
  * 粗细是这套字体自己的那一种，没有斜体。不对的每一处一句话。顺手记数。
  */
 async function checkPage(page: Page, client: CDPSession, label: string, tally: Tally, expectAtLeast: number): Promise<void> {
   const seen = await fontsOfRuns(page, client);
   const problems: string[] = [];
+  // 这一页是哪一种页面，照记录它拿哪几个文件
+  const given = pageFiles(new URL(page.url()).hash);
+  const allowed = [...given.rest, ...given.pressed];
   for (const { run, fonts } of seen) {
     const at = `${run.where}“${run.text}”`;
     const family = wants(run.family);
@@ -230,18 +143,24 @@ async function checkPage(page: Page, client: CDPSession, label: string, tally: T
       const said = `${font.familyName}（${font.postScriptName}，${font.glyphCount} 个字形${font.isCustomFont ? '' : '，设备自带的'}）`;
       if (family === SONG && !isShipped(font, SONG)) problems.push(`${at}：有字是 ${said} 画的，不是随站的宋体`);
       else if (family !== SONG && !isShipped(font, family)) problems.push(`${at}：样式是${CALLED[family]}，却有字是 ${said} 画的`);
+      // 是这一页拿到的文件画的（设备自带的字体上面已经说过了）
+      const from = fileOfFont(font);
+      if (font.isCustomFont && from === null) problems.push(`${at}：有字是 ${said} 画的，照这个名字认不出是随站的哪个字体文件`);
+      else if (from !== null && !allowed.includes(from)) problems.push(`${at}：有字是 ${from} 画的，它不是这一页拿到的字体文件（这一页的是 ${allowed.join('、')}）`);
+      if (from !== null) tally.files.add(from);
     }
     if (run.weight !== WEIGHT_OF[family]) problems.push(`${at}：粗细是 ${run.weight}，这套字体只带了 ${WEIGHT_OF[family]}`);
     if (run.style !== 'normal') problems.push(`${at}：字是 ${run.style} 的，应该是正的`);
   }
   expect(seen.length, `${label}：页面上显出来的字太少，怕是没打开`).toBeGreaterThanOrEqual(expectAtLeast);
-  expect(problems, `${label}：这几处的字不是随站的字体画的（或者粗细不对、斜体了，或者楷体用在了题签以外）。字体里没有这个字就运行 npm run fonts（黑体的字要先列进 src/ui/text.ts 的 SANS_LABELS）；样式写错了就改样式`).toEqual([]);
+  expect(problems, `${label}：这几处的字不是随站的字体画的、不是这一页拿到的字体文件画的（或者粗细不对、斜体了，或者楷体用在了题签以外）。字体里没有这个字就运行 npm run fonts（界面上用黑体排的固定的字要先列进 src/ui/text.ts 的 SANS_LABELS）；样式写错了就改样式`).toEqual([]);
 }
 
 /**
  * 量一量几个挨着的字有多宽（字号 100px，所以两个全角标点占满是 200）。trim 不写是照页面的写法量（html 上的
  * text-spacing-trim: space-all 传下来）；写 normal 是量“要是没有那一句，浏览器平常会怎样”，只为印出来对比。
- * font 是样式表里的一个记号（--font-song、--font-sans），或者直接是字体的名字（不是“--”打头的就原样写进 font-family）。
+ * font 是样式表里的一个记号（--font-song、--font-sans），或者直接是字体的名字（不是“--”打头的就原样写进 font-family，两头加上引号；
+ * 要写两个名字的，中间自己写上“', '”）。
  * 量黑体时粗细写 500（它只有这一种）；features 是 font-feature-settings 的值（如 "'halt'"），不写就不设。
  */
 async function twoMarksWide(page: Page, font: string, marks: string, trim = '', features = ''): Promise<number> {
@@ -249,7 +168,7 @@ async function twoMarksWide(page: Page, font: string, marks: string, trim = '', 
     ({ font, marks, trim, features, sans }) => {
       const probe = document.createElement('span');
       const family = font.startsWith('--') ? `var(${font})` : `'${font}'`;
-      const weight = font === sans || font === '--font-sans' ? ';font-weight:500' : '';
+      const weight = font.startsWith(sans) || font === '--font-sans' ? ';font-weight:500' : '';
       probe.style.cssText = `position:absolute;left:0;top:0;visibility:hidden;white-space:nowrap;letter-spacing:0;font-size:100px;font-family:${family}${weight}${trim === '' ? '' : `;text-spacing-trim:${trim}`}${features === '' ? '' : `;font-feature-settings:${features}`}`;
       probe.textContent = marks;
       document.body.appendChild(probe);
@@ -267,15 +186,6 @@ function isOwn(url: string, base: string): boolean {
   return new URL(url).origin === new URL(base).origin;
 }
 
-/** 接上 Chromium 的调试接口。 */
-async function debugger_(page: Page): Promise<CDPSession> {
-  const client = await page.context().newCDPSession(page);
-  await client.send('DOM.enable');
-  await client.send('CSS.enable');
-  await client.send('Runtime.enable');
-  return client;
-}
-
 test('走一遍网站：每一个字都是随站的字体画的，黑体的只用黑体，楷体的只用楷体、而且只在题签上，每套字体只有它自己的那一种粗细；全角标点不挤（标题上开着 halt 的除外）；没有请求出网站自己的地址', async ({ page, baseURL }) => {
   test.setTimeout(900_000);
   await page.setViewportSize({ width: 1440, height: 900 });
@@ -283,7 +193,7 @@ test('走一遍网站：每一个字都是随站的字体画的，黑体的只�
   const requests: string[] = [];
   page.on('request', (request) => requests.push(request.url()));
   const client = await debugger_(page);
-  const tally: Tally = { runs: 0, sansRuns: 0, kaiRuns: 0, glyphs: 0, sansGlyphs: 0, kaiGlyphs: 0 };
+  const tally: Tally = { runs: 0, sansRuns: 0, kaiRuns: 0, glyphs: 0, sansGlyphs: 0, kaiGlyphs: 0, files: new Set() };
   const visited: string[] = [];
   const look = async (label: string, atLeast: number): Promise<void> => {
     const before = tally.runs;
@@ -304,12 +214,16 @@ test('走一遍网站：每一个字都是随站的字体画的，黑体的只�
   expect(songMarks, '宋体里句号和后引号挨着的宽度（字号 100px）').toBeCloseTo(200, 0);
   // 楷体不量：题签上的字里没有标点（照记录查楷体那个文件里的字）。哪天题签上写进了标点，这一句通不过，那时再回来量它
   const FULL_WIDTH_MARKS = '，。、；：？！“”‘’（）《》〈〉「」『』【】〔〕…—·';
-  const kaiRecord = (JSON.parse(new TextDecoder().decode(readBytes('src/fonts/fonts.json'))) as { files: { group: string; characters: string }[] }).files.find((item) => item.group === 'kai');
-  expect([...(kaiRecord?.characters ?? '')].length, '记录里楷体那个文件的字').toBeGreaterThan(50);
-  expect([...FULL_WIDTH_MARKS].filter((mark) => (kaiRecord?.characters ?? '').includes(mark)), '楷体的文件里有全角的标点了（题签上写进了标点）：把楷体里两个标点挨着的宽度量回来').toEqual([]);
-  // 黑体：文件里留着 halt。先确认浏览器手里有黑体的文件（样式表里声明的那一条，粗细 500），不然量到的是设备自带的字体
-  const sansLoaded = await page.evaluate((family) => document.fonts.load(`500 100px '${family}'`, '州：大（').then((faces) => faces.map((face) => `${face.family} ${face.weight} ${face.status}`)), SANS);
-  expect(sansLoaded, '黑体的文件取来了（样式表里声明的那一条，粗细 500）').toEqual([`${SANS} 500 loaded`]);
+  const kaiCharacters = FONT_RECORD.files.filter((item) => item.source === 'kai').map((item) => item.characters).join('');
+  expect([...kaiCharacters].length, '记录里楷体的文件里的字').toBeGreaterThan(50);
+  expect([...FULL_WIDTH_MARKS].filter((mark) => kaiCharacters.includes(mark)), '楷体的文件里有全角的标点了（题签上写进了标点）：把楷体里两个标点挨着的宽度量回来').toEqual([]);
+  // 黑体：文件里留着 halt。先确认浏览器手里有黑体的文件（样式表里声明的那两条，粗细 500：框架的，和首页沙盘栏里摆着的这位人物的——
+  // 冒号在人物的那一个里，前括号在框架的那一个里），不然量到的是设备自带的字体
+  const OWN_SANS = `${SANS} ${figureId}`;
+  const sansLoaded = await page.evaluate((families) => Promise.all(families.map((family) => document.fonts.load(`500 100px '${family}'`, '州：大（'))).then((sets) => sets.flat().map((face) => `${face.family} ${face.weight} ${face.status}`)), [SANS, OWN_SANS]);
+  expect(sansLoaded, '黑体的文件取来了（样式表里声明的那两条，粗细 500）').toEqual([`${SANS} 500 loaded`, `${OWN_SANS} 500 loaded`]);
+  //（构建出来的样式表里名称两头的引号可能换了一种：去掉再比）
+  expect(await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--own-sans').trim().replace(/^["']|["']$/g, '')), '首页上这一页自己的黑体').toBe(OWN_SANS);
   const HALT = "'halt'";
   const sansWidths = async (font: string): Promise<{ plain: number; untrimmed: number; haltTitle: number; haltPair: number; plainTitle: number }> => ({
     plain: await twoMarksWide(page, font, '：（'),
@@ -318,8 +232,8 @@ test('走一遍网站：每一个字都是随站的字体画的，黑体的只�
     haltPair: await twoMarksWide(page, font, '：（', '', HALT),
     plainTitle: await twoMarksWide(page, font, '州：大'),
   });
-  // 照字体的名字量一遍，照样式表里的记号再量一遍：两遍是同样的数（记号指着的头一个就是这套字体）
-  const sansMarks = await sansWidths(SANS);
+  // 照字体的名字量一遍（框架的黑体，后面跟着这位人物的黑体），照样式表里的记号再量一遍：两遍是同样的数（记号指着的头两个就是这两个）
+  const sansMarks = await sansWidths(`${SANS}', '${OWN_SANS}`);
   expect(sansMarks.plain, '黑体里冒号和前括号挨着的宽度（字号 100px，不开 halt）').toBeCloseTo(200, 0);
   expect(sansMarks.haltTitle, '黑体开着 halt：“州：大”的宽度').toBeCloseTo(250, 0);
   expect(sansMarks.haltPair, '黑体开着 halt：冒号和前括号挨着的宽度').toBeCloseTo(100, 0);
@@ -585,6 +499,42 @@ test('走一遍网站：每一个字都是随站的字体画的，黑体的只�
     await look(`${found.stopId} 第 1 节，真的沙盘`, 40);
   }
 
+  // ---- 每一位可以点进去的人物，只放图片的样子（题签是真的，沙盘栏里的字都在）：人物页和他的每一站。
+  //      刚打开看一遍；把“说明”、每一行折着的凭据和原文、每一条小注都点开再看一遍——点开才看得见的字也得是这一页拿到的文件画的
+  const everyone = (JSON.parse(new TextDecoder().decode(readBytes('content/figures/index.json'))) as { id: string; sortYear: number; available: boolean }[]).sort((a, b) => a.sortYear - b.sortYear).filter((card) => card.available);
+  expect(everyone.length, '内容里要有两位可以点进去的人物').toBeGreaterThanOrEqual(2);
+  let openedFolds = 0;
+  for (const card of everyone) {
+    const stopIds = (JSON.parse(new TextDecoder().decode(readBytes(`content/figures/${card.id}/figure.json`))) as { stops: { id: string }[] }).stops.map((stop) => stop.id);
+    for (const hash of [`#/${card.id}`, ...stopIds.map((stop) => `#/${card.id}/${stop}`)]) {
+      await page.goto('about:blank');
+      await page.goto(realUrl(hash, null, '&tier=still'));
+      await expect(stagePane(page)).toHaveAttribute('data-stage-picture', 'still', { timeout: 60_000 });
+      // 题签：竖着的纸条（.strip），或者平着的纸条（.strip-slip）
+      await expect.poll(() => page.locator('.stage-pane .strip, .stage-pane .strip-slip').evaluateAll((strips) => strips.filter((strip) => getComputedStyle(strip).visibility === 'visible').length), { message: `${hash}：只放图片的时候题签该挂出来` }).toBeGreaterThan(0);
+      await look(`${hash}，只放图片，刚打开`, 20);
+      // 都点开：“说明”（照着按钮的位置点，像手指那样），凭据和原文，小注
+      const note = page.locator('.stage-pane .stage-note-button');
+      if ((await note.count()) > 0) {
+        const box = (await note.first().boundingBox())!;
+        await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+        await expect(page.locator('.stage-pane .stage-note-panel')).toBeVisible();
+      }
+      const opened = await page.evaluate(() => {
+        const terms = Array.from(document.querySelectorAll<HTMLElement>('.note-term[aria-expanded="false"]'));
+        for (const term of terms) term.click();
+        const folds = Array.from(document.querySelectorAll<HTMLDetailsElement>('details:not([open])'));
+        for (const fold of folds) fold.open = true;
+        return terms.length + folds.length;
+      });
+      openedFolds += opened;
+      await foldBodiesReady(page);
+      await fontsReady(page);
+      await look(`${hash}，只放图片，“说明”和折着的 ${opened} 处都点开`, 20);
+    }
+  }
+  expect(openedFolds, '这一趟点开过的折着的东西').toBeGreaterThan(10);
+
   // ---- 两种“没找到”
   await page.goto('about:blank');
   await page.goto(fakeUrl('#/no-such-figure'));
@@ -615,9 +565,12 @@ test('走一遍网站：每一个字都是随站的字体画的，黑体的只�
       `看了 ${visited.length} 处，显出来的字 ${tally.runs} 段（样式是黑体的 ${tally.sansRuns} 段，是楷体的 ${tally.kaiRuns} 段、都在题签上），字形 ${tally.glyphs} 个（黑体画的 ${tally.sansGlyphs} 个，楷体画的 ${tally.kaiGlyphs} 个）：全是随站的字体画的`,
       `两个全角标点挨着（字号 100px）：宋体 ${songMarks} 像素（不写 text-spacing-trim: space-all 的话，这个浏览器里是 ${untrimmed}）；楷体不量，题签上的字里没有标点`,
       `黑体（文件里留着 halt；字号 100px）：冒号和前括号挨着，照页面的写法 ${sansMarks.plain} 像素（不写 text-spacing-trim: space-all 的话是 ${sansMarks.untrimmed}）；开着 halt，“州：大” ${sansMarks.haltTitle} 像素、冒号和前括号 ${sansMarks.haltPair} 像素；不开 halt，“州：大” ${sansMarks.plainTitle} 像素`,
+      `画过字的字体文件 ${tally.files.size} 个：${[...tally.files].sort().join('、')}`,
       ...visited.map((label) => `  ${label}`),
     ].join('\n'),
   );
+  // 放进仓库的每一个字体文件都在这一趟里画过字（“来源”页的、每一站的、点开才要的都走到了）
+  expect(FONT_RECORD.files.map((item) => item.file.replace(/^.*\//, '').replace(/\.woff2$/, '')).filter((name) => !tally.files.has(name)), '这一趟里没有画过字的字体文件').toEqual([]);
   // 确实查到了东西：黑体的字（标题、标签、按钮）到处都是；楷体的只有题签上的。量到过的数（2026-11-24，四座沙盘）：
   // 黑体 2399 段、8301 个字形，楷体 265 段、577 个字形。下面两个数是留了余地的下限：少到这以下，是这一趟没走全
   expect(tally.sansGlyphs).toBeGreaterThan(4000);
@@ -631,7 +584,7 @@ test('走一遍网站：每一个字都是随站的字体画的，黑体的只�
 });
 
 /**
- * 第三个字体文件被要的那一刻，页面上是什么样：给“不该这么早取”那一条通不过时印出来，好知道是谁把它引来的。
+ * 一个点开才要的字体文件被要的那一刻，页面上是什么样：给“不该这么早取”那一条通不过时印出来，好知道是谁把它引来的。
  * 它是页面上画出了那个文件里的字才取的。平常这些字都折着：小注没点开，原文和凭据折着（折着的东西浏览器不排版），
  * 图片的 alt 不显出来。见过的三种会把它提前引来的情形：一张带 alt 的图片没取到（浏览器把 alt 当字画出来）；
  * 有程序去量折着的东西里面的字（一量，浏览器就得把它排出来）；测试工具用“看得见了没有”等正文出来
@@ -642,11 +595,11 @@ test('走一遍网站：每一个字都是随站的字体画的，黑体的只�
  * 试过问浏览器的调试接口“这个请求是谁发的”：不管是程序叫取的还是排字引来的，它都只说是样式表（parser），分不出来，所以没有用它。
  */
 function sceneWhenAsked(page: Page): () => Promise<string> {
-  const record = JSON.parse(new TextDecoder().decode(readBytes('src/fonts/fonts.json'))) as { files: { group: string; characters: string }[] };
-  const more = record.files.find((file) => file.group === 'song-more')?.characters ?? '';
   let scene: Promise<string> | null = null;
   page.on('request', (request) => {
-    if (scene !== null || fontFileOf(request.url()) !== 'yanlu-song-more') return;
+    const name = fontFileOf(request.url());
+    if (scene !== null || name === null || !FONT_RECORD.files.some((item) => item.role === 'pressed' && item.file.endsWith(`/${name}.woff2`))) return;
+    const more = recorded(name).characters;
     scene = page
       .evaluate((more) => {
         const inFile = new Set(more);
@@ -678,18 +631,10 @@ function sceneWhenAsked(page: Page): () => Promise<string> {
   return async () => (scene === null ? '（没有记到）' : scene);
 }
 
-/** 记下每一个字体文件被请求的时刻（从记录开始算起的毫秒）。now() 是这时候的同一种读数。 */
-function watchFonts(page: Page): { of: (file: string) => number[]; all: () => string[]; now: () => number } {
-  const started = Date.now();
-  const seen: { name: string; at: number }[] = [];
-  page.on('request', (request) => {
-    const name = fontFileOf(request.url());
-    if (name) seen.push({ name, at: Date.now() - started });
-  });
-  return { of: (file) => seen.filter((item) => item.name === file).map((item) => item.at), all: () => seen.map((item) => `${item.name}@${item.at}`), now: () => Date.now() - started };
-}
+/** 这一趟里来要过的点开才要的字体文件（照来要的先后）。 */
+const pressedAsked = (fonts: { names: () => string[] }): string[] => fonts.names().filter((name) => recorded(name).role === 'pressed');
 
-test('第三个字体文件：首页、人物页、还没写的站上不取；写好的站上，点开不到两秒不取，字体到齐以后五秒之内自己取来，只取一次；黑体、头一个宋体文件、楷体各只取一次', async ({ page }) => {
+test('点开才要的字的文件：首页、人物页、还没写的站上不取；写好的站上，点开不到两秒不取，字体到齐以后五秒之内自己取来（取的是这一站自己的那一个），只取一次；框架的黑体和宋体、这位人物的黑体和宋体、楷体各只取一次，别的范围的一个也不取', async ({ page }) => {
   test.setTimeout(120_000);
   await page.setViewportSize({ width: 1440, height: 900 });
   const fonts = watchFonts(page);
@@ -703,24 +648,24 @@ test('第三个字体文件：首页、人物页、还没写的站上不取；�
   await expect(card).toBeVisible();
   const figureId = (await card.getAttribute('data-figure-id'))!;
   // 首页的沙盘栏里摆着全程沙盘（这里是它的图片，上面的题签、下面的题记和立体的那一档是同样的字）：等它摆出来、题签挂上了再数那五秒，
-  // 不然“没有取”说的只是一页还空着的首页。全程沙盘不用点开就看得见的字都在头两个文件里（做字体的工具把它们归在大家共用的那一拨）
+  // 不然“没有取”说的只是一页还空着的首页。全程沙盘不用点开就看得见的字都在这位人物不用点开就要的文件里
   await expect(stagePane(page)).toHaveAttribute('data-stage-picture', 'still', { timeout: 60_000 });
   await expect(stagePane(page)).toHaveAttribute('data-stage-level', 'route');
   await expect.poll(() => page.locator('.stage-pane .strip').evaluateAll((strips) => strips.filter((strip) => getComputedStyle(strip).visibility === 'visible').length), { message: '首页的全程沙盘上题签该挂出来' }).toBeGreaterThan(5);
   await expect(page.locator('.stage-pane .stage-line')).not.toBeEmpty();
   await fontsReady(page);
   await page.waitForTimeout(5_000);
-  expect(fonts.of('yanlu-song-more'), `首页上等了五秒，第三个字体文件不该取（取字体的记录：${fonts.all().join(' ')}）`).toEqual([]);
+  expect(pressedAsked(fonts), `首页上等了五秒，点开才要的字的文件不该取（取字体的记录：${fonts.all().join(' ')}）`).toEqual([]);
 
   // 人物页：等五秒
   await card.click();
   await expect(page.locator('.stop-item').first()).toBeVisible();
   await fontsReady(page);
   await page.waitForTimeout(5_000);
-  expect(fonts.of('yanlu-song-more'), `人物页上等了五秒，第三个字体文件不该取（${fonts.all().join(' ')}）`).toEqual([]);
+  expect(pressedAsked(fonts), `人物页上等了五秒，点开才要的字的文件不该取（${fonts.all().join(' ')}）`).toEqual([]);
 
   // 还没写的一站：等三秒半也不取。没有自己的沙盘的，那里没有要点开的东西；有自己的沙盘的（眉州）有一行折着的凭据，
-  // 同人物页一样，点开的那一刻才取——单子“沙盘上看的几处”上的字不用点就看得见，都得在头两个字体文件里
+  // 同人物页一样，点开的那一刻才取——单子“沙盘上看的几处”上的字不用点就看得见，都得在这一站不用点开就要的文件里
   const unwritten = page.locator('.stop-item:not([data-stop-status="complete"])').first();
   let unwrittenId: string | null = null;
   if ((await unwritten.count()) > 0) {
@@ -729,12 +674,12 @@ test('第三个字体文件：首页、人物页、还没写的站上不取；�
     await expect(page.locator('.not-written')).toBeVisible();
     await fontsReady(page);
     await page.waitForTimeout(3_500);
-    expect(fonts.of('yanlu-song-more'), `还没写的一站（${unwrittenId}）上等了三秒半，第三个字体文件不该取（${fonts.all().join(' ')}）`).toEqual([]);
+    expect(pressedAsked(fonts), `还没写的一站（${unwrittenId}）上等了三秒半，点开才要的字的文件不该取（${fonts.all().join(' ')}）`).toEqual([]);
     await page.goBack();
     await expect(page.locator('.stop-item').first()).toBeVisible();
   }
 
-  // 写好的一站：页面是“正文出来、头两个文件到齐以后再过两秒”才去取的。
+  // 写好的一站：页面是“正文出来、这一页的字体文件到齐、又过了两秒”才去取的，取的是这一站自己点开才要的那一个。
   // 下限：从点开这一站算起，不到两秒不该取。两头用的都是测试这一边的钟，起点取在点之前、终点是浏览器真的发出请求以后，
   // 所以机器再慢，量出来的只会比页面上的两秒长，不会短：这一条不会因为机器慢而误报。
   // 上限：字体到齐以后五秒之内自己取来。
@@ -753,13 +698,17 @@ test('第三个字体文件：首页、人物页、还没写的站上不取；�
   await page.waitForFunction(() => document.querySelector('.text-section') !== null);
   await fontsReady(page);
   const ready = fonts.now();
-  await expect.poll(() => fonts.of('yanlu-song-more').length, { timeout: 5_000, message: '站点页的字体到齐五秒了，第三个字体文件还没有自己取来' }).toBe(1);
-  const asked = fonts.of('yanlu-song-more')[0];
-  expect(asked - clicked, `从点开这一站到取第三个字体文件，不该不到两秒（${fonts.all().join(' ')}；点开是在 ${clicked}）。取的那一刻页面上：${await whenAsked()}`).toBeGreaterThanOrEqual(2_000);
+  const stopFiles = pageFiles(`#/${figureId}/${stopId}`);
+  expect(stopFiles.pressed, `${stopId}：记录里这一站有它自己点开才要的文件`).toHaveLength(1);
+  const MORE = stopFiles.pressed[0];
+  await expect.poll(() => fonts.of(MORE).length, { timeout: 5_000, message: `站点页的字体到齐五秒了，${MORE} 还没有自己取来` }).toBe(1);
+  const asked = fonts.of(MORE)[0];
+  expect(asked - clicked, `从点开这一站到取 ${MORE}，不该不到两秒（${fonts.all().join(' ')}；点开是在 ${clicked}）。取的那一刻页面上：${await whenAsked()}`).toBeGreaterThanOrEqual(2_000);
+  expect(pressedAsked(fonts), `到这时候来要过的点开才要的字的文件只有这一站自己的那一个（${fonts.all().join(' ')}）`).toEqual([MORE]);
   const took = asked - ready;
   await fontsReady(page);
 
-  // 点开小注、原文、凭据，再换一站：不再取
+  // 点开小注、原文、凭据：不再取。再换到下一站：这一站的那一个不再取；下一站要的是它自己那一页的文件（下面照记录查）
   await page.evaluate(() => {
     for (const term of Array.from(document.querySelectorAll<HTMLElement>('.note-term'))) term.click();
     for (const fold of Array.from(document.querySelectorAll<HTMLDetailsElement>('details.original, details.provenance'))) fold.open = true;
@@ -769,24 +718,35 @@ test('第三个字体文件：首页、人物页、还没写的站上不取；�
   await expect(page.locator('.provenance-body .provenance-item')).not.toHaveCount(0);
   await fontsReady(page);
   const next = page.locator('.guide-dock a[rel="next"]');
+  let nextId: string | null = null;
   if ((await next.count()) > 0) {
     await next.evaluate((link: HTMLElement) => link.click());
     await expect(page.locator('.page-title')).toBeVisible();
+    await expect.poll(() => page.evaluate(() => document.documentElement.getAttribute('data-fonts-unit'))).not.toBe(stopId);
+    nextId = await page.evaluate(() => document.documentElement.getAttribute('data-fonts-unit'));
     await fontsReady(page);
     await page.waitForTimeout(3_500);
+    // 下一站要是写好了的，它自己点开才要的那一个也会在空下来以后取：那是它那一页的事，不算“又取了一次”
+    await fontsReady(page);
   }
-  expect(fonts.of('yanlu-song-more'), `第三个字体文件只该取一次（${fonts.all().join(' ')}）`).toHaveLength(1);
-  expect(fonts.of('yanlu-sans'), `黑体文件只该取一次（${fonts.all().join(' ')}）`).toHaveLength(1);
-  expect(fonts.of('yanlu-song'), `头一个宋体文件只该取一次（${fonts.all().join(' ')}）`).toHaveLength(1);
+  expect(fonts.of(MORE), `${MORE} 只该取一次（${fonts.all().join(' ')}）`).toHaveLength(1);
+  expect(fonts.of('yanlu-sans'), `框架的黑体文件只该取一次（${fonts.all().join(' ')}）`).toHaveLength(1);
+  expect(fonts.of('yanlu-song'), `框架的宋体文件只该取一次（${fonts.all().join(' ')}）`).toHaveLength(1);
   // 楷体的文件不预先声明：首页一知道要摆全程沙盘就去取，题签摆出来不再取，一共只取一次
-  expect(fonts.of('yanlu-kai'), `楷体文件只该取一次（${fonts.all().join(' ')}）`).toHaveLength(1);
+  expect(fonts.of(`yanlu-kai-${figureId}`), `这位人物的楷体文件只该取一次（${fonts.all().join(' ')}）`).toHaveLength(1);
+  // 这一路（首页、人物页、还没写的一站、写好的一站、它的下一站）要过的每一个文件各只一次，都是框架的或者这位人物的；
+  // 不用点开就要的，正好是这几页照记录要的那些合起来
+  expect(new Set(fonts.names()).size, `每个字体文件各只取一次（${fonts.all().join(' ')}）`).toBe(fonts.names().length);
+  for (const name of fonts.names()) expect(['frame', figureId], `${name} 不是框架的，也不是这位人物的`).toContain(recorded(name).scope);
+  const walked = ['#/', `#/${figureId}`, ...(unwrittenId ? [`#/${figureId}/${unwrittenId}`] : []), `#/${figureId}/${stopId}`, ...(nextId ? [`#/${figureId}/${nextId}`] : [])];
+  expect([...fonts.names().filter((name) => recorded(name).role === 'rest')].sort(), `这一路不用点开就要的字体文件（${fonts.all().join(' ')}）`).toEqual([...new Set(walked.flatMap((hash) => pageFiles(hash).rest))].sort());
   console.log(
-    `${figureId}/${stopId}：第三个字体文件是点开这一站以后 ${asked - clicked} 毫秒、字体到齐以后 ${took} 毫秒取的，以后没有再取；` +
+    `${figureId}/${stopId}：${MORE} 是点开这一站以后 ${asked - clicked} 毫秒、字体到齐以后 ${took} 毫秒取的，以后没有再取；` +
       `${unwrittenId ? `还没写的一站（${unwrittenId}）上没有取。` : '没有还没写的站可试。'}取字体的记录（文件@毫秒）：${fonts.all().join(' ')}`,
   );
 });
 
-test('“来源”页：在首页上等着，第三个字体文件和那一页的程序都不取；点进“来源”页才取，各只取一次；那一页上的字都画出来了；直接打开“来源”页，楷体的文件一次也不取', async ({ page, browser, baseURL }) => {
+test('“来源”页：在首页上等着，那一页自己的字体文件和那一页的程序都不取；点进“来源”页才取，各只取一次；那一页上的字都画出来了；直接打开“来源”页，楷体的文件、哪位人物的文件一次也不取', async ({ page, browser, baseURL }) => {
   test.setTimeout(120_000);
   await page.setViewportSize({ width: 1440, height: 900 });
   const fonts = watchFonts(page);
@@ -799,12 +759,13 @@ test('“来源”页：在首页上等着，第三个字体文件和那一页�
     if (new URL(request.url()).pathname.includes('/SourcesBody')) scripts.push(request.url());
   });
 
-  // “来源”页上的话里真的有头两个文件里没有的字（不然这一项查不到东西）：照做字体的记录读
-  const record = JSON.parse(new TextDecoder().decode(readBytes('src/fonts/fonts.json'))) as { files: { group: string; characters: string }[] };
-  const group = (name: string): string => record.files.find((file) => file.group === name)?.characters ?? '';
+  // “来源”页上的话里真的有框架的宋体文件里没有的字（不然这一项查不到东西）：照做字体的记录读。那一页自己的文件是哪一个，也照记录
+  const sources = pageFiles('#/sources');
+  const CREDITS = ownOf(sources.rest);
+  expect(CREDITS, '记录里“来源”页自己的字体文件').toHaveLength(1);
   const words = new TextDecoder().decode(readBytes('src/ui/sourcesText.ts'));
-  const onlyLater = [...new Set(words)].filter((ch) => ch > '~' && group('song-more').includes(ch) && !group('song').includes(ch));
-  expect(onlyLater.length, '“来源”页上的话里，只在点开才要的那个字体文件里有的字').toBeGreaterThan(0);
+  const onlyLater = [...new Set(words)].filter((ch) => ch > '~' && recorded(CREDITS[0]).characters.includes(ch) && !recorded('yanlu-song').characters.includes(ch));
+  expect(onlyLater.length, '“来源”页上的话里，只在那一页自己的字体文件里有的字').toBeGreaterThan(0);
 
   // 首页（不用沙盘的替身，和上一项一样）：等五秒，都不取
   await page.goto(realUrl('#/', null, '&tier=still'));
@@ -812,7 +773,8 @@ test('“来源”页：在首页上等着，第三个字体文件和那一页�
   await expect(stagePane(page)).toHaveAttribute('data-stage-picture', 'still', { timeout: 60_000 });
   await fontsReady(page);
   await page.waitForTimeout(5_000);
-  expect(fonts.of('yanlu-song-more'), `首页上等了五秒，第三个字体文件不该取（${fonts.all().join(' ')}）。取的那一刻页面上：${fonts.of('yanlu-song-more').length > 0 ? await whenAsked() : ''}`).toEqual([]);
+  expect(fonts.of(CREDITS[0]), `首页上等了五秒，“来源”页自己的字体文件不该取（${fonts.all().join(' ')}）`).toEqual([]);
+  expect(pressedAsked(fonts), `首页上等了五秒，点开才要的字的文件不该取（${fonts.all().join(' ')}）。取的那一刻页面上：${pressedAsked(fonts).length > 0 ? await whenAsked() : ''}`).toEqual([]);
   expect(scripts, '首页上不该取“来源”页里面的那一段程序').toEqual([]);
 
   // 点卡片后面的“来源”
@@ -823,35 +785,37 @@ test('“来源”页：在首页上等着，第三个字体文件和那一页�
   await expect(page.locator('.sources-list li').first()).toBeVisible();
   await expect(page.locator('.sources .quiet')).toHaveCount(0);
   await fontsReady(page);
-  await expect.poll(() => fonts.of('yanlu-song-more').length, { message: '点进“来源”页以后，第三个字体文件该取来（那一页上有它才有的字）' }).toBe(1);
+  await expect.poll(() => fonts.of(CREDITS[0]).length, { message: '点进“来源”页以后，那一页自己的字体文件该取来（那一页上有它才有的字）' }).toBe(1);
   await fontsReady(page);
   expect(scripts, '“来源”页里面的那一段程序：点进去才取，只取一次').toHaveLength(1);
-  // 楷体那一条里有“楷”“鹜”这些头两个文件里没有的字：问浏览器这一段是拿什么字体画的，得全是随站的宋体
+  // 楷体那一条里有“楷”“鹜”这些框架的文件里没有的字：问浏览器这一段是拿什么字体画的，得全是随站的宋体，而且是这一页拿到的文件
   //（整页每一段字都查的是上面“走一遍网站”那一项）
   //（三套字体照黑体、宋体、楷体排：楷体那一条照 data-font 找，不靠它排第几）
   const KAI_ITEM = `.sources-item[data-font="${KAI}"] p`;
   const kaiLine = page.locator(KAI_ITEM).first();
-  expect([...onlyLater].some((ch) => SOURCES_KAI_LINE.includes(ch)), '楷体那一条里没有只在第三个文件里有的字：这一句查不到东西').toBe(true);
+  expect([...onlyLater].some((ch) => SOURCES_KAI_LINE.includes(ch)), '楷体那一条里没有只在那一页自己的文件里有的字：这一句查不到东西').toBe(true);
   await expect(kaiLine).toHaveText(SOURCES_KAI_LINE);
   const client = await debugger_(page);
   const used = await fontsOfElement(client, KAI_ITEM);
   expect(used.reduce((sum, font) => sum + font.glyphCount, 0), '楷体那一条画出来的字形').toBeGreaterThanOrEqual([...SOURCES_KAI_LINE].filter((ch) => ch !== ' ').length);
   expect(used.filter((font) => !isShipped(font, SONG)).map((font) => `${font.familyName}（${font.glyphCount} 个字形）`), '“来源”页上楷体那一条里有字不是随站的宋体画的').toEqual([]);
+  expect(used.map((font) => fileOfFont(font)).filter((name) => name === null || !sources.rest.includes(name)), '“来源”页上楷体那一条里有字不是这一页拿到的字体文件画的').toEqual([]);
+  expect(used.map((font) => fileOfFont(font)), '楷体那一条里有的字是那一页自己的文件画的').toContain(CREDITS[0]);
   // 回首页再进来：都不再取
   await page.locator('.sources .crumbs a').evaluate((link: HTMLElement) => link.click());
   await expect(page.locator('.card').first()).toBeVisible();
   await page.locator('.home .stop-nav a').evaluate((link: HTMLElement) => link.click());
   await expect(page.locator('.sources-list li').first()).toBeVisible();
   await fontsReady(page);
-  expect(fonts.of('yanlu-song-more'), `第三个字体文件只该取一次（${fonts.all().join(' ')}）`).toHaveLength(1);
+  expect(fonts.of(CREDITS[0]), `“来源”页自己的字体文件只该取一次（${fonts.all().join(' ')}）`).toHaveLength(1);
   expect(scripts, '“来源”页里面的那一段程序只该取一次').toHaveLength(1);
   // 从头到尾没有一个请求出了网站自己的地址（这一页上有通到别的网站的链接，页面不去取它们）
   const base = baseURL ?? page.url();
   expect(all.filter((url) => !isOwn(url, base)), '出了网站自己地址的请求').toEqual([]);
-  console.log(`“来源”页：只在第三个字体文件里有的字 ${onlyLater.length} 个（${onlyLater.join('')}）；那个文件是点进这一页以后取的（${fonts.all().join(' ')}）；里面的程序 ${scripts.map((url) => url.slice(url.lastIndexOf('/') + 1)).join('、')} 取了一次`);
+  console.log(`“来源”页：只在那一页自己的字体文件（${CREDITS[0]}）里有的字 ${onlyLater.length} 个（${onlyLater.join('')}）；那个文件是点进这一页以后取的（${fonts.all().join(' ')}）；里面的程序 ${scripts.map((url) => url.slice(url.lastIndexOf('/') + 1)).join('、')} 取了一次`);
 
-  // 直接打开“来源”页（另开一个干净的页面，什么都没存着）：这一页上没有沙盘、没有题签，楷体的文件一次也不取；
-  // 黑体和头一个宋体文件照常各取一次。等字体到齐以后再多等两秒
+  // 直接打开“来源”页（另开一个干净的页面，什么都没存着）：这一页上没有沙盘、没有题签，楷体的文件一次也不取，哪位人物的文件也不取；
+  // 框架的黑体和宋体、那一页自己的宋体各取一次，就这三个。字体到齐了还多等两秒
   const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, baseURL });
   try {
     const direct = await context.newPage();
@@ -862,33 +826,13 @@ test('“来源”页：在首页上等着，第三个字体文件和那一页�
     await expect(direct.locator('.sources .quiet')).toHaveCount(0);
     await fontsReady(direct);
     await direct.waitForTimeout(2_000);
-    expect(asked.of('yanlu-kai'), `直接打开“来源”页，楷体的文件不该取（${asked.all().join(' ')}）`).toEqual([]);
-    expect({ sans: asked.of('yanlu-sans').length, song: asked.of('yanlu-song').length }, `直接打开“来源”页，黑体和头一个宋体文件各取一次（${asked.all().join(' ')}）`).toEqual({ sans: 1, song: 1 });
+    expect(asked.names().filter((name) => recorded(name).source === 'kai'), `直接打开“来源”页，楷体的文件不该取（${asked.all().join(' ')}）`).toEqual([]);
+    expect({ sans: asked.of('yanlu-sans').length, song: asked.of('yanlu-song').length }, `直接打开“来源”页，框架的黑体和宋体文件各取一次（${asked.all().join(' ')}）`).toEqual({ sans: 1, song: 1 });
+    expect([...asked.names()].sort(), `直接打开“来源”页，一共只取这一页照记录要的那几个（${asked.all().join(' ')}）`).toEqual([...sources.rest].sort());
   } finally {
     await context.close();
   }
 });
-
-/**
- * 压住几个字体文件不给，直到叫 release() 才放行（不按时间放：机器慢的时候，定死的几秒可能在查之前就过去了）。
- * held() 是现在压着几个请求。
- */
-async function holdFonts(page: Page, files: string[]): Promise<{ release: () => void; held: () => number }> {
-  let open: () => void = () => {};
-  const gate = new Promise<void>((resolve) => {
-    open = resolve;
-  });
-  let held = 0;
-  await page.route(
-    (url) => files.includes(fontFileOf(url.href) ?? ''),
-    async (route) => {
-      held++;
-      await gate;
-      await route.continue().catch(() => {});
-    },
-  );
-  return { release: open, held: () => held };
-}
 
 /**
  * 不等字体，照现在的样子拍一张（测试工具自己的拍照会先等字体到齐，字体压着的时候它就一直等，拍不到“还没到”的样子；
@@ -908,9 +852,11 @@ function saidOf(items: { run: Run; fonts: UsedFont[] }[]): string {
   return items.map((item) => `“${item.run.text}”：${item.fonts.map((font) => `${font.familyName}${font.isCustomFont ? '（随站的）' : '（设备自带的）'}×${font.glyphCount}`).join('、') || '没有字形'}`).join('；');
 }
 
+// 压哪几个：照记录里这一站的页面不用点开就要的文件挑——黑体的（框架的那一个，和这位人物的那一个：标题上的字多半在人物的那一个里），
+// 或者黑体、宋体的都压（框架的两个，这位人物的黑体，这一站的宋体）。楷体的另有一项。
 for (const slow of [
-  { name: '黑体文件来得慢', files: ['yanlu-sans'], shot: 'slow-sans', late: [SANS] },
-  { name: '头两个字体文件都来得慢', files: ['yanlu-sans', 'yanlu-song'], shot: 'slow-both', late: [SANS, SONG] },
+  { name: '黑体文件来得慢', sources: ['sans'], shot: 'slow-sans', late: [SANS] },
+  { name: '头两个字体文件都来得慢', sources: ['sans', 'song'], shot: 'slow-both', late: [SANS, SONG] },
 ]) {
   test(`${slow.name}（压住不给）：过了一秒，按钮和标题上都有字，先用别的字体顶着；放行以后按钮和标题换成随站的黑体`, async ({ page, browser, baseURL }) => {
     test.setTimeout(180_000);
@@ -925,7 +871,9 @@ for (const slow of [
     const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, reducedMotion: 'reduce', baseURL });
     const fresh = await context.newPage();
     try {
-      const gate = await holdFonts(fresh, slow.files);
+      const files = pageFiles(`#/${figureId}/${stopId}`).rest.filter((name) => slow.sources.includes(recorded(name).source));
+      expect(files.length, `要压住的字体文件：${files.join('、')}`).toBe(slow.sources.length * 2);
+      const gate = await holdFonts(fresh, files);
       const client = await debugger_(fresh);
       const started = Date.now();
       // 不等页面“加载完”：字体文件压着的时候，浏览器不认为页面加载完了
@@ -936,7 +884,7 @@ for (const slow of [
       await expect(fresh.locator('.guide-open')).toBeVisible();
       await fresh.waitForTimeout(1_000);
       const waited = Date.now() - started;
-      expect(gate.held(), '要压住的字体文件，浏览器都来要过了（压着没放）').toBe(slow.files.length);
+      expect([...gate.held()].sort(), '要压住的字体文件，浏览器都来要过了（压着没放）').toEqual([...files].sort());
 
       const early = await fontsOfRuns(fresh, client, MUST_HAVE_WORDS, false);
       expect(early.length).toBeGreaterThanOrEqual(4);
@@ -944,7 +892,7 @@ for (const slow of [
         expect(item.fonts.reduce((sum, font) => sum + font.glyphCount, 0), `压着字体文件的时候，“${item.run.text}”上没有字（${saidOf(early)}）`).toBeGreaterThan(0);
         for (const font of item.fonts) for (const family of slow.late) expect(isShipped(font, family), `“${item.run.text}”已经是 ${family} 画的了：文件没有压住，这一项没查到东西`).toBe(false);
       }
-      // 正文这时候是什么字体画的，记一笔（只压黑体时已经是随站的宋体；两个都压着时是设备自带的）
+      // 正文这时候是什么字体画的，记一笔（只压黑体时已经是随站的宋体；黑体、宋体都压着时是设备自带的）
       const body = await fontsOfRuns(fresh, client, '.stop-text p', false);
       const bodyFonts = [...new Set(body.flatMap((item) => item.fonts.map((font) => `${font.familyName}${font.isCustomFont ? '（随站的）' : '（设备自带的）'}`)))];
       expect(body.length).toBeGreaterThan(0);
@@ -984,16 +932,18 @@ test('楷体文件来得慢（它不预先声明，总比页面晚到）：题�
   const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, reducedMotion: 'reduce', baseURL });
   const fresh = await context.newPage();
   try {
-    const gate = await holdFonts(fresh, ['yanlu-kai']);
+    const KAI_FILE = `yanlu-kai-${figureId}`;
+    expect(pageFiles(`#/${figureId}/${found.stopId}`).rest, '记录里这一站的页面要这位人物的楷体文件').toContain(KAI_FILE);
+    const gate = await holdFonts(fresh, [KAI_FILE]);
     const client = await debugger_(fresh);
     await fresh.goto(realUrl(`#/${figureId}/${found.stopId}`, null, '&tier=still'), { waitUntil: 'commit' });
     const strips = fresh.locator('.stage-still-host .strip');
     await expect(stagePane(fresh)).toHaveAttribute('data-stage-picture', 'still', { timeout: 60_000 });
     await expect.poll(() => strips.evaluateAll((items) => items.filter((item) => getComputedStyle(item).visibility === 'visible').length), { message: '题签该挂出来（楷体的文件压着也一样）' }).toBeGreaterThan(0);
     // 楷体的文件浏览器来要过了（它不预先声明；页面一知道要摆沙盘就叫浏览器去取，题签摆出来的时候不再要第二次）：压着没放，只有一次
-    await expect.poll(() => gate.held(), { message: '题签摆出来以后，浏览器该来要过楷体的文件' }).toBe(1);
+    await expect.poll(() => gate.held().length, { message: '题签摆出来以后，浏览器该来要过楷体的文件' }).toBe(1);
     await fresh.waitForTimeout(1_000);
-    expect(gate.held(), '楷体的文件只要了一次（页面先要的那一次和题签引来的是同一次）').toBe(1);
+    expect(gate.held(), '楷体的文件只要了一次（页面先要的那一次和题签引来的是同一次）').toEqual([KAI_FILE]);
 
     const STRIP_WORDS = '.stage-still-host .strip';
     /** 显出来的每一条题签：写的什么，在哪，多大（像素，不取整）。 */
@@ -1014,7 +964,7 @@ test('楷体文件来得慢（它不预先声明，总比页面晚到）：题�
       expect(item.fonts.reduce((sum, font) => sum + font.glyphCount, 0), `压着楷体文件的时候，题签“${item.run.text}”上没有字（${saidOf(early)}）`).toBeGreaterThan(0);
       for (const font of item.fonts) {
         expect(isShipped(font, KAI), `题签“${item.run.text}”已经是随站的楷体画的了：文件没有压住，这一项没查到东西`).toBe(false);
-        // 顶着的只许是设备自带的字体（电脑上多半有楷体），或者随站的宋体（题签上的每一个字头一个宋体文件里都有一份）
+        // 顶着的只许是设备自带的字体（电脑上多半有楷体），或者随站的宋体（题签上的每一个字，这一页不用点开就要的宋体文件里都有一份）
         expect(!font.isCustomFont || isShipped(font, SONG), `压着楷体文件的时候，题签“${item.run.text}”是 ${font.familyName} 画的：既不是设备自带的，也不是随站的宋体`).toBe(true);
       }
     }
@@ -1087,7 +1037,7 @@ test('楷体的文件先要：一知道这一栏要摆沙盘，页面就叫浏�
 
     // 图片和沙盘程序都压着：楷体的文件照样来要了。没有页面里那一句“先去取”的话，它要等题签摆出来才要，这里就等不到
     await expect
-      .poll(() => fonts.of('yanlu-kai').length, { timeout: 30_000, message: '图片和沙盘程序都压着的时候，页面该已经叫浏览器去取楷体的文件了（它不等题签摆出来）' })
+      .poll(() => fonts.of(`yanlu-kai-${figureId}`).length, { timeout: 30_000, message: '图片和沙盘程序都压着的时候，页面该已经叫浏览器去取这位人物的楷体文件了（它不等题签摆出来）' })
       .toBe(1);
     // 这时候栏上什么画面都没有，题签一条也没有摆出来：这一次不是排题签引来的
     const atAsk = await fresh.evaluate(() => ({
@@ -1111,14 +1061,14 @@ test('楷体的文件先要：一知道这一栏要摆沙盘，页面就叫浏�
         { timeout: 60_000, message: '放行以后，题签该摆出来，是随站的楷体画的' },
       )
       .toBe(true);
-    expect(fonts.of('yanlu-kai').length, '楷体的文件一共只要一次（先要的那一次，题签摆出来不再要）').toBe(1);
-    console.log(`楷体的文件先要：打开 ${fonts.of('yanlu-kai')[0]} 毫秒时来要的，那时压着的是 ${heldAtAsk.join('、')}；放行以后题签 ${drawn.length} 段字都是随站的楷体，文件只要了一次`);
+    expect(fonts.of(`yanlu-kai-${figureId}`).length, '楷体的文件一共只要一次（先要的那一次，题签摆出来不再要）').toBe(1);
+    console.log(`楷体的文件先要：打开 ${fonts.of(`yanlu-kai-${figureId}`)[0]} 毫秒时来要的，那时压着的是 ${heldAtAsk.join('、')}；放行以后题签 ${drawn.length} 段字都是随站的楷体，文件只要了一次`);
   } finally {
     await context.close();
   }
 });
 
-test('页面的字体归哪个范围写在 <html> 上：首页写沙盘栏里摆着的那位人物，人物页写他，站点页再写上这一站，“来源”页写 sources；换页跟着换，一步一步退回来也对，照地址直接打开也对；现在还没有哪条样式读它们——一路上要的字体文件还是随站的那四个，一个也不多，各只要一次', async ({ page }) => {
+test('页面的字体归哪个范围写在 <html> 上：首页写沙盘栏里摆着的那位人物，人物页写他，站点页再写上这一站，“来源”页写 sources；换页跟着换，一步一步退回来也对，照地址直接打开也对；样式表照它们把这一页自己的字体接到框架的后面——每一页算出来的那两个名称，就是记录里这一种页面不用点开就要的黑体、宋体；一路上要的字体文件正好是走过的这几页照记录要的那些，一个也不多，各只要一次', async ({ page }) => {
   test.setTimeout(180_000);
   await page.setViewportSize({ width: 1440, height: 900 });
   // 每一个字体文件的请求（不管叫什么名字）
@@ -1129,8 +1079,17 @@ test('页面的字体归哪个范围写在 <html> 上：首页写沙盘栏里摆
   });
   const url = (hash: string): string => realUrl(hash, null, '&tier=still');
   const scope = (): Promise<(string | null)[]> => page.evaluate(() => [document.documentElement.getAttribute('data-fonts'), document.documentElement.getAttribute('data-fonts-unit')]);
+  /** 走过的地址（照它们要的字体文件最后一起查）。 */
+  const walked: string[] = [];
+  /** 样式表照 <html> 上那两个属性算出来的、这一页自己的黑体和宋体的名称；没有的是空的。 */
+  const own = (): Promise<string[]> => page.evaluate(() => ['--own-sans', '--own-song'].map((name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim().replace(/^["']|["']$/g, '')));
   const at = async (where: string, want: (string | null)[]): Promise<void> => {
     await expect.poll(scope, { message: `${where}：<html> 上的 data-fonts、data-fonts-unit` }).toEqual(want);
+    // 这一页是哪个地址：首页的地址里没有人物
+    const hash = await page.evaluate(() => window.location.hash);
+    walked.push(hash);
+    const files = ownOf(pageFiles(hash).rest).map((name) => recorded(name));
+    expect(await own(), `${where}：样式表算出来的这一页自己的黑体、宋体的名称`).toEqual([files.find((item) => item.source === 'sans')?.face ?? '', files.find((item) => item.source === 'song')?.face ?? '']);
   };
   const cards = (JSON.parse(new TextDecoder().decode(readBytes('content/figures/index.json'))) as { id: string; sortYear: number; available: boolean }[]).sort((a, b) => a.sortYear - b.sortYear).filter((card) => card.available);
   expect(cards.length, '内容里要有两位可以点进去的人物').toBeGreaterThanOrEqual(2);
@@ -1175,22 +1134,27 @@ test('页面的字体归哪个范围写在 <html> 上：首页写沙盘栏里摆
   await expect(page.locator('.home-title')).toBeVisible();
   await fontsReady(page);
 
-  // 这一路（一次打开，没有重新加载过）要的字体文件：正好是记录里的那几个，各一次，没有别的
-  const recorded = (JSON.parse(new TextDecoder().decode(readBytes('src/fonts/fonts.json'))) as { files: { file: string }[] }).files.map((item) => item.file.replace(/\.woff2$/, ''));
-  expect(asked.filter((name) => fontFileOf(`http://x/${name}`) === null), '要了一个不是随站的那几个的字体文件').toEqual([]);
+  // 这一路（一次打开，没有重新加载过）要的字体文件：都是记录里的，各一次；不用点开就要的，正好是走过的这几页照记录要的那些合起来，没有别的；
+  // 点开才要的只可能是写好了的那一站自己的那一个（在那一页上停得久就会取，这里不卡它取没取）
   const files = asked.map((name) => fontFileOf(`http://x/${name}`) as string);
-  expect([...files].sort(), `一路上要的字体文件（照要的先后：${asked.join('、')}）`).toEqual([...recorded].sort());
-  // 没有哪一条样式读这两个属性：换了范围，算出来的字体名单还是同一串
-  expect(await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--own-song') + getComputedStyle(document.documentElement).getPropertyValue('--own-sans'))).toBe('');
+  expect(files.filter((name) => !FONT_RECORD.files.some((item) => item.file.endsWith(`${name}.woff2`))), '要了一个记录里没有的字体文件').toEqual([]);
+  expect(new Set(files).size, `一路上要的字体文件各只一次（照要的先后：${asked.join('、')}）`).toBe(files.length);
+  expect([...files.filter((name) => recorded(name).role === 'rest')].sort(), `一路上不用点开就要的字体文件（照要的先后：${asked.join('、')}）`).toEqual([...new Set(walked.flatMap((hash) => pageFiles(hash).rest))].sort());
+  expect(files.filter((name) => recorded(name).role === 'pressed' && name !== pageFiles(`#/${first}/${written}`).pressed[0]), '一路上要的点开才要的字的文件').toEqual([]);
+  // 回到首页：这一页自己的字体又是沙盘栏里摆着的那位人物的
+  expect((await own())[1]).toBe(recorded(ownOf(pageFiles('#/').rest).find((name) => recorded(name).source === 'song') ?? '').face);
 
   // 照地址直接打开：一站，和内容里没有的一位人物（照地址写，认不认由样式表定）
   await page.goto(url(`#/${first}/${written}`));
   await at('直接打开一站', [first, written]);
   await page.goto(url('#/nobody-here'));
   await at('内容里没有的人物', ['nobody-here', null]);
+  // 内容里没有的人物：哪一条规则也合不上，这一页自己的字体是空的（读到的是备用的那一个：框架的那一套）
+  expect(await own()).toEqual(['', '']);
+  expect(await page.evaluate(() => getComputedStyle(document.body).fontFamily)).toMatch(/^"?Yanlu Song"?, "?Yanlu Song"?, /);
 });
 
-test('页面还在起来、路由还没开始听的那一下地址又变了（读者在页面还没出来的时候又按了一次“后退”）：页面追上去画新的一页，<html> 上写的也跟着换成新的一页，不留在原来那一页上；这样回到首页，写的是沙盘栏里摆着的那位人物', async ({ browser, baseURL }) => {
+test('页面还在起来、路由还没开始听的那一下地址又变了（读者在页面还没出来的时候又按了一次“后退”）：页面追上去画新的一页，<html> 上写的也跟着换成新的一页，不留在原来那一页上；这样回到首页，写的是沙盘栏里摆着的那位人物；要来的也是新的一页的字体文件，新的一页上每一段字都是它拿到的文件画的', async ({ browser, baseURL }) => {
   test.setTimeout(180_000);
   const utf8 = new TextDecoder();
   const cards = (JSON.parse(utf8.decode(readBytes('content/figures/index.json'))) as { id: string; sortYear: number; available: boolean }[]).sort((a, b) => a.sortYear - b.sortYear).filter((card) => card.available);
@@ -1228,6 +1192,7 @@ test('页面还在起来、路由还没开始听的那一下地址又变了（�
         }).observe(document, { childList: true });
       }
     }, one.to);
+    const fonts = watchFonts(page);
     await page.goto(realUrl(one.from, null, '&tier=still'));
     await page.waitForFunction(() => (window as unknown as { scopeChanged?: boolean }).scopeChanged === true, null, { timeout: 30_000 });
     // 页面自己追上去了：画的是新的一页
@@ -1236,6 +1201,19 @@ test('页面还在起来、路由还没开始听的那一下地址又变了（�
     await expect
       .poll(() => page.evaluate(() => [document.documentElement.getAttribute('data-fonts'), document.documentElement.getAttribute('data-fonts-unit')]), { message: `${where}：<html> 上的 data-fonts、data-fonts-unit 该是新的一页的` })
       .toEqual(one.want);
+    // 新的一页的字体文件都来要了，各一次（原来那一页的，index.html 里那几行先要过，也只有一次）；新的一页上的字都是它拿到的文件画的
+    const mine = pageFiles(one.to);
+    await expect.poll(() => mine.rest.filter((name) => fonts.of(name).length !== 1), { message: `${where}：新的一页不用点开就要的字体文件该都来要过，各一次（${fonts.all().join(' ')}）` }).toEqual([]);
+    expect(new Set(fonts.names()).size, `${where}：各只要一次（${fonts.all().join(' ')}）`).toBe(fonts.names().length);
+    const client = await debugger_(page);
+    const drawn = await fontsOfRuns(page, client);
+    expect(drawn.length, `${where}：新的一页上的字`).toBeGreaterThan(5);
+    const allowed = [...mine.rest, ...mine.pressed];
+    expect(
+      drawn.flatMap(({ run, fonts: used }) => used.filter((font) => !allowed.includes(fileOfFont(font) ?? '')).map((font) => `${run.where}“${run.text}”：${font.familyName}（${font.postScriptName}${font.isCustomFont ? '' : '，设备自带的'}）`)),
+      `${where}：新的一页上这几处的字不是它拿到的字体文件画的`,
+    ).toEqual([]);
+    await client.detach();
     await context.close();
   }
 });

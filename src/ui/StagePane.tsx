@@ -161,18 +161,19 @@ export function StagePane({ onStopPage, table, section, route, stopId, marks, wr
   // 没有自带楷体的平板上，题签会先是宋体、过半秒才换成楷体。所以一知道这一栏要摆沙盘（数据读出来了，图片和沙盘程序都还没到），
   // 就叫浏览器先把它取来；取过一次浏览器自己记着。没有沙盘可摆的栏不取，没有这一栏的页面（“来源”页、没找到的页面）更不取。
   // 浏览器没有 document.fonts、它的 load 当场出错、或者没取成，都不要紧（所以整句包着）：题签摆出来的时候浏览器照旧会去取。
-  // 楷体的名称是做字体的工具写的（src/fonts/probe.ts）。
+  // 楷体是按人物分的文件：名称是做字体的工具写的那一个（src/fonts/probe.ts）后面接上这位人物的 id（沙盘的键“人物/哪一座”的前一半），
+  // 样式表里他那一条 @font-face 就叫这个名称。
   // 只有题签是竖着的纸条的沙盘才取（样式的登记表里查，src/stage/styles.ts 的 labelKind）：平着的纸条用的是读正文的宋体，
-  // 楷体的文件里没有它的字，摆这样一座沙盘的页面用不着那个文件。
-  const tableKnown = source.state === 'ready' && !!source.value && labelKind(source.value.scene.style) === 'strip';
+  // 这样的人物没有楷体的文件。
+  const kaiOf = source.state === 'ready' && source.value && labelKind(source.value.scene.style) === 'strip' ? source.value.key.split('/')[0] : '';
   useEffect(() => {
-    if (!tableKnown) return;
+    if (!kaiOf) return;
     try {
-      void document.fonts.load(`1em "${KAI_FAMILY}"`).catch(() => {});
+      void document.fonts.load(`1em "${KAI_FAMILY} ${kaiOf}"`).catch(() => {});
     } catch {
       // 不取就是了
     }
-  }, [tableKnown]);
+  }, [kaiOf]);
 
   if (source.state === 'loading') {
     return (

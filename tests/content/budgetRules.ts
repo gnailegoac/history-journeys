@@ -32,20 +32,14 @@ export const COLOUR_PSNR_MIN_ROUTE = 36;
 
 // ---------------------------------------------------------------- 随站的字体
 
-/**
- * 首次打开网站要下载的字体（黑体、头一个宋体文件和楷体；宋体按站拆开以后，再加上这一站自己的那个）合计最大多少字节：450 KB。
- * 字体的大小都按放进仓库的 .woff2 文件自己的字节数算（它本身就是压缩过的），不另外压。
- */
-export const FONT_FIRST_MAX_BYTES = 450 * 1024;
+// 字体文件是按范围分的（一页显示什么，就给它哪几个文件；tests/support/fontTool.ts 第五段）。字体的大小都按放进仓库的 .woff2 文件
+// 自己的字节数算（它本身就是压缩过的），不另外压。做字体的工具、查字体的测试、查构建结果的测试都照 fontScopeReport 查。
+// （文件还是全站共用的四个的时候，另有一条“首次打开合计 450 KB”：2026-11-28 起换成了下面每一种页面各算各的 360 KB，那一条没有了。）
 /** 任何一个字体文件最大多少字节：300 KB。 */
 export const FONT_FILE_MAX_BYTES = 300 * 1024;
-/** 一个字体文件过了这么多字节，提醒一句（还算合格）：280 KB。到了这条线，就把宋体按站拆开，不抬上限。 */
+/** 一个字体文件过了这么多字节，提醒一句（还算合格）：280 KB。到了这条线的要是点开才要的文件，就照折着的那几块再分开，不抬上限。 */
 export const FONT_FILE_WARN_BYTES = 280 * 1024;
-
-// 下面六个数是字体文件按范围分了以后的上限（tests/support/fontTool.ts 的 FONTS_BY_SCOPE，现在关着）。现在的四个文件不照它们查：
-// 查的还是上面三个。开关打开的时候，做字体的工具和查字体的测试改照 fontScopeReport 查，首次打开的 450 KB 那一条就不用了。
-// 一个文件的 300 KB 和 280 KB 两头都是上面那两个数。
-/** 按范围分了以后，一种页面首次打开要下载的字体（框架的两个，加上这一页自己那个范围不用点开就要的）合计最大多少字节：360 KB。每一种页面各算各的。 */
+/** 一种页面首次打开要下载的字体（框架的两个，加上这一页自己那个范围不用点开就要的）合计最大多少字节：360 KB。每一种页面各算各的。 */
 export const FONT_PAGE_FIRST_MAX_BYTES = 360 * 1024;
 /** 一种页面首次打开的合计过了这么多字节，提醒一句：330 KB。到了这条线，把这位人物的黑体和楷体也按站分开。 */
 export const FONT_PAGE_FIRST_WARN_BYTES = 330 * 1024;
@@ -192,51 +186,7 @@ export function tableFiles(bytes: { terrain: number; colour: number; fields: num
 
 // ---------------------------------------------------------------- 随站的字体
 
-/**
- * 一个字体文件：叫什么，多少字节，是不是不用点开就要的（first），只归哪一站（stop：宋体按站拆开以后才有；
- * 大家共用的不写，或者写 null）。
- */
-export interface FontFileSize {
-  file: string;
-  bytes: number;
-  first: boolean;
-  stop?: string | null;
-}
-
-/**
- * 字体文件对着上限查一遍：每个文件一行，再加首次打开要下载的合计和全部合计（全部合计没有上限，只是印出来）。
- * 首次打开要下载的：first 是 true、大家共用的那几个（黑体、头一个宋体文件和楷体）。宋体按站拆开以后，打开一站还要这一站
- * 自己的那一个（first 是 true、stop 是这一站）；一位读者一次只打开一站，所以按站分开算，取最大的那一站——
- * 不是把各站自己的文件都加在一起（那样站越多越大，其实没有谁要下载那么多）。
- */
-export function fontReport(files: FontFileSize[]): SizeReport {
-  const report: SizeReport = { lines: [], fails: [], warns: [] };
-  for (const { file, bytes } of files) {
-    const share = Math.round((bytes / FONT_FILE_MAX_BYTES) * 100);
-    report.lines.push(`${file}：${withCommas(bytes)} 字节，上限 ${withCommas(FONT_FILE_MAX_BYTES)}（用了 ${share}%）`);
-    const result = verdict(bytes, FONT_FILE_MAX_BYTES, FONT_FILE_WARN_BYTES);
-    if (result === 'fail') report.fails.push(`字体文件 ${file} 有 ${withCommas(bytes)} 字节，超过了上限 ${withCommas(FONT_FILE_MAX_BYTES)}`);
-    // 怎么办只对宋体的文件说：按站拆开的是宋体；黑体、楷体的文件大了，拆宋体帮不上忙
-    const advice = file.startsWith('yanlu-song') ? '：该把宋体按站拆开了（打开以前还要做什么，写在 tests/support/fontTool.ts 的 SPLIT_SONG_BY_STOP 上面）' : '';
-    if (result === 'warn') report.warns.push(`字体文件 ${file} 有 ${withCommas(bytes)} 字节，快到上限 ${withCommas(FONT_FILE_MAX_BYTES)} 了（过了 ${withCommas(FONT_FILE_WARN_BYTES)} 就提醒）${advice}`);
-  }
-  const bytesOf = (list: FontFileSize[]): number => list.reduce((sum, item) => sum + item.bytes, 0);
-  const common = files.filter((item) => item.first && !item.stop);
-  // 各站自己的、不用点开就要的文件，按站合起来，取最大的一站（一样大时取先碰到的）
-  const byStop = new Map<string, FontFileSize[]>();
-  for (const item of files) if (item.first && item.stop) byStop.set(item.stop, [...(byStop.get(item.stop) ?? []), item]);
-  let largest: { stop: string; files: FontFileSize[]; bytes: number } | null = null;
-  for (const [stop, own] of byStop) if (!largest || bytesOf(own) > largest.bytes) largest = { stop, files: own, bytes: bytesOf(own) };
-  const firstBytes = bytesOf(common) + (largest?.bytes ?? 0);
-  const firstShare = Math.round((firstBytes / FONT_FIRST_MAX_BYTES) * 100);
-  const firstNames = common.map((item) => item.file).join('、') + (largest ? `，加上自己的文件最大的一站（${largest.stop}）的 ${largest.files.map((item) => item.file).join('、')}` : '');
-  report.lines.push(`首次打开要下载的字体（${firstNames}）：${withCommas(firstBytes)} 字节，上限 ${withCommas(FONT_FIRST_MAX_BYTES)}（用了 ${firstShare}%）`);
-  if (firstBytes > FONT_FIRST_MAX_BYTES) report.fails.push(`首次打开要下载的字体合计 ${withCommas(firstBytes)} 字节，超过了上限 ${withCommas(FONT_FIRST_MAX_BYTES)}`);
-  report.lines.push(`全部字体文件合计：${withCommas(files.reduce((sum, item) => sum + item.bytes, 0))} 字节（没有上限）`);
-  return report;
-}
-
-/** 按范围分了以后要查的东西：每个文件多大、是不是框架的；每一种页面不用点开就要哪几个文件、点开以后还会取哪几个；点开才要的文件的样式表压缩以后多大。 */
+/** 字体文件对着上限查，要给的东西：每个文件多大、是不是框架的；每一种页面不用点开就要哪几个文件、点开以后还会取哪几个；点开才要的文件的样式表压缩以后多大。 */
 export interface FontScopeSizes {
   files: { file: string; bytes: number; frame: boolean }[];
   pages: { name: string; rest: string[]; pressed: string[] }[];
@@ -244,8 +194,8 @@ export interface FontScopeSizes {
 }
 
 /**
- * 字体文件按范围分了以后（tests/support/fontTool.ts 的 FONTS_BY_SCOPE），对着上限查一遍：
- *   每个文件      300 KB，过了 280 KB 提醒（和不分的时候同一个数）；
+ * 字体文件（按范围分的，tests/support/fontTool.ts 第五段）对着上限查一遍：
+ *   每个文件      300 KB，过了 280 KB 提醒；怎么办只对点开才要的文件说（名字末尾是 -more 的：照折着的那几块再分开）；
  *   每一种页面    首次打开要下载的（这一页不用点开就要的那几个文件）合计 360 KB，过了 330 KB 提醒——每一种页面各算各的，
  *                 不是取最大的一种：哪一页超了说哪一页；
  *   框架的两个    合计 170 KB，过了 160 KB 提醒；
@@ -264,7 +214,8 @@ export function fontScopeReport(sizes: FontScopeSizes): SizeReport {
   };
   for (const { file, bytes } of sizes.files) {
     report.lines.push(`${file}：${withCommas(bytes)} 字节，上限 ${withCommas(FONT_FILE_MAX_BYTES)}（用了 ${Math.round((bytes / FONT_FILE_MAX_BYTES) * 100)}%）`);
-    check(`字体文件 ${file} `, bytes, FONT_FILE_MAX_BYTES, FONT_FILE_WARN_BYTES, '：点开才要的文件照折着的那几块再分开');
+    // 怎么办只对点开才要的文件说：别的文件大了，只提醒
+    check(`字体文件 ${file} `, bytes, FONT_FILE_MAX_BYTES, FONT_FILE_WARN_BYTES, /-more\.woff2$/.test(file) ? '：点开才要的文件照折着的那几块再分开' : '');
   }
   const frame = sizes.files.filter((item) => item.frame);
   const frameBytes = frame.reduce((total, item) => total + item.bytes, 0);

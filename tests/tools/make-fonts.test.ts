@@ -1,9 +1,13 @@
-// 做随站的字体的工具：npm run fonts。从三个原字体里裁出网站用到的字，做成 src/fonts/ 里的几样：
-//   yanlu-sans.woff2、yanlu-song.woff2、yanlu-kai.woff2、yanlu-song-more.woff2   四个字体文件
-//   fonts.css      这几个文件的样式表
-//   fonts.json     记录：每个文件里有哪些字、多大、照哪个原字体做的
+// 做随站的字体的工具：npm run fonts。从三个原字体里裁出网站用到的字，照“一页显示什么”分范围，做成 src/fonts/ 里的几样：
+//   yanlu-sans.woff2、yanlu-song.woff2          框架的两个字体文件（哪一页都要）
+//   scopes/yanlu-…-<人物>….woff2                每个范围自己的字体文件：人物的、他有正文或者有沙盘的各站的、“来源”页的
+//   fonts.css      框架的两条 @font-face，每个范围不用点开就要的文件各一条，每个范围一条换名称的规则
+//   scopes/*.css   每个范围点开才要的那个文件的样式表（带 unicode-range）
+//   scopes.ts      每个范围点开才要的文件：它的样式表、它里面的一个字、它在样式表里的名称
+//   fonts.json     记录（格式 4）：每个文件里有哪些字、多大、照哪个原字体做的、归哪个范围；每一种页面拿哪几个文件
 //   shipped.ts     给“来源”页用的一张表：三套字体的名字、版本、网址、许可文件
-//   probe.ts       页面一打开就下载的程序用的几样：两个字体名称，和点开才要的那个宋体文件里的一个字
+//   probe.ts       页面一打开就下载的程序用的一样：写在楷体文件里的名称
+// 还有 index.html 里的一段（两行记号之间）：每个范围不用点开就要的黑体、宋体文件各一行先不生效的预先声明。
 // 再把五份许可全文照原样放进 public/licences/。这些做好以后放进仓库，随网站一起发；发布的流程不重新做。都不手改。
 // 说明见 docs/data-spec.md“随站的字体”；哪些字归哪个文件、文件怎么做，写在 tests/support/fontTool.ts。
 //
@@ -13,25 +17,26 @@
 // 要是哪一版的 vitest 不把 --mode 交到 import.meta.env.MODE 里，设环境变量 FONTS=1 也算。
 //
 // 另外两个环境变量：
-//   FONTS_OUT      试做：做出来的几样放到这个文件夹（相对项目的根目录，如 .cache/fonts-trial），
-//                  不动 src/fonts/ 和 public/licences/，也不管记录新不新，一定做。用来看“同样的字，做两遍，字节一样不一样”。
-//   FONTS_COMPARE  设成 1：另外把两个宋体文件和黑体的文件不留提示信息各做一遍，只印出大小来比，不写。
+//   FONTS_OUT      试做：做出来的几样放到这个文件夹（相对项目的根目录，如 .cache/fonts-trial），index.html 的那一段另存成
+//                  index-preloads.html，不动 src/fonts/、index.html 和 public/licences/，也不管记录新不新，一定做。
+//                  用来看“同样的字，换一个地方再做一遍，字节一样不一样”。
+//   FONTS_COMPARE  设成 1：另外把宋体的、黑体的每个文件不留提示信息各做一遍，只印出大小来比，不写。
 //
-// 另有一条路，现在不走：字体文件按范围分的开关（tests/support/fontTool.ts 的 FONTS_BY_SCOPE）开着的时候，工具做的是另一套文件
-//（这个文件里的 makeByScope；规矩见 docs/data-spec.md“随站的字体·按范围分文件”）。开关关着，下面的七步和上面列的那几样一个字节不差。
-//
-// 步骤：
-//   1 数出网站上显示的字，分成四组（黑体、看得见的宋体、楷体、点开才看得见的宋体）。印出每组多少个字。
+// 步骤（这个文件里的 makeByScope；规矩见 docs/data-spec.md“随站的字体”）：
+//   1 数出每一种页面显示哪些字，照范围列出要做的文件（tests/support/fontTool.ts 的 planScopes）。印出每个文件多少个字。
 //   2 两个程序库的许可全文和装着的不一样，就照装着的重抄一份。
 //   3 记录里的字、原字体的说明、做法、库的版本都和现在的一样，字体文件也都在、和记录对得上、读出来合现在的做法：不重做。
-//     这时再看照记录写的另外几样（样式表、给页面用的两个模块、三份字体的许可全文）：都对，说一声“已经是新的”，什么也不写；
-//     哪一样不在、被改过，照记录把它重写（许可全文照 .cache/fonts/ 里的那一份重抄），说写了哪几样。前三样用不到原字体。
-//     所以查字体的测试（tests/fonts/font-files.test.ts）说“运行 npm run fonts”的地方，跑这一条命令都修得好。
-//   4 读原字体（.cache/fonts/ 里；不在、或者不是要的那一版，就停下来说该放什么文件）。原字体里没有的字：停下来列出来。
-//   5 每个文件：在原字体里换上新的名称表，裁剪，压成 WOFF2。
+//     （“挨着别的字会变样的字”先照记录里上一回量到的算，照它列出来的清单和记录一样就不重做。）
+//     这时再看照清单写的另外几样（样式表、点开才要的字的样式表、给页面用的三个模块、index.html 里的那一段、三份字体的许可全文）：
+//     都对，说一声“已经是新的”，什么也不写；哪一样不在、被改过，照清单把它重写（许可全文照 .cache/fonts/ 里的那一份重抄），
+//     说写了哪几样。这几样用不到原字体。所以查字体的测试（tests/fonts/font-files.test.ts）说“运行 npm run fonts”的地方，跑这一条命令都修得好。
+//   4 读原字体（.cache/fonts/ 里；不在、或者不是要的那一版，就停下来说该放什么文件）。把全站的宋体字做成一个文件，一对一对量出
+//     挨着会变样的字（都放进框架的宋体文件），照量到的重新列一遍清单；黑体也量一遍：有一对被分在框架的黑体和一个范围的黑体两个文件里就停下来。
+//   5 每个文件：在原字体里换上新的名称表，裁剪，压成 WOFF2。每个做两遍。
 //   6 读回来查一遍：里面的字正好是要的那些；名称对；楷体带着竖排用的两张表；粗细是原字体的那一种；黑体的文件里留着 halt，
-//     别的“挤标点”的排版功能哪个文件里都没有。大小对着上限查。不对就停，什么也不写。
-//   7 写文件；src/fonts/ 里不再要的字体文件删掉；三份字体的许可全文从 .cache/fonts/ 抄进 public/licences/。
+//     别的“挤标点”的排版功能哪个文件里都没有；两遍的字节一样；每个字形和原字体里的一个样；每一种页面的字都在给它的文件里。
+//     大小对着上限查。不对就停，什么也不写。
+//   7 写文件；src/fonts/ 和 src/fonts/scopes/ 里不再要的字体文件、样式表删掉；三份字体的许可全文从 .cache/fonts/ 抄进 public/licences/。
 
 import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { gzipSync } from 'node:zlib';
@@ -40,7 +45,7 @@ import type { ItineraryBar } from '../../src/domain/itinerary';
 import type { RouteScene, StopScene } from '../../src/domain/scene';
 import { sectionHeadings, stripTexts } from '../../src/domain/sceneText';
 import type { LngLat, Figure, StopContent, StopMeta } from '../../src/domain/types';
-import { fontReport, fontScopeReport, withCommas } from '../content/budgetRules';
+import { fontScopeReport, withCommas } from '../content/budgetRules';
 import { fixtureScene, fixtureSources } from '../support/fixtureScene';
 import {
   CACHE_DIR,
@@ -73,9 +78,7 @@ import {
   RECORD_VERSION,
   SHADER_DIRS,
   codeOf,
-  fileRecord,
   fontFileProblems,
-  fontRecord,
   fontsCss,
   holdsShaders,
   isInterfaceSource,
@@ -87,7 +90,6 @@ import {
   readOriginal,
   readSite,
   recordIsFresh,
-  recordText,
   servedBy,
   sha256,
   shippable,
@@ -103,7 +105,7 @@ import {
   toolVersions,
   writtenFromRecord,
 } from '../support/fontTool';
-import type { FontFileRecord, FontPlan, FontRecord, FontSourceId, PlannedFile, ScopeFile, ScopeFileRecord, ScopePlan, ScopeRecord, ShippedFonts, SiteText } from '../support/fontTool';
+import type { FontPlan, FontRecord, FontSourceId, PlannedFile, ScopeFile, ScopeFileRecord, ScopePlan, ScopeRecord, ShippedFonts, SiteText } from '../support/fontTool';
 import { charactersOf, checkSfnt, cmapOf, englishName, glyphCountOf, hintingOf, namesOf, readSfnt, readWoff2, renameSfnt } from '../support/sfnt';
 
 const env = (globalThis as { process?: { env: Record<string, string | undefined> } }).process?.env ?? {};
@@ -128,14 +130,13 @@ function copyLicence(id: FontSourceId): void {
 }
 
 /**
- * 字体文件按范围分的时候（tests/support/fontTool.ts 的 FONTS_BY_SCOPE 开着；现在关着，这个函数没有人叫）工具走的路。
- * 还是那七步，不一样的地方：
+ * 做字体的工具走的路（七步，见文件开头）：
  *   1 数的是每一种页面显示哪些字，照范围列出要做的文件（planScopes）；
  *   3 记录是格式 4 的；“挨着别的字会变样的字”先照记录里上一回量到的算，照它列出来的清单和记录一样就不重做；
- *   4 有了原字体：把全站的宋体字做成一个文件，一对一对量出挨着会变样的字（joinersIn），照量到的重新列一遍；
- *   6 另外查四样：每一种页面的字都在给它的文件里；每个字形和原字体里的一个样；每个文件做两遍、字节一样；大小照范围的那一套上限；
- *   7 写的是：src/fonts/ 里框架的两个文件、fonts.css、fonts.json、shipped.ts、scopes.ts，src/fonts/scopes/ 里各个范围的文件和
- *     点开才要的文件的样式表，index.html 里先不生效的那一段预先声明。probe.ts 不归这一条路写：页面从它那里要什么，和页面按范围要文件的那几处一起定。
+ *   4 有了原字体：把全站的宋体字做成一个文件，一对一对量出挨着会变样的字（joinersIn），照量到的重新列一遍；黑体也量一遍，只查不挪；
+ *   6 读回来查：每一种页面的字都在给它的文件里；每个字形和原字体里的一个样；每个文件做两遍、字节一样；大小照范围的那一套上限；
+ *   7 写的是：src/fonts/ 里框架的两个文件、fonts.css、fonts.json、shipped.ts、scopes.ts、probe.ts，src/fonts/scopes/ 里各个范围的文件和
+ *     点开才要的文件的样式表，index.html 里先不生效的那一段预先声明。
  * 试做（FONTS_OUT）的时候都写进那个文件夹，index.html 的那一段另存成 index-preloads.html，不动仓库里的。
  */
 async function makeByScope({ say, trial, outDir }: { say: (line: string) => void; trial: boolean; outDir: string }): Promise<void> {
@@ -152,7 +153,7 @@ async function makeByScope({ say, trial, outDir }: { say: (line: string) => void
   /** 照要做的清单写的几样，放在哪、是什么字。 */
   const written = (plan: ScopePlan): [string, string][] => {
     const text = writtenForScopes(plan);
-    return [[`${outDir}/fonts.css`, text.css], ...Object.entries(text.sheets).map(([path, css]): [string, string] => [`${outDir}/${path}`, css]), [`${outDir}/scopes.ts`, text.scopes], [`${outDir}/shipped.ts`, shippedTs()]];
+    return [[`${outDir}/fonts.css`, text.css], ...Object.entries(text.sheets).map(([path, css]): [string, string] => [`${outDir}/${path}`, css]), [`${outDir}/scopes.ts`, text.scopes], [`${outDir}/probe.ts`, text.probe], [`${outDir}/shipped.ts`, shippedTs()]];
   };
   const pageHtml = (plan: ScopePlan): string => withPreloadBlock(utf8.decode(readFileSync(at('index.html'))), writtenForScopes(plan).preloads);
 
@@ -210,6 +211,14 @@ async function makeByScope({ say, trial, outDir }: { say: (line: string) => void
   const scan = await joinersIn(whole, serif);
   say(`[字体] 全站的宋体字 ${[...serif].length} 个，一对一对排了 ${withCommas(scan.pairs)} 回（汉字的排法和拉丁字母的排法各一遍），放在一起和单放不一样的 ${withCommas(scan.differing)} 回；挨着别的字会变样的字 ${[...scan.joiners].length} 个，都放进框架的宋体文件：${scan.joiners}`);
   const plan = planScopes(site, { joiners: scan.joiners });
+  // 黑体也量一遍。黑体的字不往框架里挪：只查有没有一对挨着会变样的字，一个在框架的黑体文件里、一个在哪个范围的黑体文件里
+  //（那样这两个字在同一行里是两个文件画的，浏览器把它们分开排）。有的话停下来：把那个字列进 src/ui/text.ts 的 SANS_LABELS，它就进了框架。
+  const sansAll = sortedString(plan.files.filter((file) => file.source === 'sans').flatMap((file) => [...file.characters]));
+  const frameSans = new Set(plan.files.find((file) => file.source === 'sans' && file.scope === 'frame')?.characters ?? '');
+  const wholeSans = await makeFont({ name: 'yanlu-sans-whole', source: 'sans', family: FONT_SOURCES.sans.family, postscript: postscriptName('yanlu-sans-whole', FONT_SOURCES.sans.weight), characters: sansAll, where: new Map() }, originals.sans);
+  const sansScan = await joinersIn(wholeSans, sansAll, (a, b) => frameSans.has(a) !== frameSans.has(b));
+  say(`[字体] 全站的黑体字 ${[...sansAll].length} 个，一对一对排了 ${withCommas(sansScan.pairs)} 回；一个在框架的黑体文件里、一个在范围的黑体文件里、放在一起又和单放不一样的 ${withCommas(sansScan.differing)} 回${sansScan.differing > 0 ? `：${sansScan.joiners}` : ''}`);
+  if (sansScan.differing > 0) throw new Error(`黑体里有挨着会变样的字被分在了两个文件里：${sansScan.joiners}。把不在框架里的那几个列进 src/ui/text.ts 的 SANS_LABELS（它们就进了框架的黑体文件），再做。`);
   for (const file of plan.files) say(`[字体] ${file.name}：${[...file.characters].length} 个字`);
   if (plan.fallback) say(`[字体] 记在 FALLBACK_OK 里、不进字体、用设备自带的字显示的：${plan.fallback}`);
   for (const kai of plan.files.filter((file) => file.source === 'kai')) {
@@ -261,6 +270,12 @@ async function makeByScope({ say, trial, outDir }: { say: (line: string) => void
   for (const warn of sizes.warns) console.warn(`[字体] 快到上限了：${warn}`);
   problems.push(...sizes.fails);
   say(`[字体] ${results.length} 个文件（每个两遍）裁剪、压缩用了 ${seconds.toFixed(1)} 秒`);
+  if (env.FONTS_COMPARE === '1') {
+    for (const { file, record: item } of results.filter((one) => one.file.source !== 'kai')) {
+      const plain = await makeFont(file, originals[file.source], { noHinting: true });
+      say(`[字体] 比一比：${item.file} 不留提示信息是 ${withCommas(plain.length)} 字节，留着是 ${withCommas(item.bytes)}（小 ${(100 - (plain.length / item.bytes) * 100).toFixed(1)}%）。没有写。`);
+    }
+  }
   expect(problems, '做出来的字体不对，什么也没有写').toEqual([]);
 
   // 7 写
@@ -281,7 +296,7 @@ async function makeByScope({ say, trial, outDir }: { say: (line: string) => void
     }
   }
   if (!trial) for (const id of FONT_SOURCE_IDS) copyLicence(id);
-  say(`[字体] 写好了：${outDir}/ 里 ${results.length} 个字体文件（框架的两个在这一层，别的在 ${SCOPES_DIR}/ 里）、fonts.css、${Object.keys(text.sheets).length} 份点开才要的字的样式表、scopes.ts、fonts.json、shipped.ts${trial ? '、index-preloads.html（试做，没有动 src/fonts/、index.html 和 public/licences/）' : `；index.html 里的那一段；${LICENCES_DIR}/ 里三份字体的许可全文。把变了的文件同改动一起提交`}。`);
+  say(`[字体] 写好了：${outDir}/ 里 ${results.length} 个字体文件（框架的两个在这一层，别的在 ${SCOPES_DIR}/ 里）、fonts.css、${Object.keys(text.sheets).length} 份点开才要的字的样式表、scopes.ts、probe.ts、fonts.json、shipped.ts${trial ? '、index-preloads.html（试做，没有动 src/fonts/、index.html 和 public/licences/）' : `；index.html 里的那一段；${LICENCES_DIR}/ 里三份字体的许可全文。把变了的文件同改动一起提交`}。`);
 }
 
 // ---------------------------------------------------------------- 真的做
@@ -293,128 +308,10 @@ describe.skipIf(!MAKING)('做随站的字体（npm run fonts）', () => {
     const outDir = trial ? String(env.FONTS_OUT).replace(/\/+$/, '') : FONTS_DIR;
     if (/^([a-zA-Z]:|\/|\.\.)/.test(outDir)) throw new Error(`FONTS_OUT 要写相对项目根目录的文件夹（如 .cache/fonts-trial），现在是“${outDir}”`);
 
-    // 字体文件按范围分的开关（tests/support/fontTool.ts 的 FONTS_BY_SCOPE，现在关着）开着的时候，整个走另一条路（这个文件里的 makeByScope）。
-    // 看这个开关的只有这一处：关着，下面的七步和以前一个样，那一条路上的东西一样也不写。
+    // 字体文件按范围分的开关（tests/support/fontTool.ts 的 FONTS_BY_SCOPE）。看它的只有这一处。开着：照范围做（这个文件里的 makeByScope）。
+    // 关不回去：页面是按范围要文件的，全站共用的那四个文件已经不做了——改成关着，这里停下来说这句话，什么也不写。
     if (FONTS_BY_SCOPE) return makeByScope({ say, trial, outDir });
-
-    // 1 数字
-    const plan = planFonts(await readSite());
-    for (const file of plan.files) say(`[字体] ${file.name}：${[...file.characters].length} 个字`);
-    say(`[字体] 只在 src/ 的程序里出现、content/ 里没有的字（${[...plan.onlyFromSrc].length} 个）：${plan.onlyFromSrc}`);
-    if (plan.fallback) say(`[字体] 记在 FALLBACK_OK 里、不进字体、用设备自带的字显示的：${plan.fallback}`);
-    const kai = plan.files.find((file) => file.group === 'kai');
-    if (!kai) throw new Error('要做的文件里没有楷体的那一个');
-    const bad = [...KAI_FORBIDDEN].filter((ch) => kai.characters.includes(ch));
-    if (bad.length > 0) throw new Error(`题签上的字里有弯引号 ${bad.map((ch) => `“${ch}”（${(kai.where.get(ch) ?? []).join('、')}里）`).join('，')}：这套楷体里它只有三分之一个字宽。换个说法，或者先问一声。`);
-
-    // 2 两个程序库的许可全文
-    if (!trial) {
-      mkdirSync(at(`${LICENCES_DIR}/`), { recursive: true });
-      for (const licence of LIBRARY_LICENCES) {
-        const [first, ...rest] = licence.from.map((path) => readFileSync(at(path)));
-        for (const other of rest) if (sha256(other) !== sha256(first)) throw new Error(`${licence.from.join('、')} 不再是同一份许可：各放一份，并改 tests/support/fontTool.ts 的 LIBRARY_LICENCES`);
-        const target = at(`${LICENCES_DIR}/${licence.file}`);
-        if (existsSync(target) && sha256(readFileSync(target)) === sha256(first)) continue;
-        writeFileSync(target, first);
-        say(`[字体] 许可全文：${LICENCES_DIR}/${licence.file} 照 ${licence.from[0]} 重抄了一份`);
-      }
-    }
-
-    // 3 已经是新的？
-    const made = toolVersions();
-    if (!trial && existsSync(at(`${FONTS_DIR}/fonts.json`))) {
-      const record = JSON.parse(utf8.decode(readFileSync(at(`${FONTS_DIR}/fonts.json`)))) as FontRecord;
-      const fresh = recordIsFresh(plan, record, made);
-      // 字体文件：都在，记号和记录里的一样，读出来的名称、提示信息和现在的做法对得上
-      const wrong = fresh.fresh ? shippedFileProblems(record, (file) => (existsSync(at(`${FONTS_DIR}/${file}`)) ? readFileSync(at(`${FONTS_DIR}/${file}`)) : null)) : [];
-      if (fresh.fresh && wrong.length === 0) {
-        // 字体文件是新的。照记录写的另外几样——样式表、给页面用的两个模块、三份字体的许可全文——要是不在、被改过，
-        // 这里照记录重写（许可全文照 .cache/fonts/ 里的那一份重抄）。前三样用不到原字体
-        const repaired: string[] = [];
-        const texts = writtenFromRecord(record);
-        for (const [name, want] of [
-          ['fonts.css', texts.css],
-          ['shipped.ts', texts.shipped],
-          ['probe.ts', texts.probe],
-        ]) {
-          const target = at(`${FONTS_DIR}/${name}`);
-          if (existsSync(target) && utf8.decode(readFileSync(target)) === want) continue;
-          writeFileSync(target, want);
-          repaired.push(`${FONTS_DIR}/${name}`);
-        }
-        for (const id of FONT_SOURCE_IDS) {
-          const { file, sha256: want } = FONT_SOURCES[id].licence;
-          const target = at(`${LICENCES_DIR}/${file}`);
-          if (existsSync(target) && sha256(readFileSync(target)) === want) continue;
-          copyLicence(id);
-          repaired.push(`${LICENCES_DIR}/${file}`);
-        }
-        if (repaired.length === 0) say('[字体] 已经是新的：网站用到的字、原字体、做法都和记录里的一样，什么也没有写。');
-        else say(`[字体] 字体文件已经是新的，没有重做；照记录重写了：${repaired.join('、')}。把它们提交。`);
-        return;
-      }
-      say(`[字体] 要重做：${fresh.fresh ? wrong[0] : fresh.why}`);
-    }
-
-    // 4、5 读原字体，做文件
-    const originals: Record<FontSourceId, Uint8Array> = { sans: readOriginal('sans'), song: readOriginal('song'), kai: readOriginal('kai') };
-    const started = performance.now();
-    const results: { file: PlannedFile; woff2: Uint8Array; record: FontFileRecord }[] = [];
-    for (const file of plan.files) {
-      const woff2 = await makeFont(file, originals[file.source]);
-      results.push({ file, woff2, record: fileRecord(file, woff2, plan.onlyFromSrc) });
-    }
-    const seconds = (performance.now() - started) / 1000;
-
-    // 6 读回来查
-    const problems: string[] = [];
-    for (const { file, woff2, record } of results) {
-      const { tables, info } = readWoff2(woff2);
-      if (record.characters !== file.characters) {
-        const got = new Set(record.characters);
-        const want = new Set(file.characters);
-        problems.push(`${record.file}：里面的字和要的不一样（少了“${sortedString([...want].filter((ch) => !got.has(ch)))}”，多了“${sortedString([...got].filter((ch) => !want.has(ch)))}”）`);
-      }
-      problems.push(...fontFileProblems(record, tables));
-      // 粗细是原字体的那一种（样式表里这一套的 @font-face 照它写）；“挤标点”的功能：黑体留着 halt，别的一种也没有
-      if (record.weight !== FONT_SOURCES[file.source].weight) problems.push(`${record.file}：文件里写的粗细是 ${record.weight}，原字体那一项里写的是 ${FONT_SOURCES[file.source].weight}（tests/support/fontTool.ts 的 FONT_SOURCES）`);
-      problems.push(...squeezeProblems(record));
-      const outline = info.entries.find((entry) => entry.tag === 'glyf' || entry.tag === 'CFF ')?.origLength ?? 0;
-      say(
-        `[字体] ${record.file}：${record.count} 个字，${record.glyphs} 个字形，${withCommas(record.bytes)} 字节` +
-          `（还原成普通的字体文件是 ${withCommas(info.totalSfntSize)} 字节：字形 ${withCommas(outline)}，别的表 ${withCommas(info.totalSfntSize - outline)}）；粗细 ${record.weight}；留下的排版功能：${record.features.join(' ') || '没有'}`,
-      );
-    }
-    const sizes = fontReport(results.map(({ record }) => ({ file: record.file, bytes: record.bytes, first: record.first, stop: record.stop })));
-    for (const line of sizes.lines) say(`[字体] ${line}`);
-    for (const warn of sizes.warns) console.warn(`[字体] 快到上限了：${warn}`);
-    problems.push(...sizes.fails);
-    say(`[字体] ${results.length} 个文件裁剪、压缩用了 ${seconds.toFixed(1)} 秒`);
-    if (env.FONTS_COMPARE === '1') {
-      for (const { file, record } of results.filter((item) => item.file.source !== 'kai')) {
-        const plain = await makeFont(file, originals[file.source], { noHinting: true });
-        say(`[字体] 比一比：${record.file} 不留提示信息是 ${withCommas(plain.length)} 字节，留着是 ${withCommas(record.bytes)}（小 ${(100 - (plain.length / record.bytes) * 100).toFixed(1)}%）。没有写。`);
-      }
-    }
-    expect(problems, '做出来的字体不对，什么也没有写').toEqual([]);
-
-    // 7 写
-    mkdirSync(at(`${outDir}/`), { recursive: true });
-    const record = fontRecord(results.map((item) => item.record), made);
-    const texts = writtenFromRecord(record);
-    for (const { record: item, woff2 } of results) writeFileSync(at(`${outDir}/${item.file}`), woff2);
-    writeFileSync(at(`${outDir}/fonts.css`), texts.css);
-    writeFileSync(at(`${outDir}/fonts.json`), recordText(record));
-    writeFileSync(at(`${outDir}/shipped.ts`), texts.shipped);
-    writeFileSync(at(`${outDir}/probe.ts`), texts.probe);
-    for (const name of readdirSync(at(`${outDir}/`))) {
-      if (/\.woff2$/.test(name) && !record.files.some((item) => item.file === name)) {
-        rmSync(at(`${outDir}/${name}`));
-        say(`[字体] 删掉了不再要的 ${outDir}/${name}`);
-      }
-    }
-    if (!trial) for (const id of FONT_SOURCE_IDS) copyLicence(id);
-    say(`[字体] 写好了：${outDir}/ 里 ${results.length} 个字体文件、fonts.css、fonts.json、shipped.ts、probe.ts${trial ? '（试做，没有动 src/fonts/ 和 public/licences/）' : `；${LICENCES_DIR}/ 里三份字体的许可全文。把变了的文件同改动一起提交`}。`);
+    throw new Error('字体文件不按范围分的那一种做法已经没有了：页面是按范围要文件的（src/fonts/scope.ts）。把 tests/support/fontTool.ts 的 FONTS_BY_SCOPE 改回 true。');
   });
 });
 
@@ -982,7 +879,9 @@ describe('数字：哪些字归哪一组（编出来的一位人物）', () => {
   });
 });
 
-describe('数字：宋体按站拆开（现在关着，规矩先写好）', () => {
+// 早先想过的一种分法（一个字只有一个去处，按站拆开），没有用上：字体文件后来是按范围分的（tests/fonts/font-scopes.test.ts）。
+// 它的规矩还在 planFonts 里（要明说 splitByStop 才走），这几项照旧守着。
+describe('数字：宋体按站拆开（早先想过的一种分法，没有用上；规矩留着）', () => {
   const plan = planFonts(madeUpSite(), { splitByStop: true });
 
   it('文件：黑体和楷体各一个，宋体大家共用的两个、每一站自己的两个；只有黑体、头一个宋体文件和楷体不带 unicode-range', () => {
@@ -1477,20 +1376,22 @@ describe('记录是不是新的；网站要的字在不在放进仓库的字体�
     '仓库里的字体文件对着记录查：记录里照文件写下来的几样（粗细、排版功能、提示信息、字节数、字数、字形数）被改了一样，文件的记号还对得上，也说得出来——这时工具要重做，不说“已经是新的”',
     () => {
       // 拿放进仓库的记录和文件来查（真的文件才读得出这几样）
-      const real = (): FontRecord => JSON.parse(utf8.decode(readFileSync(at(`${FONTS_DIR}/fonts.json`)))) as FontRecord;
+      const real = (): ScopeRecord => JSON.parse(utf8.decode(readFileSync(at(`${FONTS_DIR}/fonts.json`)))) as ScopeRecord;
       const read = (file: string): Uint8Array | null => (existsSync(at(`${FONTS_DIR}/${file}`)) ? readFileSync(at(`${FONTS_DIR}/${file}`)) : null);
-      // 没有改过：四个文件都对得上，没有话说
+      // 没有改过：记录里的每一个文件（框架的两个，各个范围的）都对得上，没有话说
+      expect(real().files.length).toBeGreaterThan(4);
       expect(shippedFileProblems(real(), read)).toEqual([]);
-      // 只留楷体的那一个文件（最小），一样一样改记录，文件不动
-      const kaiOnly = (): FontRecord => {
+      // 只留楷体的那一个文件（题签是竖着的纸条的那位人物的），一样一样改记录，文件不动
+      const kaiOnly = (): ScopeRecord => {
         const record = real();
-        record.files = record.files.filter((item) => item.group === 'kai');
+        record.files = record.files.filter((item) => item.source === 'kai');
         return record;
       };
+      expect(kaiOnly().files).toHaveLength(1);
       const was = kaiOnly().files[0];
-      expect(was.file).toBe('yanlu-kai.woff2');
+      expect(was.file).toBe(`${SCOPES_DIR}/yanlu-kai-${was.scope}.woff2`);
       const shown = (value: string | number): string | number => (value === '' ? '（没有）' : value);
-      const cases: [string, (item: FontRecord['files'][number]) => void, string | number, string | number][] = [
+      const cases: [string, (item: ScopeRecord['files'][number]) => void, string | number, string | number][] = [
         ['粗细', (item) => (item.weight = was.weight + 100), was.weight + 100, was.weight],
         ['排版功能', (item) => item.features.push('zzzz'), [...was.features, 'zzzz'].join(' '), was.features.join(' ')],
         ['提示信息', (item) => (item.hinting = was.hinting === 'kept' ? 'none' : 'kept'), was.hinting === 'kept' ? 'none' : 'kept', was.hinting],
@@ -1501,8 +1402,8 @@ describe('记录是不是新的；网站要的字在不在放进仓库的字体�
       for (const [name, change, inRecord, inFile] of cases) {
         const changed = kaiOnly();
         change(changed.files[0]);
-        // 这样改过的记录，recordIsFresh 看不出来（它只比字和几样说明，不读文件）：要靠读文件的这一步
-        expect(shippedFileProblems(changed, read), name).toContain(`yanlu-kai.woff2 的记录和文件对不上：${name}记录里写的是 ${shown(inRecord)}，文件里是 ${shown(inFile)}`);
+        // 这样改过的记录，“记录是不是新的”那一步看不出来（它只比字和几样说明，不读文件）：要靠读文件的这一步
+        expect(shippedFileProblems(changed, read), name).toContain(`${was.file} 的记录和文件对不上：${name}记录里写的是 ${shown(inRecord)}，文件里是 ${shown(inFile)}`);
       }
     },
     20_000,
